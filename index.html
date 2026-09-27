@@ -1482,7 +1482,7 @@
   <div class="clock">
     <span id="sessionPill" class="pill off"><span class="dot"></span><span id="sessionLabel">—</span></span>
     <span><span id="etTime" class="time">--:--:--</span> <span class="tz">ET · Nueva York</span></span>
-    <span id="saveState" class="save-state">guardado local</span>
+    <span id="saveState" class="save-state" role="status" aria-live="polite" aria-atomic="true">guardado local</span>
     <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)">+ Rápido</button>
     <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
     <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
@@ -1994,7 +1994,7 @@
 </div>
 
 <!-- editor overlay -->
-<div class="ov" id="ov" role="dialog" aria-modal="true">
+<div class="ov" id="ov" role="dialog" aria-modal="true" aria-labelledby="edTitle">
   <div class="ed">
     <header><h3 id="edTitle">Editar</h3><button type="button" class="icon" id="edClose" aria-label="Cerrar">×</button></header>
     <div class="fields" id="edFields"></div>
@@ -2492,7 +2492,11 @@
     if (!document.querySelector(`.tab[data-tab="${name}"]`)) name = "cabina";
     state.tab = name;
     document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
-    document.querySelectorAll(".tabbtn").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+    document.querySelectorAll(".tabbtn").forEach(b => {
+      const active = b.dataset.tab === name;
+      b.classList.toggle("active", active);
+      if (active) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+    });
     $("editToggle").hidden = name !== "cabina";
     if (name !== "cabina" && state.editing) setEditing(false);
     try { if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name); } catch {}
@@ -2510,8 +2514,10 @@
   window.addEventListener("hashchange", () => showTab(location.hash.slice(1)));
 
   /* =============================== GENERIC EDITOR =============================== */
-  const ov = $("ov"); let edCfg = null;
+  const ov = $("ov"); let edCfg = null, edReturnFocus = null;
   function openEditor(cfg) {
+    const active = document.activeElement;
+    edReturnFocus = active && active !== document.body && typeof active.focus === "function" ? active : null;
     edCfg = cfg;
     $("edTitle").textContent = cfg.title;
     $("edFields").innerHTML = cfg.fields.map(f => {
@@ -2615,7 +2621,12 @@
     if (edCfg.read) { try { edCfg.read(out, $("edFields")); } catch (e) { } }
     return out;
   }
-  function closeEditor() { ov.classList.remove("open"); edCfg = null; }
+  function closeEditor() {
+    ov.classList.remove("open");
+    edCfg = null;
+    const back = edReturnFocus; edReturnFocus = null;
+    if (back && back.isConnected && !back.disabled) back.focus();
+  }
   $("edClose").addEventListener("click", closeEditor);
   $("edCancel").addEventListener("click", closeEditor);
   ov.addEventListener("click", e => { if (e.target === ov) closeEditor(); });
