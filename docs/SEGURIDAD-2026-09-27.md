@@ -145,6 +145,26 @@ lo dispara código de terceros.
 **Qué falta.** Declarar `permissions: contents: read` explícitamente. Eso elimina la
 dependencia de un ajuste que no se puede verificar, que es el motivo real para hacerlo.
 
+### 3.4 · Un `catch` vacío producía respaldos incompletos que parecían completos
+
+**Encontrado por la revisión externa, no por esta auditoría.** `allDayDocs()` tenía
+`catch (e) { }` y caía a `lsRead().days`. Con la base del artefacto caída, la app
+producía un respaldo con **sólo los días locales** y lo anunciaba como
+«**4 KB · 1 sesión**». Medido con el doble del `db`: dos días sembrados en la nube, el
+fichero salía con uno, sin aviso.
+
+Un respaldo incompleto que parece completo es peor que ninguno: se guarda, se confía
+en él, y el problema aparece al restaurar.
+
+**Arreglado**: se lanza el error en vez de degradar, y el mensaje dice por qué. Con el
+sabotaje puesto, `test/importar.mjs` se pone rojo con el detalle *«la produjo con días
+["2026-09-27"]»*.
+
+**El sesgo que lo explica, y conviene anotarlo:** esta auditoría miró por dónde
+**entran** los datos —esquemas de URL, tipos, XSS, importación— y no por dónde
+**salen** los propios. Se audita la puerta por la que puede entrar algo hostil y se
+olvida la puerta por la que sale lo que el usuario va a guardar.
+
 ### 3.3 · La importación no valida tipos, y el motor sí — **corregido en parte, y medido**
 
 > **Actualización del mismo día.** Un colaborador externo (ChatGPT, sobre un clon

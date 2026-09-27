@@ -58,6 +58,11 @@ const importa = async (json, { confirmar = true } = {}) => {
     abierto: document.getElementById('ov').classList.contains('open'),
   }));
   trasRevisar.destello = destello;
+  /* El resumen de la vista previa: lo que el usuario LEE antes de confirmar. */
+  trasRevisar.resumen = await p.evaluate(() => {
+    const t = (document.getElementById('edFields') || {}).textContent || '';
+    return (t + ' ' + ((document.getElementById('bkNote') || {}).textContent || '')).replace(/\s+/g, ' ').trim();
+  });
   let pidioConfirmacion = false;
   if (/Importar copia/.test(trasRevisar.titulo || '')) {
     await p.click('#edSave'); await p.waitForTimeout(900);
@@ -133,6 +138,24 @@ r = await importa(copia({ trades: { ok1: BUENA } }), { confirmar: false });
 ok(r.pidioConfirmacion, 'importar pide teclear IMPORTAR antes de escribir nada', 'lo pide');
 ok(r.fin.trades.length === 0, 'y sin teclearlo NO se importa', `${r.fin.trades.length} operaciones`);
 
+console.log('\n═══ LO REPARADO Y LO DESCARTADO SE VE ANTES DE CONFIRMAR ═══');
+r = await importa(copia({ trades: { ok1: BUENA, sinId: { type: 'futuros', pnl: 5 }, cadena: 'no', __proto__: { x: 1 } } }), { confirmar: false });
+ok(/reparado|reparados/i.test(r.trasRevisar.resumen || ''),
+   'la vista previa dice cuantos registros se repararon', `«${(r.trasRevisar.resumen || '').slice(0, 90)}»`);
+ok(/descartad/i.test(r.trasRevisar.resumen || ''),
+   'y cuantos se descartaron por irreparables', `«${(r.trasRevisar.resumen || '').slice(0, 90)}»`);
+
+console.log('\n═══ LO QUE PARA LA IMPORTACION ENTERA ═══');
+r = await importa(copia({ trades: 'no soy ni objeto ni lista' }), { confirmar: false });
+ok(/no tiene forma de lista ni de objeto/i.test(r.trasRevisar.destello + r.trasRevisar.error),
+   'una SECCION mal formada para la importacion y dice cual',
+   `«${(r.trasRevisar.destello || r.trasRevisar.error).slice(0, 78)}»`);
+ok(r.fin.trades.length === 0, 'y no entra nada de esa copia', `${r.fin.trades.length} operaciones`);
+r = await importa(copia({ trades: [Object.assign({}, BUENA, { id: 'dup' }), Object.assign({}, BUENA, { id: 'dup' })] }), { confirmar: false });
+ok(/repite el identificador/i.test(r.trasRevisar.destello + r.trasRevisar.error),
+   'un identificador REPETIDO para la importacion y lo nombra',
+   `«${(r.trasRevisar.destello || r.trasRevisar.error).slice(0, 78)}»`);
+
 console.log('\n═══ NADA SE PIERDE · una copia normal entra entera ═══');
 r = await importa(copia({
   trades: { a: Object.assign({}, BUENA, { id: 'a', pnl: 1 }), b: Object.assign({}, BUENA, { id: 'b', pnl: 2 }), c: Object.assign({}, BUENA, { id: 'c', pnl: 3 }) },
@@ -140,6 +163,63 @@ r = await importa(copia({
 }));
 ok(r.fin.trades.length === 3, 'las tres operaciones entran', r.fin.trades.map(t => t.id).join(' · '));
 ok(r.fin.dias.includes('2026-01-01'), 'y el dia tambien', r.fin.dias.join(' · '));
+
+console.log('\n═══ LA OTRA DIRECCION · exportar con la base caida ═══');
+/* Antes de este arreglo, un fallo de lectura del db caia a localStorage EN SILENCIO y
+   producia un respaldo que parecia completo. Medido: dos dias en la nube, y el fichero
+   salia con uno, diciendo «1 sesion». Se guarda, se confia en el, y se descubre al
+   restaurar. Hallazgo de una revision externa, verificado aqui antes de adoptarlo. */
+{
+  const ctx = await b.newContext();
+  await ctx.addInitScript(() => {
+    const DOCS = {}, CB = {}; let roto = false;
+    const cp = o => JSON.parse(JSON.stringify(o));
+    const snap = ruta => ({ exists: Object.prototype.hasOwnProperty.call(DOCS, ruta), data: () => DOCS[ruta] });
+    const doc = ruta => ({
+      async set(d) { DOCS[ruta] = cp(d); (CB[ruta] || []).forEach(f => { try { f(snap(ruta)); } catch (e) { } }); },
+      async get() { return snap(ruta); }, async delete() { delete DOCS[ruta]; },
+      onSnapshot(cb) { (CB[ruta] = CB[ruta] || []).push(cb); try { cb(snap(ruta)); } catch (e) { } return () => { }; },
+    });
+    const consulta = (n) => ({
+      doc: id => doc(n + '/' + id), orderBy() { return this; }, limit() { return this; },
+      async get() {
+        if (roto && n === 'days') { const e = new Error('db caida'); e.code = 'unavailable'; throw e; }
+        const pref = n + '/';
+        return { docs: Object.keys(DOCS).filter(k => k.indexOf(pref) === 0).map(k => ({ id: k.slice(pref.length), data: () => DOCS[k] })) };
+      },
+      onSnapshot(cb) { this.get().then(q => { try { cb(q); } catch (e) { } }).catch(() => { }); return () => { }; },
+    });
+    window.claude = { use: async n => n === 'db' ? { doc, collection: consulta }
+      : n === 'permissions' ? { request: async () => true } : null };
+    window.__ROMPE = v => { roto = v; };
+  });
+  const q = await ctx.newPage();
+  q.on('pageerror', e => errs.push(e.message));
+  await q.goto(BASE, { waitUntil: 'load' });
+  await q.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
+  await q.waitForTimeout(1700);
+  const sembrado = await q.evaluate(async () => {
+    const db = await window.claude.use('db');
+    await Promise.all([
+      db.doc('days/2026-03-01').set({ date: '2026-03-01', note: 'nube uno', checks: {}, pres: {} }),
+      db.doc('days/2026-03-02').set({ date: '2026-03-02', note: 'nube dos', checks: {}, pres: {} }),
+    ]);
+    await new Promise(r => setTimeout(r, 600));
+    return true;
+  });
+  ok(sembrado, 'se sembraron dos dias en la base del artefacto');
+  await q.evaluate(() => window.__ROMPE(true));
+  await q.click('[data-tab="cabina"]'); await q.waitForTimeout(400);
+  await q.click('button:has-text("Ver el texto")'); await q.waitForTimeout(3000);
+  const e = await q.evaluate(() => {
+    const ta = document.querySelector('#edFields textarea');
+    return { hayTexto: !!ta, dias: (() => { try { return Object.keys(JSON.parse(ta.value).days || {}); } catch (x) { return null; } })(),
+      aviso: (document.getElementById('bkNote') || {}).textContent.replace(/\s+/g, ' ').trim() };
+  });
+  ok(!e.hayTexto, 'con la base caida NO se produce ninguna copia', e.hayTexto ? `la produjo con dias ${JSON.stringify(e.dias)}` : 'no la produjo');
+  ok(/no se pudo|no respondió|no respondio/i.test(e.aviso), 'y se dice por que, en vez de callarse', `«${e.aviso.slice(0, 92)}»`);
+  await ctx.close();
+}
 
 ok(errs.length === 0, 'ninguna pagina lanzo un error', errs.length ? errs.slice(0, 2).join(' | ') : 'sin pageerror');
 await b.close(); srv.close();

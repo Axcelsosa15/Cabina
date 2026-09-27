@@ -204,8 +204,21 @@ ningún backend lo mitigaría.
 
 La **importación** es la única superficie que acepta datos escritos por otra persona,
 y tiene tres pasos con una **confirmación escrita** al final: hay que teclear
-`IMPORTAR`. `test/importar.mjs` la vigila en las dos direcciones — que no entre basura
-**y que no se pierda nada legítimo**.
+`IMPORTAR`. Valida así:
+
+| | |
+|---|---|
+| sección mal formada | **para la importación entera** y dice cuál |
+| registro sin `id` | **se repara** con la clave bajo la que venía |
+| registro irreparable | se descarta **y se cuenta**, y el recuento sale en la vista previa |
+| identificador repetido | para la importación y lo nombra |
+
+Y la **exportación** falla en vez de degradar: si la base del artefacto no responde,
+**no se produce una copia a medias**. Antes se caía a `localStorage` en silencio y
+anunciaba «4 KB · 1 sesión» con dos días perdidos en la nube. Protocolo 19.
+
+`test/importar.mjs` vigila las dos direcciones — que no entre basura, que no se pierda
+nada legítimo, y que un respaldo incompleto no llegue a existir.
 
 `test/seguridad.mjs` vigila estas propiedades. Ninguna es visible en pantalla, que es
 justo por lo que necesitan un guardián.
@@ -306,7 +319,7 @@ resuelve.
 |---|---|
 | Suites que se ejecutan | **55** (52 de `test/` + 3 del motor) |
 | Aserciones del motor | **421** (`quant` 329 · `math` 92) |
-| Aserciones de navegador y guardianes | **658** en 19 archivos — las cuenta la propia suite |
+| Aserciones de navegador y guardianes | **666** en 19 archivos — las cuenta la propia suite |
 | Cobertura de la capa `db` del artefacto | **28** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
 | Compuerta de publicación | **16 PASS · 0 FAIL · 4 `UNKNOWN`** de 20 filas |

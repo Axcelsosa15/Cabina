@@ -34,6 +34,7 @@ cabeza de quien escribía — en el fichero únicamente estaban etiquetadas §12
 | 16 | La capa de riesgo: una sola fuente para cada cálculo | `equivalencia` |
 | 17 | Un campo nuevo que se persiste: la ausencia significa algo | `rapido` |
 | 18 | Un dato importado no es una URL: se valida el esquema | `seguridad` |
+| 19 | Un respaldo a medias es peor que ninguno | `importar` |
 | — | *Que esta tabla no mienta* | `capa2` §14 |
 
 ---
@@ -801,6 +802,50 @@ Las reglas, para cualquier campo que acabe en `src`, `href`, `fetch()` o equival
 > tests. La tentación era escribir `'file://' + '/etc/passwd'` para que la regex no lo
 > viera: eso habría dejado la regla verde y **sin dientes**. Se hizo una excepción
 > **nombrada y explicada**, y la §13 sigue cubriendo ese fichero.
+
+---
+
+## 19 · Un respaldo a medias es peor que ninguno
+
+Un fallo al **leer** los datos para una copia de seguridad **no se degrada en
+silencio**. Se para y se dice.
+
+Las reglas:
+
+- **Un `catch` vacío en el camino de una copia es un fallo, no una tolerancia.**
+  «Si la base no responde, tiramos con lo que haya en local» suena defensivo y es lo
+  contrario: produce un fichero que parece completo.
+- **Fallar es la respuesta correcta aquí.** El usuario que no consigue descargar su
+  copia lo intenta otra vez. El que descarga una copia a medias no se entera hasta que
+  la restaura, y para entonces el original puede no existir.
+- **Lo que se repara o se descarta al importar, se cuenta y se enseña** en la vista
+  previa antes de confirmar. Reparar en silencio y rechazar en silencio son el mismo
+  error en direcciones opuestas.
+- **Tres respuestas para tres problemas**: sección mal formada → se para todo;
+  registro sin identificador → se repara con su clave; registro irreparable → se
+  descarta **y se cuenta**.
+
+> **Qué falló:** `allDayDocs()` tenía `catch (e) { }` y caía a `lsRead().days`. Con la
+> base del artefacto caída, «Ver el texto» producía un respaldo con **sólo los días
+> locales** y lo anunciaba así:
+>
+> ```
+> Copia el texto del cuadro · 4 KB · 1 sesión.
+> ```
+>
+> Medido con el doble del `db`: dos días sembrados en la nube, y el fichero salía con
+> uno. Sin aviso, sin error, sin marca. Un fichero que guardas creyendo que es tu
+> respaldo.
+>
+> **Lo encontró una revisión externa** (ChatGPT/Codex, PR #1), no esta. La auditoría de
+> seguridad de la fase 0 había mirado la **entrada** de datos —esquemas de URL, tipos,
+> XSS— y no la **salida**. Queda anotado porque el sesgo es instructivo: se audita por
+> dónde entra lo hostil y se olvida por dónde sale lo propio.
+>
+> Se verificó antes de adoptarlo, y de la misma revisión **no** se adoptó la otra
+> mitad: proponía rechazar todo registro sin `id`, lo que habría hecho fallar la
+> importación entera de un respaldo viejo legítimo. Comprobado con sabotaje: esa
+> variante pone en rojo «las DOS operaciones entran: no se pierde la que venía sin id».
 
 ---
 

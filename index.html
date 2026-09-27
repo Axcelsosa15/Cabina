@@ -10803,7 +10803,18 @@
   async function allDayDocs() {
     if (state.db) {
       try { const q = await state.db.collection("days").limit(2000).get(); return q.docs.map(d => migrateDay(d.data())).filter(d => d && d.date); }
-      catch (e) { }
+      catch (e) {
+        /* NO se cae a localStorage. Este `catch` estaba vacío, y el resultado era una
+           trampa: con la base caída se producía un respaldo que sólo traía los días
+           locales y se anunciaba como completo. Medido con el doble del db: dos días
+           en la nube, y el fichero salía con uno, diciendo «1 sesión». Un respaldo
+           incompleto que parece completo es peor que ninguno — se guarda, se confía en
+           él, y se descubre al restaurar.
+           Hallazgo de una revisión externa (PR #1); verificado aquí antes de adoptarlo. */
+        const err = new Error("No se pudo leer la base del artefacto para preparar la copia.");
+        err.code = "backup_source_unavailable";
+        throw err;
+      }
     }
     const l = lsRead().days || {};
     return Object.values(l).filter(d => d && d.date).map(migrateDay);
@@ -10854,7 +10865,15 @@
     const parts = [];
     BK_PARTS.forEach(([k, one, many]) => { const n = Object.keys(b[k] || {}).length; if (n) parts.push(plu(n, one, many)); });
     let imgs = 0, inl = 0; eachImage(b, im => { imgs++; if (im && im.data) inl++; });
-    return { parts, images: imgs, inlined: inl, text: parts.length ? parts.join(" · ") : "nada guardado todavía" };
+    /* Lo reparado y lo descartado viajan hasta aquí para que SE VEAN antes de
+       confirmar. Una importación que arregla o tira registros sin decirlo es
+       exactamente lo que este panel existe para evitar. */
+    const avisos = [];
+    if (b.reparados) avisos.push(plu(b.reparados, "registro sin identificador, reparado con su clave", "registros sin identificador, reparados con su clave"));
+    if (b.descartados) avisos.push(plu(b.descartados, "registro descartado por irreparable", "registros descartados por irreparables"));
+    const base = parts.length ? parts.join(" · ") : "nada guardado todavía";
+    return { parts, images: imgs, inlined: inl, reparados: b.reparados || 0, descartados: b.descartados || 0,
+      text: avisos.length ? base + " · " + avisos.join(" · ") : base };
   }
   function bkSize(txt) {
     const n = new Blob([txt]).size;
@@ -10886,6 +10905,7 @@
     if (c === "too_large") return "el archivo es demasiado grande para descargarlo. Prueba sin meter las capturas.";
     if (c === "rate_limited") return "hay otra descarga esperando respuesta. Termina esa y vuelve.";
     if (c === "unavailable" || c === "not_granted") return "esta vista no deja descargar archivos. Usa «Ver el texto» y cópialo a mano.";
+    if (c === "backup_source_unavailable") return "no se pudo leer toda la base. NO se descargó una copia incompleta.";
     return "no se pudo descargar el archivo.";
   }
   async function bkBuildWithProgress(withImgs) {
@@ -10918,7 +10938,11 @@
       try { await navigator.clipboard.writeText(txt); copiado = true; } catch { copiado = false; }
       bkSay(`${copiado ? "Copiado al portapapeles" : "Copia el texto del cuadro"} · ${bkSize(txt)} · ${st.text}.`);
       openEditor({ title: "Copia de Cabina · " + bkName(), fields: [{ key: "j", label: copiado ? "Ya está en el portapapeles. Pégalo donde quieras guardarlo." : "Selecciona todo y cópialo", type: "textarea", w: 6, rows: 14 }], values: { j: txt }, onSave: () => { } });
-    } catch (err) { bkSay("no se pudo preparar la copia.", true); }
+    } catch (err) {
+      bkSay(err && err.code === "backup_source_unavailable"
+        ? "no se pudo preparar la copia: la base no respondió y una copia a medias sería peor que ninguna."
+        : "no se pudo preparar la copia.", true);
+    }
     btn.disabled = false; btn.textContent = "Ver el texto";
   });
   // Acepta tanto {id: doc} como [doc]: así una copia editada a mano sigue entrando.
@@ -10939,18 +10963,45 @@
 
      Los escalares (`"cadena"`, `42`, `null`) ya se descartaban por el
      `typeof x === "object"`, comprobado midiendo: no entraban. */
-  function bkMap(v, key) {
+  /* Tres respuestas distintas para tres problemas distintos, y la diferencia importa
+     más que la validación en sí:
+
+       LA SECCIÓN está mal formada  -> se PARA la importación entera. Si `trades` no es
+                                       ni objeto ni lista, el fichero no es lo que dice
+                                       ser y no hay nada que salvar.
+       UN REGISTRO no tiene `id`    -> se REPARA con la clave bajo la que venía. Tirar
+                                       una operación legítima porque un export viejo
+                                       omitió el campo es destruir datos del usuario, y
+                                       aquí al lado está escrito que un borrado masivo
+                                       en la nube no se deshace.
+       UN REGISTRO es irreparable   -> se DESCARTA y SE CUENTA, y el recuento sale en la
+                                       vista previa antes de confirmar. Nunca en silencio.
+
+     `__proto__`, `constructor` y `prototype` se rechazan como identificadores. Medido:
+     con el camino de escritura actual no contaminaban `Object.prototype` —
+     `Object.assign` con `__proto__` cambia el prototipo del destino, no el global— pero
+     es barato, y el día que ese camino cambie ya está puesto.
+
+     La forma de esta función salió de combinar dos revisiones: la externa proponía
+     rechazar TODO registro sin `id`, y eso habría hecho fallar la importación entera de
+     un respaldo viejo legítimo. Comprobado con sabotaje. */
+  const BK_IDS_PROHIBIDOS = new Set(["__proto__", "constructor", "prototype"]);
+  function bkMap(v, key, etiqueta, rep) {
     const m = {};
-    const meter = (x, clave) => {
-      if (!x || typeof x !== "object" || Array.isArray(x)) return;
-      const propio = x[key] == null ? "" : String(x[key]);
-      const id = propio !== "" ? propio : String(clave == null ? "" : clave);
-      if (!id || id === "undefined" || id === "null") return;
-      /* El registro sale SIEMPRE con su identificador dentro, no sólo como clave. */
+    if (v == null) return m;
+    const lista = Array.isArray(v);
+    if (!lista && typeof v !== "object") throw new Error(`La sección «${etiqueta}» no tiene forma de lista ni de objeto.`);
+    const entradas = lista ? v.map(x => [null, x]) : Object.keys(v).map(k => [k, v[k]]);
+    for (const [clave, x] of entradas) {
+      if (!x || typeof x !== "object" || Array.isArray(x)) { rep.descartados++; continue; }
+      const propio = x[key] == null || x[key] === "" ? "" : String(x[key]).trim();
+      const id = propio !== "" ? propio : String(clave == null ? "" : clave).trim();
+      /* Sin campo y sin clave no hay identificador que inventar sin mentir. */
+      if (!id || id === "undefined" || id === "null" || id.length > 128 || BK_IDS_PROHIBIDOS.has(id)) { rep.descartados++; continue; }
+      if (Object.prototype.hasOwnProperty.call(m, id)) throw new Error(`La sección «${etiqueta}» repite el identificador «${id}».`);
+      if (propio !== id) rep.reparados++;
       m[id] = propio === id ? x : Object.assign({}, x, { [key]: id });
-    };
-    if (Array.isArray(v)) v.forEach(x => meter(x, null));
-    else if (v && typeof v === "object") Object.keys(v).forEach(k => meter(v[k], k));
+    }
     return m;
   }
   function bkParse(txt) {
@@ -10962,9 +11013,15 @@
        puede leer no se sabe interpretar: se dice y se para. */
     if (!Number.isFinite(Number(raw.version)) || Number(raw.version) < 1) return { err: `La copia no dice de qué versión es (trae «${String(raw.version).slice(0, 20)}»), así que no se sabe cómo leerla.` };
     if (Number(raw.version) > BK_VERSION) return { err: `La copia es de una versión más nueva (v${raw.version}) que esta cabina (v${BK_VERSION}). Actualiza la página antes de importarla.` };
-    const b = { days: bkMap(raw.days, "date") };
-    COLLS.forEach(n => { b[n] = bkMap(raw[n], "id"); });
-    if (raw.settings && typeof raw.settings === "object") b.settings = raw.settings;
+    const rep = { descartados: 0, reparados: 0 };
+    let b;
+    try {
+      b = { days: bkMap(raw.days, "date", "días", rep) };
+      COLLS.forEach(n => { b[n] = bkMap(raw[n], "id", n, rep); });
+    } catch (e) { return { err: e.message || "La copia contiene registros mal formados." }; }
+    if (raw.settings != null && (typeof raw.settings !== "object" || Array.isArray(raw.settings))) return { err: "La sección «settings» no tiene forma de objeto." };
+    if (raw.settings) b.settings = raw.settings;
+    b.reparados = rep.reparados; b.descartados = rep.descartados;
     b.exportedAt = raw.exportedAt; b.source = raw.source; b.version = raw.version;
     const st = bundleStats(b);
     if (!st.parts.length && !b.settings) return { err: "La copia está vacía: no trae nada que importar." };
