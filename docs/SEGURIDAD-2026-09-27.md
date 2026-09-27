@@ -3,6 +3,16 @@
 Fase 0. Sobre `main` en `c114b47`. **Cero cambios de código en esta pasada.** Cada
 número sale de ejecutar un escaneo o de leer el código en su contexto, no de suponer.
 
+> **Seguimiento en `main` actual.** Este documento conserva la fotografía histórica
+> de esa fase. Desde entonces, `ca4508a` añadió la lista blanca de imágenes y
+> `permissions: contents: read`, y `test/seguridad.mjs` los vigila; por tanto los
+> hallazgos 3.1 y 3.2 están cerrados en el repositorio actual. Esta auditoría
+> también añade validación estructural en `bkParse()` para rechazar respaldos con
+> versión, contenedores, registros o identificadores mal formados antes de
+> persistirlos. Sigue sin existir validación campo por campo del modelo financiero,
+> y permanecen los riesgos de compartir públicamente el artefacto y de perder un
+> cambio en memoria si el `db` falla al escribir.
+
 ---
 
 ## Lo primero: la premisa del encargo no describe este sistema
