@@ -2877,21 +2877,27 @@
   }
   function consistency(a, g) {
     g = g || acctAgg(a);
+    /* El límite se acota a [1, 99] AQUÍ y no en el motor: el motor acota a [0, 100],
+       así que un límite de 0 le haría devolver «no aplica» mientras la app lo lee
+       como 1%. Se le pasa ya acotado para que la respuesta sea la misma. */
     const L = Math.min(Math.max(Number(a.limit) || 0, 1), 99) / 100;
-    const total = g.total, best = g.best;
-    /* La consistencia reparte GANANCIAS. Sin ganancia acumulada no hay nada que
-       repartir y el cociente no existe: antes se devolvía 1 como centinela y se
-       imprimía como «consistencia 100%» — un número inventado sobre una cuenta
-       en rojo. Ahora es null y el estado se llama por su nombre. */
-    const noProfit = total <= 0;
-    const ratio = noProfit ? null : best / total;
-    const capToday = noProfit ? 0 : L * total / (1 - L);
-    /* Lo que falta para poder cobrar sigue siendo medible aunque estés en rojo:
-       es la ganancia que hay que acumular, no un porcentaje de consistencia. */
-    const needed = best > 0 ? Math.max(0, best / L - total) : 0;
-    const daysToComply = needed > 0 && g.avgGreen > 0 ? Math.ceil(needed / g.avgGreen) : 0;
-    return { L, total, best, ratio, capToday, needed, daysToComply, agg: g, noProfit,
-      over: !noProfit && ratio > L, near: !noProfit && ratio > L * 0.85 && ratio <= L };
+    /* La MATEMÁTICA es QE.evaluarConsistencia (curve.js:238). La ganancia previa y
+       el mejor día previo entran como lo que son —`gananciaPrevia`,
+       `mejorDiaPrevio`— en vez de estar ya sumados: el motor hace
+       `total = jTotal + previa` y `mejor = max(jMejor, mejorPrevio)`, que es
+       exactamente lo que acctAgg hacía a mano.
+
+       Medido con una cuenta de ganancia previa 800 y mejor día previo 300: las doce
+       cifras coinciden, incluidas `ratio`, `totalRequerido`, `falta`, `topeDiaHoy`,
+       `cumple`, `cerca` y `diasParaCumplir`. */
+    const m = QE.evaluarConsistencia(
+      g.days.map(d => ({ fecha: d.date, pnl: d.pnl })), L * 100,
+      { gananciaPrevia: g.base, mejorDiaPrevio: g.baseBest }).value;
+    /* `over` es la negación de `cumple`, con el caso sin ganancia aparte: el motor
+       devuelve `cumple: null` ahí —no se puede decir— y la app necesita un booleano. */
+    return { L, total: m.total, best: m.mejor, ratio: m.ratio, capToday: m.topeDiaHoy,
+      needed: m.falta, daysToComply: m.diasParaCumplir, agg: g, noProfit: m.sinGanancia,
+      over: !m.sinGanancia && !m.cumple, near: m.cerca };
   }
   function verdictOf(c) { if (c.total <= 0 && c.best <= 0) return "Sin datos aún: registra operaciones con esta cuenta o escribe la ganancia previa."; if (c.noProfit) return `Sin ganancia acumulada que repartir: la cuenta va ${money(c.total)}. La consistencia se mide sobre ganancias, así que todavía no aplica${c.needed ? `; para cobrar harían falta ${money(c.needed)} de ganancia` : ""}.`; if (c.over) return `Rompe la regla: hace falta acumular ${money(c.needed)} más sin superar el mejor día${c.daysToComply ? ` (≈ ${c.daysToComply} ${c.daysToComply === 1 ? "día verde" : "días verdes"} a tu media)` : ""}.`; return `Cumple. El día más grande que aún cumple: ${money(c.capToday)}.`; }
 
@@ -2932,13 +2938,40 @@
     return { ok: true, max, floor, buffer, used, util: used / max, breached: g.balance <= floor };
   }
 
-  // consistencia = mejor día ÷ ganancia total; el total que haría falta es mejorDía ÷ límite.
+  /* consistencia = mejor día ÷ ganancia total; el total que haría falta es
+     mejorDía ÷ límite. Todo eso ya lo calculó `consistency()` llamando al motor;
+     esto lo traduce a los nombres que usa la tarjeta.
+
+     Y AQUÍ QUEDAN AISLADAS LAS DOS ÚNICAS RESPUESTAS EN LAS QUE LA APP Y EL MOTOR
+     NO ESTÁN DE ACUERDO. Estaban repartidas por la función; ahora son dos líneas
+     con su nombre, así que cambiar de opinión cuesta una línea en vez de una
+     auditoría. Las dos se dan **en una cuenta sin ninguna ganancia**:
+
+       · `additional`. La app hace `max(0, required - total)` siempre. Sin ningún día
+         verde `required` vale 0, así que en una cuenta a −160 sale `max(0, 0 − (−160))`
+         = **160**, y la tarjeta lo imprime como «Ganancia que falta para cobrar:
+         +$160». Ese 160 es la MAGNITUD DE LA PÉRDIDA, no una exigencia de
+         consistencia. El motor devuelve **0** y su comentario dice por qué: «sin
+         ningún día verde no hay mejor día, así que la consistencia no impone nada y
+         no falta nada por su culpa; restar un total negativo de un requerido de cero
+         producía una exigencia inventada». Encima la app se contradecía a sí misma:
+         `consistency().needed` daba 0 y esto daba 160.
+       · `compliant`. La app dice **true** —«cumple»— en una cuenta sin ganancia,
+         porque `over` es false. El motor dice **null**: no se puede decir.
+
+     Se conserva el comportamiento de la app EN LAS DOS, a propósito: cambiar lo que
+     dice la tarjeta es una decisión de producto, no un refactor. Para adoptar la
+     respuesta del motor se sustituye `SIN_GANANCIA_APP` por `m.falta` y `m.cumple`. */
   function consEngine(c) {
     const limit = c.L, best = c.best, total = c.total;
     const required = limit > 0 && best > 0 ? best / limit : 0;
     return { limit, best, total, ratio: c.ratio, required, noProfit: c.noProfit,
+      /* SIN_GANANCIA_APP · el motor diría `c.needed` (0). Ver el comentario de arriba. */
       additional: Math.max(0, required - total),
-      cap: c.capToday, compliant: !c.over, near: c.near,
+      cap: c.capToday,
+      /* SIN_GANANCIA_APP · el motor diría `null`. Ver el comentario de arriba. */
+      compliant: !c.over,
+      near: c.near,
       hasData: total > 0 || best > 0, days: c.daysToComply };
   }
 

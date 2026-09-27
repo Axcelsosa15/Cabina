@@ -50,18 +50,22 @@ incrustado, `invariantes` compara sus **números** con los de los módulos fuent
 `equivalencia` compara los números del motor con los de **la copia que la UI tenía
 de esos mismos cálculos**.
 
-`index.html` reimplementaba cinco de ellos. Van tres consolidados —`riskEngine`,
-`gainCap` y la tercera copia que vivía dentro de `dayAgg`— y quedan `ddEngine`,
-`consEngine` y `evaluateAccountRules`. La tabla de umbrales duplicada ya no existe:
-los 0.50 / 0.75 / 1.00 viven en un solo sitio, y la app sólo traduce el código del
-motor a lo que necesita la pantalla.
+`index.html` reimplementaba cinco de ellos. Van cuatro consolidados —`riskEngine`,
+`gainCap`, `consistency`/`consEngine` y la tercera copia que vivía dentro de
+`dayAgg`— y queda `ddEngine`, más `evaluateAccountRules` que depende de él. La tabla
+de umbrales duplicada ya no existe: los 0.50 / 0.75 / 1.00 viven en un solo sitio, y
+la app sólo traduce el código del motor a lo que necesita la pantalla.
 
-Los dos que faltan **no** están pendientes por falta de tiempo: `ddEngine` da números
-distintos del motor en una cuenta quemada —colchón `0` contra `−300`, usado `500`
-contra `800`— y elegir cuál muestra la tarjeta es una decisión de producto, no un
-refactor; `consEngine` no está medido con ganancia previa distinta de cero, que es
-donde puede romperse. Las dos diferencias están **afirmadas** en `equivalencia`, con
-sus números, en vez de olvidadas. Detalle en [PROTOCOLOS.md](PROTOCOLOS.md) §16.
+`ddEngine` **no** está pendiente por falta de tiempo: en una cuenta quemada da números
+distintos del motor —colchón `0` contra `−300`, usado `500` contra `800`— y elegir
+cuál muestra la tarjeta es una decisión de producto, no un refactor.
+
+Y medir la consistencia donde el escenario dorado no llegaba destapó **un número
+inventado que la tarjeta imprime**: en una cuenta sin ningún día verde, «Ganancia que
+falta para cobrar: +$160», donde 160 es la magnitud de la pérdida. El motor devuelve
+0. Se conserva lo que la app dice hoy, pero aislado en dos líneas marcadas, no
+repartido. Las tres diferencias están **afirmadas** en `equivalencia`, con sus
+números, en vez de olvidadas. Detalle en [PROTOCOLOS.md](PROTOCOLOS.md) §16.
 
 Lo que hace verificable esa consolidación es que `equivalencia` lleva los dieciséis
 números de **antes** de tocar nada escritos a mano como literales. Comparar la app
@@ -206,7 +210,7 @@ resuelve.
 |---|---|
 | Suites que se ejecutan | **52** (49 de `test/` + 3 del motor) |
 | Aserciones del motor | **421** (`quant` 329 · `math` 92) |
-| Aserciones de navegador y guardianes | **531** en 16 archivos — las cuenta la propia suite |
+| Aserciones de navegador y guardianes | **553** en 16 archivos — las cuenta la propia suite |
 | Cobertura de la capa `db` del artefacto | **28** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
 | Compuerta de publicación | **13 PASS · 0 FAIL · 4 `UNKNOWN`** de 17 filas |

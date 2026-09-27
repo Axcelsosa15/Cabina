@@ -542,6 +542,12 @@ Las reglas:
 > faltaba no se podía automatizar; lo que faltaba de verdad era **decir que no se
 > podía**.
 >
+> Y la consolidación de `consistency` se comprobó con dos sabotajes más: quitar la
+> ganancia previa de la llamada al motor (5 filas rojas) y dejar de acotar el límite
+> antes de pasarlo (5 filas, **dos de ellas de la sección dorada**). Eso último es lo
+> que demuestra que los literales siguen teniendo dientes después de consolidar: no
+> se volvieron tautológicos.
+>
 > El precedente al lado: `preview.html` estuvo seis días en verde midiendo una
 > copia congelada de `index.html`. También ahí el instrumento decía `PASS`
 > mientras no miraba nada.
@@ -568,9 +574,9 @@ consolidado y quedan cuatro:
 | `riskEngine` | `margenDePerdida` — `compliance.js:30` | **consolidado**: adaptador de vocabulario |
 | `dayAgg.lossPct` / `lossRemaining` | `margenDePerdida` | **consolidado**: era la tercera copia |
 | `gainCap` | `topeDeGanancia` — `compliance.js:42` | **consolidado**: la coerción y la frase se quedan en la app |
+| `consistency` + `consEngine` | `evaluarConsistencia` — `curve.js:238` | **consolidado**: dos respuestas en disputa, aisladas |
 | `ddEngine` | `margenDeDrawdown` — `compliance.js:53` | **bloqueado**: dos semánticas distintas, decisión de producto |
-| `consEngine` | `evaluarConsistencia` — `curve.js` | **bloqueado**: falta medirlo con ganancia previa |
-| `evaluateAccountRules` | `evaluarCumplimiento` — `compliance.js:72` | pendiente — depende de los dos de arriba |
+| `evaluateAccountRules` | `evaluarCumplimiento` — `compliance.js:72` | pendiente — depende de `ddEngine` |
 
 ### Los dos bloqueos, con sus números
 
@@ -599,12 +605,37 @@ comentario dice «aquí desaparece la tercera copia de la fórmula del suelo»�
 `ddEngine` no duplica el suelo. Duplica colchón, usado, pct y nivel **sobre un suelo
 que ya es del motor**.
 
-**`consEngine` falta medirlo donde puede romperse.** La app calcula `total` y `best`
-desde los agregados de la cuenta, que incluyen la **ganancia previa** y el **mejor
-día previo** (`base`, `baseBest`); el motor toma una lista de P&L diarios más un
-`{gananciaPrevia, mejorDiaPrevio}`. Coinciden en el escenario dorado porque ahí las
-dos valen cero. Consolidar sin un caso con ganancia previa distinta de cero sería
-consolidar a ciegas, y ese caso todavía no está sembrado.
+**`consEngine` se consolidó, y al medirlo apareció un número inventado.** El caso
+que faltaba se sembró: cuenta con ganancia previa 800 y mejor día previo 300. Las
+doce cifras coinciden, incluidas `ratio`, `totalRequerido`, `falta`, `topeDiaHoy`,
+`cumple`, `cerca` y `diasParaCumplir`. La ganancia previa entra ahora como lo que es
+—`gananciaPrevia`, `mejorDiaPrevio`— en vez de estar ya sumada.
+
+Pero el **segundo** caso sembrado —una cuenta sin ninguna ganancia, sólo días en
+rojo— destapó dos respuestas en las que la app y el motor no están de acuerdo, y una
+de las dos es un número que la tarjeta imprime:
+
+| | app | motor |
+|---|---|---|
+| `additional` | **160** | **0** |
+| `compliant` | **true** — «cumple» | **null** — no se puede decir |
+
+Ese `160` en una cuenta a −160 es `max(0, 0 − (−160))`: la **magnitud de la pérdida**,
+no una exigencia de consistencia, y la tarjeta lo imprime como «**Ganancia que falta
+para cobrar: +$160**» (`index.html:3481`). El motor devuelve 0 y su comentario dice
+por qué: «sin ningún día verde no hay mejor día, así que la consistencia no impone
+nada y no falta nada por su culpa; restar un total negativo de un requerido de cero
+producía una exigencia inventada».
+
+Y la app **se contradecía a sí misma**: `consistency().needed` daba 0 para el mismo
+caso y `consEngine().additional` daba 160. Dos respuestas a la misma pregunta dentro
+del mismo fichero.
+
+Se conserva el comportamiento de la app en las dos, a propósito: cambiar lo que dice
+la tarjeta es una decisión de producto, no un refactor. Lo que sí cambia es que las
+dos están ahora **aisladas en dos líneas marcadas `SIN_GANANCIA_APP`** en vez de
+repartidas por la función, así que adoptar la respuesta del motor cuesta una línea en
+vez de una auditoría.
 
 La tabla de umbrales duplicada **ya no existe**: `RISK_STEPS` llevaba los mismos
 0.50 / 0.75 / 1.00 que `NIVELES`, y ahora la app sólo tiene `NIVEL_APP`, que es

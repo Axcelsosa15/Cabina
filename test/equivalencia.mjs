@@ -152,6 +152,37 @@ const R = await p.evaluate(async () => {
                reglaMaxGain: reglaG ? reglaG.value : null };
     })(),
 
+    /* DOS CUENTAS PARA LA CONSISTENCIA, sembradas donde el escenario dorado no
+       llega. La app calcula `total` y `best` sobre los agregados de la cuenta -- que
+       incluyen la GANANCIA PREVIA (`a.total`) y el MEJOR DIA PREVIO (`a.best`) -- y
+       el motor los toma como `{gananciaPrevia, mejorDiaPrevio}`. En el escenario
+       dorado las dos valen cero, asi que coincidir alli no prueba nada.
+
+         A · con ganancia previa 800 y mejor dia previo 300
+         B · SIN ganancia: solo dias en rojo. Ahi la app dice `compliant: true`
+             (porque `over` es false) y el motor dice `cumple: null` (no se puede
+             decir). Son respuestas distintas a la misma pregunta. */
+    consCasos: (function () {
+      const hechas = [];
+      [{ id: 'EQC1', nom: 'Con ganancia previa', total: 800, best: 300, limit: 30,
+         ops: [[21000, 21050, 1], [21000, 21030, 1], [21000, 20980, 1]] },
+       { id: 'EQC2', nom: 'Sin ganancia', total: 0, best: 0, limit: 30,
+         ops: [[21000, 20950, 1], [21000, 20970, 1]] }].forEach(function (k, n) {
+        FUT.createAccount({ id: k.id, firm: 'Equivalencia', name: k.nom, kind: 'Evaluación',
+          size: 25000, dd: 1500, ddKind: 'estatico', trailBase: 'intradia',
+          target: 1500, limit: k.limit, status: 'activa', ledger: [],
+          total: k.total, best: k.best });
+        k.ops.forEach(function (o, i) {
+          const dia = new Date(d.getTime() - 86400000 * (k.ops.length - i));
+          FUT.createTrade({ accountId: k.id, instrument: 'MNQ', date: iso(dia),
+            time: '13:0' + i, entry: o[0], exit: o[1], qty: o[2],
+            direction: 'long', stop: 20990 });
+        });
+        hechas.push(k.id);
+      });
+      return hechas;
+    })(),
+
     /* UNA CUENTA QUEMADA. Es el caso en el que las dos implementaciones NO son
        intercambiables sin cuidado: la app clampa el colchon a >= 0
        (`Math.max(0, g.balance - floor)`) y el motor lo devuelve NEGATIVO
@@ -205,6 +236,32 @@ const QUEMADA = await p.evaluate(async (id) => {
            app: { colchon: app.buffer, usado: app.used, pct: app.util, quemada: app.breached },
            motor: { colchon: motor.colchon, usado: motor.usado, pct: motor.pct, quemada: motor.quemada } };
 }, R.quemada);
+
+/* Las dos cuentas de consistencia, en la segunda pasada. */
+const CONS = await p.evaluate(async (ids) => {
+  if (!ids || !ids.length) return null;
+  await new Promise(r => setTimeout(r, 900));
+  const QE = window.QuantEngine;
+  return ids.map(id => {
+    const a = FUT.account(id);
+    const g = FUT.calculateAccountStats(id);
+    const app = FUT.calculateConsistency(id);
+    /* El motor, con el MISMO limite ya acotado por la app y la MISMA ganancia previa. */
+    const L = Math.min(Math.max(Number(a.limit) || 0, 1), 99);
+    const m = QE.evaluarConsistencia(
+      g.curva.dias.map(x => ({ fecha: x.fecha, pnl: x.pnl })), L,
+      { gananciaPrevia: g.base, mejorDiaPrevio: g.baseBest }).value;
+    return { id, nombre: a.name, base: g.base, baseBest: g.baseBest, jTotal: g.jTotal, jBest: g.jBest,
+             app: { limit: app.limit, total: app.total, best: app.best, ratio: app.ratio,
+                    required: app.required, additional: app.additional, cap: app.cap,
+                    compliant: app.compliant, near: app.near, noProfit: app.noProfit,
+                    hasData: app.hasData, days: app.days },
+             motor: { limite: m.limite, total: m.total, mejor: m.mejor, ratio: m.ratio,
+                      totalRequerido: m.totalRequerido, falta: m.falta, topeDiaHoy: m.topeDiaHoy,
+                      cumple: m.cumple, cerca: m.cerca, sinGanancia: m.sinGanancia,
+                      hayDatos: m.hayDatos, diasParaCumplir: m.diasParaCumplir } };
+  });
+}, R.consCasos);
 
 console.log('\n═══ CONTEXTO · los datos que ven las dos implementaciones ═══');
 const c = R.ctx;
@@ -316,6 +373,49 @@ if (BANDAS) {
   ok(bandas.size >= 3, 'el barrido toca al menos tres bandas distintas',
      Array.from(bandas).join(' · '));
 }
+
+console.log('\n═══ CONSISTENCIA CON GANANCIA PREVIA · donde el escenario dorado no llega ═══');
+ok(CONS !== null && CONS.length === 2, 'las dos cuentas de consistencia se sembraron',
+   CONS ? CONS.map(x => x.id).join(' · ') : 'no se sembraron');
+if (CONS) CONS.forEach(x => {
+  console.log(`  ── ${x.id} «${x.nombre}» · previa ${x.base} · mejor previo ${x.baseBest} · journal ${x.jTotal}/${x.jBest}`);
+  igual(x.app.limit, x.motor.limite, `${x.id}: el limite coincide`);
+  igual(x.app.total, x.motor.total, `${x.id}: el total coincide (incluye la ganancia previa)`);
+  igual(x.app.best, x.motor.mejor, `${x.id}: el mejor dia coincide (max de previo y journal)`);
+  ok(x.app.noProfit === x.motor.sinGanancia, `${x.id}: las dos coinciden en si hay ganancia`,
+     `app ${x.app.noProfit} · motor ${x.motor.sinGanancia}`);
+  ok(x.app.hasData === x.motor.hayDatos, `${x.id}: las dos coinciden en si hay datos`,
+     `app ${x.app.hasData} · motor ${x.motor.hayDatos}`);
+  if (!x.app.noProfit) {
+    igual(x.app.ratio, x.motor.ratio, `${x.id}: el ratio coincide`);
+    igual(x.app.required, x.motor.totalRequerido, `${x.id}: el total requerido coincide`);
+    igual(x.app.additional, x.motor.falta, `${x.id}: lo que falta coincide`);
+    igual(x.app.cap, x.motor.topeDiaHoy, `${x.id}: el tope del dia coincide`);
+    ok(x.app.compliant === x.motor.cumple, `${x.id}: las dos coinciden en si cumple`,
+       `app ${x.app.compliant} · motor ${x.motor.cumple}`);
+    ok(x.app.near === x.motor.cerca, `${x.id}: las dos coinciden en si esta cerca`,
+       `app ${x.app.near} · motor ${x.motor.cerca}`);
+    ok(x.app.days === x.motor.diasParaCumplir, `${x.id}: los dias para cumplir coinciden`,
+       `app ${x.app.days} · motor ${x.motor.diasParaCumplir}`);
+  } else {
+    /* LA DIFERENCIA, afirmada en vez de escondida: sin ganancia la app dice que
+       CUMPLE y el motor dice que no se puede decir. */
+    ok(x.app.compliant === true && x.motor.cumple === null,
+       `${x.id}: sin ganancia la app dice «cumple» y el motor dice «no se puede decir»`,
+       `app compliant=${x.app.compliant} · motor cumple=${x.motor.cumple} — decision pendiente`);
+    igual(x.app.cap, x.motor.topeDiaHoy, `${x.id}: el tope del dia SI coincide (los dos 0)`);
+    /* LA SEGUNDA DIFERENCIA, y es un numero INVENTADO que la tarjeta imprime:
+       «Ganancia que falta para cobrar: +$160» donde 160 es la magnitud de la
+       perdida, no una exigencia de consistencia. Se afirma la diferencia, no la
+       igualdad, y se pinta el valor de la app para que quede en el registro. */
+    ok(!casi(x.app.additional, x.motor.falta),
+       `${x.id}: «lo que falta» NO coincide — la app imprime un numero inventado`,
+       `app ${x.app.additional} (= 0 - (${x.motor.total})) · motor ${x.motor.falta} · la tarjeta dice «Ganancia que falta para cobrar»`);
+    ok(casi(x.app.additional, -x.motor.total),
+       `${x.id}: y ese numero es exactamente la magnitud de la perdida`,
+       `${x.app.additional} == -(${x.motor.total})`);
+  }
+});
 
 console.log('\n═══ TOPE DE GANANCIA · y lo que de esta funcion NO se puede comprobar ═══');
 /* HONESTIDAD SOBRE EL ALCANCE: `gainCap` no esta expuesta en la fachada FUT -- se
