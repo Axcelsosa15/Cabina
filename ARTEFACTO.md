@@ -11,7 +11,7 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **66** · `1790508775-3e2e` · 2026-09-27 |
+| Versión viva | **67** · `1790511268-58df` · 2026-09-27 |
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
@@ -91,6 +91,37 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
 - delante: `<!DOCTYPE html>`, `<head>` con las fuentes y los metas, el reset
   mínimo, `</head><body>`
 - detrás: `</body></html>`
+
+### Coinciden — republicado el 2026-09-27 (versión 67) · la copia que no sale a medias
+
+La versión viva es la **67** (`1790511268-58df`). Contrato `0.2.46` y capacidades
+arrastradas intactas.
+
+**17 líneas fuera, 77 dentro.** La que importa de las que salen es una línea vacía:
+
+```js
+      catch (e) { }
+```
+
+Era el `catch` de `allDayDocs`. Si la base del artefacto no se podía leer, ese `catch`
+se lo tragaba, la copia se armaba con los días que hubiera en memoria y la cabina
+anunciaba «Copia el texto del cuadro · 4 KB · 1 sesión» — con dos sesiones dentro.
+Reproducido con un doble de la base: dos días sembrados en la nube, la lectura
+rota, y el respaldo salió con `["2026-09-27"]` y ese mensaje. Ahora lanza, y no hay
+copia: **media copia es peor que ninguna**, porque la media parece entera.
+
+El hallazgo no es mío: viene de la revisión externa (PR #1). La mitad de esa PR que
+validaba la importación entra también, pero **reparando, no rechazando** — rechazar
+un registro sin `id` propio pierde un trade legítimo, y eso está probado. Entran los
+identificadores prohibidos (`__proto__`, `constructor`, `prototype`), el tope de 128
+caracteres, el error con el nombre de la sección que falló, la detención por
+identificador repetido, y los contadores de reparados y descartados **visibles en la
+vista previa antes de confirmar**.
+
+Y entra `Number.isInteger` en la versión, que el commit anterior decía haber adoptado
+y no había adoptado: con `isFinite`, una versión «1.5» pasaba.
+
+Ocho comprobaciones sobre el candidato, todas correctas.
 
 ### Coinciden — republicado el 2026-09-27 (versión 66) · frontera de importación
 
