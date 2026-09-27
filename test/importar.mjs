@@ -112,6 +112,11 @@ r = await importa(copia({ version: 'abc', trades: { ok1: BUENA } }), { confirmar
 ok(/no dice de qué versión|no dice de que version/i.test(r.trasRevisar.destello + r.trasRevisar.error),
    'una version NO NUMERICA se rechaza, y el motivo se lee', `«${(r.trasRevisar.destello || r.trasRevisar.error).slice(0, 78)}»`);
 ok(r.fin.trades.length === 0, 'y no entra nada', `${r.fin.trades.length} operaciones`);
+r = await importa(copia({ version: 1.5, trades: { ok1: BUENA } }), { confirmar: false });
+ok(/no dice de qué versión|no dice de que version/i.test(r.trasRevisar.destello + r.trasRevisar.error),
+   'una version con decimales tampoco vale: 1.5 no es ninguna version de este formato',
+   `«${(r.trasRevisar.destello || r.trasRevisar.error).slice(0, 72)}»`);
+ok(r.fin.trades.length === 0, 'y tampoco entra nada con 1.5', `${r.fin.trades.length} operaciones`);
 r = await importa(copia({ version: 99, trades: { ok1: BUENA } }), { confirmar: false });
 ok(/más nueva|mas nueva/i.test(r.trasRevisar.destello + r.trasRevisar.error),
    'una version MAS NUEVA se rechaza, y el motivo se lee', `«${(r.trasRevisar.destello || r.trasRevisar.error).slice(0, 78)}»`);
