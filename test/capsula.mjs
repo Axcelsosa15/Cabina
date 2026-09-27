@@ -211,11 +211,18 @@ await p.evaluate(() => FUT.updateAccount('cap1', { dd: 2500 }));
 await p.waitForFunction(n => window.__CAP.REG.sets.length > n, nSets, { timeout: 8000, polling: 50 });
 await p.waitForTimeout(900);
 const aviso = await p.evaluate(() => document.getElementById('jSaved').textContent.trim());
-paso('UN FALLO DE ESCRITURA se avisa en pantalla', /no se pudo guardar/i.test(aviso), `«${aviso}»`);
+paso('UN FALLO DE ESCRITURA se avisa en pantalla', /no se guard/i.test(aviso), `«${aviso}»`);
 paso('y el aviso trae el codigo del error, no un generico', /permission-denied/.test(aviso), `«${aviso}»`);
+/* El destello de arriba vive en `#jSaved`, que esta DENTRO de la pestana Cabina: en
+   las otras cinco no se ve, y a los 2,5 s se va. El aviso que importa es el de la
+   barra, que no se va solo -- `guardado.mjs` lo prueba en las seis pestanas. */
+await p.waitForTimeout(2800);
+const rotuloTrasFallo = await p.evaluate(() => document.getElementById('saveState').textContent.trim());
+paso('y el rotulo de la barra lo SIGUE diciendo cuando el destello ya se fue',
+  /sin guardar/i.test(rotuloTrasFallo), `a los 2,8 s: «${rotuloTrasFallo}»`);
 /* LIMITACION REAL, no un defecto de la prueba: cuando el db falla, el dato queda
-   solo en memoria. La app avisa, pero NO cae a localStorage, asi que al recargar
-   se pierde. Se afirma el comportamiento tal cual es para que quede escrito. */
+   solo en memoria. La app lo dice y no lo esconde, pero NO cae a localStorage, asi
+   que al recargar se pierde. Se afirma el comportamiento tal cual es. */
 const navTrasFallo = await p.evaluate(() => { try { return Object.keys(localStorage).filter(k => k.indexOf('cabina-mnq') === 0); } catch (e) { return []; } });
 paso('y NO cae en silencio a localStorage (dato en memoria: ver limitación)', navTrasFallo.length === 0, navTrasFallo.length ? navTrasFallo.join(', ') : 'ninguna clave');
 paso('y la promesa rechazada no revienta la pagina', !errs.some(e => e.startsWith('PAGEERROR')), errs.filter(e => e.startsWith('PAGEERROR')).join(' | ') || 'sin pageerror');

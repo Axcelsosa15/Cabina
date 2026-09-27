@@ -35,6 +35,7 @@ cabeza de quien escribía — en el fichero únicamente estaban etiquetadas §12
 | 17 | Un campo nuevo que se persiste: la ausencia significa algo | `rapido` |
 | 18 | Un dato importado no es una URL: se valida el esquema | `seguridad` |
 | 19 | Un respaldo a medias es peor que ninguno | `importar` |
+| 20 | Un cambio que no se guardó no puede parecer guardado | `guardado` |
 | — | *Que esta tabla no mienta* | `capa2` §14 |
 
 ---
@@ -849,6 +850,51 @@ Las reglas:
 
 ---
 
+## 20 · Un cambio que no se guardó no puede parecer guardado
+
+Cuando una escritura falla, la pantalla **ya muestra** el cambio y el almacenamiento
+no lo tiene. Ese desfase se dice donde se ve y no se va solo.
+
+Las reglas:
+
+- **No se dice «guardado» sin haber guardado.** Si la función de escritura devuelve
+  si pudo o no, se mira. `lsWrite` devolvía un booleano desde el principio y las ocho
+  llamadas a `lsPatch` lo tiraban.
+- **El aviso va donde se ve siempre.** Un mensaje en un elemento que vive dentro de
+  una pestaña no es un aviso: es un aviso para quien esté en esa pestaña.
+- **Un aviso que se va solo no es un aviso, es un recibo.** Mientras haya algo sin
+  guardar, se sigue diciendo. Se limpia cuando se guarda, no cuando pasa el tiempo.
+- **Se lleva por documento, no con un contador.** Si falla el día y luego entra bien
+  una operación, un contador a cero borraría el aviso del día, que sigue sin guardar.
+- **Avisar no es una política de respaldo.** Copiar a `localStorage` lo que la base
+  rechazó crea dos fuentes de verdad que pueden divergir, y eso es peor que el
+  problema que arregla. Decidirlo es de producto; decir la verdad no.
+
+> **Qué falló:** las seis puertas de escritura caían igual. Medido con el navegador,
+> antes de tocar nada:
+>
+> ```
+> localStorage lleno  ->  «guardado en este navegador»   y tras recargar, 0 operaciones
+> la base rechaza     ->  el rótulo seguía en «sincronizado» a los 2,8 s
+> ```
+>
+> El primero es una mentira plana: dice «guardado» cuando `setItem` lanzó. El segundo
+> es una verdad de 2,5 segundos seguida de una mentira — y esa verdad se escribía en
+> `#jSaved`, que está **dentro de la pestaña Cabina**: medido, invisible en 5 de las 6.
+> `#saveState`, el rótulo de la barra, se ve en las 6 y decía «sincronizado».
+>
+> El mismo defecto que el respaldo a medias (protocolo 19), un paso antes: allí se
+> perdía una copia, aquí se pierde la operación que acabas de escribir.
+>
+> **Y el propio arreglo tuvo que probarse contra su versión fácil.** Con un contador
+> global que cualquier éxito pone a cero, la suite se quedaba en verde: la aserción que
+> decía vigilar «un guardado bueno no tapa otro documento roto» no vigilaba nada,
+> porque el registro rápido escribe la ficha **y** el día, así que el día se rompía otra
+> vez en la misma acción y el contador volvía solo. Reescrita para guardar un documento
+> distinto —`settings/main`—, el sabotaje del contador pone **3** en rojo.
+
+---
+
 ## · Lo que ningún protocolo cubre
 
 *No es un protocolo: es la lista de lo que queda fuera del alcance de todos.*
@@ -869,9 +915,10 @@ Honestidad sobre los límites:
   contrato, la prueba seguiría **verde** y el artefacto estaría **roto**. Eso sólo
   lo detecta abrir el artefacto. Por eso el contrato está escrito en el
   encabezado del fichero y en el protocolo 13, no sólo codificado.
-- **Si el `db` falla al escribir, el dato se queda en memoria.** Medido: la app
-  avisa «no se pudo guardar (*código*)» — con el código real, no un genérico — pero
-  **no** cae a `localStorage`, así que al recargar se pierde. No se ha cambiado:
-  añadir ese respaldo altera el comportamiento de la app y eso está fuera del
-  alcance de esta auditoría. Queda afirmado tal cual es en `capsula.mjs`, así que
-  si alguien lo cambia, la prueba lo dirá.
+- **Si el `db` falla al escribir, el dato se queda en memoria.** Eso sigue igual, y
+  a propósito: la app **no** cae a `localStorage`, así que al recargar se pierde.
+  Elegir una segunda fuente de verdad es una decisión de producto —dos copias que
+  divergen es un problema peor— y no se toma en una auditoría. Lo que **sí** cambió
+  es que ya no lo disimula: el rótulo de la barra dice «SIN GUARDAR · *n*» con el
+  código del error, en las seis pestañas, hasta que se guarde (protocolo 20).
+  Afirmado en `capsula.mjs` y en `guardado.mjs`.

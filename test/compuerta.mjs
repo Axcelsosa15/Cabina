@@ -181,6 +181,11 @@ dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia'
      validacion que tira registros pasaria la mitad de las aserciones y seria peor
      que no tenerla. */
   dice('importar', 'suite', 'La frontera de importacion valida sin perder datos', 'persistencia');
+  /* La otra mitad de la misma idea: no basta con guardar bien, hay que DECIR
+     cuando no se pudo. Antes un guardado fallido se contaba con un destello de
+     2,5 s en un elemento oculto en 5 de las 6 pestanas, y el rotulo de la barra
+     seguia diciendo «sincronizado». */
+  dice('guardado', 'suite', 'Un cambio que no se guardo no parece guardado', 'persistencia');
 }
 
 /* ── ARTEFACTO · lo que SÍ se puede comprobar desde aquí ─────────────────────
