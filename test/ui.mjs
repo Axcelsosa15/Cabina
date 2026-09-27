@@ -39,6 +39,23 @@ await q.click('#accts .vacio button'); await q.waitForTimeout(400);
 ok(await q.isVisible('#ov.open'), 'y su botón abre el editor de cuenta');
 
 console.log('\n═══ ACCESIBILIDAD ═══');
+await p.click('.tabbtn[data-tab="futuros"]'); await p.waitForTimeout(120);
+ok(await p.getAttribute('.tabbtn[data-tab="futuros"]', 'aria-current') === 'page', 'la pestaña activa se anuncia como actual');
+await p.click('.tabbtn[data-tab="cabina"]'); await p.waitForTimeout(120);
+const saveA11y = await p.evaluate(() => {
+  const e = document.getElementById('saveState');
+  return { role: e.getAttribute('role'), live: e.getAttribute('aria-live') };
+});
+ok(saveA11y.role === 'status' && saveA11y.live === 'polite', 'el estado de guardado se anuncia sin interrumpir', JSON.stringify(saveA11y));
+const modalLabel = await q.getAttribute('#ov', 'aria-labelledby');
+ok(modalLabel === 'edTitle', 'el editor tiene nombre accesible', modalLabel || 'sin aria-labelledby');
+await q.click('#edCancel');
+ok(await q.evaluate(() => document.activeElement && document.activeElement.matches('#accts .vacio button')), 'al cerrar el editor vuelve el foco al control que lo abrió');
+const m = await (await b.newContext({viewport:{width:390,height:844}})).newPage();
+await m.goto('file://'+process.cwd()+'/preview.html'); await m.waitForTimeout(900);
+const saveDisplay = await m.evaluate(() => getComputedStyle(document.getElementById('saveState')).display);
+ok(saveDisplay !== 'none', 'el estado de guardado sigue visible en móvil', saveDisplay);
+await m.close();
 /* :focus-visible sólo se activa con teclado — .focus() por JS no cuenta, que
    es justo lo que se quiere: el contorno no aparece al hacer clic con ratón. */
 await p.click('body'); 
