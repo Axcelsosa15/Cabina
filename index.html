@@ -10803,7 +10803,11 @@
   async function allDayDocs() {
     if (state.db) {
       try { const q = await state.db.collection("days").limit(2000).get(); return q.docs.map(d => migrateDay(d.data())).filter(d => d && d.date); }
-      catch (e) { }
+      catch (e) {
+        const err = new Error("No se pudo leer la base del artefacto para preparar la copia.");
+        err.code = "backup_source_unavailable";
+        throw err;
+      }
     }
     const l = lsRead().days || {};
     return Object.values(l).filter(d => d && d.date).map(migrateDay);
@@ -10886,6 +10890,7 @@
     if (c === "too_large") return "el archivo es demasiado grande para descargarlo. Prueba sin meter las capturas.";
     if (c === "rate_limited") return "hay otra descarga esperando respuesta. Termina esa y vuelve.";
     if (c === "unavailable" || c === "not_granted") return "esta vista no deja descargar archivos. Usa «Ver el texto» y cópialo a mano.";
+    if (c === "backup_source_unavailable") return "no se pudo leer toda la base. No se descargó una copia incompleta.";
     return "no se pudo descargar el archivo.";
   }
   async function bkBuildWithProgress(withImgs) {
@@ -10918,7 +10923,11 @@
       try { await navigator.clipboard.writeText(txt); copiado = true; } catch { copiado = false; }
       bkSay(`${copiado ? "Copiado al portapapeles" : "Copia el texto del cuadro"} · ${bkSize(txt)} · ${st.text}.`);
       openEditor({ title: "Copia de Cabina · " + bkName(), fields: [{ key: "j", label: copiado ? "Ya está en el portapapeles. Pégalo donde quieras guardarlo." : "Selecciona todo y cópialo", type: "textarea", w: 6, rows: 14 }], values: { j: txt }, onSave: () => { } });
-    } catch (err) { bkSay("no se pudo preparar la copia.", true); }
+    } catch (err) {
+      bkSay(err && err.code === "backup_source_unavailable"
+        ? "no se pudo preparar la copia: no se pudo leer toda la base."
+        : "no se pudo preparar la copia.", true);
+    }
     btn.disabled = false; btn.textContent = "Ver el texto";
   });
   // Acepta tanto {id: doc} como [doc]: así una copia editada a mano sigue entrando.
