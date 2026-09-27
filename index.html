@@ -10922,16 +10922,45 @@
     btn.disabled = false; btn.textContent = "Ver el texto";
   });
   // Acepta tanto {id: doc} como [doc]: así una copia editada a mano sigue entrando.
+  /* Cada registro de esta cabina se direcciona por su `id` —o por su `date`, en el
+     caso de los días—. Un registro que entra SIN él es un registro que nada puede
+     referenciar con fiabilidad: borrarlo, editarlo o enlazarlo desde una tesis deja
+     de comportarse.
+
+     Medido, porque no era evidente: un respaldo con `trades: { sinId: {…} }` —sin
+     `id` DENTRO del objeto— se importaba, y la app lo veía como `id: "undefined"`.
+     La clave del objeto servía para colocarlo en el mapa y luego se perdía.
+
+     SE REPARA, NO SE RECHAZA. Tirar una operación legítima porque un export viejo
+     omitió el campo sería destructivo, y este mismo fichero dice más abajo que un
+     borrado masivo en la nube no se deshace. La clave bajo la que venía ES un
+     identificador perfectamente bueno: se le asigna. Sólo se descarta lo que no
+     tiene ni campo ni clave utilizable.
+
+     Los escalares (`"cadena"`, `42`, `null`) ya se descartaban por el
+     `typeof x === "object"`, comprobado midiendo: no entraban. */
   function bkMap(v, key) {
     const m = {};
-    if (Array.isArray(v)) v.forEach(x => { if (x && typeof x === "object" && x[key]) m[String(x[key])] = x; });
-    else if (v && typeof v === "object") Object.keys(v).forEach(k => { const x = v[k]; if (x && typeof x === "object") m[String(x[key] || k)] = x; });
+    const meter = (x, clave) => {
+      if (!x || typeof x !== "object" || Array.isArray(x)) return;
+      const propio = x[key] == null ? "" : String(x[key]);
+      const id = propio !== "" ? propio : String(clave == null ? "" : clave);
+      if (!id || id === "undefined" || id === "null") return;
+      /* El registro sale SIEMPRE con su identificador dentro, no sólo como clave. */
+      m[id] = propio === id ? x : Object.assign({}, x, { [key]: id });
+    };
+    if (Array.isArray(v)) v.forEach(x => meter(x, null));
+    else if (v && typeof v === "object") Object.keys(v).forEach(k => meter(v[k], k));
     return m;
   }
   function bkParse(txt) {
     let raw; try { raw = JSON.parse(txt); } catch { return { err: "El texto no es JSON válido." }; }
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { err: "El archivo no tiene la forma de una copia de Cabina." };
     if (raw.format !== BK_FORMAT) return { err: "Esto no es una copia de Cabina: falta la marca del formato." };
+    /* `Number("abc") > 1` es false, asi que una version no numerica se colaba por la
+       comprobacion de abajo sin que nadie la mirara. Una copia cuya version no se
+       puede leer no se sabe interpretar: se dice y se para. */
+    if (!Number.isFinite(Number(raw.version)) || Number(raw.version) < 1) return { err: `La copia no dice de qué versión es (trae «${String(raw.version).slice(0, 20)}»), así que no se sabe cómo leerla.` };
     if (Number(raw.version) > BK_VERSION) return { err: `La copia es de una versión más nueva (v${raw.version}) que esta cabina (v${BK_VERSION}). Actualiza la página antes de importarla.` };
     const b = { days: bkMap(raw.days, "date") };
     COLLS.forEach(n => { b[n] = bkMap(raw[n], "id"); });

@@ -176,6 +176,11 @@ dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia'
      `imgSrc`, importar un respaldo ajeno hace que el navegador PIDA la url que diga
      ese fichero. Comprobado con sabotaje: pidio `blob:` y `file:` de verdad. */
   dice('seguridad', 'suite', 'Las propiedades de seguridad de la fase 0 siguen en pie', 'index.html');
+  /* La UNICA superficie que acepta datos escritos por otra persona. Vigila las dos
+     direcciones: que no entre basura Y que no se pierda nada legitimo -- una
+     validacion que tira registros pasaria la mitad de las aserciones y seria peor
+     que no tenerla. */
+  dice('importar', 'suite', 'La frontera de importacion valida sin perder datos', 'persistencia');
 }
 
 /* ── ARTEFACTO · lo que SÍ se puede comprobar desde aquí ─────────────────────

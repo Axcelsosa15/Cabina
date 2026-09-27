@@ -145,7 +145,38 @@ lo dispara código de terceros.
 **Qué falta.** Declarar `permissions: contents: read` explícitamente. Eso elimina la
 dependencia de un ajuste que no se puede verificar, que es el motivo real para hacerlo.
 
-### 3.3 · La importación no valida tipos, y el motor sí
+### 3.3 · La importación no valida tipos, y el motor sí — **corregido en parte, y medido**
+
+> **Actualización del mismo día.** Un colaborador externo (ChatGPT, sobre un clon
+> local) señaló esta área y propuso rechazar «versiones inválidas, secciones mal
+> formadas, registros escalares, identificadores ausentes, duplicados y claves de
+> prototipo». Se midió cada afirmación conduciendo la interfaz real de importación,
+> y el resultado es mixto — por eso se escribe, en vez de repetirla:
+>
+> | afirmación | medido |
+> |---|---|
+> | registros escalares | **ya se rechazaban**: `'cadena'`, `42`, `null` y `[1,2]` no entraban. Defensa en profundidad, no un fallo |
+> | **identificadores ausentes** | **REAL**. Un respaldo con `trades: { sinId: {…} }` sin `id` dentro se importaba, y la app lo veía como `id: "undefined"` |
+> | claves de prototipo | **no explotable aquí**. `Object.prototype` quedó limpio: `Object.assign` con `__proto__` cambia el prototipo del *destino*, no añade nada al global |
+> | versión inválida | **REAL en un caso**: `Number("abc") > 1` es `false`, así que una versión no numérica pasaba sin que nadie la mirara |
+>
+> Y se descubrió algo que ninguna de las dos auditorías tenía documentado: **la
+> importación exige teclear `IMPORTAR`** antes de escribir nada. Tres pasos —pegar,
+> revisar, confirmar— con una confirmación escrita al final.
+>
+> **Arreglado, y al revés de lo propuesto: se REPARA, no se rechaza.** Tirar una
+> operación legítima porque un export viejo omitió el `id` sería destructivo, y este
+> repositorio ya dice que un borrado masivo en la nube no se deshace. La clave bajo
+> la que venía el registro *es* un identificador bueno: se le asigna. Sólo se
+> descarta lo que no tiene ni campo ni clave utilizable.
+>
+> `test/importar.mjs` lo vigila en **las dos direcciones**, que es el punto: que no
+> entre basura **y que no se pierda nada legítimo**. Comprobado con dos sabotajes —
+> uno que vuelve a perder el `id` (2 filas rojas) y otro que tira el registro en vez
+> de repararlo (2 filas rojas). El segundo es el que importa: es el fallo que la
+> propuesta original habría introducido.
+
+#### El diagnóstico original
 
 **Riesgo.** Un respaldo puede poner una cadena donde el modelo espera un número,
 `Infinity`, `NaN`, o un objeto donde va un escalar.
