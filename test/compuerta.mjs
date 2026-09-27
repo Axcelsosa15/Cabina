@@ -160,6 +160,15 @@ dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia'
      consolide, pasa a vigilar que la consolidacion no cambio ningun numero. */
   dice('equivalencia', 'suite', 'La capa de riesgo de la UI da los mismos numeros que el motor', 'divergencia');
 }
+{
+  /* La tercera forma de crear una segunda fuente de verdad no es copiar una
+     formula: es abrir una segunda PUERTA DE ENTRADA. El registro rapido escribe
+     operaciones con un P&L escrito a mano, y la unica razon por la que eso no
+     duplica nada es que pasa por `pnl` -> tradeCalc -> QE.calcularTradeApp, igual
+     que el editor completo. Sabotearlo para que escriba `pnlEff` directamente deja
+     la operacion valiendo cero en todo lo derivado; esta fila es lo que lo vigila. */
+  dice('rapido', 'suite', 'El registro rapido escribe en el modelo canonico, no en un segundo', 'divergencia');
+}
 
 /* ── ARTEFACTO · lo que SÍ se puede comprobar desde aquí ─────────────────────
    Se comprueba que esté ANOTADO y que la anotación tenga forma de versión real.

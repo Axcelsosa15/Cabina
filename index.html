@@ -1421,6 +1421,38 @@
   }
 
   footer { margin-top:32px; font-family: var(--font-mono); font-size: 11px; color: var(--dim); display: flex; flex-wrap: wrap; gap:8px 24px; }
+
+  /* ---------- REGISTRO RÁPIDO ----------
+     Una operación en 5 segundos. El panel es pequeño a propósito: si crece, deja
+     de ser rápido y se convierte en el formulario que ya existe. */
+  .qkbtn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+  .qk { width: 100%; max-width: 440px; }
+  .qk .body { padding:16px 16px; display: grid; gap:12px; }
+  .qk .qin { width: 100%; font-family: var(--font-mono); font-size: 21px; font-weight: 600;
+    letter-spacing: .02em; text-align: center; padding:12px 8px; }
+  .qk .qhint { font-family: var(--font-mono); font-size: 11px; color: var(--dim); text-align: center; }
+  /* La vista previa es obligatoria: nunca se guarda una entrada sin mostrar qué
+     se entendió y qué queda vacío. */
+  .qkprev { border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); padding:12px 12px;
+    display: grid; gap:8px; font-family: var(--font-mono); font-size: 12.5px; }
+  .qkprev .big { font-size: 24px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .qkprev .kv { display: grid; grid-template-columns: auto 1fr; gap:3px 12px; }
+  .qkprev .kv b { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  .qkprev .kv span.na { color: var(--dim); font-style: italic; }
+  .qkprev .warn { color: var(--warning); }
+  .qkprev .bad { color: var(--negative); }
+  .qkchips { display: flex; gap:4px; flex-wrap: wrap; }
+  .qkchip { padding:4px 8px; border-radius: var(--r-pill); border: 1px solid var(--line-strong);
+    background: var(--bg); color: var(--muted); font-family: var(--font-mono); font-size: 11px; cursor: pointer; }
+  .qkchip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .qkseg { display: flex; gap:2px; }
+  /* Un botón deshabilitado que sigue pareciendo pulsable es peor que uno ausente:
+     invita a hacer clic y no pasa nada. La regla general de la app baja la opacidad
+     al 55 %, y un acento saturado al 55 % sobre fondo oscuro se sigue leyendo como
+     activo. Aquí pierde el relleno, que es lo que comunica «se puede pulsar».
+     Encontrado mirando la captura, no leyendo el CSS. */
+  .qk .btn:disabled, .qk .btn.primary:disabled {
+    background: var(--surface-2); color: var(--dim); border-color: var(--line); opacity: 1; }
 </style>
 
 <div class="topbar">
@@ -1434,6 +1466,7 @@
     <span id="sessionPill" class="pill off"><span class="dot"></span><span id="sessionLabel">—</span></span>
     <span><span id="etTime" class="time">--:--:--</span> <span class="tz">ET · Nueva York</span></span>
     <span id="saveState" class="save-state">guardado local</span>
+    <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)">+ Rápido</button>
     <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
     <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
   </div>
@@ -1954,6 +1987,48 @@
       <span class="sp"></span>
       <button type="button" class="btn ghost" id="edCancel">Cancelar</button>
       <button type="button" class="btn primary" id="edSave">Guardar</button>
+    </footer>
+  </div>
+</div>
+<div class="ov" id="quickOv" role="dialog" aria-modal="true" aria-labelledby="qkTitle">
+  <div class="ed qk">
+    <header>
+      <h3 id="qkTitle">Registro rápido</h3>
+      <button type="button" class="icon" id="qkClose" aria-label="Cerrar">×</button>
+    </header>
+    <div class="body">
+      <div class="seg qkseg" role="tablist" aria-label="Qué registrar">
+        <button type="button" class="active" id="qkModoOp" role="tab" aria-selected="true">Operación</button>
+        <button type="button" id="qkModoNota" role="tab" aria-selected="false">Nota del día</button>
+      </div>
+
+      <div id="qkOp">
+        <label class="lab" for="qkText">Instrumento, dirección y resultado</label>
+        <input class="qin" id="qkText" type="text" autocomplete="off" spellcheck="false"
+               placeholder="NQ +185" aria-describedby="qkHint">
+        <p class="qhint" id="qkHint">NQ +185 &nbsp;·&nbsp; NQ L +185 &nbsp;·&nbsp; MNQ short -90</p>
+        <div class="qkprev" id="qkPrev" aria-live="polite"></div>
+        <div>
+          <span class="lab">Calidad de ejecución <span style="text-transform:none;letter-spacing:0">· opcional</span></span>
+          <div class="qkchips" id="qkCal"></div>
+        </div>
+        <div>
+          <span class="lab">Qué pasó <span style="text-transform:none;letter-spacing:0">· opcional, se guarda como etiqueta</span></span>
+          <div class="qkchips" id="qkTags"></div>
+        </div>
+      </div>
+
+      <div id="qkNotaBox" hidden>
+        <label class="lab" for="qkNota">Cómo fue la sesión</label>
+        <textarea id="qkNota" rows="4" placeholder="Una frase basta. Se añade a la nota del día."></textarea>
+        <p class="qhint">Se guarda en la nota del día que ya existe, no en un sitio nuevo.</p>
+      </div>
+    </div>
+    <footer>
+      <span class="sp"></span>
+      <button type="button" class="btn ghost" id="qkCancel">Cancelar</button>
+      <button type="button" class="btn" id="qkDetalles">Añadir detalles</button>
+      <button type="button" class="btn primary" id="qkSave">Guardar</button>
     </footer>
   </div>
 </div>
@@ -6698,6 +6773,12 @@
         if (type === "futuros") rec.instrument = rec.instrument.toUpperCase();
         delete rec.pnlEff; delete rec.rReal; delete rec.rPlanned; delete rec.riskUsd; delete rec.multUnknown;
         if (isNew && type === "futuros") { const g = tradeGate(); if (g.blocked) { rec.offProtocol = g.razones.map(r => r.t); } }
+        /* PROCEDENCIA. Una operación nueva escrita en este editor es «manual». Las
+           que ya estaban NO se rellenan hacia atrás: la ausencia del campo significa
+           «desconocida», y escribir «manual» sobre ellas sería inventar el dato que
+           este campo existe para no inventar. Editar una vieja conserva su ausencia,
+           porque `values` la arrastra tal cual. */
+        if (isNew && !rec.source) rec.source = "manual";
         coll("trades").set(rec.id, rec);
         /* Quien abrió el editor puede necesitar saber qué id salió — una tesis,
            por ejemplo, para enlazar su post-mortem sin que nadie copie la R. */
@@ -6707,6 +6788,197 @@
       onDelete: isNew ? null : () => coll("trades").remove(t.id),
     });
   }
+
+  /* =============================== REGISTRO RÁPIDO ===============================
+     Una operación en 5 segundos, cuando estás cansado y el formulario completo es
+     la razón por la que no la registras. El número de operaciones registradas es el
+     cuello de botella real de un journal: una entrada incompleta vale más que una
+     entrada que no existe.
+
+     LO QUE **NO** ES: un segundo modelo. Escribe con `coll("trades").set()`, el
+     mismo `tradeCalc` deriva el P&L, y el motor es el mismo. Se apoya en dos cosas
+     que ya existían y que no hubo que inventar:
+
+       · el campo `pnl` del editor —«Resultado $ (manual)», «vacío = se calcula»— y
+         la regla del motor que lo respeta: «un P&L escrito a mano siempre gana sobre
+         el calculado: es un hecho reportado, no una estimación» (index.js:80).
+         Medido: `calcularTradeApp({instrument:"NQ", direction:"long", pnl:185})` da
+         `pnlEff 185`, `rReal null`, `riskUsd null` y el motivo en `calcError`. O sea
+         que el motor YA se niega a inventar la R y el riesgo que no puede saber.
+       · la sesión, que NO se guarda: se deriva de la hora con `sesAt(minOfTime())`.
+         La vista previa la muestra como lo que es, un valor derivado.
+
+     NUNCA INVENTA. Lo que no se puede determinar queda vacío y la vista previa lo
+     dice con su nombre. Y la vista previa es obligatoria: no hay camino que guarde
+     sin haber mostrado antes qué se entendió. */
+  const QK_DIR = { long: "long", l: "long", largo: "long", buy: "long", compra: "long", alza: "long",
+                   short: "short", s: "short", corto: "short", sell: "short", venta: "short", baja: "short" };
+  /* Las etiquetas rápidas salen del mismo campo `tags` que el editor ya usa para
+     «ver qué error se repite». No es una taxonomía nueva. */
+  const QK_TAGS = ["fomo", "forzada", "entrada temprana", "entrada tarde", "revenge", "según el plan"];
+  const QK_CAL = [["A", "A · según protocolo"], ["B", "B · desviación menor"], ["C", "C · fuera del protocolo"]];
+  const qk = { cal: "", tags: [], modo: "op", ultimo: null };
+
+  function qkHoraET() { const n = etNow(); return `${String(Math.floor(n.min / 60)).padStart(2, "0")}:${String(n.min % 60).padStart(2, "0")}`; }
+  /* Un número con o sin signo, con $ y separadores de miles. Devuelve null si no lo es. */
+  function qkNum(tok) {
+    const m = String(tok).replace(/\$/g, "").replace(/\s/g, "").match(/^([+-]?)(\d+(?:[.,]\d+)?)$/);
+    if (!m) return null;
+    const v = Number(m[2].replace(",", "."));
+    if (!Number.isFinite(v)) return null;
+    return { valor: m[1] === "-" ? -v : v, conSigno: m[1] !== "" };
+  }
+  /* El parser. Devuelve lo entendido, lo que sobra y lo que es ambiguo. No decide
+     nada por su cuenta: quien decide es la vista previa y el botón de guardar. */
+  function qkParse(texto) {
+    const simbolos = Object.keys(QE.CONTRACTS || {});
+    const tok = String(texto || "").trim().split(/[\s\n,;]+/).filter(Boolean);
+    const r = { instrument: null, direction: null, pnl: null, pnlConSigno: false,
+                sobra: [], ambiguo: [], vacio: !tok.length };
+    for (const t of tok) {
+      const alto = t.toUpperCase(), bajo = t.toLowerCase();
+      if (simbolos.indexOf(alto) >= 0) {
+        if (r.instrument && r.instrument !== alto) r.ambiguo.push(`dos instrumentos: «${r.instrument}» y «${alto}»`);
+        else r.instrument = alto;
+        continue;
+      }
+      if (QK_DIR[bajo]) {
+        const d = QK_DIR[bajo];
+        if (r.direction && r.direction !== d) r.ambiguo.push(`dos direcciones: «${r.direction}» y «${d}»`);
+        else r.direction = d;
+        continue;
+      }
+      const n = qkNum(t);
+      if (n) {
+        if (r.pnl !== null) r.ambiguo.push(`dos números: ${r.pnl} y ${n.valor}`);
+        else { r.pnl = n.valor; r.pnlConSigno = n.conSigno; }
+        continue;
+      }
+      /* Nada silencioso: un token que no se entiende se NOMBRA. */
+      r.sobra.push(t);
+    }
+    return r;
+  }
+  /* Lo que la app ya sabe y por tanto puede completar. Nada más. */
+  function qkEnrich(p) {
+    const n = etNow();
+    const hora = qkHoraET();
+    const min = minOfTime(hora);
+    const cerrado = marketClosed(n);
+    return {
+      date: state.today || n.date,
+      time: hora,
+      accountId: FUT.selectedAccountId() || "",
+      /* La sesión es DERIVADA, no un campo: se muestra, no se guarda. Y si el
+         mercado está cerrado no se afirma ninguna de las ocho sesiones. */
+      sesionDerivada: cerrado ? null : (sesAt(min) || null),
+      mercadoCerrado: cerrado,
+      instrument: p.instrument, direction: p.direction, pnl: p.pnl,
+    };
+  }
+  function qkPinta() {
+    const el = $("qkPrev"); if (!el) return;
+    const p = qkParse($("qkText").value), e = qkEnrich(p);
+    $("qkSave").disabled = $("qkDetalles").disabled = !(p.instrument && p.pnl !== null && !p.ambiguo.length);
+    if (p.vacio) { el.innerHTML = `<span class="na">Escribe el instrumento, la dirección y el resultado. La vista previa aparece aquí antes de guardar nada.</span>`; return; }
+    const falta = [];
+    if (!p.instrument) falta.push("el instrumento");
+    if (p.pnl === null) falta.push("el resultado");
+    const cta = e.accountId ? acctLabel(e.accountId) : null;
+    const filas = [
+      ["cuenta", cta, cta ? "" : "ninguna seleccionada · la operación queda sin cuenta"],
+      ["sesión", e.sesionDerivada ? e.sesionDerivada.short : null,
+        e.mercadoCerrado ? "mercado cerrado · no se afirma ninguna sesión" : "sin hora válida"],
+      ["fecha", e.date, ""], ["hora", e.time + " ET", ""],
+      ["dirección", p.direction, "no escrita · queda vacía"],
+    ];
+    el.innerHTML = `
+      <div class="big ${p.pnl > 0 ? "pos" : p.pnl < 0 ? "neg" : ""}">${p.instrument || "—"} ${p.direction ? p.direction.toUpperCase() : ""} ${p.pnl === null ? "" : (p.pnl >= 0 ? "+" : "") + money(p.pnl)}</div>
+      <div class="kv">${filas.map(([k, v, no]) => `<b>${k}</b>${v ? `<span>${esc(String(v))}</span>` : `<span class="na">${esc(no)}</span>`}`).join("")}
+        <b>procedencia</b><span>quick_add</span></div>
+      ${falta.length ? `<div class="bad">No se puede guardar: falta ${falta.join(" y ")}.</div>` : ""}
+      ${p.ambiguo.length ? `<div class="bad">Ambiguo, no se interpreta solo: ${esc(p.ambiguo.join(" · "))}.</div>` : ""}
+      ${p.sobra.length ? `<div class="warn">Sin reconocer, no se guarda: ${esc(p.sobra.join(" · "))}.</div>` : ""}
+      ${p.pnl !== null && !p.pnlConSigno ? `<div class="warn">Escribiste ${p.pnl} sin signo y se lee como GANANCIA. Escribe −${p.pnl} si fue pérdida.</div>` : ""}
+      ${p.instrument && p.pnl !== null ? `<div class="na">R y riesgo quedan vacíos: sin entrada ni stop el motor no los puede calcular, y no se inventan. Se completan en «Añadir detalles».</div>` : ""}`;
+  }
+  /* Guardar: un solo registro canónico, por la puerta de siempre. */
+  function qkGuarda(abrirDetalles) {
+    const p = qkParse($("qkText").value);
+    if (!p.instrument || p.pnl === null || p.ambiguo.length) return;
+    const e = qkEnrich(p);
+    const rec = {
+      id: uid("t"), type: "futuros",
+      date: e.date, time: e.time, accountId: e.accountId,
+      instrument: p.instrument, pnl: p.pnl,
+      /* La procedencia. Absente en las operaciones de antes: eso significa
+         «desconocida», no «manual». No se rellena hacia atrás porque inventarlo
+         sería exactamente lo que este campo existe para evitar. */
+      source: "quick_add",
+      createdAt: Date.now(), updatedAt: Date.now(),
+    };
+    if (p.direction) rec.direction = p.direction;
+    if (qk.cal) rec.quality = qk.cal;
+    if (qk.tags.length) rec.tags = qk.tags.join(", ");
+    coll("trades").set(rec.id, rec);
+    qk.ultimo = rec.id;
+    qkCierra();
+    if (abrirDetalles) { const t = coll("trades").get(rec.id); if (t) openTrade(t); return; }
+    revealTrade(rec);
+    flash(`${rec.instrument} ${(rec.pnl >= 0 ? "+" : "") + money(rec.pnl)} registrada · rápida`);
+  }
+  function qkGuardaNota() {
+    const txt = $("qkNota").value.trim(); if (!txt) return;
+    /* La nota del día que ya existe. No hay un journal paralelo. */
+    const prev = state.day.note || "";
+    state.day.note = prev ? prev.replace(/\s+$/, "") + "\n" + txt : txt;
+    persistDay();
+    if (typeof renderJournalDay === "function") renderJournalDay();
+    qkCierra(); flash("añadido a la nota del día");
+  }
+  function qkModo(m) {
+    qk.modo = m;
+    $("qkOp").hidden = m !== "op"; $("qkNotaBox").hidden = m !== "nota";
+    $("qkModoOp").classList.toggle("active", m === "op");
+    $("qkModoNota").classList.toggle("active", m === "nota");
+    $("qkModoOp").setAttribute("aria-selected", String(m === "op"));
+    $("qkModoNota").setAttribute("aria-selected", String(m === "nota"));
+    $("qkDetalles").hidden = m !== "op";
+    $("qkSave").disabled = m === "nota" ? !$("qkNota").value.trim() : $("qkSave").disabled;
+    (m === "op" ? $("qkText") : $("qkNota")).focus();
+  }
+  function qkAbre() {
+    qk.cal = ""; qk.tags = [];
+    $("qkText").value = ""; $("qkNota").value = "";
+    $("qkCal").innerHTML = QK_CAL.map(([v, l]) => `<button type="button" class="qkchip" data-cal="${v}" aria-pressed="false">${esc(l)}</button>`).join("");
+    $("qkTags").innerHTML = QK_TAGS.map(t => `<button type="button" class="qkchip" data-tag="${esc(t)}" aria-pressed="false">${esc(t)}</button>`).join("");
+    $("quickOv").classList.add("open");
+    qkModo("op"); qkPinta();
+  }
+  function qkCierra() { $("quickOv").classList.remove("open"); }
+
+  $("quickBtn").addEventListener("click", qkAbre);
+  $("qkClose").addEventListener("click", qkCierra);
+  $("qkCancel").addEventListener("click", qkCierra);
+  $("quickOv").addEventListener("click", e => { if (e.target === $("quickOv")) qkCierra(); });
+  $("qkText").addEventListener("input", qkPinta);
+  $("qkNota").addEventListener("input", () => { $("qkSave").disabled = !$("qkNota").value.trim(); });
+  $("qkModoOp").addEventListener("click", () => qkModo("op"));
+  $("qkModoNota").addEventListener("click", () => qkModo("nota"));
+  $("qkSave").addEventListener("click", () => { if (qk.modo === "nota") qkGuardaNota(); else qkGuarda(false); });
+  $("qkDetalles").addEventListener("click", () => qkGuarda(true));
+  $("qkCal").addEventListener("click", e => { const b = e.target.closest("[data-cal]"); if (!b) return;
+    qk.cal = qk.cal === b.dataset.cal ? "" : b.dataset.cal;
+    Array.prototype.forEach.call($("qkCal").children, x => x.setAttribute("aria-pressed", String(x.dataset.cal === qk.cal))); });
+  $("qkTags").addEventListener("click", e => { const b = e.target.closest("[data-tag]"); if (!b) return;
+    const t = b.dataset.tag, i = qk.tags.indexOf(t);
+    if (i >= 0) qk.tags.splice(i, 1); else qk.tags.push(t);
+    b.setAttribute("aria-pressed", String(i < 0)); });
+  /* Enter guarda si se puede; Escape cierra. Un registro rápido que pide ratón no
+     es rápido. */
+  $("qkText").addEventListener("keydown", e => { if (e.key === "Enter" && !$("qkSave").disabled) { e.preventDefault(); qkGuarda(false); } });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && $("quickOv").classList.contains("open")) qkCierra(); });
+
   /* Acabas de guardar una operación: verla es lo que esperas. Si un filtro la
      escondería, se quita ese filtro y se dice cuál era, en vez de dejarte
      mirando una tabla vacía con el contador diciendo que hay una. */

@@ -32,7 +32,7 @@ engine/quant/*.js          los 11 módulos FUENTE del motor
 engine/QuantEngine.bundle.js   generado por `npm run bundle`
 engine/MathEngine.js       motor v1, REFERENCIA histórica — la app no lo usa
 
-test/                      55 archivos · 49 pruebas + 6 herramientas
+test/                      56 archivos · 50 pruebas + 6 herramientas
   └─ correr.mjs            el runner: un proceso por archivo, veredicto por salida
 ```
 
@@ -90,7 +90,7 @@ También se abre como archivo suelto (`file://`), con las limitaciones de abajo.
 
 ```sh
 npm run preview         # regenera test/preview.html desde index.html — NO es opcional
-npm test                # las 52 suites
+npm test                # las 53 suites
 npm test motor          # sólo el motor
 npm test humo           # sólo el smoke test de producción
 npm run compuerta       # la suite + la tabla de la cadena (lo que corre CI)
@@ -116,6 +116,67 @@ Dos destinos, y el código es el mismo:
 
 ---
 
+## Registro rápido
+
+El cuello de botella de un journal no es el análisis: es que la operación **se
+registre**. Un formulario de quince campos después de una sesión mala produce cero
+registros, y un registro incompleto vale más que uno que no existe.
+
+`+ Rápido`, en la barra superior y por tanto en las seis superficies, abre un panel
+donde se escribe una línea:
+
+```
+NQ +185          NQ L +185          MNQ short -90
+```
+
+Y guarda. La app completa lo que **ya sabe** —fecha, hora ET, cuenta seleccionada— y
+deja vacío lo que no puede saber.
+
+**No es un segundo modelo.** Escribe con `coll("trades").set()`, el mismo `tradeCalc`
+deriva el P&L y el mismo motor lo calcula. Se apoya en dos cosas que ya existían:
+
+- el campo `pnl` del editor —«Resultado $ (manual)», «vacío = se calcula»— y la regla
+  del motor que lo respeta: *«un P&L escrito a mano siempre gana sobre el calculado:
+  es un hecho reportado, no una estimación»*;
+- la sesión, que **no se guarda**: se deriva de la hora con `sesAt(minOfTime())`. La
+  vista previa la muestra como lo que es, un valor derivado.
+
+**Nunca inventa.** Medido: `calcularTradeApp({instrument:"NQ", direction:"long",
+pnl:185})` da `pnlEff 185`, `rReal null`, `riskUsd null` y el motivo en `calcError`.
+El motor ya se negaba a inventar la R y el riesgo que no puede saber; el panel lo dice
+en pantalla en vez de esconderlo.
+
+**La vista previa es obligatoria.** No hay camino que guarde sin mostrar antes qué se
+entendió, qué queda vacío y qué no se reconoció:
+
+| entrada | qué hace |
+|---|---|
+| `NQ ES +185 +90 pepino` | se niega: «dos instrumentos», «dos números», y nombra `pepino` |
+| `NQ 185` | avisa de que un número sin signo se lee como **ganancia** |
+| `+185` | no se puede guardar: falta el instrumento, y lo dice |
+| `ZZZ +185` | un instrumento que el motor no conoce no se acepta |
+
+La calidad de ejecución y las etiquetas son opcionales y usan **los campos que ya
+existían**: `quality` (A · según protocolo / B · desviación menor / C · fuera del
+protocolo) y `tags`. No hay taxonomía nueva.
+
+### La procedencia, y por qué su ausencia significa algo
+
+Cada operación guarda de dónde vino:
+
+| | |
+|---|---|
+| `quick_add` | escrita en el panel rápido |
+| `manual` | escrita en el editor completo, a partir de ahora |
+| *ausente* | **anterior al campo: no se sabe** |
+
+Las operaciones que ya existían **no se rellenan hacia atrás**. Marcarlas todas como
+`manual` habría sido inventar cientos de procedencias que nadie comprobó — y el único
+propósito del campo es medir si las entradas rápidas salen peor documentadas que las
+completas, que es justo la comparación que ese relleno contaminaría. Protocolo 17.
+
+---
+
 ## La compuerta de publicación
 
 `npm run compuerta` (`test/compuerta.mjs`) es lo que decide si esto se publica.
@@ -127,7 +188,7 @@ corrida extra. Lo que añade es recorrer la cadena entera eslabón por eslabón:
 fuente → motor → bundle → index.html → pages → artefacto
 ```
 
-Imprime 17 filas con tres veredictos, y la distinción es el punto del ejercicio:
+Imprime 18 filas con tres veredictos, y la distinción es el punto del ejercicio:
 
 | | |
 |---|---|
@@ -135,7 +196,7 @@ Imprime 17 filas con tres veredictos, y la distinción es el punto del ejercicio
 | `FAIL` | la comprobación se hizo y salió mal — sale con código 1 |
 | `UNKNOWN` | **no puede comprobarse automáticamente desde aquí** |
 
-Hoy son **13 PASS · 0 FAIL · 4 UNKNOWN** de 17 filas. Las cuatro `UNKNOWN` son fronteras de
+Hoy son **14 PASS · 0 FAIL · 4 UNKNOWN** de 18 filas. Las cuatro `UNKNOWN` son fronteras de
 plataforma, no pruebas que falten: que el artefacto publicado sea igual a
 `index.html`, que el `db` real de claude.ai se comporte como el doble de
 `capsula.mjs`, que la URL de Pages sirva, y que el CDN de GitHub entregue lo
@@ -185,7 +246,7 @@ resuelve.
   puede hacer.
 - **`file://` tira el almacén al recargar**, de forma intermitente. Por eso el
   smoke test usa HTTP y dos pruebas abren una pestaña nueva en vez de recargar.
-- **33 de las 49 pruebas de `test/` no afirman nada**: miden y registran. Su
+- **33 de las 50 pruebas de `test/` no afirman nada**: miden y registran. Su
   único modo de fallo es romperse. Las 15 que afirman están contadas abajo, y
   tanto el número como la lista los imprime `npm test`, no un `grep` sobre el
   código — ver protocolo 14.
@@ -208,12 +269,12 @@ resuelve.
 
 | | |
 |---|---|
-| Suites que se ejecutan | **52** (49 de `test/` + 3 del motor) |
+| Suites que se ejecutan | **53** (50 de `test/` + 3 del motor) |
 | Aserciones del motor | **421** (`quant` 329 · `math` 92) |
-| Aserciones de navegador y guardianes | **553** en 16 archivos — las cuenta la propia suite |
+| Aserciones de navegador y guardianes | **616** en 17 archivos — las cuenta la propia suite |
 | Cobertura de la capa `db` del artefacto | **28** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
-| Compuerta de publicación | **13 PASS · 0 FAIL · 4 `UNKNOWN`** de 17 filas |
+| Compuerta de publicación | **14 PASS · 0 FAIL · 4 `UNKNOWN`** de 18 filas |
 | CI | ejecuta `npm run compuerta`: la suite entera más la tabla — log leído, `12 PASS · 0 FAIL · 4 UNKNOWN` en 479 s |
 | Secretos técnicos en el repositorio | ninguno |
 

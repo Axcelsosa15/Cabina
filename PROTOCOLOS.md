@@ -32,6 +32,7 @@ cabeza de quien escribía — en el fichero únicamente estaban etiquetadas §12
 | 14 | No contar aserciones leyendo el código | `correr.mjs` |
 | 15 | Un `UNKNOWN` nunca se convierte en `PASS` | `compuerta` |
 | 16 | La capa de riesgo: una sola fuente para cada cálculo | `equivalencia` |
+| 17 | Un campo nuevo que se persiste: la ausencia significa algo | `rapido` |
 | — | *Que esta tabla no mienta* | `capa2` §14 |
 
 ---
@@ -716,6 +717,42 @@ con un barrido de cuatro casos que aterriza en cada banda.
 > fallo real era que ese código no figuraba en la tabla de correspondencia. El
 > mensaje ahora lo dice. Es el protocolo 11 otra vez: una aserción tiene que fallar
 > **por el motivo correcto**, y decirlo.
+
+---
+
+## 17 · Un campo nuevo que se persiste: la ausencia significa algo
+
+Cuando se añade un campo al modelo, los registros que ya existen **no lo tienen**. Eso
+no es un hueco que rellenar: **es un dato**. Significa «no se sabe», y escribir un
+valor plausible encima es inventar exactamente lo que el campo existía para registrar.
+
+Las reglas:
+
+- **No se rellena hacia atrás.** Ni con un valor por defecto «razonable», ni en una
+  migración silenciosa, ni «sólo esta vez porque casi siempre era así».
+- **La ausencia se lee y se dice por su nombre.** Un informe que agrupa por el campo
+  nuevo tiene tres estados, no dos: los valores, y *sin dato*.
+- **Se prueba que la ausencia sobrevive.** Una prueba que sólo comprueba los valores
+  nuevos no detecta una migración que los inventa.
+- Y sigue valiendo la regla general: **todo campo nuevo que se persiste necesita su
+  estrategia de valor por defecto y de migración escrita antes de escribirlo.**
+
+> **Qué falló:** al añadir `source` a las operaciones —para distinguir una entrada
+> rápida de una del formulario completo, de una importación de CSV y de una futura
+> API— lo cómodo era marcar todas las operaciones existentes como `"manual"`. Habrían
+> sido cientos de registros afirmando una procedencia que **nadie comprobó**, y el
+> campo habría nacido mintiendo: su único propósito es medir si las entradas rápidas
+> salen peor documentadas que las completas, y un `"manual"` inventado contamina
+> justo esa comparación.
+>
+> Se quedó así: `"quick_add"` en las rápidas, `"manual"` en las nuevas del editor, y
+> **ausente** en las de antes. `test/rapido.mjs` lo afirma en los dos sentidos —que
+> las nuevas lo llevan y que una vieja se queda sin él—, así que un futuro relleno
+> hacia atrás sale rojo.
+>
+> El precedente al lado: el `capToday` de una cuenta sin ganancia imprimía la magnitud
+> de la pérdida como «ganancia que falta para cobrar» (§16). También allí un hueco se
+> rellenó con el número que había a mano.
 
 ---
 
