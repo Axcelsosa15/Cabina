@@ -205,7 +205,7 @@ ningún backend lo mitigaría.
 `test/seguridad.mjs` vigila estas propiedades. Ninguna es visible en pantalla, que es
 justo por lo que necesitan un guardián.
 
-La frontera de importación también rechaza copias con versión ausente o inválida,
+La frontera de importación también rechaza copias con versión ausente o inválida y no presenta una copia como válida si la base del artefacto no pudo leerse completa,
 secciones que no sean mapas/listas, registros que no sean objetos y claves de
 prototipo; nada de eso llega a `localStorage` ni a `db`.
 
@@ -305,7 +305,7 @@ resuelve.
 |---|---|
 | Suites que se ejecutan | **55** (52 de `test/` + 3 del motor) |
 | Aserciones del motor | **421** (`quant` 329 · `math` 92) |
-| Aserciones de navegador y guardianes | **649** en 19 archivos — las cuenta la propia suite |
+| Aserciones de navegador y guardianes | **650** en 19 archivos — las cuenta la propia suite |
 | Cobertura de la capa `db` del artefacto | **28** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
 | Compuerta de publicación | **15 PASS · 0 FAIL · 4 `UNKNOWN`** de 19 filas |
