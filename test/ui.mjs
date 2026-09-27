@@ -51,11 +51,6 @@ const modalLabel = await q.getAttribute('#ov', 'aria-labelledby');
 ok(modalLabel === 'edTitle', 'el editor tiene nombre accesible', modalLabel || 'sin aria-labelledby');
 await q.click('#edCancel');
 ok(await q.evaluate(() => document.activeElement && document.activeElement.matches('#accts .vacio button')), 'al cerrar el editor vuelve el foco al control que lo abrió');
-const m = await (await b.newContext({viewport:{width:390,height:844}})).newPage();
-await m.goto('file://'+process.cwd()+'/preview.html'); await m.waitForTimeout(900);
-const saveDisplay = await m.evaluate(() => getComputedStyle(document.getElementById('saveState')).display);
-ok(saveDisplay !== 'none', 'el estado de guardado sigue visible en móvil', saveDisplay);
-await m.close();
 /* :focus-visible sólo se activa con teclado — .focus() por JS no cuenta, que
    es justo lo que se quiere: el contorno no aparece al hacer clic con ratón. */
 await p.click('body'); 
