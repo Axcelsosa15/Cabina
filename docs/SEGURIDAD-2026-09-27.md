@@ -3,16 +3,6 @@
 Fase 0. Sobre `main` en `c114b47`. **Cero cambios de código en esta pasada.** Cada
 número sale de ejecutar un escaneo o de leer el código en su contexto, no de suponer.
 
-> **Seguimiento en `main` actual.** Este documento conserva la fotografía histórica
-> de esa fase. Desde entonces, `ca4508a` añadió la lista blanca de imágenes y
-> `permissions: contents: read`, y `test/seguridad.mjs` los vigila; por tanto los
-> hallazgos 3.1 y 3.2 están cerrados en el repositorio actual. Esta auditoría
-> también añade validación estructural en `bkParse()` para rechazar respaldos con
-> versión, contenedores, registros o identificadores mal formados antes de
-> persistirlos. Sigue sin existir validación campo por campo del modelo financiero,
-> y permanecen los riesgos de compartir públicamente el artefacto y de perder un
-> cambio en memoria si el `db` falla al escribir.
-
 ---
 
 ## Lo primero: la premisa del encargo no describe este sistema
@@ -155,7 +145,58 @@ lo dispara código de terceros.
 **Qué falta.** Declarar `permissions: contents: read` explícitamente. Eso elimina la
 dependencia de un ajuste que no se puede verificar, que es el motivo real para hacerlo.
 
-### 3.3 · La importación no valida tipos, y el motor sí
+### 3.4 · Un `catch` vacío producía respaldos incompletos que parecían completos
+
+**Encontrado por la revisión externa, no por esta auditoría.** `allDayDocs()` tenía
+`catch (e) { }` y caía a `lsRead().days`. Con la base del artefacto caída, la app
+producía un respaldo con **sólo los días locales** y lo anunciaba como
+«**4 KB · 1 sesión**». Medido con el doble del `db`: dos días sembrados en la nube, el
+fichero salía con uno, sin aviso.
+
+Un respaldo incompleto que parece completo es peor que ninguno: se guarda, se confía
+en él, y el problema aparece al restaurar.
+
+**Arreglado**: se lanza el error en vez de degradar, y el mensaje dice por qué. Con el
+sabotaje puesto, `test/importar.mjs` se pone rojo con el detalle *«la produjo con días
+["2026-09-27"]»*.
+
+**El sesgo que lo explica, y conviene anotarlo:** esta auditoría miró por dónde
+**entran** los datos —esquemas de URL, tipos, XSS, importación— y no por dónde
+**salen** los propios. Se audita la puerta por la que puede entrar algo hostil y se
+olvida la puerta por la que sale lo que el usuario va a guardar.
+
+### 3.3 · La importación no valida tipos, y el motor sí — **corregido en parte, y medido**
+
+> **Actualización del mismo día.** Un colaborador externo (ChatGPT, sobre un clon
+> local) señaló esta área y propuso rechazar «versiones inválidas, secciones mal
+> formadas, registros escalares, identificadores ausentes, duplicados y claves de
+> prototipo». Se midió cada afirmación conduciendo la interfaz real de importación,
+> y el resultado es mixto — por eso se escribe, en vez de repetirla:
+>
+> | afirmación | medido |
+> |---|---|
+> | registros escalares | **ya se rechazaban**: `'cadena'`, `42`, `null` y `[1,2]` no entraban. Defensa en profundidad, no un fallo |
+> | **identificadores ausentes** | **REAL**. Un respaldo con `trades: { sinId: {…} }` sin `id` dentro se importaba, y la app lo veía como `id: "undefined"` |
+> | claves de prototipo | **no explotable aquí**. `Object.prototype` quedó limpio: `Object.assign` con `__proto__` cambia el prototipo del *destino*, no añade nada al global |
+> | versión inválida | **REAL en un caso**: `Number("abc") > 1` es `false`, así que una versión no numérica pasaba sin que nadie la mirara |
+>
+> Y se descubrió algo que ninguna de las dos auditorías tenía documentado: **la
+> importación exige teclear `IMPORTAR`** antes de escribir nada. Tres pasos —pegar,
+> revisar, confirmar— con una confirmación escrita al final.
+>
+> **Arreglado, y al revés de lo propuesto: se REPARA, no se rechaza.** Tirar una
+> operación legítima porque un export viejo omitió el `id` sería destructivo, y este
+> repositorio ya dice que un borrado masivo en la nube no se deshace. La clave bajo
+> la que venía el registro *es* un identificador bueno: se le asigna. Sólo se
+> descarta lo que no tiene ni campo ni clave utilizable.
+>
+> `test/importar.mjs` lo vigila en **las dos direcciones**, que es el punto: que no
+> entre basura **y que no se pierda nada legítimo**. Comprobado con dos sabotajes —
+> uno que vuelve a perder el `id` (2 filas rojas) y otro que tira el registro en vez
+> de repararlo (2 filas rojas). El segundo es el que importa: es el fallo que la
+> propuesta original habría introducido.
+
+#### El diagnóstico original
 
 **Riesgo.** Un respaldo puede poner una cadena donde el modelo espera un número,
 `Infinity`, `NaN`, o un objeto donde va un escalar.
