@@ -111,8 +111,22 @@ Entra `.save-state.nosave { display: block; flex: 1 1 100%; }` —lo ambiental s
 escondido, lo que importa se enseña, y en su propia línea— y `#footerStore.nosave`,
 que sube la explicación de `--dim` a `--text`.
 
-Nueve comprobaciones sobre el candidato, todas correctas. Es la primera republicación
-de esta serie en la que **ninguna** salió roja por un número mío.
+Nueve comprobaciones sobre el candidato, todas correctas.
+
+Y **comprobado a mano contra lo publicado**, como se hizo con la 67: leyendo la 69 y
+comparándola línea por línea con `index.html`, **0 diferencias en 10 667 líneas**. Lo
+único que no coincide es el cierre —`index.html` tiene `</body>` y `</html>` en líneas
+separadas y el servicio los sirve juntos—, que lo pone el propio envoltorio.
+
+La primera vez que hice esa comparación dijo «❌ DIFIERE: 818 340 vs 818 324
+caracteres», y **la comparación estaba mal, no el fichero**: recortaba el cierre con
+un `endswith` encadenado que no contaba el salto de línea entre las dos etiquetas.
+Séptima vez que aparece el patrón del protocolo 14 en esta serie, y la primera en la
+que el número rojo no venía de una cuenta esperada sino de una comparación mal
+escrita. La diferencia práctica es la misma: **se mira el fichero antes de tocarlo.**
+
+Esto vale para la **69**. La siguiente republicación vuelve a dejar la pregunta
+abierta, y la fila de la compuerta sigue diciendo UNKNOWN en vez de heredarlo.
 
 ### Coinciden — republicado el 2026-09-27 (versión 68) · el rótulo deja de mentir
 
