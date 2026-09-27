@@ -238,6 +238,44 @@ const dobleDb = async () => {
   await ctx.close();
 }
 
+/* ═══ Y SE TIENE QUE VER EN UN TELEFONO ══════════════════════════════════
+   El rotulo de la barra esta `display: none` por debajo de 700px, a proposito:
+   «sincronizado» o «guardado local» es informacion ambiental y en un telefono solo
+   gasta la primera linea. Pero el aviso viaja por ese mismo elemento, asi que el
+   arreglo entero se borraba justo en la pantalla mas pequena. Medido cuando pasaba:
+   el rotulo decia «SIN GUARDAR · 2» y su rectangulo era 0x0. */
+for (const [w, h, nombre] of [[1440, 900, 'escritorio'], [430, 900, 'telefono']]) {
+  const ctx = await b.newContext({ viewport: { width: w, height: h } });
+  const p = await ctx.newPage();
+  p.on('pageerror', e => errs.push(e.message));
+  await p.goto(BASE, { waitUntil: 'load' });
+  await p.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
+  await p.waitForTimeout(1400);
+  const ambiental = await p.evaluate(() => {
+    const el = document.getElementById('saveState'), r = el.getBoundingClientRect();
+    return { txt: el.textContent.trim(), alto: Math.round(r.height) };
+  });
+  await p.evaluate(() => { Storage.prototype.setItem = function () { const e = new Error('lleno'); e.name = 'QuotaExceededError'; throw e; }; });
+  await opRapida(p, 'NQ +185');
+  const av = await p.evaluate(() => {
+    const el = document.getElementById('saveState'), r = el.getBoundingClientRect();
+    const de = document.documentElement, cs = getComputedStyle(el);
+    return { txt: el.textContent.trim(), alto: Math.round(r.height), ancho: Math.round(r.width),
+      sale: Math.round(r.right - de.clientWidth), color: cs.color,
+      scrollX: de.scrollWidth - de.clientWidth };
+  });
+  ok(/SIN GUARDAR/.test(av.txt) && av.alto > 0 && av.ancho > 0,
+     `el aviso SE VE en ${nombre} ${w}px`, `«${av.txt}» · ${av.ancho}×${av.alto}px`);
+  ok(av.sale <= 0 && av.scrollX <= 2, `y no desborda la pantalla en ${nombre}`,
+     `borde derecho a ${av.sale}px del limite · scrollX ${av.scrollX}`);
+  ok(/rgb\(224, 96, 79\)/.test(av.color), `con el rojo de error en ${nombre}`, av.color);
+  if (nombre === 'telefono') {
+    ok(ambiental.alto === 0, 'y lo AMBIENTAL sigue escondido en el telefono: solo se ensena lo que importa',
+       `«${ambiental.txt}» medido a ${ambiental.alto}px de alto`);
+  }
+  await ctx.close();
+}
+
 ok(errs.length === 0, 'ningun error de pagina en todo el recorrido', errs.slice(0, 2).join(' · ') || 'ninguno');
 await b.close(); srv.close();
 console.log(fallos.length ? `\n  ${fallos.length} fallos` : '\n  todo en verde');

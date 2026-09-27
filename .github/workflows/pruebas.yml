@@ -1,4 +1,4 @@
-# La suite corre sola en cada push. Sin esto, 49 archivos de prueba sólo se
+# La suite corre sola en cada push. Sin esto, 50 archivos de prueba sólo se
 # ejecutan cuando alguien se acuerda — y un test que nadie corre no es un test,
 # es un archivo.
 name: pruebas

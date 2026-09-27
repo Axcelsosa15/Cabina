@@ -319,7 +319,7 @@ resuelve.
 |---|---|
 | Suites que se ejecutan | **55** (52 de `test/` + 3 del motor) |
 | Aserciones del motor | **421** (`quant` 329 · `math` 92) |
-| Aserciones de navegador y guardianes | **695** en 20 archivos — las cuenta la propia suite |
+| Aserciones de navegador y guardianes | **723** en 21 archivos — las cuenta la propia suite |
 | Cobertura de la capa `db` del artefacto | **28** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
 | Compuerta de publicación | **16 PASS · 0 FAIL · 4 `UNKNOWN`** de 20 filas |

@@ -186,6 +186,9 @@ dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia'
      2,5 s en un elemento oculto en 5 de las 6 pestanas, y el rotulo de la barra
      seguia diciendo «sincronizado». */
   dice('guardado', 'suite', 'Un cambio que no se guardo no parece guardado', 'persistencia');
+  /* Una cabina que no se puede leer en el telefono no esta entregada. `diseno.mjs`
+     mide UNA pestana a 1600px; esto mide las seis, y en 430px. */
+  dice('vista', 'suite', 'Ninguna de las seis pestanas se sale de la pantalla', 'index.html');
 }
 
 /* ── ARTEFACTO · lo que SÍ se puede comprobar desde aquí ─────────────────────

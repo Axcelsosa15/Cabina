@@ -140,6 +140,11 @@
   /* No es un matiz: es lo unico que distingue una cabina que guardo de una que
      no pudo. Peso y color de error, y en la barra, que se ve en las 6 pestanas. */
   .save-state.nosave { color: var(--bad); font-weight: 800; letter-spacing: .06em; }
+  /* La explicacion vive en el pie, que es `--dim` porque todo lo que hay ahi es
+     contexto. Esta frase no lo es. Sube a `--text`, no a rojo: el sistema de
+     diseno dice que el color marca una CIFRA, no pinta un parrafo -- el rojo ya
+     esta arriba, donde son tres palabras. */
+  #footerStore.nosave { color: var(--text); }
   .editbtn { padding:8px 12px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--surface); font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; color: var(--muted); }
   body.editing .editbtn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   .tabnav { display: flex; gap:2px; border-bottom: 1px solid var(--line); margin-bottom:24px; overflow-x: auto; scrollbar-width: none; }
@@ -1379,6 +1384,15 @@
     .clock .tz { font-size: 10.5px; }
     .pill { font-size: 11px; padding: var(--s1) 12px; }
     .save-state { display: none; }
+    /* ...salvo cuando lo que dice es que algo NO se guardo. Escondido, el rotulo
+       dice «sincronizado» o «guardado local»: informacion ambiental que en un
+       telefono solo gasta la primera linea. «SIN GUARDAR» no es ambiental -- es lo
+       unico de esta barra que hay que ver -- y el `display: none` de arriba lo
+       borraba justo en la pantalla donde menos sitio hay. */
+    /* Y en su propia linea, no metido en la fila de botones: ahi empujaba
+       «Editar» a una cuarta linea y partia el grupo de acciones en dos. Ocupa
+       las mismas filas de cabecera y el aviso se lee entero de un vistazo. */
+    .save-state.nosave { display: block; flex: 1 1 100%; }
     /* barra de pestañas fija: navegar sin volver arriba */
     .tabnav {
       position: sticky; top: 0; z-index: 30;
@@ -2452,7 +2466,7 @@
   }
   function setStoreLabel() {
     const el = $("saveState"), f = $("footerStore");
-    if (state.demo) { el.textContent = "demo · sin guardar"; el.className = "save-state"; f.textContent = "Modo demo: datos inventados, no se guarda nada."; return; }
+    if (state.demo) { el.textContent = "demo · sin guardar"; el.className = "save-state"; f.className = ""; f.textContent = "Modo demo: datos inventados, no se guarda nada."; return; }
     if (typeof renderBackup === "function") { try { renderBackup(); } catch (e) { } }
     /* Lo que no se guardo manda sobre el modo de guardado: decir
        «sincronizado» mientras hay un documento que la base rechazo es la
@@ -2460,11 +2474,13 @@
     if (sinGuardar.size) {
       el.textContent = "SIN GUARDAR · " + sinGuardar.size;
       el.className = "save-state nosave";
+      f.className = "nosave";
       f.textContent = "Hay " + plu(sinGuardar.size, "cambio que NO se guardo", "cambios que NO se guardaron")
         + " (" + (sinGuardarMotivo || "error") + "). Están en la pantalla pero no en el almacenamiento: si recargas, se pierden."
         + " Copia el respaldo antes de cerrar.";
       return;
     }
+    f.className = "";
     if (state.store === "db") { el.textContent = "sincronizado"; el.className = "save-state cloud"; f.textContent = "Los cambios se guardan y se comparten con quien tenga acceso a esta página."; }
     else if (state.store === "local") { el.textContent = "guardado local"; el.className = "save-state"; f.textContent = "Guardado solo en este navegador."; }
     else { el.textContent = "sin guardado"; el.className = "save-state"; f.textContent = "Sin almacenamiento disponible: lo que escribas se pierde al recargar."; }
