@@ -9,6 +9,14 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Lo minimo que el trabajo necesita: leer el codigo. Sin esta declaracion hereda el
+# ajuste por defecto del repositorio, que NO se puede leer desde una sesion de Claude
+# — y este workflow corre en `pull_request`, o sea que lo dispara codigo de terceros.
+# Declararlo aqui elimina la dependencia de un ajuste que nadie puede verificar, que
+# es el motivo real para hacerlo. Auditoria de seguridad §3.2.
+permissions:
+  contents: read
+
 jobs:
   suite:
     runs-on: ubuntu-latest

@@ -258,13 +258,25 @@ import { readdirSync, readFileSync as leer } from 'node:fs';
 const dirTest = join(dirname(fileURLToPath(import.meta.url)));
 const tests = readdirSync(dirTest).filter(f => f.endsWith('.mjs'));
 const conRutaFija = [];
+/* UNA EXCEPCION, y se nombra en vez de esquivarse.
+
+   `seguridad.mjs` contiene literales `file:///` como CARGA DE ATAQUE: su trabajo es
+   comprobar que la app rechaza esos esquemas cuando llegan dentro de un respaldo
+   importado. No son rutas de las que lea nada -- que es lo que esta regla vigila.
+
+   La alternativa era reescribir la carga para que la regex no la viera
+   (`'file://' + '/etc/passwd'`). Eso habria dejado la regla en verde y SIN DIENTES
+   para quien venga despues, que es peor que una excepcion escrita. La §13 sigue
+   cubriendo ese fichero: si alguna vez LEYERA de una raiz del sistema, saltaria. */
+const SIN_RUTA_FIJA = new Set(['seguridad.mjs']);
 for (const f of tests) {
+  if (SIN_RUTA_FIJA.has(f)) continue;
   const t = leer(join(dirTest, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   /* Sólo se permite derivar la ruta de dónde se corre. Cualquier absoluta que
      no venga de process.cwd() es una copia que nadie regenera. */
   for (const m of t.matchAll(/'file:\/\/\/[^']*'|"file:\/\/\/[^"]*"/g)) conRutaFija.push(`${f}: ${m[0].slice(0, 60)}`);
 }
-ok(conRutaFija.length === 0, `los ${tests.length} tests derivan su ruta de process.cwd()`,
+ok(conRutaFija.length === 0, `los ${tests.length - SIN_RUTA_FIJA.size} tests derivan su ruta de process.cwd()`,
    conRutaFija.length ? conRutaFija.slice(0, 5).join(' · ') : '');
 
 /* Lo mismo con las dependencias. 44 archivos importaban Playwright por la ruta

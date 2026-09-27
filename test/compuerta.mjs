@@ -169,6 +169,14 @@ dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia'
      la operacion valiendo cero en todo lo derivado; esta fila es lo que lo vigila. */
   dice('rapido', 'suite', 'El registro rapido escribe en el modelo canonico, no en un segundo', 'divergencia');
 }
+{
+  /* Las propiedades de seguridad de la fase 0. Ninguna es visible en pantalla, que
+     es justo por lo que necesitan un guardian: un cambio que las rompa no se nota
+     hasta que alguien lo aprovecha. La mas concreta: sin el filtro de esquemas de
+     `imgSrc`, importar un respaldo ajeno hace que el navegador PIDA la url que diga
+     ese fichero. Comprobado con sabotaje: pidio `blob:` y `file:` de verdad. */
+  dice('seguridad', 'suite', 'Las propiedades de seguridad de la fase 0 siguen en pie', 'index.html');
+}
 
 /* ── ARTEFACTO · lo que SÍ se puede comprobar desde aquí ─────────────────────
    Se comprueba que esté ANOTADO y que la anotación tenga forma de versión real.

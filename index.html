@@ -6576,7 +6576,37 @@
   /* Una captura vive de dos formas: subida al almacenamiento del artefacto
      (se sirve en /_blob/<id>) o metida dentro del propio dato como data URI,
      que es como llega cuando se importa una copia en otra cabina. */
-  function imgSrc(im) { return im && im.data ? String(im.data) : "/_blob/" + ((im && im.id) || ""); }
+  /* ── DE DÓNDE PUEDE VENIR UNA IMAGEN ──────────────────────────────────────
+     Sólo dos sitios: incrustada como `data:image/…`, o una referencia al almacén
+     de assets del artefacto (`/_blob/<id>`). Cualquier otra cosa —`https:`,
+     `blob:`, `file:`, `javascript:`— sólo puede haber llegado dentro de un
+     respaldo que alguien escribió a mano, porque la app nunca la produce.
+
+     Por qué importa, y no es teórico: `imgSrc()` alimenta cinco `<img src>` Y un
+     `fetch()` en el empaquetado de respaldos. Sin este filtro, importar un
+     respaldo ajeno con `data: "https://…"` hace que la cabina PIDA esa URL — le
+     revela a quien escribió el fichero que lo abriste, tu IP y tu navegador. No es
+     ejecución de código; es balizamiento, y en una aplicación con datos de trading
+     personales eso basta para que no se permita.
+
+     `esc()` no servía aquí: escapa HTML, no valida el esquema de una URL.
+
+     Una imagen rechazada NO desaparece en silencio: se dibuja una caja con una
+     diagonal, que es un SVG constante de este fichero, no un dato de nadie.
+     Encontrado en la auditoría de seguridad; ver docs/SEGURIDAD-2026-09-27.md §3.1. */
+  const IMG_DATA_OK = /^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]*$/i;
+  const IMG_ID_OK = /^[A-Za-z0-9_-]{1,128}$/;
+  const IMG_RECHAZADA = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 32'%3E%3Crect width='48' height='32' fill='none' stroke='%23E0604F' stroke-dasharray='3 2'/%3E%3Cpath d='M0 0l48 32' stroke='%23E0604F'/%3E%3C/svg%3E";
+  function imgValida(im) {
+    if (!im) return false;
+    if (im.data != null) return IMG_DATA_OK.test(String(im.data));
+    if (im.id != null) return IMG_ID_OK.test(String(im.id));
+    return false;
+  }
+  function imgSrc(im) {
+    if (!imgValida(im)) return IMG_RECHAZADA;
+    return im.data != null ? String(im.data) : "/_blob/" + String(im.id);
+  }
   function hasImg(x) { return !!(x && (x.id || x.data)); }
   async function uploadShot(file) {
     if (!assetsReady()) throw { code: "no_assets" };
@@ -10805,6 +10835,10 @@
     for (const im of pend) {
       if (onStep) onStep(done, pend.length);
       try {
+        /* Una imagen que no pasa el filtro NO se pide: ese fetch es justo el que
+           convertiria un respaldo ajeno en una baliza. Cuenta como fallo, que es lo
+           que es, y el resumen del empaquetado ya los muestra. */
+        if (!imgValida(im)) { failed++; done++; continue; }
         const r = await fetch(imgSrc(im));
         if (!r.ok) throw new Error("http " + r.status);
         const blob = await r.blob();

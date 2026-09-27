@@ -32,7 +32,7 @@ engine/quant/*.js          los 11 módulos FUENTE del motor
 engine/QuantEngine.bundle.js   generado por `npm run bundle`
 engine/MathEngine.js       motor v1, REFERENCIA histórica — la app no lo usa
 
-test/                      56 archivos · 50 pruebas + 6 herramientas
+test/                      57 archivos · 51 pruebas + 6 herramientas
   └─ correr.mjs            el runner: un proceso por archivo, veredicto por salida
 ```
 
@@ -90,7 +90,7 @@ También se abre como archivo suelto (`file://`), con las limitaciones de abajo.
 
 ```sh
 npm run preview         # regenera test/preview.html desde index.html — NO es opcional
-npm test                # las 53 suites
+npm test                # las 54 suites
 npm test motor          # sólo el motor
 npm test humo           # sólo el smoke test de producción
 npm run compuerta       # la suite + la tabla de la cadena (lo que corre CI)
@@ -177,6 +177,36 @@ completas, que es justo la comparación que ese relleno contaminaría. Protocolo
 
 ---
 
+## Seguridad
+
+Auditada el 2026-09-27; el informe y el modelo de amenazas están en
+[docs/SEGURIDAD-2026-09-27.md](docs/SEGURIDAD-2026-09-27.md). Lo medido:
+
+| | |
+|---|---|
+| `eval` · `new Function` · `document.write` | **0** |
+| `postMessage` · `window.open` · escrituras de `location` | **0** |
+| `XMLHttpRequest` · `WebSocket` · `EventSource` · `sendBeacon` | **0** |
+| `fetch` | **1**, con lista blanca de esquemas |
+| scripts de terceros | **0** — el motor va incrustado |
+| orígenes externos | **1**, las fuentes de Google |
+| dependencias de ejecución | **ninguna** · `npm audit` → 0 vulnerabilidades |
+| secretos en 64 commits de historia | **ninguno** |
+
+Las cadenas que escribe el usuario se siguieron hasta su sumidero: todas acaban en
+`textContent` o pasan por `esc()`. **No se declara «seguro»** — se declara qué se
+comprobó y qué no; la sección *Estado de seguridad* del informe separa lo endurecido,
+lo limitado, lo no verificado y los riesgos que quedan.
+
+**El riesgo vivo no está en el código**: el artefacto está compartido como «cualquiera
+que tenga el enlace» con datos reales dentro. Se arregla con un clic en Share, y
+ningún backend lo mitigaría.
+
+`test/seguridad.mjs` vigila estas propiedades. Ninguna es visible en pantalla, que es
+justo por lo que necesitan un guardián.
+
+---
+
 ## La compuerta de publicación
 
 `npm run compuerta` (`test/compuerta.mjs`) es lo que decide si esto se publica.
@@ -188,7 +218,7 @@ corrida extra. Lo que añade es recorrer la cadena entera eslabón por eslabón:
 fuente → motor → bundle → index.html → pages → artefacto
 ```
 
-Imprime 18 filas con tres veredictos, y la distinción es el punto del ejercicio:
+Imprime 19 filas con tres veredictos, y la distinción es el punto del ejercicio:
 
 | | |
 |---|---|
@@ -196,7 +226,7 @@ Imprime 18 filas con tres veredictos, y la distinción es el punto del ejercicio
 | `FAIL` | la comprobación se hizo y salió mal — sale con código 1 |
 | `UNKNOWN` | **no puede comprobarse automáticamente desde aquí** |
 
-Hoy son **14 PASS · 0 FAIL · 4 UNKNOWN** de 18 filas. Las cuatro `UNKNOWN` son fronteras de
+Hoy son **15 PASS · 0 FAIL · 4 UNKNOWN** de 19 filas. Las cuatro `UNKNOWN` son fronteras de
 plataforma, no pruebas que falten: que el artefacto publicado sea igual a
 `index.html`, que el `db` real de claude.ai se comporte como el doble de
 `capsula.mjs`, que la URL de Pages sirva, y que el CDN de GitHub entregue lo
@@ -246,7 +276,7 @@ resuelve.
   puede hacer.
 - **`file://` tira el almacén al recargar**, de forma intermitente. Por eso el
   smoke test usa HTTP y dos pruebas abren una pestaña nueva en vez de recargar.
-- **33 de las 50 pruebas de `test/` no afirman nada**: miden y registran. Su
+- **33 de las 51 pruebas de `test/` no afirman nada**: miden y registran. Su
   único modo de fallo es romperse. Las 15 que afirman están contadas abajo, y
   tanto el número como la lista los imprime `npm test`, no un `grep` sobre el
   código — ver protocolo 14.
@@ -269,12 +299,12 @@ resuelve.
 
 | | |
 |---|---|
-| Suites que se ejecutan | **53** (50 de `test/` + 3 del motor) |
+| Suites que se ejecutan | **54** (51 de `test/` + 3 del motor) |
 | Aserciones del motor | **421** (`quant` 329 · `math` 92) |
-| Aserciones de navegador y guardianes | **616** en 17 archivos — las cuenta la propia suite |
+| Aserciones de navegador y guardianes | **642** en 18 archivos — las cuenta la propia suite |
 | Cobertura de la capa `db` del artefacto | **28** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
-| Compuerta de publicación | **14 PASS · 0 FAIL · 4 `UNKNOWN`** de 18 filas |
+| Compuerta de publicación | **15 PASS · 0 FAIL · 4 `UNKNOWN`** de 19 filas |
 | CI | ejecuta `npm run compuerta`: la suite entera más la tabla — log leído, `12 PASS · 0 FAIL · 4 UNKNOWN` en 479 s |
 | Secretos técnicos en el repositorio | ninguno |
 

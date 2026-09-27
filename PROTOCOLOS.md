@@ -33,6 +33,7 @@ cabeza de quien escribía — en el fichero únicamente estaban etiquetadas §12
 | 15 | Un `UNKNOWN` nunca se convierte en `PASS` | `compuerta` |
 | 16 | La capa de riesgo: una sola fuente para cada cálculo | `equivalencia` |
 | 17 | Un campo nuevo que se persiste: la ausencia significa algo | `rapido` |
+| 18 | Un dato importado no es una URL: se valida el esquema | `seguridad` |
 | — | *Que esta tabla no mienta* | `capa2` §14 |
 
 ---
@@ -753,6 +754,53 @@ Las reglas:
 > El precedente al lado: el `capToday` de una cuenta sin ganancia imprimía la magnitud
 > de la pérdida como «ganancia que falta para cobrar» (§16). También allí un hueco se
 > rellenó con el número que había a mano.
+
+---
+
+## 18 · Un dato importado no es una URL: se valida el esquema
+
+`esc()` escapa HTML. **No valida el destino de una URL**, y confundir las dos cosas es
+la forma fácil de pasar una revisión de XSS y seguir teniendo un problema.
+
+Las reglas, para cualquier campo que acabe en `src`, `href`, `fetch()` o equivalente:
+
+- **Lista blanca de esquemas, no lista negra.** Se dice qué se acepta —`data:image/…`
+  en base64, o un identificador del almacén de assets— y todo lo demás se rechaza.
+  Una lista negra siempre se queda corta: `blob:`, `filesystem:`, `//host` sin
+  esquema…
+- **Un identificador no es una ruta.** `"/_blob/" + im.id` con un `im.id` que trae
+  `../` es travesía de rutas. Se valida que sea un identificador.
+- **El filtro va en el punto de estrangulamiento, no en cada sitio que pinta.**
+  `imgSrc()` alimenta cinco `<img src>` y un `fetch()`: arreglar la función cubre los
+  seis y no se olvida el séptimo que alguien añada mañana.
+- **Un dato rechazado se ve.** No se sustituye por nada en silencio: se dibuja la
+  marca de rechazo. Un hueco invisible es indistinguible de un fallo de carga.
+- **Se prueba por el EFECTO, no por el valor de retorno.** La aserción que vale no es
+  «la función devuelve lo correcto» sino **«el navegador no pidió esa URL»**, medida
+  registrando las peticiones de la página.
+
+> **Qué falló:** `imgSrc()` devolvía `String(im.data)` tal cual. Ese valor alimenta
+> cinco `<img src>` y —lo que de verdad importa— un `await fetch(imgSrc(im))` en el
+> empaquetado de respaldos. `bkParse()` valida la **forma** de un respaldo importado
+> —que sea JSON, con la marca del formato y una versión no superior— y **ningún valor
+> de ningún campo**.
+>
+> O sea: un respaldo escrito a mano con `data: "https://…"` hacía que la cabina
+> **pidiera esa URL**. No es ejecución de código; es **balizamiento**: le revela a
+> quien escribió el fichero que lo abriste, tu IP y tu navegador. En una aplicación
+> con datos de trading personales eso basta.
+>
+> Se demostró con sabotaje, no con un argumento: quitando el filtro, la página pidió
+> de verdad `blob:https://evil.example/x` y `file:///etc/passwd`. Y el mismo sabotaje
+> destapó un matiz que quedó escrito en la prueba: las `http(s)` **no** se pidieron en
+> esa corrida porque las miniaturas llevan `loading="lazy"` y estaban fuera de
+> pantalla. La prueba detecta la regresión; no demuestra que una baliza https se
+> dispare al instante.
+>
+> Y la prueba tropezó con la §9 de `capa2`, que prohíbe literales `file:///` en los
+> tests. La tentación era escribir `'file://' + '/etc/passwd'` para que la regex no lo
+> viera: eso habría dejado la regla verde y **sin dientes**. Se hizo una excepción
+> **nombrada y explicada**, y la §13 sigue cubriendo ese fichero.
 
 ---
 
