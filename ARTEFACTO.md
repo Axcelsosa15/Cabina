@@ -92,6 +92,38 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
   mínimo, `</head><body>`
 - detrás: `</body></html>`
 
+### Comprobado a mano el 2026-09-27: la 67 es index.html, byte a byte
+
+No es una fila de la compuerta y no debe serlo. La compuerta no puede leer el
+artefacto publicado, así que su fila «el artefacto sirve lo mismo que index.html» se
+queda en UNKNOWN y ahí se queda. Lo que sigue es una comprobación **manual**, de una
+versión concreta, hecha leyendo lo publicado y comparándolo:
+
+```
+lo publicado (1790511268-58df), de la línea 2 en adelante, sin el cierre
+  vs  el candidato                      ->  una sola línea en blanco de diferencia
+el cuerpo del candidato, desde <style>
+  vs  index.html desde la línea 22      ->  IDÉNTICO, carácter a carácter
+```
+
+La línea en blanco la añade el propio servicio al envolver la página. Fuera de eso,
+lo que sirve el entorno principal es exactamente el fichero del repositorio.
+
+Esto vale para la **67** y para nada más. La siguiente republicación vuelve a dejar la
+pregunta abierta hasta que se compruebe otra vez, y por eso la fila de la compuerta
+sigue diciendo UNKNOWN en vez de heredar este resultado.
+
+### La página de GitHub: se despliega, y no puedo comprobar que sirva
+
+El despliegue **existe** — «pages build and deployment» salió en verde sobre
+`fdbb68b`, igual que el flujo `pagina`. Eso es evidencia de que GitHub construyó y
+publicó, y **no** es evidencia de que la página sirva los bytes correctos.
+
+Para comprobar lo segundo hay que pedir la URL, y desde aquí no se puede: el proxy de
+la organización devuelve **403 al túnel** hacia `axcelsosa15.github.io`. No se
+reintenta y no se rodea. La fila de la compuerta sigue en UNKNOWN, que es lo que
+corresponde: un despliegue verde no es una página servida.
+
 ### Coinciden — republicado el 2026-09-27 (versión 67) · la copia que no sale a medias
 
 La versión viva es la **67** (`1790511268-58df`). Contrato `0.2.46` y capacidades
