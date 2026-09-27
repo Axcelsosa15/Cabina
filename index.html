@@ -137,6 +137,14 @@
   @media (prefers-reduced-motion: reduce) { .pill.live .dot { animation: none; } * { transition: none !important; } }
   .save-state { font-family: var(--font-mono); font-size: 11px; color: var(--dim); letter-spacing: .04em; }
   .save-state.cloud { color: var(--muted); }
+  /* No es un matiz: es lo unico que distingue una cabina que guardo de una que
+     no pudo. Peso y color de error, y en la barra, que se ve en las 6 pestanas. */
+  .save-state.nosave { color: var(--bad); font-weight: 800; letter-spacing: .06em; }
+  /* La explicacion vive en el pie, que es `--dim` porque todo lo que hay ahi es
+     contexto. Esta frase no lo es. Sube a `--text`, no a rojo: el sistema de
+     diseno dice que el color marca una CIFRA, no pinta un parrafo -- el rojo ya
+     esta arriba, donde son tres palabras. */
+  #footerStore.nosave { color: var(--text); }
   .editbtn { padding:8px 12px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--surface); font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; color: var(--muted); }
   body.editing .editbtn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   .tabnav { display: flex; gap:2px; border-bottom: 1px solid var(--line); margin-bottom:24px; overflow-x: auto; scrollbar-width: none; }
@@ -1375,7 +1383,16 @@
     .clock .time { font-size: 18px; }
     .clock .tz { font-size: 10.5px; }
     .pill { font-size: 11px; padding: var(--s1) 12px; }
-    .save-state { display: inline-flex; align-items: center; min-height: 32px; padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+    .save-state { display: none; }
+    /* ...salvo cuando lo que dice es que algo NO se guardo. Escondido, el rotulo
+       dice «sincronizado» o «guardado local»: informacion ambiental que en un
+       telefono solo gasta la primera linea. «SIN GUARDAR» no es ambiental -- es lo
+       unico de esta barra que hay que ver -- y el `display: none` de arriba lo
+       borraba justo en la pantalla donde menos sitio hay. */
+    /* Y en su propia linea, no metido en la fila de botones: ahi empujaba
+       «Editar» a una cuarta linea y partia el grupo de acciones en dos. Ocupa
+       las mismas filas de cabecera y el aviso se lee entero de un vistazo. */
+    .save-state.nosave { display: block; flex: 1 1 100%; }
     /* barra de pestañas fija: navegar sin volver arriba */
     .tabnav {
       position: sticky; top: 0; z-index: 30;
@@ -1465,7 +1482,7 @@
   <div class="clock">
     <span id="sessionPill" class="pill off"><span class="dot"></span><span id="sessionLabel">—</span></span>
     <span><span id="etTime" class="time">--:--:--</span> <span class="tz">ET · Nueva York</span></span>
-    <span id="saveState" class="save-state" role="status" aria-live="polite" aria-atomic="true">guardado local</span>
+    <span id="saveState" class="save-state">guardado local</span>
     <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)">+ Rápido</button>
     <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
     <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
@@ -1977,7 +1994,7 @@
 </div>
 
 <!-- editor overlay -->
-<div class="ov" id="ov" role="dialog" aria-modal="true" aria-labelledby="edTitle">
+<div class="ov" id="ov" role="dialog" aria-modal="true">
   <div class="ed">
     <header><h3 id="edTitle">Editar</h3><button type="button" class="icon" id="edClose" aria-label="Cerrar">×</button></header>
     <div class="fields" id="edFields"></div>
@@ -2275,11 +2292,48 @@
 
   const LS_KEY = "cabina-mnq:v1";
   function lsRead() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "null") || {}; } catch { return {}; } }
-  function lsWrite(obj) { try { localStorage.setItem(LS_KEY, JSON.stringify(obj)); return true; } catch { return false; } }
-  function lsPatch(fn) { const d = lsRead(); fn(d); lsWrite(d); }
+  /* Estos dos ya devolvian si habian podido escribir, y NADIE lo miraba: las
+     ocho llamadas a `lsPatch` tiraban el booleano y el codigo seguia diciendo
+     «guardado en este navegador». La importacion si lo mira (`almacenamiento
+     lleno`), asi que el fichero ya sabia que importaba -- en un solo sitio. */
+  let lsMotivo = "";
+  function lsWrite(obj) { try { localStorage.setItem(LS_KEY, JSON.stringify(obj)); lsMotivo = ""; return true; } catch (e) { lsMotivo = (e && e.name) || "almacenamiento lleno"; return false; } }
+  function lsPatch(fn) { const d = lsRead(); fn(d); return lsWrite(d); }
   const timers = {};
   function debounce(key, fn, ms) { clearTimeout(timers[key]); timers[key] = setTimeout(fn, ms); }
   function flash(msg) { const el = $("jSaved"); el.textContent = msg; clearTimeout(timers.flash); timers.flash = setTimeout(() => { el.textContent = ""; }, 2500); }
+
+  /* ── UN CAMBIO QUE NO SE GUARDO NO PUEDE PARECER GUARDADO ──────────────
+     Las seis puertas de escritura fallaban igual: la pantalla ya mostraba el
+     cambio y el almacenamiento no lo tenia. Cada una lo decia con un destello
+     de 2,5 s en `#jSaved` -- que esta DENTRO de la pestana Cabina, o sea
+     oculto en 5 de las 6 -- y el rotulo de la barra seguia diciendo
+     «sincronizado». A los tres segundos la cabina era indistinguible de una
+     que habia guardado, y el dato se perdia al recargar.
+
+     Se guarda POR DOCUMENTO y no con un contador: si falla el dia y despues
+     entra bien una operacion, un contador a cero borraria el aviso del dia,
+     que sigue sin guardar. La clave es la ruta del documento.
+
+     Lo que esto NO hace, a proposito: no copia a localStorage lo que la base
+     rechazo, y no reintenta. Elegir una segunda fuente de verdad es una
+     decision de producto -- dos copias que divergen es un problema peor que
+     el que se arregla aqui -- y esto solo deja de mentir. */
+  const sinGuardar = new Map();
+  let sinGuardarMotivo = "";
+  function noSeGuardo(clave, motivo, que) {
+    sinGuardar.set(clave, motivo);
+    sinGuardarMotivo = motivo;
+    flash("NO se guardo " + que + " (" + motivo + ")");
+    setStoreLabel();
+  }
+  function siSeGuardo(clave, msg) {
+    if (msg) flash(msg);
+    if (!sinGuardar.delete(clave)) return;
+    if (!sinGuardar.size) sinGuardarMotivo = "";
+    setStoreLabel();
+  }
+  const motivoDb = e => (e && e.code) || (e && e.name) || "error";
 
   // generic collections (trades, playbooks, ideas, markets, watch, positions, scenarios)
   const colls = {};
@@ -2296,14 +2350,16 @@
         data = clone(data); data.id = id; data.updatedAt = Date.now();
         const i = this.items.findIndex(x => x.id === id); if (i >= 0) this.items[i] = data; else this.items.push(data); this.emit();
         if (state.demo) return;
-        if (state.db) { try { await state.db.collection(name).doc(id).set(data); } catch (e) { flash("no se pudo guardar (" + (e && e.code || "error") + ")"); } }
-        else if (state.store === "local") lsPatch(d => { d[name] = d[name] || {}; d[name][id] = data; });
+        const clave = name + "/" + id;
+        if (state.db) { try { await state.db.collection(name).doc(id).set(data); siSeGuardo(clave); } catch (e) { noSeGuardo(clave, motivoDb(e), "la ficha"); } }
+        else if (state.store === "local") { if (lsPatch(d => { d[name] = d[name] || {}; d[name][id] = data; })) siSeGuardo(clave); else noSeGuardo(clave, lsMotivo, "la ficha"); }
       },
       async remove(id) {
         this.items = this.items.filter(x => x.id !== id); this.emit();
         if (state.demo) return;
-        if (state.db) { try { await state.db.collection(name).doc(id).delete(); } catch (e) { flash("no se pudo borrar"); } }
-        else if (state.store === "local") lsPatch(d => { if (d[name]) delete d[name][id]; });
+        const clave = name + "/" + id;
+        if (state.db) { try { await state.db.collection(name).doc(id).delete(); siSeGuardo(clave); } catch (e) { noSeGuardo(clave, motivoDb(e), "el borrado"); } }
+        else if (state.store === "local") { if (lsPatch(d => { if (d[name]) delete d[name][id]; })) siSeGuardo(clave); else noSeGuardo(clave, lsMotivo, "el borrado"); }
       },
       loadLocal() { if (state.demo) return; this.items = Object.values(lsRead()[name] || {}); this.emit(); },
       attachDb(db) { db.collection(name).limit(1000).onSnapshot(q => { if (state.demo) return; this.items = q.docs.map(d => d.data()).filter(x => x && x.id); this.emit(); }, () => {}); },
@@ -2351,16 +2407,17 @@
     if (state.demo) return;
     if (!quiet) state.settings.customized = true;
     debounce("settings", async () => {
-      if (state.db) { try { await state.db.doc("settings/main").set(clone(state.settings)); flash("guardado"); } catch (e) { flash("no se pudo guardar (" + (e && e.code || "error") + ")"); } }
-      else if (state.store === "local") { lsPatch(d => { d.settings = state.settings; }); flash("guardado en este navegador"); }
+      if (state.db) { try { await state.db.doc("settings/main").set(clone(state.settings)); siSeGuardo("settings/main", "guardado"); } catch (e) { noSeGuardo("settings/main", motivoDb(e), "la configuracion"); } }
+      else if (state.store === "local") { if (lsPatch(d => { d.settings = state.settings; })) siSeGuardo("settings/main", "guardado en este navegador"); else noSeGuardo("settings/main", lsMotivo, "la configuracion"); }
     }, 500);
   }
   function persistDay() {
     if (state.demo) return;
     state.day.updatedAt = Date.now();
     debounce("day", async () => {
-      if (state.db) { try { await state.db.doc("days/" + state.day.date).set(clone(state.day)); flash("guardado"); } catch (e) { flash("no se pudo guardar (" + (e && e.code || "error") + ")"); } }
-      else if (state.store === "local") { lsPatch(d => { d.days = d.days || {}; d.days[state.day.date] = state.day; }); flash("guardado en este navegador"); renderHistoryFromLocal(); }
+      const clave = "days/" + state.day.date;
+      if (state.db) { try { await state.db.doc(clave).set(clone(state.day)); siSeGuardo(clave, "guardado"); } catch (e) { noSeGuardo(clave, motivoDb(e), "el dia"); } }
+      else if (state.store === "local") { if (lsPatch(d => { d.days = d.days || {}; d.days[state.day.date] = state.day; })) siSeGuardo(clave, "guardado en este navegador"); else noSeGuardo(clave, lsMotivo, "el dia"); renderHistoryFromLocal(); }
     }, 400);
   }
   function loadLocal() {
@@ -2409,8 +2466,21 @@
   }
   function setStoreLabel() {
     const el = $("saveState"), f = $("footerStore");
-    if (state.demo) { el.textContent = "demo · sin guardar"; el.className = "save-state"; f.textContent = "Modo demo: datos inventados, no se guarda nada."; return; }
+    if (state.demo) { el.textContent = "demo · sin guardar"; el.className = "save-state"; f.className = ""; f.textContent = "Modo demo: datos inventados, no se guarda nada."; return; }
     if (typeof renderBackup === "function") { try { renderBackup(); } catch (e) { } }
+    /* Lo que no se guardo manda sobre el modo de guardado: decir
+       «sincronizado» mientras hay un documento que la base rechazo es la
+       mentira que este rotulo contaba antes. */
+    if (sinGuardar.size) {
+      el.textContent = "SIN GUARDAR · " + sinGuardar.size;
+      el.className = "save-state nosave";
+      f.className = "nosave";
+      f.textContent = "Hay " + plu(sinGuardar.size, "cambio que NO se guardo", "cambios que NO se guardaron")
+        + " (" + (sinGuardarMotivo || "error") + "). Están en la pantalla pero no en el almacenamiento: si recargas, se pierden."
+        + " Copia el respaldo antes de cerrar.";
+      return;
+    }
+    f.className = "";
     if (state.store === "db") { el.textContent = "sincronizado"; el.className = "save-state cloud"; f.textContent = "Los cambios se guardan y se comparten con quien tenga acceso a esta página."; }
     else if (state.store === "local") { el.textContent = "guardado local"; el.className = "save-state"; f.textContent = "Guardado solo en este navegador."; }
     else { el.textContent = "sin guardado"; el.className = "save-state"; f.textContent = "Sin almacenamiento disponible: lo que escribas se pierde al recargar."; }
@@ -2422,11 +2492,7 @@
     if (!document.querySelector(`.tab[data-tab="${name}"]`)) name = "cabina";
     state.tab = name;
     document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
-    document.querySelectorAll(".tabbtn").forEach(b => {
-      const active = b.dataset.tab === name;
-      b.classList.toggle("active", active);
-      if (active) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
-    });
+    document.querySelectorAll(".tabbtn").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
     $("editToggle").hidden = name !== "cabina";
     if (name !== "cabina" && state.editing) setEditing(false);
     try { if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name); } catch {}
@@ -2444,10 +2510,8 @@
   window.addEventListener("hashchange", () => showTab(location.hash.slice(1)));
 
   /* =============================== GENERIC EDITOR =============================== */
-  const ov = $("ov"); let edCfg = null, edReturnFocus = null;
+  const ov = $("ov"); let edCfg = null;
   function openEditor(cfg) {
-    const active = document.activeElement;
-    edReturnFocus = active && active !== document.body && typeof active.focus === "function" ? active : null;
     edCfg = cfg;
     $("edTitle").textContent = cfg.title;
     $("edFields").innerHTML = cfg.fields.map(f => {
@@ -2551,12 +2615,7 @@
     if (edCfg.read) { try { edCfg.read(out, $("edFields")); } catch (e) { } }
     return out;
   }
-  function closeEditor() {
-    ov.classList.remove("open");
-    edCfg = null;
-    const back = edReturnFocus; edReturnFocus = null;
-    if (back && back.isConnected && !back.disabled) back.focus();
-  }
+  function closeEditor() { ov.classList.remove("open"); edCfg = null; }
   $("edClose").addEventListener("click", closeEditor);
   $("edCancel").addEventListener("click", closeEditor);
   ov.addEventListener("click", e => { if (e.target === ov) closeEditor(); });
@@ -4008,8 +4067,8 @@
   $("histWrap").addEventListener("click", async e => {
     const btn = e.target.closest("button[data-act='del']"); if (!btn || !armed(btn)) return;
     const date = btn.closest("tr").dataset.date;
-    if (state.db) { try { await state.db.doc("days/" + date).delete(); } catch (err) { flash("no se pudo borrar"); } }
-    else { lsPatch(d => { if (d.days) delete d.days[date]; }); renderHistoryFromLocal(); }
+    if (state.db) { try { await state.db.doc("days/" + date).delete(); siSeGuardo("days/" + date); } catch (err) { noSeGuardo("days/" + date, motivoDb(err), "el borrado del dia"); } }
+    else { if (lsPatch(d => { if (d.days) delete d.days[date]; })) siSeGuardo("days/" + date); else noSeGuardo("days/" + date, lsMotivo, "el borrado del dia"); renderHistoryFromLocal(); }
     if (date === state.today) { state.day = newDay(state.today); renderChecklist(); renderJournalDay(); }
   });
   function renderSettings() { renderMeta(); renderChecklist(); renderRules(); renderAccounts(); if (typeof renderFutAccounts === "function") { try { renderFutAccounts(); } catch (e) { } } }
@@ -7570,8 +7629,8 @@
   let dayNoteTimer = null;
   async function saveDayNote(date, patch) {
     if (state.demo) return;
-    if (state.db) { try { const ref = state.db.doc("days/" + date); const snap = await ref.get(); const cur = snap.exists ? snap.data() : newDay(date); const next = Object.assign({}, cur, patch, { updatedAt: Date.now() }); await ref.set(next); if (date === state.today) { state.day = migrateDay(Object.assign(newDay(date), next)); renderJournalDay(); } } catch (e) { flash("no se pudo guardar"); } }
-    else { lsPatch(d => { d.days = d.days || {}; d.days[date] = Object.assign(newDay(date), d.days[date] || {}, patch, { updatedAt: Date.now() }); }); if (date === state.today) { state.day = migrateDay(Object.assign(newDay(date), lsRead().days[date])); renderJournalDay(); } renderHistoryFromLocal(); }
+    if (state.db) { try { const ref = state.db.doc("days/" + date); const snap = await ref.get(); const cur = snap.exists ? snap.data() : newDay(date); const next = Object.assign({}, cur, patch, { updatedAt: Date.now() }); await ref.set(next); siSeGuardo("days/" + date); if (date === state.today) { state.day = migrateDay(Object.assign(newDay(date), next)); renderJournalDay(); } } catch (e) { noSeGuardo("days/" + date, motivoDb(e), "el dia " + date); } }
+    else { if (lsPatch(d => { d.days = d.days || {}; d.days[date] = Object.assign(newDay(date), d.days[date] || {}, patch, { updatedAt: Date.now() }); })) siSeGuardo("days/" + date); else noSeGuardo("days/" + date, lsMotivo, "el dia " + date); if (date === state.today) { state.day = migrateDay(Object.assign(newDay(date), lsRead().days[date])); renderJournalDay(); } renderHistoryFromLocal(); }
   }
   function dayDoc(date) { if (date === state.today) return state.day; const h = state.history.find(d => d.date === date); if (h) return migrateDay(h); const l = lsRead().days; return l && l[date] ? migrateDay(l[date]) : null; }
   function renderDay() {
