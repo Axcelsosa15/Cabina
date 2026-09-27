@@ -11,7 +11,7 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **67** · `1790511268-58df` · 2026-09-27 |
+| Versión viva | **68** · `1790515879-9a78` · 2026-09-27 |
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
@@ -91,6 +91,30 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
 - delante: `<!DOCTYPE html>`, `<head>` con las fuentes y los metas, el reset
   mínimo, `</head><body>`
 - detrás: `</body></html>`
+
+### Coinciden — republicado el 2026-09-27 (versión 68) · el rótulo deja de mentir
+
+La versión viva es la **68** (`1790515879-9a78`). Contrato `0.2.46` y capacidades
+arrastradas intactas.
+
+**14 líneas fuera, 68 dentro.** Lo que sale son las seis puertas de escritura tal como
+estaban: cada una avisaba con un destello de 2,5 s en `#jSaved` —que está **dentro de
+la pestaña Cabina**, medido: invisible en 5 de las 6— y el rótulo de la barra seguía
+diciendo «sincronizado».
+
+Entra `SIN GUARDAR · n` con el código del error, en la barra, en las seis pestañas, y
+llevado **por documento**: si falla el día y luego entra bien una operación, el aviso
+del día sigue.
+
+Doce comprobaciones sobre el candidato. La número siete salió ❌ y **el número
+esperado era mío**: comprobaba que no se hubiera colado un `\u00b7` literal y pedía 0
+apariciones de un patrón que no era el que había que buscar. Verificado directamente:
+una sola `SIN GUARDAR`, con el punto medio real (`C2 B7`), y **cero** escapes sin
+interpretar. Sexta vez que aparece el patrón del protocolo 14 en una republicación.
+
+Lo que esta republicación **no** arregla, y no por olvido: si la base rechaza la
+escritura, el dato sigue quedándose en memoria. Copiar a `localStorage` lo que la base
+rechazó crea dos fuentes de verdad que pueden divergir. Eso es producto, no auditoría.
 
 ### Comprobado a mano el 2026-09-27: la 67 es index.html, byte a byte
 
