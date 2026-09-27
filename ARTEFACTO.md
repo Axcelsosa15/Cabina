@@ -11,7 +11,7 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **63** · `1790491941-1106` · 2026-09-27 |
+| Versión viva | **64** · `1790503479-66b9` · 2026-09-27 |
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
@@ -91,6 +91,24 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
 - delante: `<!DOCTYPE html>`, `<head>` con las fuentes y los metas, el reset
   mínimo, `</head><body>`
 - detrás: `</body></html>`
+
+### Coinciden — republicado el 2026-09-27 (versión 64)
+
+La versión viva es la **64** (`1790503479-66b9`). Contrato `0.2.46` y capacidades
+arrastradas intactas.
+
+El diff contra la 63 es **puramente aditivo: 0 líneas fuera, 272 dentro**, en cinco
+bloques — el CSS del panel, el botón de la barra superior, el marcado del panel, el
+bloque de JavaScript del registro rápido y la línea de `source` en la puerta de
+guardado del editor. **No se borró una sola línea de lo publicado**, que es
+exactamente lo que debe ocurrir al añadir una funcionalidad y es una comprobación en
+sí misma.
+
+Dieciséis comprobaciones sobre el candidato, todas correctas, incluidas las dos que
+vigilan que la funcionalidad nueva no abra una segunda puerta: `source: "quick_add"`
+presente **una** vez, y `instrument: p.instrument, pnl: p.pnl` — que escribe `pnl` y
+**no** `pnlEff`, que es lo único que impide que el registro rápido se convierta en una
+segunda fuente de verdad para el P&L.
 
 ### Coinciden — republicado el 2026-09-27 (versión 63)
 
