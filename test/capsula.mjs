@@ -46,7 +46,7 @@ const errs = [];
 const CAPSULA = () => {
   const REG = { use: [], perms: [], sets: [], deletes: [], subs: [] };
   const DOCS = {}, COLS = {}, CBDOC = {}, CBCOL = {};
-  let ROMPE = null;                       /* cuando es un string, todo .set() rechaza con ese code */
+  let ROMPE = null, NO_LEER = false;       /* ROMPE simula escrituras fallidas; NO_LEER, lecturas de respaldo fallidas */
   const cp = o => JSON.parse(JSON.stringify(o));
   const snap = ruta => ({ exists: Object.prototype.hasOwnProperty.call(DOCS, ruta), data: () => DOCS[ruta] });
   const avisa = ruta => (CBDOC[ruta] || []).forEach(cb => { try { cb(snap(ruta)); } catch (e) { } });
@@ -70,6 +70,13 @@ const CAPSULA = () => {
   const consulta = (n, meta) => ({
     orderBy(campo, dir) { return consulta(n, Object.assign({}, meta, { orderBy: campo, dir })); },
     limit(x) { return consulta(n, Object.assign({}, meta, { limit: x })); },
+    get() {
+      if (NO_LEER) throw { code: 'unavailable' };
+      const rows = n === 'days'
+        ? Object.entries(DOCS).filter(([ruta]) => ruta.indexOf('days/') === 0).map(([, data]) => data)
+        : Object.values(COLS[n] || {});
+      return Promise.resolve({ docs: rows.map(data => ({ data: () => data })) });
+    },
     doc(id) { return docCol(n, id); },
     onSnapshot(cb) {
       REG.subs.push(Object.assign({ tipo: 'col', nombre: n }, meta)); (CBCOL[n] = CBCOL[n] || []).push(cb);
@@ -88,6 +95,7 @@ const CAPSULA = () => {
   window.__CAP = {
     REG, DOCS, COLS,
     rompe: c => { ROMPE = c; },
+    rompeLectura: x => { NO_LEER = !!x; },
     remoto: (ruta, data) => { DOCS[ruta] = data; avisa(ruta); },
     escrito: pref => REG.sets.filter(s => s.ruta.indexOf(pref) === 0),
     ultimo: pref => { const l = REG.sets.filter(s => s.ruta.indexOf(pref) === 0); return l.length ? l[l.length - 1].data : null; },
@@ -203,6 +211,18 @@ await p.waitForTimeout(600);
 const traViejo = await p.inputValue('#jNote');
 paso('y uno mas viejo NO lo reemplaza (regla updatedAt)', traViejo === 'escrita desde otro dispositivo',
   `obtenido «${traViejo.slice(0, 34)}» · esperado «escrita desde otro dispositivo»`);
+
+/* Una copia no puede llamarse copia si la lectura de la base falló a mitad de camino:
+   el botón debe rechazarla, no caer silenciosamente al localStorage vacío. */
+await p.evaluate(() => window.__CAP.rompeLectura(true));
+await p.click('#bkShow'); await p.waitForTimeout(700);
+const copiaFallida = await p.evaluate(() => ({
+  note: document.getElementById('bkNote').textContent.trim(),
+  editor: !!document.getElementById('ef_j'),
+}));
+paso('EXPORTAR avisa si no puede leer toda la base', /no se pudo leer toda la base/i.test(copiaFallida.note) && !copiaFallida.editor,
+  copiaFallida.note || 'sin aviso');
+await p.evaluate(() => window.__CAP.rompeLectura(false));
 
 /* ── E · los errores no se esconden ──────────────────────────────────────── */
 await p.evaluate(() => { window.__CAP.rompe('permission-denied'); });
