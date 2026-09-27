@@ -10922,20 +10922,39 @@
     btn.disabled = false; btn.textContent = "Ver el texto";
   });
   // Acepta tanto {id: doc} como [doc]: así una copia editada a mano sigue entrando.
-  function bkMap(v, key) {
+  // La forma se valida aquí, antes de que applyBundle pueda escribirla en disco.
+  const BK_BAD_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+  function bkMap(v, key, label) {
     const m = {};
-    if (Array.isArray(v)) v.forEach(x => { if (x && typeof x === "object" && x[key]) m[String(x[key])] = x; });
-    else if (v && typeof v === "object") Object.keys(v).forEach(k => { const x = v[k]; if (x && typeof x === "object") m[String(x[key] || k)] = x; });
+    if (v == null) return m;
+    const lista = Array.isArray(v);
+    if (!lista && (typeof v !== "object" || v === null)) throw new Error(`La sección ${label} no tiene forma válida.`);
+    const entradas = lista ? v.map((x, i) => [String(i), x]) : Object.entries(v);
+    for (const [k, x] of entradas) {
+      if (!x || typeof x !== "object" || Array.isArray(x)) throw new Error(`La sección ${label} contiene un registro inválido.`);
+      const rawKey = x[key] != null && x[key] !== "" ? x[key] : (lista ? null : k);
+      if (typeof rawKey !== "string" && typeof rawKey !== "number") throw new Error(`La sección ${label} contiene un registro sin identificador.`);
+      const id = String(rawKey).trim();
+      if (!id || id.length > 128 || BK_BAD_KEYS.has(id)) throw new Error(`La sección ${label} contiene un identificador inválido.`);
+      if (Object.prototype.hasOwnProperty.call(m, id)) throw new Error(`La sección ${label} repite el identificador «${id}».`);
+      m[id] = x;
+    }
     return m;
   }
   function bkParse(txt) {
     let raw; try { raw = JSON.parse(txt); } catch { return { err: "El texto no es JSON válido." }; }
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { err: "El archivo no tiene la forma de una copia de Cabina." };
     if (raw.format !== BK_FORMAT) return { err: "Esto no es una copia de Cabina: falta la marca del formato." };
-    if (Number(raw.version) > BK_VERSION) return { err: `La copia es de una versión más nueva (v${raw.version}) que esta cabina (v${BK_VERSION}). Actualiza la página antes de importarla.` };
-    const b = { days: bkMap(raw.days, "date") };
-    COLLS.forEach(n => { b[n] = bkMap(raw[n], "id"); });
-    if (raw.settings && typeof raw.settings === "object") b.settings = raw.settings;
+    const version = Number(raw.version);
+    if (!Number.isInteger(version) || version < 1) return { err: "La copia no trae una versión válida." };
+    if (version > BK_VERSION) return { err: `La copia es de una versión más nueva (v${raw.version}) que esta cabina (v${BK_VERSION}). Actualiza la página antes de importarla.` };
+    let b;
+    try {
+      b = { days: bkMap(raw.days, "date", "días") };
+      COLLS.forEach(n => { b[n] = bkMap(raw[n], "id", n); });
+    } catch (e) { return { err: e.message || "La copia contiene registros mal formados." }; }
+    if (raw.settings != null && (typeof raw.settings !== "object" || Array.isArray(raw.settings))) return { err: "La sección settings no tiene forma válida." };
+    if (raw.settings) b.settings = raw.settings;
     b.exportedAt = raw.exportedAt; b.source = raw.source; b.version = raw.version;
     const st = bundleStats(b);
     if (!st.parts.length && !b.settings) return { err: "La copia está vacía: no trae nada que importar." };
