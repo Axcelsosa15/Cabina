@@ -11,7 +11,7 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **61** · `1790422823-8b79` · 2026-09-26 |
+| Versión viva | **62** · `1790489773-6268` · 2026-09-27 |
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
@@ -92,34 +92,49 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
   mínimo, `</head><body>`
 - detrás: `</body></html>`
 
-### ⚠ Ahora mismo NO coinciden — la fase 2 cambió código que se ejecuta
+### Coinciden — republicado el 2026-09-27
 
-El artefacto sigue en la versión **61**, con el `riskEngine` que **calcula**. El
-repositorio tiene el que **traduce**: un adaptador sobre `QE.margenDePerdida`, la
-tabla de umbrales duplicada eliminada, y la tercera copia de `dayAgg` fuera.
+`index.html` y el artefacto publicado vuelven a decir lo mismo. La versión viva es la
+**62** (`1790489773-6268`); la anterior era `1790422823-8b79`. Contrato `0.2.46` y
+capacidades `assets` / `db` / `downloads` **arrastradas intactas** — confirmado en la
+respuesta del publicador, no supuesto: `capabilities` se omitió a propósito.
 
-A diferencia del 100× del tamaño de posición, **esto no es un defecto vivo en el
-entorno principal**: la consolidación es equivalente por medición. Los dieciséis
-números dorados de `test/equivalencia.mjs` —fijados como literales *antes* de tocar
-`index.html`— no se movieron, y las 52 suites siguen en verde. El artefacto no está
-dando un número malo; está dando el mismo número por el camino viejo.
-
-Por eso la republicación se **agrupa** en vez de hacerse por paso: quedan tres
-consolidaciones más que tocan `index.html` (`ddEngine`, `consEngine`, `gainCap`), y
-cada republicación exige leer las 10.782 líneas publicadas. Se republica una vez, al
-cerrar el trabajo sobre `index.html`, y esta sección vuelve a decir «coinciden» con
-su diff.
-
-Lo que está pendiente de subir, exactamente:
+Lo que fue, medido diferenciando el fichero publicado contra el candidato **antes**
+de enviarlo: **20 líneas fuera, 55 dentro**, y ni una más que las tres
+consolidaciones de la fase 2 con sus comentarios:
 
 | | |
 |---|---|
+| `RISK_STEPS` → `NIVEL_APP` | la tabla de umbrales duplicada, sustituida por presentación |
 | `riskEngine` | de implementación a adaptador sobre `QE.margenDePerdida` |
-| `RISK_STEPS` | sustituida por `NIVEL_APP`, que es sólo presentación |
+| `gainCap` | adaptador sobre `QE.topeDeGanancia` |
 | `dayAgg.lossPct` / `lossRemaining` | ahora del motor; era la tercera copia |
 
-Y lo que **no** cambia y no debe cambiar al republicar: el contrato `0.2.46`, las
-capacidades `assets` / `db` / `downloads`, y el `<title>Cabina</title>`.
+Nada inesperado había entrado en lo publicado por otra vía, y nada inesperado había en
+el candidato.
+
+**Esta republicación no arreglaba ningún defecto**, a diferencia de la del 100×: la
+consolidación es equivalente por medición —los dieciséis números dorados de
+`test/equivalencia.mjs`, fijados como literales *antes* de tocar `index.html`, no se
+movieron— así que la versión 61 daba el mismo número por el camino viejo. Se
+republicó para que el entorno principal no se quede atrás, no para corregirlo.
+
+Las dieciséis comprobaciones sobre el candidato, todas verdes:
+
+`riesgoPct: pc / 100` **1** · `riesgoPct: pc })` **0** · `const NIVEL_APP` **1** ·
+`const RISK_STEPS` **0** · `under: 0.` **0** · `QE.margenDePerdida(-t.lossUsed` **1** ·
+`QE.margenDePerdida(-lossUsed` **1** · `QE.topeDeGanancia(` **1** ·
+`<title>Cabina</title>` **1** · `</body>` **0** · `</html>` **0** ·
+`const QE = (function () {` **1** · `window.QuantEngine = QE;` **1** · `window.FUT`
+**1** · el primer `<style>` del envoltorio **0** · y el bloque del motor del candidato
+**idéntico byte a byte** al de `index.html` (102.396 bytes), que es lo que `capa2` §15
+ya verifica contra el bundle.
+
+Y otra vez un instrumento propio mintiendo, no el fichero: el §15 improvisado sobre el
+candidato dio 93.055 contra 93.110 bytes y «muestra no encontrada», porque cortaba y
+normalizaba distinto que `capa2`. La comprobación buena es `capa2` §15, verde. Tercera
+vez que el patrón del protocolo 14 aparece en una republicación: **se comprueba el
+instrumento antes de creerle**.
 
 ### Coincidieron — republicado el 2026-09-26
 
