@@ -11,7 +11,7 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **64** · `1790503479-66b9` · 2026-09-27 |
+| Versión viva | **65** · `1790505488-a8bb` · 2026-09-27 |
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
@@ -91,6 +91,33 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
 - delante: `<!DOCTYPE html>`, `<head>` con las fuentes y los metas, el reset
   mínimo, `</head><body>`
 - detrás: `</body></html>`
+
+### Coinciden — republicado el 2026-09-27 (versión 65) · arreglo de seguridad
+
+La versión viva es la **65** (`1790505488-a8bb`). Contrato y capacidades intactos.
+
+**1 línea fuera, 35 dentro.** La que sale es exactamente la `imgSrc` insegura:
+
+```js
+function imgSrc(im) { return im && im.data ? String(im.data) : "/_blob/" + ((im && im.id) || ""); }
+```
+
+Entra la lista blanca de esquemas, el guardado del `fetch` y la marca visible de
+rechazo. Sin ese filtro, importar un respaldo escrito a mano con `data: "https://…"`
+hacía que la cabina **pidiera esa URL** — demostrado con sabotaje: la página pidió de
+verdad `blob:https://evil.example/x` y `file:///etc/passwd`.
+
+**Esta republicación SÍ arreglaba algo**, a diferencia de las dos anteriores. Por eso
+no se agrupó con nada.
+
+Y la comprobación número cuatro salió ❌ la primera vez porque **el número esperado
+era mío**: esperaba 3 apariciones de `IMG_RECHAZADA` y son 2 —la declaración y el
+`return`—. Quinta vez que el patrón del protocolo 14 aparece en una republicación, y
+la segunda seguida que se caza en el acto.
+
+> ⚠ **El riesgo que esta republicación NO arregla**: el artefacto sigue compartido
+> como «cualquiera que tenga el enlace», con datos reales dentro. Eso no está en el
+> código. Un clic en el menú Share, y sólo lo puede dar el dueño.
 
 ### Coinciden — republicado el 2026-09-27 (versión 64)
 
