@@ -12,7 +12,9 @@ import { fileURLToPath } from 'node:url';
 const aqui = dirname(fileURLToPath(import.meta.url));
 /* No son tests: dos son herramientas y uno necesita un baseline que no está
    en el repositorio. Se nombran para que nadie se pregunte por qué faltan. */
-const NO_SON_TESTS = new Set(['build-preview.mjs', 'sync-index.mjs', 'espera.mjs', 'correr.mjs']);
+/* compuerta.mjs LANZA este archivo. Sin excluirla, correr.mjs la descubriria como
+   una prueba mas y se llamaria a si mismo sin fondo. Se detecto antes de ejecutarla. */
+const NO_SON_TESTS = new Set(['build-preview.mjs', 'sync-index.mjs', 'espera.mjs', 'correr.mjs', 'compuerta.mjs']);
 const SIN_BASELINE = new Set(['perf.mjs']);
 
 /* Las pruebas del motor viven fuera de test/, y por eso no se ejecutaban NUNCA:

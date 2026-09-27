@@ -32,7 +32,7 @@ engine/quant/*.js          los 11 módulos FUENTE del motor
 engine/QuantEngine.bundle.js   generado por `npm run bundle`
 engine/MathEngine.js       motor v1, REFERENCIA histórica — la app no lo usa
 
-test/                      53 archivos · 48 pruebas + 5 herramientas
+test/                      54 archivos · 48 pruebas + 6 herramientas
   └─ correr.mjs            el runner: un proceso por archivo, veredicto por salida
 ```
 
@@ -65,6 +65,7 @@ npm run preview         # regenera test/preview.html desde index.html — NO es 
 npm test                # las 51 suites
 npm test motor          # sólo el motor
 npm test humo           # sólo el smoke test de producción
+npm run compuerta       # la suite + la tabla de la cadena (lo que corre CI)
 ```
 
 ## Cómo construir el bundle
@@ -84,6 +85,45 @@ Dos destinos, y el código es el mismo:
 - **Artefacto de claude.ai** — la experiencia principal. Ver [ARTEFACTO.md](ARTEFACTO.md).
 - **GitHub Pages** — el respaldo web. Lo publica `.github/workflows/pagina.yml`,
   y sólo después de que la suite pase en verde.
+
+---
+
+## La compuerta de publicación
+
+`npm run compuerta` (`test/compuerta.mjs`) es lo que decide si esto se publica.
+No es una suite nueva: **lanza `correr.mjs` una sola vez** y todas sus filas
+dependientes de pruebas derivan de esa única salida, así que no cuesta una
+corrida extra. Lo que añade es recorrer la cadena entera eslabón por eslabón:
+
+```
+fuente → motor → bundle → index.html → pages → artefacto
+```
+
+Imprime 16 filas con tres veredictos, y la distinción es el punto del ejercicio:
+
+| | |
+|---|---|
+| `PASS` | ejecutado y comprobado |
+| `FAIL` | la comprobación se hizo y salió mal — sale con código 1 |
+| `UNKNOWN` | **no puede comprobarse automáticamente desde aquí** |
+
+Hoy son **12 PASS · 0 FAIL · 4 UNKNOWN**. Las cuatro `UNKNOWN` son fronteras de
+plataforma, no pruebas que falten: que el artefacto publicado sea igual a
+`index.html`, que el `db` real de claude.ai se comporte como el doble de
+`capsula.mjs`, que la URL de Pages sirva, y que el CDN de GitHub entregue lo
+verificado. Ninguna se convierte en `PASS` por conveniencia, y **una fila
+`UNKNOWN` nunca afecta al código de salida** — se nombra y se sigue.
+
+**Por qué no puede mentir**: cada fila que depende de una prueba busca su línea
+de evidencia en la salida de la suite. Si esa línea **no aparece**, la fila es
+`FAIL` con el motivo «no aparece «X» en la salida de la suite», no `PASS`. Un
+cambio en el formato de salida de `correr.mjs` rompe la compuerta en rojo, no la
+deja pasar en silencio. Comprobado con sabotaje en las dos direcciones:
+
+| sabotaje | resultado |
+|---|---|
+| tres roturas reales a la vez (bundle desincronizado, un tercer `<style>` en `index.html`, una limitación borrada de la doc) | 5 filas en `FAIL` —las dos extra son cascadas correctas—, las 4 `UNKNOWN` intactas, `EXIT=1` |
+| la etiqueta de una prueba renombrada: la prueba sigue corriendo, pero su línea de evidencia desaparece | **la suite entera queda 51/51 en verde con `exit 0`** y la compuerta cierra igual: `11 PASS · 1 FAIL · 4 UNKNOWN`, `EXIT=1`, por evidencia ausente |
 
 ---
 
@@ -145,7 +185,8 @@ resuelve.
 | Aserciones de navegador y guardianes | **455** en 15 archivos — las cuenta la propia suite |
 | Cobertura de la capa `db` del artefacto | **28** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
-| CI | ejecuta el mismo `npm test`, verificado en el log |
+| Compuerta de publicación | **12 PASS · 0 FAIL · 4 `UNKNOWN`** de 16 filas |
+| CI | ejecuta `npm run compuerta`: la suite entera más la tabla de la cadena |
 | Secretos técnicos en el repositorio | ninguno |
 
 Detalle y evidencia en [PROTOCOLOS.md](PROTOCOLOS.md). La historia de cada fallo

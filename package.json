@@ -8,7 +8,8 @@
     "bundle": "node engine/quant/bundle.mjs",
     "preview": "node test/build-preview.mjs",
     "test": "node test/correr.mjs",
-    "serve": "python3 -m http.server 8000"
+    "serve": "python3 -m http.server 8000",
+    "compuerta": "node test/compuerta.mjs"
   },
   "devDependencies": {
     "playwright": "1.56.1"

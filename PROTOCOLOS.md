@@ -30,6 +30,7 @@ cabeza de quien escribía — en el fichero únicamente estaban etiquetadas §12
 | 12 | El porcentaje de riesgo se pasa como fracción | `invariantes` |
 | 13 | Probar una plataforma que no está en el repositorio | `capsula` + humano |
 | 14 | No contar aserciones leyendo el código | `correr.mjs` |
+| 15 | Un `UNKNOWN` nunca se convierte en `PASS` | `compuerta` |
 | — | *Que esta tabla no mienta* | `capa2` §14 |
 
 ---
@@ -482,6 +483,77 @@ razonable que distinga una llamada de una mención en prosa.
 > reemplazado por el número que imprime la suite — 455 en 15, idéntico en local
 > (485 s) y en CI (450 s), así que no depende del entorno — y queda anotado aquí
 > que el anterior era una cuenta que no se podía repetir.
+
+---
+
+## 15 · Un `UNKNOWN` nunca se convierte en `PASS`
+
+Tres veredictos, y no hay un cuarto:
+
+| | |
+|---|---|
+| `PASS` | **se ejecutó** la comprobación y salió bien |
+| `FAIL` | se ejecutó y salió mal |
+| `UNKNOWN` | **no puede comprobarse automáticamente desde aquí** |
+
+`UNKNOWN` no es un `FAIL` blando ni un `PASS` con reservas: es la frontera del
+instrumento, escrita. `npm run compuerta` imprime hoy cuatro, y las cuatro son
+fronteras de plataforma, no pruebas que falten:
+
+1. Que el artefacto publicado sea igual a `index.html`. No hay URL que Actions
+   pueda leer.
+2. Que el `db` real de claude.ai se comporte como el doble de `capsula.mjs`
+   (protocolo 13).
+3. Que la URL de Pages sirva.
+4. Que el CDN de GitHub entregue exactamente lo verificado.
+
+Las reglas:
+
+- **No se inventa una prueba que pretenda comprobar lo que la plataforma no puede
+  comprobar.** Una prueba que siempre pasa porque no mira nada es peor que la
+  ausencia de prueba: ocupa el sitio.
+- **Una fila `UNKNOWN` no afecta al código de salida.** Si lo afectara, el rojo
+  permanente entrenaría a ignorar el rojo — el mismo razonamiento por el que
+  `pagina.yml` avisa en vez de fallar.
+- **Cada fila que depende de una prueba busca su línea de evidencia en la salida
+  de la suite.** Si la línea no aparece, la fila es `FAIL` con el motivo «no
+  aparece «X» en la salida», nunca `PASS`. Un cambio de formato en `correr.mjs`
+  rompe la compuerta en rojo, no la deja pasar en silencio.
+- **Se comprueba con sabotaje en las dos direcciones**: rompiendo lo comprobado
+  (la fila debe caer en `FAIL`) y borrando la evidencia (la fila debe caer en
+  `FAIL` por ausencia, no subir a `PASS`). Medido: al renombrar la etiqueta de
+  una prueba, **la suite entera siguió 51/51 en verde con `exit 0`** y la
+  compuerta cerró igual — `11 PASS · 1 FAIL · 4 UNKNOWN`, `EXIT=1`. Una suite
+  verde no es evidencia suficiente para una fila: la fila exige *su* línea.
+- **El sabotaje se revierte quirúrgicamente, nunca con `git checkout --`.** Se
+  deshace la edición exacta que se hizo, y después se comprueba el `md5` contra
+  el que se anotó antes de sabotear. `git checkout --` devuelve el archivo a
+  **HEAD**, no al estado previo al sabotaje: si el archivo llevaba trabajo sin
+  commitear, se pierde en silencio y el árbol queda limpio, que es lo que lo hace
+  peligroso.
+
+> **Qué falló:** durante toda una sesión se dijo «el artefacto y el repositorio
+> coinciden» sin que existiera ninguna comprobación que pudiera decirlo. No era
+> mentira deliberada: era un `UNKNOWN` sin nombre, y un `UNKNOWN` sin nombre se
+> lee como un `PASS`. Lo que lo destapó fue leer el fichero publicado línea por
+> línea y encontrar el 100× del tamaño de posición **vivo en el entorno
+> principal** mientras el repositorio ya estaba arreglado. La comprobación que
+> faltaba no se podía automatizar; lo que faltaba de verdad era **decir que no se
+> podía**.
+>
+> El precedente al lado: `preview.html` estuvo seis días en verde midiendo una
+> copia congelada de `index.html`. También ahí el instrumento decía `PASS`
+> mientras no miraba nada.
+>
+> **Y el propio sabotaje falló una vez, en la revisión.** Para deshacer el
+> segundo sabotaje se hizo `git checkout -- test/correr.mjs`. Ese archivo llevaba
+> además la guarda de recursión sin commitear —`compuerta.mjs` en
+> `NO_SON_TESTS`—, así que el `checkout` la borró y dejó el árbol limpio: `git
+> status` no tenía nada que decir. La corrida siguiente habría hecho que
+> `correr.mjs` descubriera `compuerta.mjs`, que lanza `correr.mjs`, sin fondo. Se
+> detectó porque el `md5` **no coincidía** con el anotado antes de sabotear, y se
+> mató el proceso cuando iba por `audit3.mjs` — antes de `compuerta.mjs` por
+> alfabeto. El `md5` fue lo único que lo dijo; nada más lo habría hecho.
 
 ---
 

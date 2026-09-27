@@ -1,4 +1,4 @@
-# La suite corre sola en cada push. Sin esto, 44 archivos de prueba sólo se
+# La suite corre sola en cada push. Sin esto, 48 archivos de prueba sólo se
 # ejecutan cuando alguien se acuerda — y un test que nadie corre no es un test,
 # es un archivo.
 name: pruebas
@@ -35,5 +35,12 @@ jobs:
       - name: Construir el preview
         run: npm run preview
 
-      - name: Correr la suite
-        run: npm test
+      # npm run compuerta, no npm test: la compuerta LANZA la suite una sola vez
+      # (correr.mjs como proceso hijo) y todas sus filas dependientes de pruebas
+      # derivan de ESA salida. No cuesta una corrida extra. Lo que suma es la
+      # tabla de la cadena fuente -> motor -> bundle -> index.html -> pages, y
+      # sobre todo las cuatro filas UNKNOWN: fronteras que CI no puede comprobar
+      # y que quedan NOMBRADAS en el log en vez de omitidas. Sale 1 si hay una
+      # fila en FAIL; una fila UNKNOWN nunca afecta al codigo de salida.
+      - name: Correr la compuerta (incluye la suite entera)
+        run: npm run compuerta
