@@ -31,6 +31,7 @@ cabeza de quien escribía — en el fichero únicamente estaban etiquetadas §12
 | 13 | Probar una plataforma que no está en el repositorio | `capsula` + humano |
 | 14 | No contar aserciones leyendo el código | `correr.mjs` |
 | 15 | Un `UNKNOWN` nunca se convierte en `PASS` | `compuerta` |
+| 16 | La capa de riesgo está duplicada: no se toca una sola de las dos | `equivalencia` |
 | — | *Que esta tabla no mienta* | `capa2` §14 |
 
 ---
@@ -554,6 +555,64 @@ Las reglas:
 > detectó porque el `md5` **no coincidía** con el anotado antes de sabotear, y se
 > mató el proceso cuando iba por `audit3.mjs` — antes de `compuerta.mjs` por
 > alfabeto. El `md5` fue lo único que lo dijo; nada más lo habría hecho.
+
+---
+
+## 16 · La capa de riesgo está duplicada: no se toca una sola de las dos
+
+`index.html` reimplementa cinco cálculos que el Quant Engine ya tiene:
+
+| app (`index.html`) | motor (`engine/quant/`) |
+|---|---|
+| `ddEngine` (2926) | `margenDeDrawdown` — `compliance.js:53` |
+| `riskEngine` (2951) | `margenDePerdida` — `compliance.js:30` |
+| `consistency` (2878) + `consEngine` (2936) | `evaluarConsistencia` — `curve.js` |
+| `gainCap` (2963) | `topeDeGanancia` — `compliance.js:42` |
+| `evaluateAccountRules` (3196) | `evaluarCumplimiento` — `compliance.js:72` |
+
+Y dos tablas de umbrales idénticas con nombres de clave distintos: `NIVELES` en el
+motor (`hasta`/`codigo`/`etiqueta`/`clase`) contra `RISK_STEPS` en la app
+(`under`/`code`/`label`/`cls`), ambas 0.50 / 0.75 / 1.00.
+
+Mientras la duplicación exista:
+
+- **No se corrige un número en una de las dos y se deja la otra.** `equivalencia`
+  se pone rojo, que es su trabajo; lo que no se puede es apagarlo para que pase.
+- **La consolidación se verifica por igualdad numérica, no a ojo.** Hoy las dos
+  implementaciones coinciden al centavo, y eso es la **referencia dorada**: el
+  cambio que las una tiene que dejar los mismos números, no unos parecidos.
+- **Los códigos de nivel NO son intercambiables.** La app dice `safe` / `caution` /
+  `danger` / `locked`, el motor dice `seguro` / `precaucion` / `peligro` /
+  `agotado`, y **el CSS de la app se cuelga de `code`**. Renombrarlos por
+  «consistencia» rompe los colores sin romper ninguna prueba de cálculo.
+- **El motor redondea a 4 decimales en la frontera de presentación y la app no.**
+  Por eso `equivalencia` compara los porcentajes con tolerancia al centavo y no
+  con `===`. Eso es una diferencia conocida, no un fallo.
+
+Y las dos tablas **no son alcanzables en ejecución**: `NIVELES` es `const` privada
+de `compliance.js` y `RISK_STEPS` es local del IIFE de la app. Así que
+`equivalencia` las comprueba de dos maneras a la vez: comparando el **texto** del
+fuente —que es lo que atrapa a quien edita una y no la otra— y por su **efecto**,
+con un barrido de cuatro casos que aterriza en cada banda.
+
+> **Qué falló:** nada, todavía — y eso es exactamente el problema que el protocolo
+> ataca. La duplicación llevaba meses en el repositorio y **no existía ninguna
+> comprobación capaz de decir si las dos mitades daban el mismo número**. La
+> primera medición se hizo en la auditoría de la fase 0, con una sonda que
+> enfrentaba las dos implementaciones en la misma página con los mismos datos:
+> coincidían al centavo. Si hubieran divergido, se habría descubierto por un
+> número malo en pantalla, no por una prueba.
+>
+> El guardián se escribió **antes** de consolidar nada, y por eso se pudo escribir
+> en verde: fija el estado actual como referencia. Se comprobó con tres sabotajes
+> —un umbral movido de 0.75 a 0.90, un `+ 1` en el colchón de `ddEngine`, y un
+> código renombrado— y cada uno lo puso rojo por **dos** filas independientes.
+>
+> El tercero destapó además un mensaje de fallo que mentía por omisión: decía «app
+> «precaucion» · motor «precaucion»», que se lee como si coincidieran, cuando el
+> fallo real era que ese código no figuraba en la tabla de correspondencia. El
+> mensaje ahora lo dice. Es el protocolo 11 otra vez: una aserción tiene que fallar
+> **por el motivo correcto**, y decirlo.
 
 ---
 

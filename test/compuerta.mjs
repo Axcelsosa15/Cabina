@@ -151,6 +151,15 @@ dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia'
     (a.ok && b.ok) ? 'PASS' : 'FAIL',
     `motor-bundle (fuente==bundle) + capa2 §15 (bundle==incrustado): ${a.ok ? 'ok' : 'roto'} / ${b.ok ? 'ok' : 'roto'}`);
 }
+{
+  /* La OTRA divergencia, la que de verdad puede morder: index.html reimplementa
+     cinco calculos que el motor ya tiene. Hoy coinciden al centavo, y esta fila es
+     lo que hace que se sepa el dia que dejen de coincidir -- en la corrida
+     siguiente, no meses despues con un numero malo en pantalla. Mientras la
+     duplicacion exista, esta fila es la unica que la vigila; cuando la fase 2 la
+     consolide, pasa a vigilar que la consolidacion no cambio ningun numero. */
+  dice('equivalencia', 'suite', 'La capa de riesgo de la UI da los mismos numeros que el motor', 'divergencia');
+}
 
 /* ── ARTEFACTO · lo que SÍ se puede comprobar desde aquí ─────────────────────
    Se comprueba que esté ANOTADO y que la anotación tenga forma de versión real.
