@@ -11,7 +11,7 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **68** · `1790515879-9a78` · 2026-09-27 |
+| Versión viva | **69** · `1790518093-ef45` · 2026-09-27 |
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
@@ -91,6 +91,28 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
 - delante: `<!DOCTYPE html>`, `<head>` con las fuentes y los metas, el reset
   mínimo, `</head><body>`
 - detrás: `</body></html>`
+
+### Coinciden — republicado el 2026-09-27 (versión 69) · y en el teléfono también
+
+La versión viva es la **69** (`1790518093-ef45`). Contrato `0.2.46` y capacidades
+arrastradas intactas.
+
+**1 línea fuera, 17 dentro.** La que sale es la regla que escondía el rótulo:
+
+```css
+.save-state { display: none; }     /* dentro de @media (max-width: 700px) */
+```
+
+—sigue ahí, pero ya no se lleva por delante el aviso. Medido antes: el rótulo decía
+«SIN GUARDAR · 2» y su rectángulo era **0×0 px**. El arreglo de la 68 se borraba
+entero justo en la pantalla más pequeña.
+
+Entra `.save-state.nosave { display: block; flex: 1 1 100%; }` —lo ambiental sigue
+escondido, lo que importa se enseña, y en su propia línea— y `#footerStore.nosave`,
+que sube la explicación de `--dim` a `--text`.
+
+Nueve comprobaciones sobre el candidato, todas correctas. Es la primera republicación
+de esta serie en la que **ninguna** salió roja por un número mío.
 
 ### Coinciden — republicado el 2026-09-27 (versión 68) · el rótulo deja de mentir
 
