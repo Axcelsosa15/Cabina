@@ -11,7 +11,7 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **62** · `1790489773-6268` · 2026-09-27 |
+| Versión viva | **63** · `1790491941-1106` · 2026-09-27 |
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
@@ -92,7 +92,23 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
   mínimo, `</head><body>`
 - detrás: `</body></html>`
 
-### Coinciden — republicado el 2026-09-27
+### Coinciden — republicado el 2026-09-27 (versión 63)
+
+La versión viva es la **63** (`1790491941-1106`). Contrato `0.2.46` y capacidades
+`assets` / `db` / `downloads` arrastradas intactas, confirmado en la respuesta.
+
+Diferenciado contra la **62**, que se publicó desde este mismo sitio hace un rato y
+por tanto se conoce byte a byte sin volver a leer lo publicado: **16 líneas fuera, 49
+dentro**, y el diff es exactamente la consolidación de `consistency()` sobre
+`QE.evaluarConsistencia` con sus comentarios. Nada más.
+
+Las diecisiete comprobaciones sobre el candidato, todas correctas — y la número seis
+salió ❌ la primera vez porque **el número esperado estaba mal, no el fichero**:
+`SIN_GANANCIA_APP` aparece 3 veces, 2 en líneas de código y 1 en la prosa del
+comentario que explica cómo cambiarlas. Cuarta vez que el patrón del protocolo 14
+aparece en una republicación, y la primera que se caza en el acto en vez de después.
+
+### Coinciden — republicado el 2026-09-27 (versión 62)
 
 `index.html` y el artefacto publicado vuelven a decir lo mismo. La versión viva es la
 **62** (`1790489773-6268`); la anterior era `1790422823-8b79`. Contrato `0.2.46` y
