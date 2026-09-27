@@ -76,7 +76,7 @@ const importa = async (json, { confirmar = true } = {}) => {
   await p.waitForTimeout(700);
   const fin = await p.evaluate(() => {
     let ls = {}; try { ls = JSON.parse(localStorage.getItem('cabina-mnq:v1') || '{}'); } catch (e) { }
-    return { trades: FUT.trades().map(t => ({ id: String(t.id), pnl: t.pnl })),
+    return { trades: window.FUT.trades().map(t => ({ id: String(t.id), pnl: t.pnl })),
       clavesLS: Object.keys(ls.trades || {}), dias: Object.keys(ls.days || {}),
       proto: { a: ({}).contaminado, b: ({}).contaminado2, c: ({}).contaminado3 } };
   });
