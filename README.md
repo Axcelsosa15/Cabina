@@ -32,7 +32,7 @@ engine/quant/*.js          los 11 módulos FUENTE del motor
 engine/QuantEngine.bundle.js   generado por `npm run bundle`
 engine/MathEngine.js       motor v1, REFERENCIA histórica — la app no lo usa
 
-test/                      57 archivos · 51 pruebas + 6 herramientas
+test/                      58 archivos · 52 pruebas + 6 herramientas
   └─ correr.mjs            el runner: un proceso por archivo, veredicto por salida
 ```
 
@@ -90,7 +90,7 @@ También se abre como archivo suelto (`file://`), con las limitaciones de abajo.
 
 ```sh
 npm run preview         # regenera test/preview.html desde index.html — NO es opcional
-npm test                # las 54 suites
+npm test                # las 55 suites
 npm test motor          # sólo el motor
 npm test humo           # sólo el smoke test de producción
 npm run compuerta       # la suite + la tabla de la cadena (lo que corre CI)
@@ -191,7 +191,7 @@ Auditada el 2026-09-27; el informe y el modelo de amenazas están en
 | scripts de terceros | **0** — el motor va incrustado |
 | orígenes externos | **1**, las fuentes de Google |
 | dependencias de ejecución | **ninguna** · `npm audit` → 0 vulnerabilidades |
-| secretos en 64 commits de historia | **ninguno** |
+| secretos en 66 commits de historia | **ninguno** |
 
 Las cadenas que escribe el usuario se siguieron hasta su sumidero: todas acaban en
 `textContent` o pasan por `esc()`. **No se declara «seguro»** — se declara qué se
@@ -204,6 +204,10 @@ ningún backend lo mitigaría.
 
 `test/seguridad.mjs` vigila estas propiedades. Ninguna es visible en pantalla, que es
 justo por lo que necesitan un guardián.
+
+La frontera de importación también rechaza copias con versión ausente o inválida,
+secciones que no sean mapas/listas, registros que no sean objetos y claves de
+prototipo; nada de eso llega a `localStorage` ni a `db`.
 
 ---
 
@@ -276,8 +280,8 @@ resuelve.
   puede hacer.
 - **`file://` tira el almacén al recargar**, de forma intermitente. Por eso el
   smoke test usa HTTP y dos pruebas abren una pestaña nueva en vez de recargar.
-- **33 de las 51 pruebas de `test/` no afirman nada**: miden y registran. Su
-  único modo de fallo es romperse. Las 15 que afirman están contadas abajo, y
+- **33 de las 52 pruebas de `test/` no afirman nada**: miden y registran. Su
+  único modo de fallo es romperse. Las 16 que afirman están contadas abajo, y
   tanto el número como la lista los imprime `npm test`, no un `grep` sobre el
   código — ver protocolo 14.
 - **El motor tiene 55 funciones que la app no usa**, incluido el módulo de
@@ -299,13 +303,13 @@ resuelve.
 
 | | |
 |---|---|
-| Suites que se ejecutan | **54** (51 de `test/` + 3 del motor) |
+| Suites que se ejecutan | **55** (52 de `test/` + 3 del motor) |
 | Aserciones del motor | **421** (`quant` 329 · `math` 92) |
-| Aserciones de navegador y guardianes | **642** en 18 archivos — las cuenta la propia suite |
+| Aserciones de navegador y guardianes | **649** en 19 archivos — las cuenta la propia suite |
 | Cobertura de la capa `db` del artefacto | **28** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
 | Compuerta de publicación | **15 PASS · 0 FAIL · 4 `UNKNOWN`** de 19 filas |
-| CI | ejecuta `npm run compuerta`: la suite entera más la tabla — log leído, `12 PASS · 0 FAIL · 4 UNKNOWN` en 479 s |
+| CI | ejecuta `npm run compuerta`: la suite entera más la tabla; la verificación local actual dio `15 PASS · 0 FAIL · 4 UNKNOWN` |
 | Secretos técnicos en el repositorio | ninguno |
 
 Detalle y evidencia en [PROTOCOLOS.md](PROTOCOLOS.md). La historia de cada fallo
