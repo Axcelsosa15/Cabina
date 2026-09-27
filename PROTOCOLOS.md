@@ -567,10 +567,44 @@ consolidado y quedan cuatro:
 |---|---|---|
 | `riskEngine` | `margenDePerdida` — `compliance.js:30` | **consolidado**: adaptador de vocabulario |
 | `dayAgg.lossPct` / `lossRemaining` | `margenDePerdida` | **consolidado**: era la tercera copia |
-| `ddEngine` | `margenDeDrawdown` — `compliance.js:53` | pendiente — decidir el colchón negativo |
-| `consEngine` | `evaluarConsistencia` — `curve.js` | pendiente |
-| `gainCap` | `topeDeGanancia` — `compliance.js:42` | pendiente |
-| `evaluateAccountRules` | `evaluarCumplimiento` — `compliance.js:72` | pendiente |
+| `gainCap` | `topeDeGanancia` — `compliance.js:42` | **consolidado**: la coerción y la frase se quedan en la app |
+| `ddEngine` | `margenDeDrawdown` — `compliance.js:53` | **bloqueado**: dos semánticas distintas, decisión de producto |
+| `consEngine` | `evaluarConsistencia` — `curve.js` | **bloqueado**: falta medirlo con ganancia previa |
+| `evaluateAccountRules` | `evaluarCumplimiento` — `compliance.js:72` | pendiente — depende de los dos de arriba |
+
+### Los dos bloqueos, con sus números
+
+No son «pendientes» por falta de tiempo: son decisiones que un refactor no debe
+tomar por su cuenta.
+
+**`ddEngine` no es un intercambio.** En una cuenta quemada —25.000 con drawdown
+estático de 500 y −$800 en un día: suelo 24.500, balance 24.200— las dos
+implementaciones dan números distintos en DOS sitios:
+
+| | app | motor |
+|---|---|---|
+| colchón | `0` (clampado) | `−300` (cuánto te pasaste) |
+| usado | `500` (topado en el máximo) | `800` (`500 − (−300)`, el exceso real) |
+| porcentaje | `1` | `1` — este sí coincide |
+
+Las cuatro cifras son defendibles: «no te queda nada» y «gastaste todo tu drawdown»
+contra «te pasaste en 300» y «has perdido 800 contra un tope de 500». Pero la
+tarjeta muestra una, y elegirla es decidir qué se le dice al trader cuando ya quemó
+la cuenta. `equivalencia` **afirma las dos diferencias** en vez de esconderlas, así
+que están medidas y esperando decisión, no olvidadas.
+
+Y una corrección a la auditoría de la fase 0, que sugería más trabajo del que hay:
+`acctAgg` **ya** enruta la curva y el suelo por `QE.construirCurva` —su propio
+comentario dice «aquí desaparece la tercera copia de la fórmula del suelo»—, así que
+`ddEngine` no duplica el suelo. Duplica colchón, usado, pct y nivel **sobre un suelo
+que ya es del motor**.
+
+**`consEngine` falta medirlo donde puede romperse.** La app calcula `total` y `best`
+desde los agregados de la cuenta, que incluyen la **ganancia previa** y el **mejor
+día previo** (`base`, `baseBest`); el motor toma una lista de P&L diarios más un
+`{gananciaPrevia, mejorDiaPrevio}`. Coinciden en el escenario dorado porque ahí las
+dos valen cero. Consolidar sin un caso con ganancia previa distinta de cero sería
+consolidar a ciegas, y ese caso todavía no está sembrado.
 
 La tabla de umbrales duplicada **ya no existe**: `RISK_STEPS` llevaba los mismos
 0.50 / 0.75 / 1.00 que `NIVELES`, y ahora la app sólo tiene `NIVEL_APP`, que es
@@ -637,6 +671,14 @@ con un barrido de cuatro casos que aterriza en cada banda.
 > y devolver una segunda tabla de umbrales a `index.html` (rojo, «2 entradas «under:
 > N» han vuelto»). Los dieciséis números dorados sobrevivieron la consolidación sin
 > moverse.
+>
+> **Y el propio guardián tuvo una medición muerta.** Al consolidar `gainCap` se midió
+> el tope de ganancia y no se afirmó nada sobre él: un número calculado, impreso en
+> ningún sitio y comprobado por nadie. Ahora lleva su dorado. De paso quedó escrito
+> lo que de esa función **no** se puede comprobar: `gainCap` no está en la fachada
+> `FUT` —se llama dentro del render y su resultado va directo al HTML—, así que lo
+> verificado es el motor con las mismas entradas más que la página no lanza, no el
+> valor que acaba en pantalla. Dicho, no disimulado.
 >
 > El tercero destapó además un mensaje de fallo que mentía por omisión: decía «app
 > «precaucion» · motor «precaucion»», que se lee como si coincidieran, cuando el

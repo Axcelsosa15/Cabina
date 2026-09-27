@@ -136,6 +136,22 @@ const R = await p.evaluate(async () => {
         return { id, frac, pts };
       });
     })(),
+    /* El tope de ganancia del dia. La app tiene dos cosas que el motor no: la
+       coercion del valor de la regla y la frase de «ya incumple». Se mide que el
+       resultado es el mismo que el del motor alimentado igual. */
+    tope: (function () {
+      const c = { total: g.total, capToday: null, over: false };
+      const ev2 = FUT.evaluateRules('EQ1');
+      const reglaG = FUT.rules().find(r => r.role === 'maxGain');
+      const cons = ev2.cons;
+      const mTope = QE.topeDeGanancia(
+        { aplica: true, total: cons.total, topeDiaHoy: cons.cap },
+        reglaG ? Number(reglaG.value) || 0 : null);
+      return { motor: { valor: mTope.valor, porque: mTope.porque },
+               consTotal: cons.total, consCap: cons.cap,
+               reglaMaxGain: reglaG ? reglaG.value : null };
+    })(),
+
     /* UNA CUENTA QUEMADA. Es el caso en el que las dos implementaciones NO son
        intercambiables sin cuidado: la app clampa el colchon a >= 0
        (`Math.max(0, g.balance - floor)`) y el motor lo devuelve NEGATIVO
@@ -301,6 +317,37 @@ if (BANDAS) {
      Array.from(bandas).join(' · '));
 }
 
+console.log('\n═══ TOPE DE GANANCIA · y lo que de esta funcion NO se puede comprobar ═══');
+/* HONESTIDAD SOBRE EL ALCANCE: `gainCap` no esta expuesta en la fachada FUT -- se
+   llama dentro del render de la tarjeta (index.html:3363) y su resultado va directo
+   al HTML. Asi que NO se puede afirmar "la app da lo mismo que el motor" como en las
+   secciones de arriba. Lo que si se comprueba:
+
+     · que el motor, alimentado con los MISMOS datos que la app le pasa, da el valor
+       esperado -- y queda como dorado, asi que un cambio en topeDeGanancia o en la
+       regla se nota;
+     · que la pagina RENDERIZA sin lanzar, con gainCap ya convertida en adaptador
+       (la asercion de pageerror del final cubre esto, y no es poco: gainCap corre en
+       cada render de cuenta).
+
+   Lo que queda sin cubrir esta dicho, no disimulado: el valor que acaba en pantalla.
+   Para cubrirlo habria que exponer gainCap o leer el DOM de la tarjeta; ninguna de
+   las dos se hace aqui, y por eso esto no se presenta como equivalencia probada. */
+const T = R.tope;
+ok(T != null, 'el tope de ganancia se pudo medir', T ? 'medido' : 'no se pudo');
+if (T) {
+  ok(T.motor.valor != null, 'el motor devuelve un tope con los datos de la app',
+     `valor ${T.motor.valor} · porque «${T.motor.porque}»`);
+  ok(T.motor.porque === 'lo marca la consistencia' || T.motor.porque === 'tu regla dura'
+     || T.motor.porque === 'falta la regla de tope de ganancia',
+     'el motivo es uno de los tres que el motor puede dar', `«${T.motor.porque}»`);
+  /* DORADO: con esta siembra la consistencia manda (tope 21.43) sobre la regla dura. */
+  ok(casi(T.motor.valor, 21.43), 'el tope sigue siendo el dorado',
+     `obtenido ${T.motor.valor} · dorado 21.43 · regla dura ${T.reglaMaxGain}`);
+  ok(T.motor.porque === 'lo marca la consistencia',
+     'y sigue mandando la consistencia, no la regla dura', `«${T.motor.porque}»`);
+}
+
 console.log('\n═══ CUENTA QUEMADA · donde las dos NO son intercambiables sin decidirlo ═══');
 ok(QUEMADA !== null, 'la cuenta quemada se sembro', QUEMADA ? 'sembrada' : 'no se sembro');
 if (QUEMADA) {
@@ -324,6 +371,14 @@ if (QUEMADA) {
   /* El porcentaje, en cambio, si coincide: las dos lo clampan a 1. */
   igual(Q.app.pct, Q.motor.pct, 'el porcentaje usado SI coincide (las dos lo clampan a 1)');
   ok(casi(Q.app.pct, 1), 'y vale exactamente 1', `${Q.app.pct}`);
+  /* SEGUNDA diferencia, y no la vi hasta medirla: `usado`. La app lo TOPA en el
+     maximo (`Math.min(max, ...)`) porque parte de un colchon ya clampado a 0; el
+     motor devuelve el exceso REAL (`max - colchon`, con colchon negativo). Son dos
+     preguntas distintas: "cuanto del drawdown has gastado" contra "cuanto te has
+     pasado del drawdown". */
+  ok(!casi(Q.app.usado, Q.motor.usado),
+     'y `usado` TAMPOCO coincide: la app lo topa en el maximo, el motor da el exceso real',
+     `app ${Q.app.usado} (topado en dd=500) · motor ${Q.motor.usado} (500 - (-300))`);
 }
 
 console.log('\n═══ REFERENCIA DORADA · los numeros de ANTES de consolidar, como literales ═══');

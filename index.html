@@ -2983,14 +2983,23 @@
      regla dura y el que impone la consistencia. Antes vivía dentro de capsHtml,
      que se quedó sin uso al rehacer la tarjeta de cuenta. */
   function gainCap(c) {
+    /* La MATEMÁTICA es QE.topeDeGanancia (compliance.js:42). Aquí quedan dos cosas
+       que el motor no tiene y que NO se cambian al consolidar:
+
+       1. La coerción del valor de la regla. La app hacía `Number(rule.value) || 0`,
+          así que una regla EXISTENTE pero sin número daba `0` —«tu tope es 0»— y no
+          `null` —«falta la regla»—. El motor haría lo segundo. Probablemente sea
+          mejor, y es exactamente por eso que no se cambia aquí: sería un cambio de
+          producto escondido dentro de un refactor. La coerción se queda de este
+          lado y el motor recibe lo mismo que la app se daba a sí misma, así que el
+          resultado es idéntico para CUALQUIER entrada.
+       2. La cláusula de «ya incumple». Cuando la cuenta se pasó de consistencia, la
+          app reescribe el motivo. El motor no sabe de eso, y es razonable: es una
+          frase para la tarjeta, no un cálculo. */
     const rule = ruleByRole("maxGain");
-    const hard = rule ? Number(rule.value) || 0 : null;
-    const cons = c.total > 0 ? c.capToday : null;
-    let out;
-    if (hard == null && cons == null) out = { value: null, why: "falta la regla de tope de ganancia" };
-    else if (hard == null) out = { value: cons, why: "lo marca la consistencia" };
-    else if (cons == null) out = { value: hard, why: "tu regla dura" };
-    else out = cons < hard ? { value: cons, why: "lo marca la consistencia" } : { value: hard, why: "tu regla dura" };
+    const t = QE.topeDeGanancia({ aplica: true, total: c.total, topeDiaHoy: c.capToday },
+      rule ? Number(rule.value) || 0 : null);
+    const out = { value: t.valor, why: t.porque };
     if (c.over && out.value != null) out.why = "la cuenta ya incumple la consistencia";
     return out;
   }

@@ -92,7 +92,36 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
   mínimo, `</head><body>`
 - detrás: `</body></html>`
 
-### Coinciden — republicado el 2026-09-26
+### ⚠ Ahora mismo NO coinciden — la fase 2 cambió código que se ejecuta
+
+El artefacto sigue en la versión **61**, con el `riskEngine` que **calcula**. El
+repositorio tiene el que **traduce**: un adaptador sobre `QE.margenDePerdida`, la
+tabla de umbrales duplicada eliminada, y la tercera copia de `dayAgg` fuera.
+
+A diferencia del 100× del tamaño de posición, **esto no es un defecto vivo en el
+entorno principal**: la consolidación es equivalente por medición. Los dieciséis
+números dorados de `test/equivalencia.mjs` —fijados como literales *antes* de tocar
+`index.html`— no se movieron, y las 52 suites siguen en verde. El artefacto no está
+dando un número malo; está dando el mismo número por el camino viejo.
+
+Por eso la republicación se **agrupa** en vez de hacerse por paso: quedan tres
+consolidaciones más que tocan `index.html` (`ddEngine`, `consEngine`, `gainCap`), y
+cada republicación exige leer las 10.782 líneas publicadas. Se republica una vez, al
+cerrar el trabajo sobre `index.html`, y esta sección vuelve a decir «coinciden» con
+su diff.
+
+Lo que está pendiente de subir, exactamente:
+
+| | |
+|---|---|
+| `riskEngine` | de implementación a adaptador sobre `QE.margenDePerdida` |
+| `RISK_STEPS` | sustituida por `NIVEL_APP`, que es sólo presentación |
+| `dayAgg.lossPct` / `lossRemaining` | ahora del motor; era la tercera copia |
+
+Y lo que **no** cambia y no debe cambiar al republicar: el contrato `0.2.46`, las
+capacidades `assets` / `db` / `downloads`, y el `<title>Cabina</title>`.
+
+### Coincidieron — republicado el 2026-09-26
 
 `index.html` y el artefacto publicado vuelven a decir lo mismo. La versión viva
 es la **61** (`1790422823-8b79`); la anterior era `1790329585-a362`.
