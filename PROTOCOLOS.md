@@ -31,7 +31,7 @@ cabeza de quien escribía — en el fichero únicamente estaban etiquetadas §12
 | 13 | Probar una plataforma que no está en el repositorio | `capsula` + humano |
 | 14 | No contar aserciones leyendo el código | `correr.mjs` |
 | 15 | Un `UNKNOWN` nunca se convierte en `PASS` | `compuerta` |
-| 16 | La capa de riesgo está duplicada: no se toca una sola de las dos | `equivalencia` |
+| 16 | La capa de riesgo: una sola fuente para cada cálculo | `equivalencia` |
 | — | *Que esta tabla no mienta* | `capa2` §14 |
 
 ---
@@ -560,21 +560,31 @@ Las reglas:
 
 ## 16 · La capa de riesgo está duplicada: no se toca una sola de las dos
 
-`index.html` reimplementa cinco cálculos que el Quant Engine ya tiene:
+`index.html` reimplementaba cinco cálculos que el Quant Engine ya tiene. Va uno
+consolidado y quedan cuatro:
 
-| app (`index.html`) | motor (`engine/quant/`) |
-|---|---|
-| `ddEngine` (2926) | `margenDeDrawdown` — `compliance.js:53` |
-| `riskEngine` (2951) | `margenDePerdida` — `compliance.js:30` |
-| `consistency` (2878) + `consEngine` (2936) | `evaluarConsistencia` — `curve.js` |
-| `gainCap` (2963) | `topeDeGanancia` — `compliance.js:42` |
-| `evaluateAccountRules` (3196) | `evaluarCumplimiento` — `compliance.js:72` |
+| app (`index.html`) | motor (`engine/quant/`) | estado |
+|---|---|---|
+| `riskEngine` | `margenDePerdida` — `compliance.js:30` | **consolidado**: adaptador de vocabulario |
+| `dayAgg.lossPct` / `lossRemaining` | `margenDePerdida` | **consolidado**: era la tercera copia |
+| `ddEngine` | `margenDeDrawdown` — `compliance.js:53` | pendiente — decidir el colchón negativo |
+| `consEngine` | `evaluarConsistencia` — `curve.js` | pendiente |
+| `gainCap` | `topeDeGanancia` — `compliance.js:42` | pendiente |
+| `evaluateAccountRules` | `evaluarCumplimiento` — `compliance.js:72` | pendiente |
 
-Y dos tablas de umbrales idénticas con nombres de clave distintos: `NIVELES` en el
-motor (`hasta`/`codigo`/`etiqueta`/`clase`) contra `RISK_STEPS` en la app
-(`under`/`code`/`label`/`cls`), ambas 0.50 / 0.75 / 1.00.
+La tabla de umbrales duplicada **ya no existe**: `RISK_STEPS` llevaba los mismos
+0.50 / 0.75 / 1.00 que `NIVELES`, y ahora la app sólo tiene `NIVEL_APP`, que es
+*presentación* —el código en inglés del que cuelga el CSS y la etiqueta en español
+con tilde— indexada por el código que emite el motor. Los umbrales viven en un
+único sitio.
 
-Mientras la duplicación exista:
+Eso crea un riesgo NUEVO, y `equivalencia` lo vigila: si el motor empieza a emitir
+un código de nivel que `NIVEL_APP` no traduce, el fallback mete el código español
+crudo en el atributo del que cuelga el CSS y **la tarjeta se queda sin color sin que
+falle ningún cálculo**. Hoy el motor puede emitir seis (`seguro`, `precaucion`,
+`peligro`, `agotado`, `quemada`, `sin_regla`) y los seis están traducidos.
+
+Mientras quede duplicación:
 
 - **No se corrige un número en una de las dos y se deja la otra.** `equivalencia`
   se pone rojo, que es su trabajo; lo que no se puede es apagarlo para que pase.
@@ -587,7 +597,22 @@ Mientras la duplicación exista:
   «consistencia» rompe los colores sin romper ninguna prueba de cálculo.
 - **El motor redondea a 4 decimales en la frontera de presentación y la app no.**
   Por eso `equivalencia` compara los porcentajes con tolerancia al centavo y no
-  con `===`. Eso es una diferencia conocida, no un fallo.
+  con `===`. Eso es una diferencia conocida, no un fallo. Al consolidar, la app
+  hereda ese redondeo: dólares a dos decimales y porcentajes a cuatro, sobre
+  números que se pintan con dos. No es visible, y se dice de todos modos porque es
+  un cambio de comportamiento y no ninguno.
+- **Antes de consolidar `ddEngine` hay una decisión que tomar, no un intercambio.**
+  En una cuenta quemada la app clampa el colchón a `0` y el motor lo devuelve
+  **negativo** —medido: app `0`, motor `−300`—. Las dos son defendibles («no te
+  queda nada» contra «te has pasado en 300»), pero no son el mismo número, y la
+  tarjeta muestra uno. `equivalencia` afirma la diferencia tal cual en vez de
+  esconderla, para que quien consolide la elija a propósito.
+- **La referencia dorada NO se regenera automáticamente.** Los números de antes de
+  consolidar están escritos a mano en `equivalencia`. En cuanto la app llama al
+  motor, comparar app contra motor es comparar el motor consigo mismo: tautológico,
+  y por tanto una prueba que ya no mira nada —lo que el protocolo 15 prohíbe—. Lo
+  que la hace comprobable es que los literales no cambien. Si un cambio de producto
+  los mueve a propósito, se actualizan a mano y se dice en el commit cuál y por qué.
 
 Y las dos tablas **no son alcanzables en ejecución**: `NIVELES` es `const` privada
 de `compliance.js` y `RISK_STEPS` es local del IIFE de la app. Así que
@@ -607,6 +632,11 @@ con un barrido de cuatro casos que aterriza en cada banda.
 > en verde: fija el estado actual como referencia. Se comprobó con tres sabotajes
 > —un umbral movido de 0.75 a 0.90, un `+ 1` en el colchón de `ddEngine`, y un
 > código renombrado— y cada uno lo puso rojo por **dos** filas independientes.
+> Después de consolidar `riskEngine` se comprobó con dos más: borrar una traducción
+> de `NIVEL_APP` (rojo, «SIN traducir: quemada — la tarjeta se quedaría sin color»)
+> y devolver una segunda tabla de umbrales a `index.html` (rojo, «2 entradas «under:
+> N» han vuelto»). Los dieciséis números dorados sobrevivieron la consolidación sin
+> moverse.
 >
 > El tercero destapó además un mensaje de fallo que mentía por omisión: decía «app
 > «precaucion» · motor «precaucion»», que se lee como si coincidieran, cuando el

@@ -2942,18 +2942,40 @@
       hasData: total > 0 || best > 0, days: c.daysToComply };
   }
 
-  const RISK_STEPS = [
-    { under: 0.50, code: "safe", label: "SEGURO", cls: "good" },
-    { under: 0.75, code: "caution", label: "PRECAUCIÓN", cls: "warn" },
-    { under: 1.00, code: "danger", label: "PELIGRO", cls: "bad" },
-  ];
-  // La pérdida máxima diaria es una regla dura global, no un campo por cuenta: se lee de ahí.
+  /* PRESENTACIÓN, no umbrales. Los umbrales viven ahora en UNA sola tabla —la
+     `NIVELES` de engine/quant/compliance.js— y quien decide en qué nivel cae un
+     porcentaje es `QE.margenDePerdida`. Aquí sólo queda lo que es genuinamente de
+     la pantalla y el motor no tiene por qué saber: el código en inglés, del que se
+     cuelga el CSS —renombrarlo rompe los colores sin romper ningún cálculo—, y la
+     etiqueta en español CON TILDE, que la del motor no lleva.
+
+     Antes esta tabla llevaba además los umbrales 0.50 / 0.75 / 1.00, duplicados de
+     los del motor. Coincidían; el problema era que nadie lo comprobaba. */
+  const NIVEL_APP = {
+    seguro:     { code: "safe",    label: "SEGURO",     cls: "good" },
+    precaucion: { code: "caution", label: "PRECAUCIÓN", cls: "warn" },
+    peligro:    { code: "danger",  label: "PELIGRO",    cls: "bad"  },
+    agotado:    { code: "locked",  label: "BLOQUEADA",  cls: "bad"  },
+    quemada:    { code: "burned",  label: "QUEMADA",    cls: "bad"  },
+    sin_regla:  { code: "none",    label: "SIN REGLA",  cls: "dim"  },
+  };
+  /* La pérdida máxima diaria es una regla dura global, no un campo por cuenta: se
+     lee de ahí. La MATEMÁTICA es `QE.margenDePerdida` (compliance.js:30); esto es
+     un adaptador de vocabulario, no una segunda implementación.
+
+     `t.lossUsed` es por definición `Math.max(0, -pnl)`, y el motor deriva lo usado
+     igual: `Math.max(0, -pnlHoy)`. Pasarle `-t.lossUsed` es pasarle el P&L del día
+     acotado a no-positivo, que produce el MISMO `usado` que pasarle el P&L crudo.
+
+     Lo que SÍ cambia, y se cambia a propósito: el motor redondea `usado` y
+     `restante` a dos decimales y `pct` a cuatro. La app no redondeaba. Son dólares
+     y un porcentaje que se pinta con dos decimales, así que ninguna diferencia es
+     visible; queda dicho porque es un cambio de comportamiento, no ninguno. */
   function riskEngine(a, t) {
-    const max = reglaDe(a, "maxLoss").valor;
-    if (!max) return { ok: false, max: 0, used: t.lossUsed, remaining: null, pct: 0, code: "none", label: "SIN REGLA", cls: "dim", locked: false };
-    const used = t.lossUsed, p = Math.min(1, used / max);
-    const step = p >= 1 ? { code: "locked", label: "BLOQUEADA", cls: "bad" } : RISK_STEPS.find(x => p < x.under);
-    return { ok: true, max, used, remaining: Math.max(0, max - used), pct: p, code: step.code, label: step.label, cls: step.cls, locked: p >= 1 };
+    const m = QE.margenDePerdida(-t.lossUsed, reglaDe(a, "maxLoss").valor);
+    const n = NIVEL_APP[m.codigo] || { code: m.codigo, label: m.etiqueta, cls: m.clase };
+    return { ok: m.aplica, max: m.max, used: m.usado, remaining: m.restante, pct: m.pct,
+      code: n.code, label: n.label, cls: n.cls, locked: m.agotado };
   }
 
 
@@ -3099,8 +3121,13 @@
                      maxContracts: rC.origen, maxLosses: rS.origen };
     // qué reglas no se pueden juzgar porque nadie ha escrito su número
     const sinConfigurar = Object.keys(origen).filter(k => origen[k] == null);
+    /* Esta era la TERCERA copia de la misma fórmula —riskEngine la tenía, el motor
+       la tiene, y aquí estaba otra vez—. Ahora sale del motor igual que las otras.
+       Cuando no hay regla, `QE.margenDePerdida` devuelve `pct: 0` y `restante:
+       null`, que es exactamente lo que devolvían estas dos expresiones. */
+    const mPerdDia = QE.margenDePerdida(-lossUsed, maxL);
     return { list, n: list.length, closed: closed.length, pnl, lossUsed, cuenta: a ? a.id : null,
-      lossMax: maxL, lossPct: maxL ? Math.min(1, lossUsed / maxL) : 0, lossRemaining: maxL ? Math.max(0, maxL - lossUsed) : null,
+      lossMax: maxL, lossPct: mPerdDia.pct, lossRemaining: mPerdDia.restante,
       streak, streakMax: maxS, streakHit: !!maxS && streak >= maxS,
       allow, off, maxC, over, gainMax: maxG, gainHit: !!maxG && pnl >= maxG,
       origen, sinConfigurar };

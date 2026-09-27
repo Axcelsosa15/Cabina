@@ -47,11 +47,20 @@ engine/quant/*.js  ──npm run bundle──►  QuantEngine.bundle.js  ──a
 
 El último es distinto de los otros tres: `capa2` §15 compara el **texto** del motor
 incrustado, `invariantes` compara sus **números** con los de los módulos fuente, y
-`equivalencia` compara los números del motor con los de **la copia que la UI tiene
-de esos mismos cálculos**. `index.html` reimplementa cinco de ellos —`ddEngine`,
-`riskEngine`, `consistency`/`consEngine`, `gainCap`, `evaluateAccountRules`— y hoy
-coinciden al centavo. Esa fila es lo que hace que se sepa el día que dejen de
-coincidir.
+`equivalencia` compara los números del motor con los de **la copia que la UI tenía
+de esos mismos cálculos**.
+
+`index.html` reimplementaba cinco de ellos. Van dos consolidados —`riskEngine` y la
+tercera copia que vivía dentro de `dayAgg`, ahora adaptadores sobre
+`QE.margenDePerdida`— y quedan `ddEngine`, `consEngine`, `gainCap` y
+`evaluateAccountRules`. La tabla de umbrales duplicada ya no existe: los 0.50 / 0.75
+/ 1.00 viven en un solo sitio, y la app sólo traduce el código del motor a lo que
+necesita la pantalla.
+
+Lo que hace verificable esa consolidación es que `equivalencia` lleva los dieciséis
+números de **antes** de tocar nada escritos a mano como literales. Comparar la app
+contra el motor deja de significar algo en cuanto la app *es* el motor; comparar la
+app contra los números de antes sigue significándolo.
 
 `index.html` **no carga ningún archivo externo**: cero `<script src>`, cero
 `import`. El motor va incrustado, y la app consume 18 de sus 73 funciones.
@@ -191,7 +200,7 @@ resuelve.
 |---|---|
 | Suites que se ejecutan | **52** (49 de `test/` + 3 del motor) |
 | Aserciones del motor | **421** (`quant` 329 · `math` 92) |
-| Aserciones de navegador y guardianes | **501** en 16 archivos — las cuenta la propia suite |
+| Aserciones de navegador y guardianes | **525** en 16 archivos — las cuenta la propia suite |
 | Cobertura de la capa `db` del artefacto | **28** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
 | Compuerta de publicación | **13 PASS · 0 FAIL · 4 `UNKNOWN`** de 17 filas |

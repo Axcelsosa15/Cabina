@@ -136,6 +136,23 @@ const R = await p.evaluate(async () => {
         return { id, frac, pts };
       });
     })(),
+    /* UNA CUENTA QUEMADA. Es el caso en el que las dos implementaciones NO son
+       intercambiables sin cuidado: la app clampa el colchon a >= 0
+       (`Math.max(0, g.balance - floor)`) y el motor lo devuelve NEGATIVO
+       (`roundTo(curva.colchon, 2)`). El escenario dorado de arriba no esta quemado,
+       asi que no lo detectaria. Se mide aqui para que la consolidacion de ddEngine
+       tenga que decidirlo a proposito en vez de cambiarlo por accidente. */
+    quemada: (function () {
+      FUT.createAccount({ id: 'EQQ', firm: 'Equivalencia', name: 'Quemada', kind: 'Evaluación',
+        size: 25000, dd: 500, ddKind: 'estatico', trailBase: 'intradia',
+        target: 1500, limit: 30, status: 'activa', ledger: [], total: 0, best: 0 });
+      /* -400 puntos x 1 contrato = -$800 contra un drawdown de $500: suelo 24.500,
+         balance 24.200, colchon -300. */
+      FUT.createTrade({ accountId: 'EQQ', instrument: 'MNQ', date: iso(d), time: '12:00',
+        entry: 21000, exit: 20600, qty: 1, direction: 'long', stop: 20990 });
+      return 'EQQ';
+    })(),
+
     /* Las huerfanas que la fase 2 va a conectar: existir es requisito previo. */
     huerfanas: ['evaluarCumplimiento', 'radiografiaCuenta', 'topeDeGanancia', 'margenDeDrawdown',
                 'margenDePerdida', 'evaluarConsistencia'].map(n => [n, typeof QE[n]]),
@@ -158,6 +175,20 @@ const BANDAS = await p.evaluate(async (barrido) => {
              motor: { pct: motor.pct, codigo: motor.codigo, agotado: motor.agotado } };
   });
 }, R.barrido);
+
+/* La cuenta quemada, tambien en la segunda pasada. */
+const QUEMADA = await p.evaluate(async (id) => {
+  if (!id) return null;
+  await new Promise(r => setTimeout(r, 600));
+  const QE = window.QuantEngine;
+  const g = FUT.calculateAccountStats(id);
+  const app = FUT.calculateDrawdown(id);
+  const riesgos = FUT.trades(id).map(t => t.riskUsd).filter(x => x != null && x > 0);
+  const motor = QE.margenDeDrawdown(g.curva, riesgos.length ? riesgos[0] : null);
+  return { balance: g.balance, suelo: g.th,
+           app: { colchon: app.buffer, usado: app.used, pct: app.util, quemada: app.breached },
+           motor: { colchon: motor.colchon, usado: motor.usado, pct: motor.pct, quemada: motor.quemada } };
+}, R.quemada);
 
 console.log('\n═══ CONTEXTO · los datos que ven las dos implementaciones ═══');
 const c = R.ctx;
@@ -195,49 +226,52 @@ igual(R.perd.app.pct, R.perd.motor.pct, 'el porcentaje coincide (tolerancia: 4dp
 ok(R.perd.app.agotado === R.perd.motor.agotado, 'las dos dicen lo mismo sobre si se agoto el dia',
    `app ${R.perd.app.agotado} · motor ${R.perd.motor.agotado}`);
 
-console.log('\n═══ LAS DOS TABLAS DE UMBRALES · comparacion ESTATICA del fuente ═══');
-/* Honestidad sobre el metodo: esto compara TEXTO, no comportamiento. Lo hace
-   porque ninguna de las dos tablas es alcanzable en ejecucion -- NIVELES es const
-   privada de compliance.js y RISK_STEPS es local del IIFE de la app -- y porque el
-   fallo que importa es que alguien edite una y no la otra. El comportamiento se
-   comprueba en la seccion siguiente. */
-const leerTabla = (texto, nombre, reUmbral) => {
-  const i = texto.indexOf(nombre);
-  if (i < 0) return null;
-  const cuerpo = texto.slice(i, texto.indexOf('];', i));
-  return Array.from(cuerpo.matchAll(reUmbral)).map(m => ({ hasta: Number(m[1]), codigo: m[2] }));
-};
-const tMotor = leerTabla(readFileSync(join(raiz, 'engine/quant/compliance.js'), 'utf8'),
-  'const NIVELES = [', /hasta:\s*([\d.]+),\s*codigo:\s*"([a-z_]+)"/g);
-const tApp = leerTabla(html.toString('utf8'), 'const RISK_STEPS = [',
-  /under:\s*([\d.]+),\s*code:\s*"([a-z_]+)"/g);
-ok(tMotor && tMotor.length > 0, 'NIVELES se lee de engine/quant/compliance.js',
-   tMotor ? `${tMotor.length} niveles` : 'no se encontro la tabla');
-ok(tApp && tApp.length > 0, 'RISK_STEPS se lee de index.html',
-   tApp ? `${tApp.length} niveles` : 'no se encontro la tabla');
-if (tMotor && tApp) {
-  ok(tMotor.length === tApp.length, 'las dos tablas tienen el mismo numero de niveles',
-     `motor ${tMotor.length} · app ${tApp.length}`);
-  const malU = tMotor.map((n, i) => [n.hasta, tApp[i] && tApp[i].hasta])
-    .filter(([m, a]) => !casi(m, a, 1e-9));
-  ok(malU.length === 0, 'los umbrales son los mismos en las dos tablas',
-     malU.length ? malU.map(x => `motor ${x[0]} vs app ${x[1]}`).join(' · ')
-       : tMotor.map(n => n.hasta).join(' / '));
-  /* Los codigos estan en idiomas distintos A PROPOSITO: el CSS de la app se cuelga
-     de `code`, asi que renombrarlos rompe los colores. Se comprueba la
-     CORRESPONDENCIA, no la igualdad. */
-  /* El detalle tiene que decir POR QUE falla. Si el codigo de la app no esta en
-     PAREJAS, «app precaucion · motor precaucion» se lee como si coincidieran: el
-     fallo es que nadie declaro la correspondencia, no que sean distintos. */
-  const porque = (a, m) => PAREJAS[a] === undefined
-    ? `«${a}» no figura en la tabla de correspondencia (esperaba una de: ${Object.keys(PAREJAS).join(', ')})`
-    : `app «${a}» deberia corresponder a «${PAREJAS[a]}», pero el motor dice «${m}»`;
-  const malC = tMotor.map((n, i) => [tApp[i] && tApp[i].codigo, n.codigo])
-    .filter(([a, m]) => PAREJAS[a] !== m);
-  ok(malC.length === 0, 'cada codigo de la app se corresponde con el del motor',
-     malC.length ? malC.map(x => porque(x[0], x[1])).join(' · ')
-       : tMotor.map((n, i) => `${tApp[i].codigo}=${n.codigo}`).join(' · '));
-}
+console.log('\n═══ UNA SOLA TABLA DE UMBRALES · y la app la traduce, no la copia ═══');
+/* Esta seccion cambio de trabajo con la consolidacion de la fase 2, y el cambio es
+   el punto: ANTES comparaba dos tablas de umbrales para detectar que divergieran.
+   Ahora hay UNA. Asi que lo que vigila es lo contrario -- que la segunda no vuelva
+   -- mas el riesgo NUEVO que la consolidacion introduce: que el motor emita un
+   codigo de nivel que la app no sepa traducir. Si eso pasa, `NIVEL_APP[codigo]` da
+   undefined, el fallback mete el codigo español crudo en el atributo del que cuelga
+   el CSS, y la tarjeta se queda sin color sin que falle ningun calculo.
+
+   Es comparacion de TEXTO, dicho de frente. El comportamiento va en la seccion
+   siguiente. */
+const fuenteMotor = readFileSync(join(raiz, 'engine/quant/compliance.js'), 'utf8');
+const fuenteApp = html.toString('utf8');
+
+const iNiv = fuenteMotor.indexOf('const NIVELES = [');
+const cuerpoNiv = iNiv < 0 ? '' : fuenteMotor.slice(iNiv, fuenteMotor.indexOf('];', iNiv));
+const umbrales = Array.from(cuerpoNiv.matchAll(/hasta:\s*([\d.]+),\s*codigo:\s*"([a-z_]+)"/g))
+  .map(m => ({ hasta: Number(m[1]), codigo: m[2] }));
+ok(umbrales.length > 0, 'NIVELES sigue siendo la tabla de umbrales, en compliance.js',
+   umbrales.length ? umbrales.map(n => `${n.hasta}=${n.codigo}`).join(' · ') : 'no se encontro');
+
+/* La tabla duplicada tenia entradas `under: 0.50`. Que no vuelva ninguna. */
+const duplicadas = Array.from(fuenteApp.matchAll(/under:\s*[\d.]+/g)).length;
+ok(duplicadas === 0, 'index.html NO tiene una segunda tabla de umbrales',
+   duplicadas ? `${duplicadas} entradas «under: N» han vuelto a index.html` : 'cero entradas «under:»');
+
+/* TODOS los codigos que el motor puede emitir, no solo los tabulados: los dos
+   niveles extremos (`agotado`, `quemada`) y el de sin regla estan escritos a mano
+   dentro de las funciones, fuera de NIVELES. */
+const codigosMotor = Array.from(new Set(
+  Array.from(fuenteMotor.matchAll(/codigo:\s*"([a-z_]+)"/g)).map(m => m[1])));
+const iMap = fuenteApp.indexOf('const NIVEL_APP = {');
+const cuerpoMap = iMap < 0 ? '' : fuenteApp.slice(iMap, fuenteApp.indexOf('};', iMap));
+const traducidos = Array.from(cuerpoMap.matchAll(/^\s*([a-z_]+):\s*\{\s*code:\s*"([a-z]+)"/gm))
+  .map(m => ({ motor: m[1], app: m[2] }));
+ok(iMap >= 0, 'NIVEL_APP existe en index.html', traducidos.length + ' codigos traducidos');
+const sinTraducir = codigosMotor.filter(c => !traducidos.some(t => t.motor === c));
+ok(sinTraducir.length === 0,
+   `los ${codigosMotor.length} codigos que el motor puede emitir tienen traduccion en la app`,
+   sinTraducir.length ? `SIN traducir: ${sinTraducir.join(' · ')} — la tarjeta se quedaria sin color`
+     : traducidos.map(t => `${t.motor}→${t.app}`).join(' · '));
+/* Y al reves: una traduccion que sobra es un codigo que el motor ya no emite, o un
+   error de copia. No es grave, pero se dice. */
+const sobran = traducidos.filter(t => !codigosMotor.includes(t.motor)).map(t => t.motor);
+ok(sobran.length === 0, 'ninguna traduccion de NIVEL_APP apunta a un codigo que el motor no emite',
+   sobran.length ? `sobran: ${sobran.join(' · ')}` : 'ninguna de sobra');
 
 console.log('\n═══ LAS BANDAS, POR SU EFECTO · un caso que aterriza en cada una ═══');
 /* Esto SI es comportamiento: cuatro cuentas con la perdida de hoy al 30%, 60%, 85%
@@ -265,6 +299,86 @@ if (BANDAS) {
   });
   ok(bandas.size >= 3, 'el barrido toca al menos tres bandas distintas',
      Array.from(bandas).join(' · '));
+}
+
+console.log('\n═══ CUENTA QUEMADA · donde las dos NO son intercambiables sin decidirlo ═══');
+ok(QUEMADA !== null, 'la cuenta quemada se sembro', QUEMADA ? 'sembrada' : 'no se sembro');
+if (QUEMADA) {
+  const Q = QUEMADA;
+  ok(casi(Q.balance, 24200) && casi(Q.suelo, 24500),
+     'la cuenta esta quemada de verdad: el balance esta por DEBAJO del suelo',
+     `balance ${Q.balance} · suelo ${Q.suelo} · diferencia ${Q.balance - Q.suelo}`);
+  ok(Q.app.quemada === true && Q.motor.quemada === true,
+     'las dos la reconocen como quemada', `app ${Q.app.quemada} · motor ${Q.motor.quemada}`);
+  /* Esta es la DIFERENCIA, y se afirma tal cual en vez de esconderla: la app dice 0
+     y el motor dice el numero negativo. Las dos son defendibles -- "no te queda
+     nada" contra "te has pasado en 300" -- pero NO son el mismo numero, y quien
+     consolide ddEngine tiene que elegir cual muestra la tarjeta. */
+  ok(casi(Q.app.colchon, 0), 'la APP clampa el colchon a 0 cuando la cuenta esta quemada',
+     `app ${Q.app.colchon}`);
+  ok(Q.motor.colchon < 0, 'el MOTOR devuelve el colchon NEGATIVO: cuanto te pasaste',
+     `motor ${Q.motor.colchon}`);
+  ok(!casi(Q.app.colchon, Q.motor.colchon),
+     'queda afirmado que en este caso los dos numeros NO coinciden',
+     `app ${Q.app.colchon} · motor ${Q.motor.colchon} — decision pendiente de la fase 2`);
+  /* El porcentaje, en cambio, si coincide: las dos lo clampan a 1. */
+  igual(Q.app.pct, Q.motor.pct, 'el porcentaje usado SI coincide (las dos lo clampan a 1)');
+  ok(casi(Q.app.pct, 1), 'y vale exactamente 1', `${Q.app.pct}`);
+}
+
+console.log('\n═══ REFERENCIA DORADA · los numeros de ANTES de consolidar, como literales ═══');
+/* POR QUE ESTA SECCION EXISTE, y por que sin ella el fichero se vuelve inutil:
+   las secciones de arriba comparan la app contra el motor. En el momento en que la
+   fase 2 haga que la app LLAME al motor, esa comparacion pasa a ser tautologica --
+   compara el motor consigo mismo y no puede fallar. Seria exactamente lo que el
+   protocolo 15 prohibe: una prueba que siempre pasa porque ya no mira nada.
+
+   Asi que los valores medidos ANTES de consolidar quedan aqui escritos a mano. La
+   consolidacion es correcta si y solo si estos numeros NO cambian. Esto es lo que
+   convierte "los arregle y siguen verdes" en una afirmacion comprobable.
+
+   Si un cambio de producto los mueve a proposito, se actualizan A MANO y se dice en
+   el commit cual y por que. No se regeneran automaticamente: un valor dorado que se
+   regenera solo no es una referencia, es un eco. */
+const DORADO = {
+  contexto:  { balance: 25050, pnlHoy: -90 },
+  drawdown:  { suelo: 23740, colchon: 1310, usado: 190, pct: 0.1267 },
+  consistencia: { ratio: 4.8, mejor: 240, total: 50, tope: 21.43, falta: 750 },
+  perdida:   { max: 150, usado: 90, restante: 60, pct: 0.6 },
+  bandas:    [{ frac: 0.30, pnl: -45,    pct: 0.30, app: 'safe' },
+              { frac: 0.60, pnl: -90,    pct: 0.60, app: 'caution' },
+              { frac: 0.85, pnl: -127.5, pct: 0.85, app: 'danger' },
+              { frac: 1.20, pnl: -180,   pct: 1.00, app: 'locked' }],
+};
+const dorado = (obtenido, esperado, t) =>
+  ok(casi(obtenido, esperado), t, `obtenido ${obtenido} · dorado ${esperado}`);
+
+dorado(R.ctx.balance, DORADO.contexto.balance, 'el balance sigue siendo el dorado');
+dorado(R.ctx.pnlHoy, DORADO.contexto.pnlHoy, 'el P&L de hoy sigue siendo el dorado');
+dorado(R.dd.app.suelo, DORADO.drawdown.suelo, 'el suelo que da la APP sigue siendo el dorado');
+dorado(R.dd.app.colchon, DORADO.drawdown.colchon, 'el colchon que da la APP sigue siendo el dorado');
+dorado(R.dd.app.usado, DORADO.drawdown.usado, 'el drawdown usado que da la APP sigue siendo el dorado');
+dorado(R.dd.app.pct, DORADO.drawdown.pct, 'el porcentaje de drawdown de la APP sigue siendo el dorado');
+dorado(R.cons.app.ratio, DORADO.consistencia.ratio, 'el ratio de consistencia de la APP sigue siendo el dorado');
+dorado(R.cons.app.mejor, DORADO.consistencia.mejor, 'el mejor dia que da la APP sigue siendo el dorado');
+dorado(R.cons.app.total, DORADO.consistencia.total, 'el total que da la APP sigue siendo el dorado');
+dorado(R.cons.app.tope, DORADO.consistencia.tope, 'el tope del dia que da la APP sigue siendo el dorado');
+dorado(R.cons.app.falta, DORADO.consistencia.falta, 'lo que falta segun la APP sigue siendo el dorado');
+dorado(R.perd.app.max, DORADO.perdida.max, 'el maximo de perdida diaria de la APP sigue siendo el dorado');
+dorado(R.perd.app.usado, DORADO.perdida.usado, 'la perdida usada segun la APP sigue siendo la dorada');
+dorado(R.perd.app.restante, DORADO.perdida.restante, 'lo que resta segun la APP sigue siendo el dorado');
+dorado(R.perd.app.pct, DORADO.perdida.pct, 'el porcentaje de perdida de la APP sigue siendo el dorado');
+if (BANDAS) {
+  const malas = DORADO.bandas.map((g, i) => {
+    const x = BANDAS[i];
+    if (!x) return `banda ${i} ausente`;
+    if (!casi(x.pnl, g.pnl)) return `al ${g.frac * 100}% el pnl es ${x.pnl}, dorado ${g.pnl}`;
+    if (!casi(x.app.pct, g.pct)) return `al ${g.frac * 100}% el pct de la app es ${x.app.pct}, dorado ${g.pct}`;
+    if (x.app.codigo !== g.app) return `al ${g.frac * 100}% la app dice «${x.app.codigo}», dorado «${g.app}»`;
+    return null;
+  }).filter(Boolean);
+  ok(malas.length === 0, 'las cuatro bandas de la APP siguen siendo las doradas',
+     malas.length ? malas.join(' · ') : DORADO.bandas.map(g => `${g.frac * 100}%=${g.app}`).join(' · '));
 }
 
 console.log('\n═══ LAS FUNCIONES QUE LA FASE 2 VA A CONECTAR · existen hoy ═══');
