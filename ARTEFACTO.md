@@ -11,7 +11,7 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **65** · `1790505488-a8bb` · 2026-09-27 |
+| Versión viva | **66** · `1790508775-3e2e` · 2026-09-27 |
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
@@ -91,6 +91,16 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
 - delante: `<!DOCTYPE html>`, `<head>` con las fuentes y los metas, el reset
   mínimo, `</head><body>`
 - detrás: `</body></html>`
+
+### Coinciden — republicado el 2026-09-27 (versión 66) · frontera de importación
+
+**2 líneas fuera, 31 dentro.** Las dos que salen son exactamente el `bkMap` viejo, el
+que perdía el `id` de un registro importado sin él. Entra la reparación —la clave bajo
+la que venía se convierte en su identificador— y el rechazo de una versión no
+numérica, con su motivo escrito.
+
+Once comprobaciones sobre el candidato, todas correctas, incluidas las dos que vigilan
+que la reparación exista y que la versión vieja no haya vuelto.
 
 ### Coinciden — republicado el 2026-09-27 (versión 65) · arreglo de seguridad
 
