@@ -2630,7 +2630,20 @@
   $("edClose").addEventListener("click", closeEditor);
   $("edCancel").addEventListener("click", closeEditor);
   ov.addEventListener("click", e => { if (e.target === ov) closeEditor(); });
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && ov.classList.contains("open")) closeEditor(); });
+  /* El editor es modal también para el teclado: al tabular desde el último
+     control se vuelve al primero y viceversa, sin dejar el foco detrás. */
+  document.addEventListener("keydown", e => {
+    if (!ov.classList.contains("open")) return;
+    if (e.key === "Escape") { closeEditor(); return; }
+    if (e.key !== "Tab") return;
+    const focusables = [...ov.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      .filter(el => el.getClientRects().length);
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
   $("edSave").addEventListener("click", () => { if (!edCfg) return; const v = readEditor(); if (edCfg.validate) { const err = edCfg.validate(v); if (err) { flashEd(err); return; } } edCfg.onSave(v); closeEditor(); });
   $("edDelete").addEventListener("click", function () { if (!edCfg || !edCfg.onDelete) return; if (!armed(this)) return; edCfg.onDelete(); closeEditor(); });
   function flashEd(msg) { const el = $("edTitle"); const old = el.textContent; el.textContent = msg; el.style.color = "var(--bad)"; setTimeout(() => { el.textContent = old; el.style.color = ""; }, 2200); }
