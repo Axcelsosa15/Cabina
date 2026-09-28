@@ -323,7 +323,7 @@ resuelve.
 | Cobertura de la capa `db` del artefacto | **29** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
 | Compuerta de publicación | **18 PASS · 0 FAIL · 4 `UNKNOWN`** de 22 filas |
-| CI | ejecuta `npm run compuerta`: la suite entera más la tabla; última verificación local: **18 PASS · 0 FAIL · 4 UNKNOWN** en 662 s |
+| CI | ejecuta `npm run compuerta`: la suite entera más la tabla; última verificación local: **18 PASS · 0 FAIL · 4 UNKNOWN** en 669 s |
 | Secretos técnicos en el repositorio | ninguno |
 
 Detalle y evidencia en [PROTOCOLOS.md](PROTOCOLOS.md). La historia de cada fallo
