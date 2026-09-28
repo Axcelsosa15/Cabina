@@ -49,6 +49,25 @@ const saveA11y = await p.evaluate(() => {
 ok(saveA11y.role === 'status' && saveA11y.live === 'polite', 'el estado de guardado se anuncia sin interrumpir', JSON.stringify(saveA11y));
 const modalLabel = await q.getAttribute('#ov', 'aria-labelledby');
 ok(modalLabel === 'edTitle', 'el editor tiene nombre accesible', modalLabel || 'sin aria-labelledby');
+const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const focusableCount = await q.evaluate(selector => {
+  const dialog = document.querySelector('#ov.open');
+  return [...dialog.querySelectorAll(selector)].filter(e => e.getClientRects().length).length;
+}, focusableSelector);
+await q.evaluate(selector => {
+  const items = [...document.querySelector('#ov.open').querySelectorAll(selector)].filter(e => e.getClientRects().length);
+  items.at(-1)?.focus();
+}, focusableSelector);
+await q.keyboard.press('Tab');
+ok(await q.evaluate(selector => {
+  const items = [...document.querySelector('#ov.open').querySelectorAll(selector)].filter(e => e.getClientRects().length);
+  return document.activeElement === items[0];
+}, focusableSelector), 'Tab vuelve al primer control del editor');
+await q.keyboard.press('Shift+Tab');
+ok(await q.evaluate(selector => {
+  const items = [...document.querySelector('#ov.open').querySelectorAll(selector)].filter(e => e.getClientRects().length);
+  return document.activeElement === items.at(-1);
+}, focusableSelector), 'Shift+Tab vuelve al último control del editor', `${focusableCount} controles`);
 await q.click('#edCancel');
 ok(await q.evaluate(() => document.activeElement && document.activeElement.matches('#accts .vacio button')), 'al cerrar el editor vuelve el foco al control que lo abrió');
 /* :focus-visible sólo se activa con teclado — .focus() por JS no cuenta, que
