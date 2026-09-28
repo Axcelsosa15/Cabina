@@ -36,6 +36,7 @@ cabeza de quien escribía — en el fichero únicamente estaban etiquetadas §12
 | 18 | Un dato importado no es una URL: se valida el esquema | `seguridad` |
 | 19 | Un respaldo a medias es peor que ninguno | `importar` |
 | 20 | Un cambio que no se guardó no puede parecer guardado | `guardado` |
+| 21 | Una medición no se hace compartiendo la máquina | *(método)* |
 | — | *Que esta tabla no mienta* | `capa2` §14 |
 
 ---
@@ -869,6 +870,12 @@ Las reglas:
 - **Avisar no es una política de respaldo.** Copiar a `localStorage` lo que la base
   rechazó crea dos fuentes de verdad que pueden divergir, y eso es peor que el
   problema que arregla. Decidirlo es de producto; decir la verdad no.
+- **Y donde se ve tiene que estar en el árbol de accesibilidad.** Un elemento con
+  `display: none` no está en él: una región `aria-live` escondida **no anuncia nada**.
+  El rótulo está oculto por debajo de 700px a propósito, así que la regla que lo
+  enseña cuando avisa es lo único que hace que el aviso **se oiga** en un teléfono.
+  Las dos piezas —la visual y la `aria-live`— dependen la una de la otra y ninguna
+  prueba eso por su cuenta: la aserción que las ata está en `guardado.mjs`.
 
 > **Qué falló:** las seis puertas de escritura caían igual. Medido con el navegador,
 > antes de tocar nada:
@@ -892,6 +899,46 @@ Las reglas:
 > porque el registro rápido escribe la ficha **y** el día, así que el día se rompía otra
 > vez en la misma acción y el contador volvía solo. Reescrita para guardar un documento
 > distinto —`settings/main`—, el sabotaje del contador pone **3** en rojo.
+
+---
+
+## 21 · Una medición no se hace compartiendo la máquina
+
+La suite tarda once minutos y usa el navegador de verdad. Mientras corre, **no se
+lanza nada más pesado en la misma máquina**, y no se toca ningún fichero que ella lea.
+
+Las reglas:
+
+- **Nada de navegadores en paralelo.** Una sonda propia es un proceso igual de pesado
+  que cualquier prueba, y las que miden tiempos o esperan a que algo aparezca pierden
+  por CPU, no por un defecto.
+- **Tampoco se edita lo que está leyendo.** Cada fichero de prueba arranca su propio
+  proceso y lee `index.html` cuando le toca: cambiarlo a media pasada mezcla dos
+  versiones en una sola tabla.
+- **Un rojo en esas condiciones no es un rojo: es una medición inválida.** Se repite
+  en limpio ANTES de leerlo, y desde luego antes de buscar a quién culpar.
+- **Repetir no es «reintentar hasta que salga verde».** Se repite una vez, en limpio.
+  Si vuelve, es real.
+
+> **Qué falló:** llegó trabajo de otra persona a `main` y, mientras la compuerta lo
+> verificaba, lancé una sonda con un navegador entero para medir otra cosa. La
+> compuerta salió:
+>
+> ```
+> 17 PASS · 1 FAIL · 4 UNKNOWN   ·   56/57 suites · exit 1
+> ```
+>
+> Repetida en limpio, sin nada más corriendo: **57/57 en verde, exit 0.** El rojo era
+> mío.
+>
+> Lo grave no es el tiempo perdido. Es que el FAIL cayó sobre el commit de otra
+> persona que acababa de llegar, y la conclusión fácil —«lo que trajo rompió la
+> suite»— habría sido falsa y además difícil de desmentir después. La primera
+> sospecha tiene que apuntar a las condiciones de la medición, no al último que tocó
+> el código.
+>
+> En el mismo mensaje en el que escribí «no se toca `index.html` mientras la compuerta
+> corre» estaba compitiendo por la CPU con ella. La regla estaba entendida a medias.
 
 ---
 

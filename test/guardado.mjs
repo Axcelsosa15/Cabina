@@ -272,6 +272,26 @@ for (const [w, h, nombre] of [[1440, 900, 'escritorio'], [430, 900, 'telefono']]
   if (nombre === 'telefono') {
     ok(ambiental.alto === 0, 'y lo AMBIENTAL sigue escondido en el telefono: solo se ensena lo que importa',
        `«${ambiental.txt}» medido a ${ambiental.alto}px de alto`);
+    /* `#saveState` lleva `role="status" aria-live="polite"`, asi que un lector de
+       pantalla anuncia lo que cambie ahi. Pero un elemento con `display: none` NO
+       ESTA en el arbol de accesibilidad: la region viva no anuncia nada. O sea que
+       la regla `.nosave { display: block }` no es solo visual -- es lo unico que
+       hace que el aviso SE OIGA en un telefono, que es donde mas facil es perder un
+       dato sin enterarse. Las dos piezas dependen la una de la otra y ninguna de las
+       dos prueba eso por su cuenta. */
+    const arbol = await p.accessibility.snapshot();
+    const busca = (nodo, pred) => {
+      if (!nodo) return null;
+      if (pred(nodo)) return nodo;
+      for (const h of nodo.children || []) { const r = busca(h, pred); if (r) return r; }
+      return null;
+    };
+    const anunciado = busca(arbol, x => /SIN GUARDAR/.test(x.name || ''));
+    ok(!!anunciado, 'y LLEGA AL ARBOL DE ACCESIBILIDAD en el telefono: la region viva puede anunciarlo',
+       anunciado ? `«${anunciado.name}» (${anunciado.role})` : 'no esta en el arbol · display:none lo saca');
+    ok(!busca(arbol, x => /guardado local|sincronizado/.test(x.name || '')),
+       'y lo ambiental NO se anuncia: la region viva solo habla cuando hay algo que decir',
+       'ningun nodo con el rotulo en reposo');
   }
   await ctx.close();
 }
