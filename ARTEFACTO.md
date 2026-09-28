@@ -11,7 +11,7 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **69** · `1790518093-ef45` · 2026-09-27 |
+| Versión viva | **70** · `1790576207-8f88` · 2026-09-28 |
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
@@ -91,6 +91,37 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
 - delante: `<!DOCTYPE html>`, `<head>` con las fuentes y los metas, el reset
   mínimo, `</head><body>`
 - detrás: `</body></html>`
+
+### Coinciden — republicado el 2026-09-28 (versión 70) · accesibilidad, y el aviso que se oye
+
+La versión viva es la **70** (`1790576207-8f88`). Contrato `0.2.46` y capacidades
+arrastradas intactas.
+
+**5 líneas fuera, 16 dentro.** Casi todo viene de `3ea2918`, **que no es trabajo de
+esta sesión**: `role="status" aria-live="polite"` en el rótulo de guardado,
+`aria-labelledby` en el diálogo, `aria-current` en la pestaña activa y retorno de foco
+al cerrar el editor. Revisado línea por línea antes de publicarlo.
+
+Lo que añade esta sesión no es código sino la prueba de que **esas dos cosas dependen
+la una de la otra**:
+
+```
+                 en el árbol de accesibilidad
+escritorio   ANTES «guardado local»   TRAS «SIN GUARDAR · 2»
+teléfono     ANTES NO ESTÁ            TRAS «SIN GUARDAR · 2»
+```
+
+Un elemento con `display: none` no está en el árbol de accesibilidad, así que una
+región `aria-live` escondida **no anuncia nada**. El rótulo está oculto por debajo de
+700px a propósito: ese `aria-live` recién llegado sería **mudo en un teléfono** si la
+regla `.nosave { display: block }` no lo enseñara. Sabotearla pone **dos** en rojo, la
+visual y la auditiva.
+
+Nueve comprobaciones sobre el candidato. La cuarta salió ❌ y **la pregunta estaba mal
+hecha**: `grep -c` cuenta líneas, no apariciones, y `edReturnFocus` aparece 4 veces en
+3 líneas. Octava vez que aparece el patrón del protocolo 14 en esta serie, y la
+primera en la que el error no es un número mal contado sino una herramienta que
+responde a otra pregunta.
 
 ### Coinciden — republicado el 2026-09-27 (versión 69) · y en el teléfono también
 
