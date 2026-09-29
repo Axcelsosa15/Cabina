@@ -329,6 +329,10 @@ resuelve.
 Detalle y evidencia en [PROTOCOLOS.md](PROTOCOLOS.md). La historia de cada fallo
 y su arreglo está en [docs/HISTORIA.md](docs/HISTORIA.md).
 
+Las cuatro categorías de error —análisis, ejecución, psicológico y pérdida del
+sistema—, y por qué la cuarta sólo vale si se gana contra campos que la cabina ya
+guarda, están en [docs/ERRORES.md](docs/ERRORES.md).
+
 ---
 
 ## Lo que NO está hecho
