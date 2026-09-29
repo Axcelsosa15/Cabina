@@ -11,7 +11,7 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **70** · `1790576207-8f88` · 2026-09-28 |
+| Versión viva | **71** · `1790695523-5808` · 2026-09-29 |
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
@@ -91,6 +91,18 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
 - delante: `<!DOCTYPE html>`, `<head>` con las fuentes y los metas, el reset
   mínimo, `</head><body>`
 - detrás: `</body></html>`
+
+### Coinciden — republicado el 2026-09-29 (versión 71) · las cuatro categorías de error
+
+La versión viva es la **71** (`1790695523-5808`). Contrato `0.2.46` y capacidades
+arrastradas intactas.
+
+**1 línea fuera, 200 dentro.** Entra el clasificador de pérdidas, el panel «¿De qué
+tipo fueron tus pérdidas?» en Análisis, los dos campos de la invalidación en el
+editor, y las guardas del protocolo 17 en el guardado. Ver `docs/ERRORES.md`.
+
+Doce comprobaciones sobre el candidato, todas correctas, y esta vez contando
+**apariciones** con `grep -o` y no líneas con `grep -c` — el error de la 70.
 
 ### Coinciden — republicado el 2026-09-28 (versión 70) · accesibilidad, y el aviso que se oye
 
