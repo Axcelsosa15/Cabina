@@ -26,15 +26,23 @@ cabina ya guarda en cada operación.
 
 ### La compuerta: una pérdida es del sistema sólo si pasa las cinco
 
-Todos estos campos ya existen en el editor de operaciones. No hay que inventar nada.
+Todos estos campos ya existen en el editor de operaciones.
 
 | Campo | Exigencia | Si falla, la pérdida es de categoría |
 |---|---|---|
-| `cStruct` | Estructura confirmada (BOS/CHoCH) | 1 — leíste una estructura que no estaba |
-| `cPull` | Entrada en pullback a EMA | 1 o 2 — según si la viste mal o no la esperaste |
-| `cWindow` | Dentro de la ventana operativa | 2 o 3 — fuera de hora nunca es mala suerte |
-| `cSize` | Tamaño según regla dura | 3 — el tamaño de más es ego, casi siempre |
-| `stop` | **Escrito antes de entrar** | 2 — sin stop no había plan que ejecutar |
+| `cStruct` · `cPull` · `cWindow` · `cSize` | Las cuatro condiciones marcadas | **2** — sabías que faltaba y entraste |
+| `time` | Entrada dentro de NY AM | **2** — fuera de hora nunca es mala suerte |
+| `qty` | Dentro del tope de contratos de la cuenta | **3** — el tamaño de más es ego, casi siempre |
+| `stop` | **Escrito antes de entrar** | **2** — sin stop no había plan que ejecutar |
+| `invalida` | La invalidación, escrita antes de entrar | **2** — ver más abajo |
+
+> **Corrección sobre la primera versión de este documento.** Decía que una casilla
+> sin marcar —«estructura confirmada» en falso— es categoría **1**, «leíste una
+> estructura que no estaba». Es al revés: si la casilla está **sin marcar**, sabías
+> que la estructura no estaba y entraste igual, y eso es **2**. El caso 1 de verdad
+> —la marcaste y no estaba— es invisible en una operación suelta, que es justo el
+> argumento de la sección siguiente. Salió al escribir el código: la regla no se
+> podía implementar como estaba escrita.
 
 La cabina ya calcula la conjunción de las cuatro casillas:
 
@@ -116,30 +124,96 @@ medido.
 
 ---
 
-## Estado en el producto
+## 1 y 4 no se distinguen mirando una operación
 
-Esto es **un documento**, no una función. Lo que la cabina ya hace hoy:
+Una pérdida limpia —plan escrito, plan cumplido, dinero perdido— tiene **la misma
+forma** si leíste mal el gráfico que si el mercado simplemente hizo otra cosa. No hay
+nada en esa operación que las separe.
 
-- guarda las cuatro casillas por operación y calcula `isProto`;
-- guarda `quality` con los tres valores de arriba;
-- guarda `tags`, `note`, `lesson`, `exitWhy` y `stop`;
-- **compara las dos poblaciones**, que es más de lo que parece: el análisis calcula
-  win rate, R medio y P&L por separado para las operaciones dentro y fuera de
-  protocolo.
+Las separa **la muestra**: la esperanza del setup medida sólo sobre operaciones
+limpias.
 
-```js
-const protoA = grp(isProto), protoB = grp(t => !isProto(t));
-```
+- Esperanza positiva con 20 o más operaciones limpias → sus pérdidas limpias son
+  **4**. El sistema tiene ventaja y esa operación fue la parte que pierde.
+- Esperanza negativa con 20 o más → son **1**. Ejecutaste bien un setup que no
+  funciona: lo que se estudia, o se retira, es el setup.
+- Menos de 20, o sin setup → **«1 o 4»**, y se dice. Veinte es un suelo para el
+  *signo* de la esperanza, no una prueba de significación estadística.
 
-  Eso convierte la compuerta de arriba en algo comprobable: si tus `A` no rinden mejor
-  que tus `C`, el problema no es tu disciplina — es que el protocolo no tiene ventaja,
-  y estás clasificando errores contra una vara que no mide nada.
+Esa esperanza se mide **sin** las operaciones con error. Si entraran, tus errores de
+ejecución harían parecer malo al sistema: la prueba lo fija con un caso en el que,
+con los errores dentro, un setup con +$16.52 de esperanza limpia pasa a −$4.36 y sus
+pérdidas limpias cambian de 4 a 1.
 
-Lo que **no** hace: no guarda la categoría del error como un campo propio, así que no
-puede contarte «cuántas pérdidas de categoría 3 llevas este mes». Añadir ese campo es
-una decisión de producto —toca el modelo canónico de `Trade` y el protocolo 17 aplica:
-la ausencia del campo en toda operación anterior significaría algo y habría que
-decidir qué—. No se ha tomado aquí.
+---
 
-Mientras tanto la aproximación honesta ya está disponible: `quality` distingue
-categoría 4 (`A`) de todo lo demás, y `tags` distingue el tipo dentro de lo demás.
+## Cómo lo hace la cabina
+
+**Análisis → «¿De qué tipo fueron tus pérdidas?»** Cada pérdida cerrada, clasificada
+sin preguntarte nada. Todo lo que sigue se deriva de campos que la operación ya trae.
+
+| Señal | Categoría | Se deriva de |
+|---|---|---|
+| sin stop escrito | 2 | `stop` vacío con `entry` escrita |
+| entrada fuera de NY AM | 2 | `time` fuera de 8:30–11:00 ET — salvo en + Rápido, ver abajo |
+| entraste sin las cuatro condiciones | 2 | alguna casilla sin marcar |
+| entraste sin invalidación escrita | 2 | `invalida` presente y vacía |
+| saliste antes de que se cumpliera | 2 | `plan` = «antes» |
+| saliste más allá del stop | 2 | R real por debajo de −1.15 |
+| la marcaste B o C | 2 | `quality` |
+| entraste con la pre-sesión incompleta | 2 | la compuerta de entrada lo dijo |
+| se cumplió tu invalidación y aguantaste | **3** | `plan` = «tarde» |
+| saliste por nervios | **3** | `exitWhy` = «nervios» |
+| más contratos que tu tope | **3** | `qty` contra el tope de la cuenta |
+| revancha: volviste a entrar tras perder | **3** | entrada ≤ 15 min después de salir perdiendo |
+| revancha: subiste el tamaño tras perder | **3** | `qty` mayor que la operación perdedora anterior del día |
+| tú la etiquetaste | **3** | `tags` con fomo, revenge, revancha, tilt… |
+| entraste con la cabina diciendo que no | **3** | la compuerta bloqueaba por pérdida del día, racha o cuenta |
+
+Manda la peor: una pérdida con una señal de 2 y otra de 3 es **3**, y conserva las
+dos. Debajo de la tabla, **lo que más se repite**, que es lo que de verdad se arregla.
+
+### Los dos campos nuevos
+
+Son lo único que se te pregunta, y los dos son **hechos**, no opiniones:
+
+- **«Invalidación · salgo si…»**, *antes* de entrar. Una frase: qué tendría que
+  pasar para que la idea deje de valer.
+- **«¿Respetaste tu invalidación?»**, *después* de salir, con cuatro respuestas
+  cerradas: salí cuando se cumplió (o en el stop) · no se cumplió, salí según plan ·
+  salí antes de que se cumpliera · se cumplió y aguanté.
+
+Convierten «¿lo hice bien?» —que después de perder nadie contesta con honradez— en
+«¿pasó lo que escribí?».
+
+### Tres reglas sobre lo que no se sabe
+
+- **La ausencia significa algo** (protocolo 17). Una operación sin el campo
+  `invalida` es anterior a él y no se castiga por no tenerlo. Una nueva que lo deja
+  vacío, sí. Y **abrir una operación vieja no es tocarla**: el editor escribe `""` y
+  `false` en todo campo al guardar, así que guardar sin cambiar nada añadía
+  «invalidación vacía» y «sin condiciones» a operaciones que nunca tuvieron esos
+  campos. El guardado lo impide.
+- **Lo registrado con + Rápido nunca es «limpio».** Su plan no se escribió antes del
+  resultado, aunque después se completen entrada, stop y casillas: marcarlas viendo
+  ya el P&L es justo el auto-juicio que esto existe para evitar. Sale como «sin
+  datos», y tampoco entra en la esperanza de su setup. Las señales de **hecho**
+  —nervios, tamaño, revancha— sí cuentan, porque no dependen de cuándo se escribieron.
+- **Todas del sistema es la conclusión que menos se debe creer.** Si el panel dice
+  que todas tus pérdidas son 4, lo dice, y te pide que releas las que marcaste A.
+
+### Lo que no hace
+
+- **No lee la invalidación.** Es texto libre; la cabina no sabe si «cierre de 5m bajo
+  el mínimo» ocurrió. Por eso la pregunta de salida existe.
+- **No distingue un error de análisis en una operación suelta.** Nadie puede: ver
+  arriba. Lo hace por setup, con muestra.
+- **La revancha por tiempo necesita la hora de salida** de la operación anterior, que
+  es opcional. Sin ella sólo se detecta la de tamaño.
+- **En + Rápido no hay señales de hora.** La hora que guarda es la de *apuntarla*, no
+  la de entrar. La primera versión la usaba y marcaba «fuera de NY AM» a quien apunta
+  por la noche; la prueba sólo lo cazó porque la suite pasó por ahí a las 11:11 ET, o
+  sea que también dependía del reloj. Ahora hay un caso fijado a las 20:00.
+
+Verificado en `test/errores.mjs`: 48 aserciones con las respuestas escritas a mano
+antes del código, y siete sabotajes —uno por propiedad— que la ponen en rojo.

@@ -741,6 +741,14 @@ Las reglas:
 - Y sigue valiendo la regla general: **todo campo nuevo que se persiste necesita su
   estrategia de valor por defecto y de migración escrita antes de escribirlo.**
 
+- **Abrir no es tocar.** El editor escribe `""` en todo campo de texto vacío y
+  `false` en toda casilla al guardar. Un campo nuevo cuya ausencia significa algo
+  necesita una guarda en el guardado: si la operación no lo tenía y sigue vacío,
+  se quita. Sin ella, corregir una errata en una operación vieja la clasificaba hacia
+  atrás. Pasó dos veces seguidas con el clasificador de errores —primero con
+  `invalida`, luego con las cuatro casillas—, y la segunda la encontró la prueba del
+  editor real, no la de la fachada.
+
 > **Qué falló:** al añadir `source` a las operaciones —para distinguir una entrada
 > rápida de una del formulario completo, de una importación de CSV y de una futura
 > API— lo cómodo era marcar todas las operaciones existentes como `"manual"`. Habrían

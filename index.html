@@ -145,6 +145,15 @@
      diseno dice que el color marca una CIFRA, no pinta un parrafo -- el rojo ya
      esta arriba, donde son tres palabras. */
   #footerStore.nosave { color: var(--text); }
+  /* ── ¿de qué tipo fueron tus pérdidas? · una categoría por bloque ── */
+  .errcat { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .errcat:last-child { border-bottom: 0; }
+  .errcat .eh { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .errcat .eh b { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; }
+  .errcat .eh .mono { font-size: 12.5px; color: var(--muted); }
+  /* `.eimp` y no `.ed`: `.ed` es el diálogo del editor, y le ponía borde y ancho completo al importe */
+  .errcat .eh .eimp { min-width: 64px; text-align: right; color: var(--bad); }
+  .errcat p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); max-width: 76ch; }
   .editbtn { padding:8px 12px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--surface); font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; color: var(--muted); }
   body.editing .editbtn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   .tabnav { display: flex; gap:2px; border-bottom: 1px solid var(--line); margin-bottom:24px; overflow-x: auto; scrollbar-width: none; }
@@ -1723,6 +1732,10 @@
           <div class="body"><p class="csub">Operaciones con las cuatro condiciones marcadas frente al resto.</p><div class="chartwrap" id="prWrap"></div><div id="prOut"></div></div>
         </section>
       </div>
+      <section class="panel">
+        <header><h2>¿De qué tipo fueron tus pérdidas?</h2><span class="meta" id="erMeta"></span></header>
+        <div class="body"><p class="csub">Cada pérdida, clasificada por la cabina con lo que la operación ya trae — no por cómo te sientes después de perderla. La categoría 4 no se elige: se gana, con esperanza positiva en operaciones limpias.</p><div id="erWrap"></div></div>
+      </section>
       <section class="panel">
         <header><h2>Por sesión de mercado</h2><span class="meta" id="seMeta"></span></header>
         <div class="body"><p class="csub">Cada operación cae en su sesión por la hora de entrada. Aquí se ve si la ventana de NY AM de verdad es la que paga, o si el dinero está en otro sitio.</p><div class="chartwrap" id="seWrap"></div><div id="seOut"></div></div>
@@ -6400,6 +6413,13 @@
       const s = FUT.calculateTradeStats(accountId);
       return { ratio: s.proto, conProtocolo: s.protoA, sinProtocolo: s.protoB };
     },
+    /* Las cuatro categorías de error sobre las pérdidas de una cuenta, o de todas.
+       Se clasifica sobre la versión calculada de cada operación: el P&L y la R
+       salen de la única puerta, `tradeCalc`. */
+    clasificaErrores(accountId) {
+      const porId = new Map(tradesOf("futuros").map(t => [t.id, t]));
+      return clasificaErrores(FUT.trades(accountId).map(t => porId.get(t.id) || t));
+    },
     calculateEdge(accountId) {
       const ops = FUT.trades(accountId).filter(t => t.pnlEff != null).map(t => ({ pnl: t.pnlEff, r: t.rReal, fecha: t.date }));
       return QE.analizarEdge(ops).value;
@@ -6760,6 +6780,15 @@
       { key: "entry", label: "Entrada", type: "number", step: "0.25" },
       { key: "stop", label: "Stop", type: "number", step: "0.25" },
       { key: "target", label: "Objetivo", type: "number", step: "0.25" },
+      /* LA INVALIDACIÓN, ANTES DE ENTRAR. Es el único campo de esta ficha que tiene
+         que existir antes del resultado: convierte «¿lo hice bien?» —que después de
+         perder nadie contesta con honradez— en «¿pasó lo que escribí?», que es un
+         hecho. Opcional, porque un campo que frena el registro reduce el número de
+         operaciones registradas; pero una operación NUEVA que lo deja vacío cuenta
+         como «entraste sin invalidación». Ver docs/ERRORES.md. */
+      { key: "invalida", label: "Invalidación · salgo si…", type: "text", w: 6,
+        ph: "cierre de 5m por debajo del mínimo del pullback",
+        help: "escríbela ANTES de entrar: qué tendría que pasar para que la idea deje de valer" },
       { key: "exit", label: "Salida real", type: "number", step: "0.25", help: "vacío = operación abierta" },
       /* Los cuatro de abajo son OPCIONALES y van juntos a propósito: son lo único
          que el P&L no puede contener. Sin ellos no se puede saber si una salida
@@ -6774,6 +6803,11 @@
                   ["manual", "cerré a mano"], ["tiempo", "se agotó el tiempo"], ["noticia", "noticia / evento"],
                   ["nervios", "nervios"]],
         help: "opcional · separa las salidas por regla de las salidas por impulso" },
+      { key: "plan", label: "¿Respetaste tu invalidación?", type: "select", w: 4,
+        options: [["", "sin anotar"], ["cumpli", "sí · salí cuando se cumplió, o en el stop"],
+                  ["no_hizo_falta", "no se cumplió · salí según plan"],
+                  ["antes", "salí ANTES de que se cumpliera"], ["tarde", "se cumplió y AGUANTÉ"]],
+        help: "un hecho, no una opinión: ¿pasó lo que escribiste antes de entrar?" },
       { key: "mae", label: "Peor precio en contra (MAE)", type: "number", step: "0.25",
         help: "opcional · lo más en contra que llegó antes de resolverse. Dice si tu stop sobra" },
       { key: "mfe", label: "Mejor precio a favor (MFE)", type: "number", step: "0.25",
@@ -6882,6 +6916,18 @@
       onSave: v => {
         const rec = Object.assign({}, values, v, { type, id: isNew ? uid("t") : t.id });
         if (type === "futuros") rec.instrument = rec.instrument.toUpperCase();
+        /* LA AUSENCIA SIGNIFICA ALGO (protocolo 17). El editor escribe "" en todo
+           campo de texto vacío, así que abrir una operación anterior a la
+           invalidación para corregir una errata le añadiría `invalida: ""` — y la
+           clasificaría hacia atrás como «entraste sin invalidación», cuando el campo
+           no existía. Si no lo tenía y sigue vacío, se quita. */
+        if (!isNew) for (const k of ["invalida", "plan"]) if (!Object.prototype.hasOwnProperty.call(t, k) && enBlanco(rec[k])) delete rec[k];
+        /* Lo mismo con las cuatro casillas: el editor las escribe como `false` al
+           guardar, y una operación que nunca las tuvo —la de «+ Rápido → Añadir
+           detalles»— pasaba a «entraste sin las cuatro condiciones» por abrirla.
+           Si no tenía ninguna y siguen todas sin marcar, nadie las tocó. */
+        const CASILLAS = ["cStruct", "cPull", "cWindow", "cSize"];
+        if (!isNew && CASILLAS.every(k => !Object.prototype.hasOwnProperty.call(t, k)) && CASILLAS.every(k => rec[k] === false)) CASILLAS.forEach(k => delete rec[k]);
         delete rec.pnlEff; delete rec.rReal; delete rec.rPlanned; delete rec.riskUsd; delete rec.multUnknown;
         if (isNew && type === "futuros") { const g = tradeGate(); if (g.blocked) { rec.offProtocol = g.razones.map(r => r.t); } }
         /* PROCEDENCIA. Una operación nueva escrita en este editor es «manual». Las
@@ -7110,6 +7156,131 @@
      llamaba varias veces (tiles, filtros, cuentas, panel, gráficos), repitiendo
      el mismo O(n log n) sobre los mismos datos. Se memoriza contra el contador de
      revisión de la colección: si nada cambió, no se recalcula nada. */
+  /* ═══════════════ LAS CUATRO CATEGORÍAS DE ERROR ═══════════════
+     Quien clasifica una pérdida después de perderla es el acusado, y ya sabe el
+     resultado. Así que aquí casi nada se pregunta: se DERIVA de lo que la operación
+     ya trae. Lo único que se pregunta es un hecho fijado antes de entrar —la
+     invalidación— y si se respetó. Ver docs/ERRORES.md · test/errores.mjs.
+
+     Tres decisiones, y por qué:
+     · 1 y 4 tienen la misma forma en una operación suelta: hiciste el plan y
+       perdiste. No se separan mirándola, sino por la ESPERANZA DEL SETUP medida
+       sólo sobre operaciones limpias: positiva → 4, negativa → 1, sin muestra →
+       «1 o 4», y se dice.
+     · Esa esperanza se mide con todas las cuentas —el sistema es el setup, no la
+       cuenta donde lo operaste— y SIN las operaciones con error: si entraran, tus
+       fallos de ejecución acusarían al sistema.
+     · La ausencia significa algo (protocolo 17): una operación sin el campo
+       `invalida` es anterior a él y no se castiga; una con el campo vacío, sí. */
+  const MUESTRA_MIN = 20;      // suelo para el SIGNO de la esperanza, no una prueba de significación
+  const REVANCHA_MIN = 15;     // minutos entre salir perdiendo y volver a entrar
+  const PASO_STOP_R = -1.15;   // el mismo umbral que «pasaron del stop» en la distribución de R
+  const ETIQUETAS_3 = /\b(fomo|revenge|revancha|venganza|tilt|ego)\b/i;
+  const SENAL = {
+    sin_stop:         { cat: 2, t: "sin stop escrito" },
+    fuera_ventana:    { cat: 2, t: "entrada fuera de NY AM" },
+    salio_antes:      { cat: 2, t: "saliste antes de que se cumpliera tu invalidación" },
+    sin_invalidacion: { cat: 2, t: "entraste sin invalidación escrita" },
+    condiciones:      { cat: 2, t: "entraste sin las cuatro condiciones" },
+    calidad_c:        { cat: 2, t: "la marcaste fuera del protocolo" },
+    calidad_b:        { cat: 2, t: "la marcaste con desviación menor" },
+    paso_stop:        { cat: 2, t: "saliste más allá del stop" },
+    gate_proceso:     { cat: 2, t: "entraste con la pre-sesión incompleta" },
+    aguanto:          { cat: 3, t: "se cumplió tu invalidación y aguantaste" },
+    nervios:          { cat: 3, t: "saliste por nervios" },
+    tamano:           { cat: 3, t: "más contratos que tu tope" },
+    revancha_tiempo:  { cat: 3, t: "revancha: volviste a entrar minutos después de perder" },
+    revancha_tamano:  { cat: 3, t: "revancha: subiste el tamaño tras perder" },
+    etiqueta:         { cat: 3, t: "tú la etiquetaste (fomo, revancha…)" },
+    gate_disciplina:  { cat: 3, t: "entraste con la cabina diciendo que no" },
+  };
+  function enBlanco(v) { return v == null || (typeof v === "string" && v.trim() === ""); }
+  /* Una pérdida sólo puede ser «limpia» si su plan quedó escrito ANTES del
+     resultado. Lo registrado con «+ Rápido» se escribió después, aunque luego se
+     completen entrada, stop y casillas: marcarlas viendo ya el P&L es justo el
+     auto-juicio que esto existe para evitar. Por eso no es 1, ni 4, ni entra en la
+     esperanza de su setup. Las señales de HECHO —nervios, tamaño, revancha— sí
+     cuentan, porque no dependen de cuándo se escribieron. */
+  function verificable(t) { return !enBlanco(t.entry) && t.source !== "quick_add"; }
+  function senalesDe(t, previa) {
+    const s = [];
+    /* La hora de + Rápido es la de APUNTARLA, no la de entrar: se registra después
+       de operar, y `qkEnrich` guarda la hora del reloj. Derivar de ella «fuera de
+       ventana» o «revancha» acusaría a quien apunta por la noche. Sin hora fiable,
+       no hay señal de hora. */
+    const m = t.source === "quick_add" ? null : minOfTime(t.time);
+    if (!enBlanco(t.entry) && enBlanco(t.stop)) s.push("sin_stop");
+    if (m != null && sesAt(m).id !== "nyam") s.push("fuera_ventana");
+    if (t.plan === "antes") s.push("salio_antes");
+    if (Object.prototype.hasOwnProperty.call(t, "invalida") && enBlanco(t.invalida)) s.push("sin_invalidacion");
+    /* Una casilla SIN marcar no es «leíste mal»: es «sabías que faltaba y entraste».
+       Sólo cuenta si las cuatro existen: sin ellas la operación es anterior. */
+    const cs = [t.cStruct, t.cPull, t.cWindow, t.cSize];
+    if (cs.every(v => typeof v === "boolean") && !cs.every(Boolean)) s.push("condiciones");
+    if (t.quality === "C") s.push("calidad_c"); else if (t.quality === "B") s.push("calidad_b");
+    if (t.rReal != null && t.rReal < PASO_STOP_R) s.push("paso_stop");
+    const gate = Array.isArray(t.offProtocol) ? t.offProtocol.map(String) : [];
+    if (gate.some(r => /pre-?sesi/i.test(r))) s.push("gate_proceso");
+    if (gate.some(r => !/pre-?sesi/i.test(r))) s.push("gate_disciplina");
+    if (t.plan === "tarde") s.push("aguanto");
+    if (t.exitWhy === "nervios") s.push("nervios");
+    const tope = reglaDe(acctById(t.accountId), "maxContracts").valor;
+    if (tope > 0 && Number(t.qty) > tope) s.push("tamano");
+    if (previa && previa.pnlEff != null && previa.pnlEff < 0) {
+      const sal = minOfTime(previa.exitTime);
+      if (m != null && sal != null && m >= sal && m - sal <= REVANCHA_MIN) s.push("revancha_tiempo");
+      if (Number(t.qty) > Number(previa.qty)) s.push("revancha_tamano");
+    }
+    if (ETIQUETAS_3.test(String(t.tags || ""))) s.push("etiqueta");
+    return s;
+  }
+  /* La operación inmediatamente anterior del mismo día, por hora de entrada. La
+     revancha es de la persona, no de la cuenta: se busca entre todas. */
+  function previasPorDia(todas) {
+    const porDia = {};
+    for (const t of todas) if (t.date && minOfTime(t.time) != null) (porDia[t.date] = porDia[t.date] || []).push(t);
+    const prev = new Map();
+    for (const d in porDia) {
+      const l = porDia[d].slice().sort((a, b) => minOfTime(a.time) - minOfTime(b.time));
+      for (let i = 1; i < l.length; i++) prev.set(l[i].id, l[i - 1]);
+    }
+    return prev;
+  }
+  function clasificaErrores(lista) {
+    const todas = tradesOf("futuros");
+    const prev = previasPorDia(todas);
+    const info = new Map();
+    for (const t of todas) {
+      const sen = senalesDe(t, prev.get(t.id));
+      info.set(t.id, { sen, peor: sen.reduce((c, k) => Math.max(c, SENAL[k].cat), 0), verificable: verificable(t) });
+    }
+    const setups = {};
+    for (const t of todas) {
+      const i = info.get(t.id);
+      if (t.pnlEff == null || i.peor || !i.verificable || !t.setupId) continue;
+      const o = setups[t.setupId] || (setups[t.setupId] = { n: 0, suma: 0 });
+      o.n++; o.suma += t.pnlEff;
+    }
+    for (const k in setups) {
+      const o = setups[k]; o.esperanza = o.suma / o.n; delete o.suma;
+      o.veredicto = o.n < MUESTRA_MIN ? null : o.esperanza > 0 ? 4 : 1;
+    }
+    const porTrade = [], resumen = { 1: 0, 2: 0, 3: 0, 4: 0, "1o4": 0, sin_datos: 0 };
+    for (const t of lista) {
+      if (t.pnlEff == null || !(t.pnlEff < 0)) continue;
+      const i = info.get(t.id) || { sen: senalesDe(t, prev.get(t.id)), peor: 0, verificable: verificable(t) };
+      if (!info.has(t.id)) i.peor = i.sen.reduce((c, k) => Math.max(c, SENAL[k].cat), 0);
+      let cat;
+      if (i.peor) cat = i.peor;
+      else if (!i.verificable) cat = "sin_datos";
+      else cat = (t.setupId && setups[t.setupId] && setups[t.setupId].veredicto) || "1o4";
+      resumen[cat]++;
+      porTrade.push({ id: t.id, date: t.date, instrument: t.instrument, pnl: t.pnlEff, setupId: t.setupId || "", cat,
+        senales: i.sen.map(k => ({ clave: k, cat: SENAL[k].cat, texto: SENAL[k].t })) });
+    }
+    return { porTrade, resumen, setups, muestraMin: MUESTRA_MIN };
+  }
+
   const _tradesMemo = { key: null, val: null };
   function tradesOf(type) {
     const c = coll("trades");
@@ -7556,7 +7727,7 @@
     try { paintGateButtons(); } catch (e) { }
     renderCalendar(); renderEquity(list); renderUnderwater(list); renderDaily(list); renderRolling(list); renderStreakTiles(s);
     renderDay(); renderBreakdown(list); renderJournalTable(list);
-    renderScorecard(list, s); renderRDist(list); renderProto(s); renderSesChart(list); renderHourChart(list); renderDowChart(list); renderConsistency(list, s);
+    renderScorecard(list, s); renderRDist(list); renderProto(s); renderErrores(list); renderSesChart(list); renderHourChart(list); renderDowChart(list); renderConsistency(list, s);
     renderFutAccounts();
   }
   function bulkAssignAccount() {
@@ -7906,6 +8077,34 @@
     const blown = rs.filter(v => v < -1.15).length;
     $("rdMeta").innerHTML = `peor ${Math.min(...rs).toFixed(2)}R · mejor ${Math.max(...rs).toFixed(2)}R${blown ? ` · <span class="neg">${blown} pasaron del stop</span>` : ""}`;
     wrap.innerHTML = chartBars(items, { W: chartW(wrap), H: 170, pl: 32, fmt: v => String(Math.round(v)), aria: "Distribución de R", maxLabels: 11 });
+  }
+
+  const CAT_FILAS = [
+    [3, "Psicológico", "bad", "La emoción o el ego rompieron la disciplina. Se arregla con reglas que no dependan de ti en caliente."],
+    [2, "Ejecución", "warn", "Sabías qué hacer y no lo hiciste. Se arregla con proceso: órdenes puestas antes, checklist."],
+    [1, "Análisis", "warn", "Bien ejecutada, en un setup sin ventaja en limpio. Se estudia el setup o se retira."],
+    [4, "Sistema", "good", "Hiciste todo bien en un setup con ventaja. Nada que arreglar en la operación."],
+    ["1o4", "Análisis o sistema", "", `Limpia, pero su setup no llega a ${MUESTRA_MIN} operaciones limpias: todavía no se puede decidir.`],
+    ["sin_datos", "Sin datos", "", "Registrada con «+ Rápido» o sin entrada: su plan no quedó escrito antes del resultado, así que no hay con qué juzgarla."],
+  ];
+  function renderErrores(list) {
+    const wrap = $("erWrap"); if (!wrap) return;
+    const r = clasificaErrores(list);
+    if (!r.porTrade.length) { wrap.innerHTML = `<p class="empty">Sin pérdidas cerradas en este filtro.</p>`; $("erMeta").textContent = ""; return; }
+    $("erMeta").textContent = plu(r.porTrade.length, "pérdida clasificada", "pérdidas clasificadas");
+    const dinero = c => r.porTrade.filter(x => x.cat === c).reduce((s, x) => s + x.pnl, 0);
+    /* Bloques y no una tabla: la explicación es una frase entera, y en una columna
+       de tabla a 430px quedaba en ~80px y cortada por la derecha. */
+    const filas = CAT_FILAS.filter(([c]) => r.resumen[c]).map(([c, nom, cls, que]) =>
+      `<div class="errcat"><div class="eh"><span class="chip ${cls}">${c === "1o4" ? "1 o 4" : c === "sin_datos" ? "—" : c}</span><b>${nom}</b><span class="mono">${plu(r.resumen[c], "pérdida", "pérdidas")}</span><span class="mono neg eimp">${money(dinero(c))}</span></div><p>${que}</p></div>`).join("");
+    const cuenta = {};
+    r.porTrade.forEach(x => x.senales.forEach(s => { cuenta[s.clave] = (cuenta[s.clave] || 0) + 1; }));
+    const top = Object.keys(cuenta).sort((a, b) => cuenta[b] - cuenta[a] || SENAL[b].cat - SENAL[a].cat).slice(0, 6);
+    const motivos = top.length ? `<p class="note-p" style="margin-top:12px"><b>Lo que más se repite:</b> ${top.map(k => `${esc(SENAL[k].t)} <span class="mono">×${cuenta[k]}</span>`).join(" · ")}</p>` : "";
+    /* Todas del sistema es la conclusión más cómoda, y la que menos se debe creer. */
+    const cuatro = r.resumen[4] && !r.resumen[1] && !r.resumen[2] && !r.resumen[3]
+      ? `<p class="note-p">Todas tus pérdidas salen del sistema. Antes de creerlo, relee la nota de las que marcaste <b>A</b>: si alguna no la merecía, el problema no era el sistema.</p>` : "";
+    wrap.innerHTML = `<div class="errcats">${filas}</div>${motivos}${cuatro}`;
   }
 
   function renderProto(s) {

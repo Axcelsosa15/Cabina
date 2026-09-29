@@ -189,6 +189,10 @@ dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia'
   /* Una cabina que no se puede leer en el telefono no esta entregada. `diseno.mjs`
      mide UNA pestana a 1600px; esto mide las seis, y en 430px. */
   dice('vista', 'suite', 'Ninguna de las seis pestanas se sale de la pantalla', 'index.html');
+  /* Las cuatro categorias de error: la 4 se gana con esperanza positiva en limpio,
+     los errores no entran en esa esperanza, y abrir una operacion vieja no la
+     castiga. Ver docs/ERRORES.md. */
+  dice('errores', 'suite', 'Las perdidas se clasifican sin absolver por defecto', 'index.html');
 }
 
 /* ── ARTEFACTO · lo que SÍ se puede comprobar desde aquí ─────────────────────

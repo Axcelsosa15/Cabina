@@ -294,8 +294,8 @@ resuelve.
   puede hacer.
 - **`file://` tira el almacén al recargar**, de forma intermitente. Por eso el
   smoke test usa HTTP y dos pruebas abren una pestaña nueva en vez de recargar.
-- **33 de las 54 pruebas de `test/` no afirman nada**: miden y registran. Su
-  único modo de fallo es romperse. Las 21 que afirman están contadas abajo, y
+- **33 de las 55 pruebas de `test/` no afirman nada**: miden y registran. Su
+  único modo de fallo es romperse. Las 22 que afirman están contadas abajo, y
   tanto el número como la lista los imprime `npm test`, no un `grep` sobre el
   código — ver protocolo 14.
 - **El motor tiene 55 funciones que la app no usa**, incluido el módulo de
@@ -317,13 +317,13 @@ resuelve.
 
 | | |
 |---|---|
-| Suites que se ejecutan | **57** (54 de `test/` + 3 del motor) |
+| Suites que se ejecutan | **58** (55 de `test/` + 3 del motor) |
 | Aserciones del motor | **421** (`quant` 329 · `math` 92) |
-| Aserciones de navegador y guardianes | **729** en 21 archivos — las cuenta la propia suite |
+| Aserciones de navegador y guardianes | **777** en 22 archivos — las cuenta la propia suite |
 | Cobertura de la capa `db` del artefacto | **29** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
-| Compuerta de publicación | **18 PASS · 0 FAIL · 4 `UNKNOWN`** de 22 filas |
-| CI | ejecuta `npm run compuerta`: la suite entera más la tabla; última verificación local: **18 PASS · 0 FAIL · 4 UNKNOWN** en 662 s |
+| Compuerta de publicación | **19 PASS · 0 FAIL · 4 `UNKNOWN`** de 23 filas |
+| CI | ejecuta `npm run compuerta`: la suite entera más la tabla; última verificación local: **19 PASS · 0 FAIL · 4 UNKNOWN** en 698 s |
 | Secretos técnicos en el repositorio | ninguno |
 
 Detalle y evidencia en [PROTOCOLOS.md](PROTOCOLOS.md). La historia de cada fallo
