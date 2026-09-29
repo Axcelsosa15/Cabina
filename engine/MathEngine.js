@@ -292,7 +292,7 @@ export const DD_TIPOS = Object.freeze({
  * calculateDrawdown(balanceActual, picoBalanceAnterior, drawdownMaximo, opciones?)
  *
  * Tu firma solo permite drawdown TRAILING puro, porque no recibe el balance
- * inicial ni el tipo. LucidFlex usa trailing BLOQUEADO: el suelo sube con el
+ * inicial ni el tipo. Una evaluación con trailing BLOQUEADO: el suelo sube con el
  * pico hasta llegar al balance inicial y ahí se congela para siempre. Con tres
  * argumentos sale el trailing puro, que da un suelo MÁS ALTO que el real y por
  * tanto te dice que estás peor de lo que estás. Pasa `opciones` para el cálculo

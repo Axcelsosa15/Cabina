@@ -73,7 +73,7 @@ t("3 args = trailing puro: suelo", d3.sueloCuenta, 24315);
 t("  usado", d3.drawdownUsado, 0);
 t("  estado", d3.estado, "ACTIVA");
 const lock = E.calculateDrawdown(25315, 25315, 1000, { tipo: "trailing_lock", balanceInicial: 25000 });
-t("LucidFlex (trailing bloqueado): suelo", lock.sueloCuenta, 24315);
+t("Evaluación con trailing bloqueado: suelo", lock.sueloCuenta, 24315);
 const lock2 = E.calculateDrawdown(26500, 26500, 1000, { tipo: "trailing_lock", balanceInicial: 25000 });
 t("  congelado al superar el inicial", lock2.sueloCuenta, 25000);
 t("  vs trailing puro, que seguiría subiendo", E.calculateDrawdown(26500, 26500, 1000).sueloCuenta, 25500);

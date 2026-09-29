@@ -12,23 +12,23 @@ await p.goto('file://'+process.cwd()+'/preview.html'); await p.waitForTimeout(14
 const ok=(c,t,d)=>console.log(`  ${c?'✅':'❌'} ${t}${d!=null?'   '+d:''}`);
 
 console.log('\n═══ DIVULGACIÓN PROGRESIVA ═══');
-const sel='.acct[data-id="lucidflex25"] .metric[data-metric="consistencia"]';
+const sel='.acct[data-id="prop25"] .metric[data-metric="consistencia"]';
 ok(await p.evaluate(s=>document.querySelector(s+' .mdet').hidden, sel), 'el detalle nace plegado');
 await p.click(sel+' .mtop'); await p.waitForTimeout(320);
 ok(!(await p.evaluate(s=>document.querySelector(s+' .mdet').hidden, sel)), 'un clic lo abre');
 const filas = await p.evaluate(s=>[...document.querySelectorAll(s+' .mdet > div')].map(r=>r.children[0].textContent.trim()+'='+r.children[1].textContent.trim()).join(' · '), sel);
 ok(/Mejor día/.test(filas) && /Total necesario/.test(filas), 'y enseña las cifras del nivel 2', filas.slice(0,90));
-await p.click('.acct[data-id="lucidflex25"] .metric[data-metric="colchon"] .mtop'); await p.waitForTimeout(320);
+await p.click('.acct[data-id="prop25"] .metric[data-metric="colchon"] .mtop'); await p.waitForTimeout(320);
 ok(await p.evaluate(s=>document.querySelector(s+' .mdet').hidden, sel), 'abrir otra cierra la anterior');
 // sobrevive a que entre una operación
-await p.evaluate(()=>FUT.createTrade({accountId:'lucidflex25',instrument:'MNQ',direction:'long',qty:1,date:'2026-09-18',time:'12:05',entry:21000,stop:20990,exit:21010}));
+await p.evaluate(()=>FUT.createTrade({accountId:'prop25',instrument:'MNQ',direction:'long',qty:1,date:'2026-09-18',time:'12:05',entry:21000,stop:20990,exit:21010}));
 await p.waitForTimeout(600);
-ok(!(await p.evaluate(()=>document.querySelector('.acct[data-id="lucidflex25"] .metric[data-metric="colchon"] .mdet').hidden)),
+ok(!(await p.evaluate(()=>document.querySelector('.acct[data-id="prop25"] .metric[data-metric="colchon"] .mdet').hidden)),
    'sigue abierta tras registrar una operación');
 await p.screenshot({path:new URL('./tomas/', import.meta.url).pathname+'detalle.png', clip:{x:0,y:120,width:1600,height:700}});
 
 console.log('\n═══ ESTADOS VACÍOS ═══');
-const v = await p.evaluate(()=>{const e=document.querySelector('.acct[data-id="alpha50"] .acc-recent .vacio'); return e?e.innerText.replace(/\s+/g,' '):'(no)';});
+const v = await p.evaluate(()=>{const e=document.querySelector('.acct[data-id="prop50"] .acc-recent .vacio'); return e?e.innerText.replace(/\s+/g,' '):'(no)';});
 ok(/sin operaciones/i.test(v) && /registrar/i.test(v), 'el vacío dice qué falta y ofrece el paso', v);
 const q=await (await b.newContext({viewport:{width:1200,height:900}})).newPage();
 await q.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(JSON.stringify({settings:{accounts:[],rules:[],meta:{}}}))});}catch(e){}`);

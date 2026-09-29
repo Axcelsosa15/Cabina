@@ -4,7 +4,7 @@ function semilla(n){ const trades={}; let r=12345; const rnd=()=>(r=(r*110351524
   for(let i=0;i<n;i++){ const d=new Date(Date.UTC(2025,0,1+Math.floor(i/3))); const id='t'+i; const g=rnd()<0.45;
     trades[id]={id,type:'futuros',date:d.toISOString().slice(0,10),time:'09:'+String(10+(i%45)).padStart(2,'0'),instrument:'MNQ',
       direction:rnd()<0.5?'long':'short',qty:1+(i%3),entry:21000,stop:20990,exit:g?21000+10+Math.round(rnd()*40):20990,accountId:'a1',createdAt:1700000000000+i}; }
-  return { settings:{accounts:[{id:'a1',firm:'Lucid',name:'LucidFlex 25K',kind:'Evaluación',size:25000,dd:1000,ddKind:'trailing_lock',trailBase:'intradia',limit:50,total:0,best:0,target:1500,status:'activa',ledger:[]}],rules:[],meta:{}}, trades }; }
+  return { settings:{accounts:[{id:'a1',firm:'Firma',name:'Evaluación 25K',kind:'Evaluación',size:25000,dd:1000,ddKind:'trailing_lock',trailBase:'intradia',limit:50,total:0,best:0,target:1500,status:'activa',ledger:[]}],rules:[],meta:{}}, trades }; }
 const N = Number(process.argv[2] || 1500);
 const p = await (await b.newContext({viewport:{width:1500,height:1200}})).newPage();
 const perfiles = [];

@@ -35,6 +35,13 @@ const MOTOR = [
   ['motor-bundle', join(aqui, '..', 'engine', 'quant', 'bundle.mjs'), ['--check']],
 ];
 
+/* EL PREVIEW SE CONSTRUYE AQUI, SIEMPRE. CI lo construia en un paso aparte y en local
+   dependia de acordarse. Un preview viejo con codigo ya quitado de index.html dio
+   60/60 en local sobre un main que en CI estaba rojo. El runner mide el index.html de
+   AHORA o no mide. */
+import { execFileSync } from 'node:child_process';
+execFileSync(process.execPath, [join(aqui, 'build-preview.mjs')], { stdio: 'ignore' });
+
 const solo = process.argv.slice(2);
 let archivos = readdirSync(aqui)
   .filter(f => f.endsWith('.mjs') && !NO_SON_TESTS.has(f) && !SIN_BASELINE.has(f))

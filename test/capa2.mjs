@@ -295,10 +295,17 @@ ok(porRutaAbsoluta.length === 0, 'ninguna dependencia se importa por ruta absolu
 const prev = join(dirTest, 'preview.html');
 const idx = leer(join(dirTest, '..', 'index.html'), 'utf8');
 const pv = leer(prev, 'utf8');
-const marcas = ['posPerf', 'tesisCalc', 'window.INV', 'window.TES', 'QE.dimensionar'];
-const ausentes = marcas.filter(m => idx.includes(m) && !pv.includes(m));
-ok(ausentes.length === 0, 'preview.html está reconstruido desde el index.html actual',
-   ausentes.length ? 'falta en el preview: ' + ausentes.join(', ') + ' — corre build-preview.mjs' : '');
+/* EXACTO, no por marcas. La version anterior buscaba cinco cadenas de funciones
+   NUEVAS: cazaba un preview al que le faltaba codigo, nunca uno que aun llevaba
+   codigo QUITADO. Asi paso: el preview conservaba las cuentas del autor despues de
+   sacarlas de index.html, diez pruebas vivian de ellas, y la suite daba 60/60 en
+   local mientras CI, que construye el preview de cero, estaba en rojo. El preview
+   es un esqueleto fijo + index.html desde su primer <style>: tiene que acabar
+   exactamente en eso. */
+const desdeStyle = idx.slice(idx.indexOf('<style>'));
+const alDia = pv.endsWith(desdeStyle);
+ok(alDia, 'preview.html está reconstruido desde el index.html actual',
+   alDia ? 'idéntico desde el primer <style>' : 'difiere del index.html actual — corre build-preview.mjs');
 
 console.log('\n═══ 10 · nadie recarga antes de que el disco tenga el dato ═══');
 /* §10 — Nada de recargar sin esperar el guardado.

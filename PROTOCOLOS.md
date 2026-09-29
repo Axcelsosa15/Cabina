@@ -186,8 +186,8 @@ Subir algo aquí **no se deshace**: queda en el historial y se indexa.
 
 > **Qué falló:** la semilla de `/tmp` que tres pruebas leían eran datos reales —
 > 18 operaciones MNQ, dos cuentas prop con su tamaño y su drawdown, y seis reglas
-> con el criterio de su autor escrito («MGC eliminado: instrumento perdedor
-> documentado»). Estuvo a un `git add` de ser pública.
+> con el criterio de su autor escrito, incluido por qué había dejado de operar un
+> instrumento. Estuvo a un `git add` de ser pública.
 
 ---
 

@@ -10,12 +10,16 @@
      · un desconocido arranca VACIO: sin cuentas, con las reglas presentes pero sin
        valor -- y una regla sin valor nunca bloquea --, sin restriccion de
        instrumento, y sin una sola cadena de la configuracion personal;
-     · quien ya estaba NO pierde nada: la configuracion guardada no se toca, y una
-       instalacion que nunca guardo configuracion pero tiene operaciones apuntando
-       a las cuentas de siempre las recupera sola. En los dos modos: navegador y
-       base del artefacto.
+     · quien ya estaba NO pierde nada: la configuracion guardada no se toca, y
+       ninguna operacion se pierde aunque su cuenta ya no exista -- queda como
+       «sin cuenta asignada». En los dos modos: navegador y base del artefacto.
 
-   Su modo de fallo: arreglar el primer arranque borrando las cuentas de alguien. */
+   Su modo de fallo: arreglar el primer arranque borrando las cuentas de alguien.
+
+   (Hubo una recuperacion de «las cuentas de siempre» para instalaciones que nunca
+   guardaron configuracion. Se quito junto con esas cuentas, a peticion del dueño,
+   despues de comprobar que su entorno principal tiene la configuracion guardada
+   y completa, y que ninguna de sus cuentas usaba aquellos identificadores.) */
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -34,7 +38,6 @@ const errs = [];
 
 /* Lo que NO puede aparecer delante de un desconocido. */
 const PERSONAL = /Lucid|Alpha Futures|MGC|Protocolo v2\.0|EMA 10\/20\/55|instrumento perdedor|Solo MNQ/;
-const LEGADO_IDS = ['lucidflex25', 'lucid25', 'alpha50'];
 
 const abre = async (init) => {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -86,14 +89,17 @@ console.log('\n═══ UN DESCONOCIDO ═══');
 
 console.log('\n═══ QUIEN YA ESTABA · navegador ═══');
 {
-  /* Nunca guardo configuracion, pero tiene operaciones en las cuentas de siempre. */
+  /* Nunca guardo configuracion, pero tiene operaciones. Hasta que el dueño pidio
+     quitar del codigo su configuracion personal, esta instalacion recuperaba las
+     cuentas de siempre; ya no existen en el codigo. Lo que se exige ahora es lo que
+     de verdad importa: arranca neutral y NO SE PIERDE NINGUNA OPERACION -- quedan
+     como «sin cuenta asignada», que la app ya sabe enseñar y reasignar. */
   const { ctx, p } = await abre({ fn: () => { try { localStorage.setItem('cabina-mnq:v1', JSON.stringify({ trades: {
-    v1: { id: 'v1', type: 'futuros', date: '2026-03-02', accountId: 'lucidflex25', instrument: 'MNQ', direction: 'long', qty: 1, entry: 20000, stop: 19990, exit: 20020 } } })); } catch (e) { } } });
+    v1: { id: 'v1', type: 'futuros', date: '2026-03-02', accountId: 'cta_antigua', instrument: 'MNQ', direction: 'long', qty: 1, entry: 20000, stop: 19990, exit: 20020 } } })); } catch (e) { } } });
   const f = await foto(p);
-  ok(LEGADO_IDS.every(id => f.cuentas.includes(id)),
-     'sin configuracion guardada pero con operaciones en las cuentas de siempre: las recupera', f.cuentas.join(', '));
-  const ml = f.reglas.find(r => r.id === 'maxloss');
-  ok(!!ml && Number(ml.value) === 150, 'y con ellas sus reglas de siempre', ml ? `maxloss=${ml.value}` : 'sin maxloss');
+  const ops = await p.evaluate(() => FUT.trades().map(t => t.id + ':' + t.accountId));
+  ok(f.cuentas.length === 0, 'sin configuracion guardada: arranca neutral', f.cuentas.join(', ') || 'ninguna');
+  ok(ops.length === 1 && ops[0] === 'v1:cta_antigua', 'y la operacion sigue ahi, con su cuenta anotada: no se pierde nada', ops.join(' · ') || 'ninguna');
   await ctx.close();
 }
 {
@@ -109,7 +115,7 @@ console.log('\n═══ QUIEN YA ESTABA · navegador ═══');
   ok(f.reglas.length === 2 && Number((f.reglas.find(r => r.id === 'maxloss') || {}).value) === 400,
      'sus reglas, exactamente, con sus valores', f.reglas.map(r => `${r.id}=${r.value}`).join(' '));
   const ins = f.reglas.find(r => r.role === 'instrument');
-  ok(!!ins && ins.allow === 'MNQ', 'y la migracion vieja sigue: una regla de instrumento GUARDADA sin lista era «Solo MNQ»',
+  ok(!!ins && ins.allow === '', 'una regla de instrumento GUARDADA sin lista ya no se convierte en «Solo MNQ»: sin lista es sin restriccion',
      ins ? `allow «${ins.allow}»` : '—');
   await ctx.close();
 }
@@ -129,15 +135,14 @@ console.log('\n═══ QUIEN YA ESTABA · navegador ═══');
 }
 
 {
-  /* Una configuracion guardada ANTIGUA a la que le falta un bloque: el hueco es de
-     antes del arranque neutral, y se rellena con lo de siempre. */
+  /* Una configuracion guardada ANTIGUA a la que le falta un bloque: el hueco se
+     rellena con lo neutral. Lo que si trae -- sus cuentas -- se respeta. */
   const { ctx, p } = await abre({ fn: () => { try { localStorage.setItem('cabina-mnq:v1', JSON.stringify({ settings: {
     accounts: [{ id: 'vieja', firm: 'F', name: 'Vieja', kind: 'Evaluación', size: 25000, dd: 1500 }] } })); } catch (e) { } } });
   const f = await foto(p);
-  const lista = await p.evaluate(() => [...document.querySelectorAll('.check li')].length);
-  ok(f.cuentas.join() === 'vieja' && Number((f.reglas.find(r => r.id === 'maxloss') || {}).value) === 150,
-     'guardada antigua sin reglas ni lista: sus cuentas, y las reglas de siempre en el hueco — no las vacias',
-     `${f.cuentas.join()} · maxloss ${(f.reglas.find(r => r.id === 'maxloss') || {}).value} · ${lista} puntos en la lista`);
+  ok(f.cuentas.join() === 'vieja' && f.reglas.filter(r => r.kind === 'num').every(r => !Number(r.value)),
+     'guardada antigua sin reglas: sus cuentas se respetan, y el hueco se rellena con reglas sin valor',
+     `${f.cuentas.join()} · ${f.reglas.filter(r => r.kind === 'num').map(r => r.id + '=' + r.value).join(' ')}`);
   await ctx.close();
 }
 
@@ -160,12 +165,13 @@ const conDb = (docs) => ({ fn: (docs) => {
   window.claude = { use: async n => n === 'db' ? { doc, collection: consulta } : n === 'permissions' ? { request: async () => true } : null };
 }, arg: docs });
 {
-  const { ctx, p } = await abre(conDb({ 'trades/v1': { id: 'v1', type: 'futuros', date: '2026-03-02', accountId: 'alpha50', instrument: 'MNQ', direction: 'long', qty: 1, entry: 20000, stop: 19990, exit: 20020 } }));
+  const { ctx, p } = await abre(conDb({ 'trades/v1': { id: 'v1', type: 'futuros', date: '2026-03-02', accountId: 'cta_antigua', instrument: 'MNQ', direction: 'long', qty: 1, entry: 20000, stop: 19990, exit: 20020 } }));
   const f = await foto(p);
-  ok(LEGADO_IDS.every(id => f.cuentas.includes(id)),
-     'artefacto sin settings/main y con operaciones en las cuentas de siempre: las recupera', f.cuentas.join(', ') || 'ninguna');
+  const ops = await p.evaluate(() => FUT.trades().map(t => t.id));
+  ok(f.cuentas.length === 0 && ops.join() === 'v1', 'artefacto sin settings/main y con operaciones: neutral, y la operacion sigue ahi',
+     `${f.cuentas.length} cuentas · operaciones ${ops.join() || 'ninguna'}`);
   const w = await p.evaluate(() => window.__ESCRITURAS.filter(r => r === 'settings/main').length);
-  ok(w === 0, 'y la recuperacion NO ESCRIBE en la base: solo pinta lo que ya se veia', `${w} escrituras en settings/main`);
+  ok(w === 0, 'y abrirla NO ESCRIBE configuracion en la base', `${w} escrituras en settings/main`);
   await ctx.close();
 }
 {
@@ -174,12 +180,12 @@ const conDb = (docs) => ({ fn: (docs) => {
      algo la guardara, sobrescribiria la real. */
   const { ctx, p } = await abre(conDb({
     'settings/main': { checks: [{ id: 'k1', t: 'x', s: '' }], rules: [{ id: 'maxloss', kind: 'num', name: 'P', why: '', value: 250, role: 'maxLoss' }],
-      accounts: [{ id: 'lucidflex25', firm: 'Su firma', name: 'Su nombre propio', kind: 'Fondeada', size: 25000, dd: 1500 }] },
-    'trades/v1': { id: 'v1', type: 'futuros', date: '2026-03-02', accountId: 'lucidflex25', instrument: 'MNQ', direction: 'long', qty: 1, entry: 20000, stop: 19990, exit: 20020 } }));
+      accounts: [{ id: 'cta1', firm: 'Su firma', name: 'Su nombre propio', kind: 'Fondeada', size: 25000, dd: 1500 }] },
+    'trades/v1': { id: 'v1', type: 'futuros', date: '2026-03-02', accountId: 'cta1', instrument: 'MNQ', direction: 'long', qty: 1, entry: 20000, stop: 19990, exit: 20020 } }));
   const f = await foto(p);
   const w = await p.evaluate(() => window.__ESCRITURAS.filter(r => r === 'settings/main').length);
-  ok(f.cuentas.join() === 'lucidflex25' && f.nombres[0] === 'Su firma · Su nombre propio' && Number((f.reglas.find(r => r.id === 'maxloss') || {}).value) === 250,
-     'configuracion guardada + operaciones en las cuentas de siempre: gana SIEMPRE la guardada', `${f.nombres.join(' | ')} · maxloss ${(f.reglas.find(r => r.id === 'maxloss') || {}).value}`);
+  ok(f.cuentas.join() === 'cta1' && f.nombres[0] === 'Su firma · Su nombre propio' && Number((f.reglas.find(r => r.id === 'maxloss') || {}).value) === 250,
+     'configuracion guardada + operaciones: gana SIEMPRE la guardada', `${f.nombres.join(' | ')} · maxloss ${(f.reglas.find(r => r.id === 'maxloss') || {}).value}`);
   ok(w === 0, 'y nadie escribio encima', `${w} escrituras en settings/main`);
   await ctx.close();
 }

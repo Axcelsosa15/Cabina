@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 const errs = []; const b = await chromium.launch();
 const F = new Date('2026-09-17T14:00:00Z').getTime();
-const SEM = { settings: { accounts: [{ id:'a1', firm:'Lucid', name:'LucidFlex 25K', kind:'Evaluación',
+const SEM = { settings: { accounts: [{ id:'a1', firm:'Firma', name:'Evaluación 25K', kind:'Evaluación',
   size:25000, dd:1000, ddKind:'trailing_lock', limit:50, total:0, best:0, target:1500, status:'activa', ledger:[] }],
   rules: [], meta: {} } };
 

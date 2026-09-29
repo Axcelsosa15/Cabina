@@ -2118,46 +2118,6 @@
   function todayISO() { return etNow().date; }
 
   /* =============================== CABINA DEFAULTS =============================== */
-  /* LA CONFIGURACIÓN DE SIEMPRE, INTACTA. Hasta el arranque neutral, esto era lo
-     que recibía CUALQUIERA que abriera la cabina: tres cuentas prop con nombre,
-     reglas con números concretos y una frase de historia personal en la lista.
-     Ya no es el primer arranque de nadie. Se conserva sin tocar una coma por una
-     sola razón: que ninguna instalación que dependiera de ella la pierda.
-     Se usa en dos sitios y en ninguno más:
-       · `normalize`, para rellenar lo que le falte a una configuración GUARDADA
-         antigua — si le falta un bloque, es de antes del arranque neutral;
-       · `recuperaLegado`, para una instalación que nunca guardó configuración pero
-         tiene operaciones en estas cuentas.
-     Ver test/primer.mjs. */
-  const LEGADO_SETTINGS = {
-    meta: { title: "Cabina", subtitle: "" },
-    checks: [
-      { id: "levels",  t: "PDH / PDL y rangos de Asia y Londres marcados", s: "Los niveles de liquidez del día antes de mirar el 1m." },
-      { id: "bias",    t: "Sesgo del día definido en 1H / 15m", s: "Dirección de la estructura. Sin sesgo, sin operación." },
-      { id: "struct",  t: "Estructura confirmada en 5m: BOS / CHoCH / CISD / SVB", s: "El marcador de estructura va antes que la EMA, nunca al revés." },
-      { id: "emas",    t: "EMA 10/20/55 cargadas · entrada solo en pullback a favor", s: "Protocolo v2.0. Nada de entrar en la ruptura." },
-      { id: "mnq",     t: "Solo MNQ en pantalla", s: "MGC y cualquier otro gráfico cerrados." },
-      { id: "size",    t: "Stop y tamaño calculados antes del click", s: "Contratos fijos según la regla dura. Se calcula en frío." },
-      { id: "news",    t: "Noticias rojas de hoy revisadas (8:30 y 10:00 AM ET)", s: "Si hay dato de alto impacto, se espera a que pase." },
-      { id: "mind",    t: "Dormí bien y no vengo a “recuperar”", s: "Si la respuesta es no, hoy no se opera. Es una regla, no un consejo.", gate: true },
-      { id: "consist", t: "Regla de consistencia de la cuenta revisada", s: "Tope de ganancia de hoy calculado abajo, en Cuentas prop." },
-    ],
-    rules: [
-      { id: "onlymnq",  kind: "fixed", name: "Solo MNQ", why: "MGC eliminado: instrumento perdedor documentado. Nada de añadir mercados en un día rojo.", role: "instrument", allow: "MNQ" },
-      { id: "maxloss",  kind: "num", name: "Pérdida máxima del día", why: "Al tocarla se cierra la plataforma. Sin excepciones, sin “una más”.", value: 150, prefix: "$", unit: "", role: "maxLoss" },
-      { id: "maxlosses",kind: "num", name: "Pérdidas seguidas → cierre", why: "Contra el patrón de subir tamaño para recuperar.", value: 2, prefix: "", unit: "ops", role: "maxLosses" },
-      { id: "maxgain",  kind: "num", name: "Tope de ganancia del día", why: "Sesiones verdes pequeñas y repetidas: así se pasa una regla de consistencia.", value: 200, prefix: "$", unit: "", role: "maxGain" },
-      { id: "contracts",kind: "num", name: "Contratos máximos", why: "Tamaño fijo. Se decide antes de la sesión, no durante.", value: 2, prefix: "", unit: "MNQ", role: "maxContracts" },
-      { id: "nochange", kind: "fixed", name: "Sin cambios al protocolo", why: "Ajustar el sistema en caliente es procrastinación productiva. Se revisa con datos, no con emociones.", role: "" },
-    ],
-    accounts: [
-      { id: "lucidflex25", firm: "Lucid Trading", name: "LucidFlex 25K", kind: "Evaluación", limit: 30, total: 0, best: 0, size: 25000, dd: 1500, status: "evaluacion" },
-      { id: "lucid25",     firm: "Lucid Trading", name: "Lucid 25K",     kind: "Fondeada",   limit: 50, total: 0, best: 0, size: 25000, dd: 1500, status: "fondeada" },
-      { id: "alpha50",     firm: "Alpha Futures", name: "Alpha 50K",     kind: "Evaluación", limit: 50, total: 0, best: 0, size: 50000, dd: 2000, status: "evaluacion" },
-    ],
-    customized: false,
-  };
-  const LEGADO_IDS = new Set(LEGADO_SETTINGS.accounts.map(a => a.id));
 
   /* EL PRIMER ARRANQUE DE UN DESCONOCIDO. Vacío de todo lo que es de otra persona,
      pero con la misma ESTRUCTURA: los mismos identificadores y roles de regla, para
@@ -2347,7 +2307,7 @@
   }
 
   /* =============================== STATE + STORE =============================== */
-  const state = { today: etNow().date, settings: clone(DEFAULT_SETTINGS), cfgOrigen: "neutral", cfgAusente: false, cfgConocida: false, day: null, history: [], store: "memory", db: null, unsub: [], editing: false, demo: false, tab: "cabina" };
+  const state = { today: etNow().date, settings: clone(DEFAULT_SETTINGS), cfgConocida: false, day: null, history: [], store: "memory", db: null, unsub: [], editing: false, demo: false, tab: "cabina" };
   function newDay(date) { return { date, checks: {}, checksBy: {}, levels: {}, result: null, trades: null, broke: false, note: "", closed: false, resultManual: false, pre: null, pres: {}, updatedAt: 0 }; }
   state.day = newDay(state.today);
 
@@ -2462,26 +2422,12 @@
     return out;
   }
   function normalize(s) {
-    /* Lo que viene guardado y le falta un bloque es de antes del arranque neutral —
-       todo lo que se guarda hoy los trae los tres—, así que ese hueco se rellena
-       con la configuración de siempre, no con la vacía. Sin nada, neutral. */
-    const out = clone(s && typeof s === "object" ? LEGADO_SETTINGS : DEFAULT_SETTINGS);
+    const out = clone(DEFAULT_SETTINGS);
     if (!s || typeof s !== "object") return out;
     if (s.meta && typeof s.meta === "object") Object.assign(out.meta, s.meta);
-    if (out.meta.title === "Cabina MNQ") out.meta.title = "Cabina";
-    if (/^Protocolo v2\.0 · EMA 10\/20\/55/.test(out.meta.subtitle || "")) out.meta.subtitle = "";
     if (Array.isArray(s.checks)) out.checks = s.checks.filter(c => c && c.id).map(c => ({ id: String(c.id), t: String(c.t || ""), s: String(c.s || ""), gate: !!c.gate }));
     if (Array.isArray(s.rules)) out.rules = s.rules.filter(r => r && r.id).map(r => ({ id: String(r.id), kind: r.kind === "fixed" ? "fixed" : "num", name: String(r.name || ""), why: String(r.why || ""), value: Number(r.value) || 0, prefix: String(r.prefix || ""), unit: String(r.unit || ""), allow: String(r.allow == null ? "" : r.allow), role: ROLE_KEYS.includes(r.role) ? r.role : (ROLE_SEED[String(r.id)] || "") }));
     else if (s.rules && typeof s.rules === "object") { const v = s.rules; for (const r of out.rules) { if (r.id === "maxloss" && v.maxLoss != null) r.value = Number(v.maxLoss); if (r.id === "maxlosses" && v.maxLosses != null) r.value = Number(v.maxLosses); if (r.id === "maxgain" && v.maxGain != null) r.value = Number(v.maxGain); if (r.id === "contracts" && v.maxContracts != null) r.value = Number(v.maxContracts); } if (v.custom) out.customized = true; }
-    /* Una cabina anterior guardaba «Solo MNQ» sin decir qué instrumento permitía.
-       Sólo cuando la regla guardada NO TRAE el campo: `allow: ""` es «sin
-       restricción», escrito a propósito, y convertirlo en MNQ le cambiaba la regla
-       al recargar a quien la dejó vacía. La copia de arriba confunde los dos casos,
-       así que se mira el original. */
-    if (Array.isArray(s.rules)) {
-      const orig = s.rules.filter(r => r && r.id);
-      out.rules.forEach((r, i) => { if (r.role === "instrument" && !r.allow && orig[i] && orig[i].allow == null) r.allow = "MNQ"; });
-    }
     if (Array.isArray(s.accounts)) out.accounts = s.accounts.filter(a => a && a.id).map(a => ({ id: String(a.id), firm: String(a.firm || ""), name: String(a.name || ""), kind: String(a.kind || ""), limit: Number(a.limit) || 50, total: Number(a.total) || 0, best: Number(a.best) || 0, size: Math.max(0, Number(a.size) || 0), dd: Math.max(0, Number(a.dd) || 0), target: Math.max(0, Number(a.target) || 0), ddKind: DD_KEYS.includes(a.ddKind) ? a.ddKind : "trailing_lock", trailBase: a.trailBase === "cierre" ? "cierre" : "intradia", ledger: Array.isArray(a.ledger) ? a.ledger.filter(e => e && e.id).map(e => ({ id: String(e.id), date: String(e.date || ""), kind: LEDGER_KEYS.includes(e.kind) ? e.kind : "payout", amount: Math.abs(Number(e.amount) || 0), note: String(e.note || "") })) : [], status: migraEstado(a.status, a.kind),
       /* El contrato de la firma. Un campo vacío NO es cero: es «no escrito», y
          se distingue con null para poder decir «sin configurar» en vez de
@@ -2518,26 +2464,10 @@
   }
   function loadLocal() {
     const data = lsRead();
-    if (data.settings) { state.settings = normalize(data.settings); state.cfgOrigen = "guardada"; }
+    if (data.settings) state.settings = normalize(data.settings);
     if (data.days && data.days[state.today]) state.day = migrateDay(Object.assign(newDay(state.today), data.days[state.today]));
     renderHistoryFromLocal();
     COLLS.forEach(n => coll(n).loadLocal());
-    recuperaLegado();
-  }
-  /* UNA INSTALACIÓN QUE NUNCA GUARDÓ CONFIGURACIÓN dependía entera de los valores
-     por defecto. Si sus operaciones apuntan a las cuentas de siempre, recupera la
-     configuración de siempre. NUNCA GUARDA: sólo pinta lo que ya se veía. En el
-     artefacto espera a que la base CONFIRME que `settings/main` no existe — si
-     existe no hay nada que recuperar, y adoptar aquí algo que luego se guardara
-     sobrescribiría la configuración real. */
-  function recuperaLegado() {
-    if (state.demo || state.cfgOrigen !== "neutral") return;
-    if (state.db && !state.cfgAusente) return;
-    if (state.settings.customized || (state.settings.accounts || []).length) return;
-    if (!coll("trades").items.some(t => t && LEGADO_IDS.has(t.accountId))) return;
-    state.settings = normalize(clone(LEGADO_SETTINGS));
-    state.cfgOrigen = "legado";
-    try { renderSettings(); } catch (e) { }
   }
   function renderHistoryFromLocal() {
     const data = lsRead();
@@ -2555,8 +2485,7 @@
     db.doc("settings/main").onSnapshot(snap => {
       if (state.demo) return;
       state.cfgConocida = true;
-      if (!snap.exists) { state.cfgAusente = true; recuperaLegado(); return; }
-      state.cfgOrigen = "guardada";
+      if (!snap.exists) return;
       const incoming = normalize(snap.data());
       if (JSON.stringify(incoming) === JSON.stringify(state.settings)) return;
       state.settings = incoming;
@@ -2570,7 +2499,6 @@
       renderHistory();
     }, () => {});
     COLLS.forEach(n => coll(n).attachDb(db));
-    coll("trades").subscribe(() => recuperaLegado());
   }
   function subscribeDay() {
     state.unsub.forEach(u => u()); state.unsub = [];
@@ -3372,7 +3300,7 @@
   /* ═══════════ EL CONTRATO DE LA FIRMA, POR CUENTA ═══════════
 
      Hasta aquí había UNA pérdida máxima diaria para todas las cuentas. Una
-     LucidFlex con tope de $200 y una Apex con tope de $1.100 leían el mismo
+     cuenta con tope de $200 y otra con tope de $1.100 leían el mismo
      número, así que una de las dos estaba mintiendo — y la que miente en la
      dirección peligrosa te quema la cuenta.
 
@@ -6368,14 +6296,14 @@
      la otra. Aquí el multiplicador ni siquiera se escribe: se deriva de tickValue/tickSize. */
   const MULT = Object.freeze(Object.fromEntries(Object.entries(QE.CONTRACTS).map(([k, v]) => [k, v.multiplier])));
   const DEFAULT_MARKETS = [
-    { id: "futuros", name: "Futuros", short: "FUT", desc: "Contratos apalancados sobre índices, materias primas, divisas y tasas. Los micros (MNQ, MES) valen 1/10 del contrato estándar: MNQ = $2 por punto, MES = $5 por punto.", vehicles: "Micros e-mini (MNQ, MES, MYM, M2K), cuentas prop (Lucid, Alpha, Apex), broker directo (Tradovate, NinjaTrader, AMP).", capital: "Prop: el precio de la evaluación ($50–$500). Broker propio: margen intradía desde ~$50/contrato micro, pero el colchón real debería ser ≥ $2,000.", hours: "Casi 23h: dom 6:00 PM – vie 5:00 PM ET, pausa diaria de 5 a 6 PM ET. Liquidez real en RTH 9:30 AM–4:00 PM ET.", risk: "Apalancamiento alto; una noticia mueve 100 puntos en segundos. El riesgo principal no es el mercado, es el tamaño.", notes: "Este mercado se opera desde la Cabina y el Journal de futuros. Aquí solo va la referencia." },
+    { id: "futuros", name: "Futuros", short: "FUT", desc: "Contratos apalancados sobre índices, materias primas, divisas y tasas. Los micros (MNQ, MES) valen 1/10 del contrato estándar: MNQ = $2 por punto, MES = $5 por punto.", vehicles: "Micros e-mini (MNQ, MES, MYM, M2K), cuentas de prop firms, broker directo (Tradovate, NinjaTrader, AMP).", capital: "Prop: el precio de la evaluación ($50–$500). Broker propio: margen intradía desde ~$50/contrato micro, pero el colchón real debería ser ≥ $2,000.", hours: "Casi 23h: dom 6:00 PM – vie 5:00 PM ET, pausa diaria de 5 a 6 PM ET. Liquidez real en RTH 9:30 AM–4:00 PM ET.", risk: "Apalancamiento alto; una noticia mueve 100 puntos en segundos. El riesgo principal no es el mercado, es el tamaño.", notes: "Este mercado se opera desde la Cabina y el Journal de futuros. Aquí solo va la referencia." },
     { id: "acciones", name: "Acciones", short: "ACC", desc: "Propiedad parcial de empresas cotizadas. Ganas por apreciación del precio y dividendos.", vehicles: "Broker sin comisión (Fidelity, Schwab, IBKR, Robinhood). Fraccionadas desde $1.", capital: "Desde $1 con fraccionadas. Ojo con la regla PDT: en cuentas margin, day-trading frecuente ha exigido históricamente $25,000 de equity — verifica la norma vigente antes de operar intradía.", hours: "9:30 AM–4:00 PM ET. Pre/post-mercado con poca liquidez.", risk: "Riesgo de empresa (quiebra, dilución) + riesgo de mercado. Concentración en pocas acciones = varianza alta.", notes: "" },
     { id: "etfs", name: "ETFs", short: "ETF", desc: "Cestas de activos que cotizan como una acción: índices (SPY, QQQ, VTI), sectores, bonos, oro, países.", vehicles: "Cualquier broker de acciones. DCA automático mensual es el uso más rentable para la mayoría.", capital: "Desde $1 con fraccionadas. Un plan serio de DCA empieza en $100–$300/mes.", hours: "9:30 AM–4:00 PM ET.", risk: "Riesgo de mercado; bajo riesgo idiosincrático. Cuidado con ETFs apalancados (TQQQ, SQQQ): decaen con el tiempo.", notes: "Base del interés compuesto de largo plazo. Calcula escenarios en la pestaña de Interés compuesto." },
     { id: "opciones", name: "Opciones", short: "OPT", desc: "Derechos de comprar (call) o vender (put) a un precio fijo antes de una fecha. Sirven para apalancar, cubrir o cobrar primas.", vehicles: "Broker con aprobación de opciones (niveles 1–4). Tastytrade, IBKR, Schwab.", capital: "Comprar opciones: desde ~$50 por contrato. Vender primas con cobertura: desde ~$2,000–$5,000.", hours: "9:30 AM–4:00 PM ET. 0DTE en SPX/SPY tiene liquidez enorme y riesgo enorme.", risk: "Theta (el tiempo juega en contra del comprador), volatilidad implícita, asignación. Vender desnudo puede perder más que la cuenta.", notes: "" },
     { id: "cripto", name: "Cripto", short: "CRY", desc: "Activos digitales. BTC/ETH como reserva especulativa; el resto es mayormente beta de BTC con más varianza.", vehicles: "Exchange (Coinbase, Kraken), ETFs spot de BTC/ETH en broker normal, perpetuos (fuera de EEUU o con restricciones).", capital: "Desde $10. En perpetuos, el apalancamiento liquida cuentas pequeñas en minutos.", hours: "24/7. Los fines de semana son finos y manipulables.", risk: "Volatilidad de 5–10% diario es normal. Riesgo de custodia (exchange quiebra) y regulatorio.", notes: "Solo cuando conecta con el ciclo macro. No es un instrumento de intradía para este sistema." },
     { id: "forex", name: "Forex", short: "FX", desc: "Pares de divisas. El mercado más grande del mundo; los futuros de divisas (6E, M6E) son la vía regulada en EEUU.", vehicles: "Broker forex regulado por CFTC/NFA (OANDA, Forex.com) o futuros de divisas en CME.", capital: "Desde $100. Apalancamiento máximo en EEUU: 50:1 en pares mayores.", hours: "24/5. Sesiones Asia → Londres → NY; solapamiento Londres/NY (8:00 AM–12:00 PM ET) es el más líquido.", risk: "Spreads y swaps se comen cuentas pequeñas. Movimientos de bancos centrales.", notes: "" },
     { id: "bonos", name: "Bonos y renta fija", short: "BON", desc: "Préstamos al gobierno o empresas a cambio de interés. Tesoro de EEUU = el activo 'sin riesgo' de referencia.", vehicles: "TreasuryDirect (T-bills directos, sin comisión), ETFs (SGOV, BIL, TLT), CDs bancarios, fondos monetarios.", capital: "T-bills desde $100. Fondos monetarios desde $1.", hours: "Bonos: 8:00 AM–5:00 PM ET. ETFs: horario bursátil.", risk: "Bajo en corto plazo; en largo plazo el precio cae si suben las tasas (TLT puede caer 30%+).", notes: "Aquí va el colchón de emergencia y el capital que espera oportunidades. Rinde mientras espera." },
-    { id: "commodities", name: "Materias primas", short: "COM", desc: "Oro, plata, petróleo, gas, granos. Se operan casi siempre vía futuros o ETFs.", vehicles: "Futuros (GC, MGC, CL, MCL), ETFs (GLD, SLV, USO), acciones mineras.", capital: "ETFs desde $1. Futuros micro desde margen intradía, pero con colchón real.", hours: "Casi 23h en futuros. ETFs en horario bursátil.", risk: "Petróleo y gas son extremadamente volátiles. Contango en ETFs de futuros (USO) erosiona el valor.", notes: "MGC está eliminado por regla dura: instrumento perdedor documentado. Si vuelve, entra por aquí como inversión, no como intradía." },
+    { id: "commodities", name: "Materias primas", short: "COM", desc: "Oro, plata, petróleo, gas, granos. Se operan casi siempre vía futuros o ETFs.", vehicles: "Futuros (GC, MGC, CL, MCL), ETFs (GLD, SLV, USO), acciones mineras.", capital: "ETFs desde $1. Futuros micro desde margen intradía, pero con colchón real.", hours: "Casi 23h en futuros. ETFs en horario bursátil.", risk: "Petróleo y gas son extremadamente volátiles. Contango en ETFs de futuros (USO) erosiona el valor.", notes: "" },
     { id: "inmuebles", name: "Bienes raíces", short: "RE", desc: "Propiedad física o vehículos que la representan. Renta + plusvalía + apalancamiento bancario.", vehicles: "REITs (O, VNQ), crowdfunding (Fundrise), propiedad directa. En RD: alquiler residencial, Airbnb en zonas turísticas, terrenos.", capital: "REITs desde $1. Propiedad directa: desde el inicial (5–20%) más cierre. En RD el ticket es menor pero la financiación es cara.", hours: "REITs en horario bursátil. Propiedad directa: ilíquida, semanas o meses para vender.", risk: "Iliquidez, vacancia, mantenimiento, tasas. En RD: titulación, seguridad jurídica, gestión a distancia.", notes: "Conecta con el plan de propiedad en RD. Cada idea concreta va en 'Formas de hacer dinero'." },
     { id: "prediccion", name: "Mercados de predicción y alternativos", short: "ALT", desc: "Contratos sobre eventos (elecciones, datos económicos, deportes). Precio = probabilidad implícita.", vehicles: "Kalshi (regulado CFTC), Polymarket (cripto), acciones pre-IPO, coleccionables, préstamos P2P.", capital: "Desde $1–$10.", hours: "24/7 en Polymarket; Kalshi según el contrato.", risk: "Liquidez fina, riesgo de resolución, regulación cambiante. Fácil confundir 'opinión' con 'edge'.", notes: "Ya construiste un dashboard de Polymarket: úsalo para buscar precios mal calibrados, no para apostar." },
   ];
@@ -8351,8 +8279,8 @@
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:56px" role="img" aria-label="Evolución de la cuenta"><line class="zero" x1="0" x2="${W}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}"></line><path class="s1" d="${path}"></path></svg>`;
   }
   const ACCT_FIELDS = [
-    { key: "firm", label: "Firma", w: 2, ph: "Lucid Trading" },
-    { key: "name", label: "Nombre de la cuenta", w: 2, ph: "LucidFlex 25K" },
+    { key: "firm", label: "Firma", w: 2, ph: "Nombre de tu firma" },
+    { key: "name", label: "Nombre de la cuenta", w: 2, ph: "Evaluación 50K" },
     { key: "kind", label: "Tipo", w: 2, ph: "Evaluación / Fondeada" },
     { key: "size", label: "Tamaño de la cuenta ($)", type: "number", step: "1000" },
     { key: "dd", label: "Drawdown máximo ($)", type: "number", step: "100" },
@@ -10289,7 +10217,7 @@
   }
   $("ccSave").addEventListener("click", () => {
     const x = ccInputs();
-    openEditor({ title: "Guardar escenario", fields: [{ key: "name", label: "Nombre", w: 6, ph: cc.mode === "trading" ? "Payouts Lucid 25K reinvertidos" : "DCA $200 en VTI, 10 años" }], values: {}, validate: v => v.name ? null : "Falta el nombre",
+    openEditor({ title: "Guardar escenario", fields: [{ key: "name", label: "Nombre", w: 6, ph: cc.mode === "trading" ? "Payouts de la cuenta fondeada reinvertidos" : "DCA $200 en VTI, 10 años" }], values: {}, validate: v => v.name ? null : "Falta el nombre",
       onSave: v => { const id = uid("s"); coll("scenarios").set(id, Object.assign({ id, name: v.name, mode: cc.mode, createdAt: Date.now() }, x)); } });
   });
   function renderScenarios() {
@@ -10516,7 +10444,7 @@
         const exit = Math.round((entry + (long ? 1 : -1) * risk * rMult) * 4) / 4;
         const proto = win ? r() < 0.9 : r() < 0.55;
         trades.push({
-          id: "demo_t" + trades.length, type: "futuros", accountId: di % 3 === 0 ? "lucid25" : "lucidflex25", date, time: `0${8 + Math.floor(r() * 3)}:${String(Math.floor(r() * 6) * 10).padStart(2, "0")}`.slice(-5),
+          id: "demo_t" + trades.length, type: "futuros", accountId: di % 3 === 0 ? "demo_fund25" : "demo_eval25", date, time: `0${8 + Math.floor(r() * 3)}:${String(Math.floor(r() * 6) * 10).padStart(2, "0")}`.slice(-5),
           instrument: r() < 0.85 ? "MNQ" : "MES", setupId: pb.id, direction: long ? "long" : "short",
           qty, entry, stop, target, exit, fees: qty * 1.24,
           quality: proto ? (r() < 0.8 ? "A" : "B") : (r() < 0.5 ? "B" : "C"),
@@ -10563,9 +10491,9 @@
     const px = 21487.25; // precio inventado, no es una cotización
     const demoLevels = { pdh: px + 138, pdl: px - 176, asiaH: px + 47, asiaL: px - 62, lonH: px + 91, lonL: px - 38 };
     const accounts = [
-      { id: "lucidflex25", firm: "Lucid Trading", name: "LucidFlex 25K", kind: "Evaluación", limit: 30, total: 620, best: 310, size: 25000, dd: 1500, ddKind: "trailing_lock", target: 1500, status: "activa", ledger: [{ id: "dl0", date: days[0], kind: "fee", amount: 149, note: "Coste de la evaluación (demo)" }] },
-      { id: "lucid25", firm: "Lucid Trading", name: "Lucid 25K", kind: "Fondeada", limit: 50, total: 300, best: 520, size: 25000, dd: 1500, ddKind: "trailing_lock", target: 0, status: "activa", ledger: [{ id: "dl1", date: days[Math.max(0, days.length - 6)], kind: "payout", amount: 480, note: "Primer retiro (demo)" }] },
-      { id: "alpha50", firm: "Alpha Futures", name: "Alpha 50K", kind: "Evaluación", limit: 50, total: 0, best: 0, size: 50000, dd: 2000, ddKind: "trailing", target: 3000, status: "pausada", ledger: [] },
+      { id: "demo_eval25", firm: "Firma de ejemplo", name: "Evaluación 25K", kind: "Evaluación", limit: 30, total: 620, best: 310, size: 25000, dd: 1500, ddKind: "trailing_lock", target: 1500, status: "activa", ledger: [{ id: "dl0", date: days[0], kind: "fee", amount: 149, note: "Coste de la evaluación (demo)" }] },
+      { id: "demo_fund25", firm: "Firma de ejemplo", name: "Fondeada 25K", kind: "Fondeada", limit: 50, total: 300, best: 520, size: 25000, dd: 1500, ddKind: "trailing_lock", target: 0, status: "activa", ledger: [{ id: "dl1", date: days[Math.max(0, days.length - 6)], kind: "payout", amount: 480, note: "Primer retiro (demo)" }] },
+      { id: "demo_eval50", firm: "Otra firma de ejemplo", name: "Evaluación 50K", kind: "Evaluación", limit: 50, total: 0, best: 0, size: 50000, dd: 2000, ddKind: "trailing", target: 3000, status: "pausada", ledger: [] },
     ];
     const scenarios = [
       { id: "demo_s0", name: "DCA $200 en VTI, 20 años", mode: "classic", p: 1000, c: 200, r: 9, f: 12, rm: 4, w: 50, y: 20, i: 3, createdAt: Date.now() },
@@ -10612,7 +10540,7 @@
         comportan distinto — el mismo defecto que este repositorio persigue en
         los números.
      2. LA CONFIRMACIÓN DICE QUÉ CAMBIA, no cuántas filas. «Borrar 12» no es
-        información; «−$340 del balance de Apex» sí.
+        información; «−$340 del balance de la cuenta A» sí.
      3. PAPELERA CON DESHACER, y persistida. Un «¿estás seguro?» no es una red:
         es un badén que se aprende a saltar. Lo borrado se guarda entero y vuelve
         con un botón, incluso después de recargar. */
@@ -11118,7 +11046,7 @@
   loadLocal();
   try { avisaPapelera(); pintaSel(); } catch (e) { }
   /* La cuenta seleccionada es parte del estado, no del momento: si ayer cerraste
-     mirando la LucidFlex, hoy abres mirando la LucidFlex. Se valida contra las
+     mirando una cuenta, hoy abres mirando esa cuenta. Se valida contra las
      cuentas que existen para que borrar una no deje la app filtrando por un
      fantasma. */
   if (state.settings.meta && state.settings.meta.acct && acctById(state.settings.meta.acct)) ft.acct = state.settings.meta.acct;
@@ -11170,7 +11098,7 @@
   });
   $("riskSave").addEventListener("click", () => {
     const x = riskInputs();
-    openEditor({ title: "Guardar escenario de riesgo", fields: [{ key: "name", label: "Nombre", w: 6, ph: "Alpha 50K · evaluación · riesgo $60" }], values: {}, validate: v => v.name ? null : "Falta el nombre",
+    openEditor({ title: "Guardar escenario de riesgo", fields: [{ key: "name", label: "Nombre", w: 6, ph: "Cuenta 50K · evaluación · riesgo $60" }], values: {}, validate: v => v.name ? null : "Falta el nombre",
       onSave: v => { const id = uid("rk"); coll("risk").set(id, Object.assign({ id, name: v.name, createdAt: Date.now() }, x)); rflash(state.demo ? `«${v.name}» guardado solo en pantalla: estás en modo demo y no se guarda nada.` : `«${v.name}» guardado. Aparece abajo, en Escenarios de riesgo guardados.`, !!state.demo); } });
   });
   $("riskList").addEventListener("click", e => {

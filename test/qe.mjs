@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { conCuentas } from './espera.mjs';
 const URL = 'file://' + process.cwd() + '/preview.html';
 const errs = []; const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1400, height: 1200 } });
@@ -7,6 +8,7 @@ p.on('pageerror', e => errs.push('PAGEERROR: ' + e.message));
 p.on('console', m => { const t = m.text(); if (m.type() === 'error' && !/ERR_CERT|ERR_CONNECTION|fonts|ERR_FILE/.test(t)) errs.push('CONSOLE: ' + t); });
 const F = new Date('2026-09-17T14:00:00Z').getTime();
 await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
+await conCuentas(p);
 await p.goto(URL); await p.waitForTimeout(900);
 const HOY = await p.evaluate(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }));
 const id = await p.evaluate(() => document.querySelector('.acct').dataset.id);

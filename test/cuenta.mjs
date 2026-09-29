@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { conCuentas } from './espera.mjs';
 const URL = 'file://' + process.cwd() + '/preview.html';
 const errs = []; const b = await chromium.launch();
 const say = (k, v) => console.log('  ' + String(k).padEnd(30) + v);
@@ -8,6 +9,7 @@ p.on('pageerror', e => errs.push('PAGEERROR: ' + e.message));
 p.on('console', m => { const t = m.text(); if (m.type() === 'error' && !/ERR_CERT|ERR_CONNECTION|fonts|ERR_FILE/.test(t)) errs.push('CONSOLE: ' + t); });
 const F = new Date('2026-09-15T14:00:00Z').getTime();
 await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
+await conCuentas(p);
 await p.goto(URL); await p.waitForTimeout(900);
 const HOY = await p.evaluate(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }));
 
@@ -17,7 +19,7 @@ await p.evaluate(async () => {
   const card = document.querySelector('.acct'); card.querySelector('[data-act="cfg"]').click();
 });
 await p.waitForTimeout(400);
-await p.fill('#ef_firm', 'Lucid Trading'); await p.fill('#ef_name', 'LucidFlex 25K'); await p.fill('#ef_kind', 'Evaluación');
+await p.fill('#ef_firm', 'Firma de ejemplo'); await p.fill('#ef_name', 'Evaluación 25K'); await p.fill('#ef_kind', 'Evaluación');
 await p.fill('#ef_size', '25000'); await p.fill('#ef_dd', '1000'); await p.fill('#ef_limit', '50');
 await p.fill('#ef_total', '1'); await p.fill('#ef_best', '0'); await p.fill('#ef_target', '0');
 await p.click('#edSave'); await p.waitForTimeout(600);

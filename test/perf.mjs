@@ -12,7 +12,7 @@ function semilla(n) {
       instrument:'MNQ', direction: rnd()<0.5?'long':'short', qty: 1 + (i%3), entry: 21000, stop: 20990,
       exit: gana ? 21000 + 10 + Math.round(rnd()*40) : 20990, accountId:'a1', createdAt: 1700000000000 + i };
   }
-  return { settings: { accounts:[{ id:'a1', firm:'Lucid', name:'LucidFlex 25K', kind:'Evaluación', size:25000, dd:1000,
+  return { settings: { accounts:[{ id:'a1', firm:'Firma', name:'Evaluación 25K', kind:'Evaluación', size:25000, dd:1000,
       ddKind:'trailing_lock', trailBase:'intradia', limit:50, total:0, best:0, target:1500, status:'activa', ledger:[] }],
       rules: [], meta: {} }, trades };
 }

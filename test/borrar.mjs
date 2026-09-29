@@ -13,7 +13,7 @@ const errs = [], fallos = [];
 const F = new Date('2026-09-17T14:00:00Z').getTime();
 const b = await chromium.launch();
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
-const CUENTA = { id: 'a1', name: 'Apex', size: 50000, dd: 2500, ddKind: 'estatico', status: 'fondeada', ledger: [] };
+const CUENTA = { id: 'a1', name: 'Cuenta A', size: 50000, dd: 2500, ddKind: 'estatico', status: 'fondeada', ledger: [] };
 
 async function pagina(semilla) {
   const p = await (await b.newContext({ viewport: { width: 1500, height: 1100 } })).newPage();
@@ -55,7 +55,7 @@ console.log('\n═══ el clic selecciona; borrar dice qué cambia ═══')
 
   await p.click('[data-sel="borrar"]'); await quieto(p);
   const conf = await txt(p, '#selbar-jrTable');
-  ok(/de resultado/.test(conf) && /Apex/.test(conf),
+  ok(/de resultado/.test(conf) && /Cuenta A/.test(conf),
      'la confirmación dice el RESULTADO y la cuenta que mueve, no sólo «2 filas»', conf.slice(0, 80));
 
   await p.click('[data-sel="si"]'); await trasGuardar(p);
@@ -155,8 +155,8 @@ console.log('\n═══ borrar una cuenta arrastra sus operaciones, y se dice �
      es la diferencia entre una limpieza y una pérdida. */
   const p = await pagina(base({}));
   await p.evaluate(() => {
-    FUT.createAccount({ id: 'a2', name: 'Lucid', size: 25000, dd: 1000, ddKind: 'trailing', status: 'evaluacion', ledger: [] });
-    FUT.createAccount({ id: 'a3', name: 'Topstep', size: 50000, dd: 2000, ddKind: 'estatico', status: 'pausada', ledger: [] });
+    FUT.createAccount({ id: 'a2', name: 'Cuenta B', size: 25000, dd: 1000, ddKind: 'trailing', status: 'evaluacion', ledger: [] });
+    FUT.createAccount({ id: 'a3', name: 'Cuenta C', size: 50000, dd: 2000, ddKind: 'estatico', status: 'pausada', ledger: [] });
     for (let i = 0; i < 4; i++) FUT.createTrade({ id: 'x' + i, type: 'futuros', accountId: 'a1', date: '2026-09-17', instrument: 'MNQ', direction: 'long', qty: 2, entry: 21000, stop: 20980, exit: 21030 });
   });
   await quieto(p); await new Promise(r => setTimeout(r, 120));
@@ -168,12 +168,12 @@ console.log('\n═══ borrar una cuenta arrastra sus operaciones, y se dice �
   await p.click('#accts article.acct[data-id="a3"]'); await quieto(p);
   await p.click('[data-sel="borrar"]'); await quieto(p);
   const conf = await txt(p, '#selbar-accts');
-  ok(/Apex/.test(conf) && /Topstep/.test(conf), 'la confirmación nombra las cuentas', conf.slice(8, 40));
+  ok(/Cuenta A/.test(conf) && /Cuenta C/.test(conf), 'la confirmación nombra las cuentas', conf.slice(8, 40));
   ok(/quedan sin cuenta/.test(conf) && /fuera de las estadísticas/.test(conf),
      'y dice cuántas operaciones quedan sueltas y cuánto dinero sale de las estadísticas', conf.slice(30, 110));
 
   await p.click('[data-sel="si"]'); await trasGuardar(p); await new Promise(r => setTimeout(r, 200));
-  ok((await orden()) === 'Lucid', 'borra las 2 y deja la otra');
+  ok((await orden()) === 'Cuenta B', 'borra las 2 y deja la otra');
   ok(await p.evaluate(() => FUT.trades().filter(t => t.accountId === 'a1').length) === 4,
      'las operaciones NO se borran con la cuenta: se quedan sueltas');
 

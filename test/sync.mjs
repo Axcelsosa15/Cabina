@@ -10,10 +10,10 @@ const errs = [], fallos = [];
 const F = new Date('2026-09-18T14:00:00Z').getTime();
 const b = await chromium.launch();
 
-const CUENTA = (id, name, size, dd) => ({ id, firm: 'Lucid', name, kind: 'Evaluación', size, dd,
+const CUENTA = (id, name, size, dd) => ({ id, firm: 'Firma', name, kind: 'Evaluación', size, dd,
   ddKind: 'trailing_lock', trailBase: 'intradia', limit: 50, total: 0, best: 0, target: 1500,
   status: 'activa', ledger: [] });
-const SEM = { settings: { meta: {}, accounts: [CUENTA('a1', 'LucidFlex 25K', 25000, 1000)],
+const SEM = { settings: { meta: {}, accounts: [CUENTA('a1', 'Evaluación 25K', 25000, 1000)],
   rules: [
     { id: 'onlymnq',   kind: 'fixed', name: 'Solo MNQ', why: '', role: 'instrument', allow: 'MNQ' },
     { id: 'maxloss',   kind: 'num', name: 'Pérdida máxima del día', why: '', value: 200, prefix: '$', unit: '', role: 'maxLoss' },
@@ -189,7 +189,7 @@ ok(['RESTRICTED', 'LOCKED', 'FAILED'].includes(t7.status), 'estado marcado', t7.
 
 /* ═══════ TEST 8 — VARIAS CUENTAS ═══════ */
 console.log('\n═══ TEST 8 · dos cuentas, historiales separados ═══');
-await p.evaluate(() => FUT.createAccount({ id: 'a2', firm: 'Lucid', name: 'LucidFlex 50K', kind: 'Evaluación',
+await p.evaluate(() => FUT.createAccount({ id: 'a2', firm: 'Firma', name: 'Evaluación 50K', kind: 'Evaluación',
   size: 50000, dd: 2000, ddKind: 'trailing_lock', trailBase: 'intradia', limit: 50, total: 0, best: 0, status: 'activa', ledger: [] }));
 await p.waitForTimeout(300);
 await crearOp({ usd: 400, fecha: '2026-09-15', acct: 'a2' });

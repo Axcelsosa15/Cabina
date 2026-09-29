@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 const errs=[]; const b=await chromium.launch(); const F=new Date('2026-09-17T14:00:00Z').getTime();
-const SEM={settings:{accounts:[{id:'a1',firm:'Lucid',name:'LucidFlex 25K',kind:'Evaluación',size:25000,dd:1000,ddKind:'trailing_lock',trailBase:'intradia',limit:50,total:0,best:0,target:1500,status:'activa',ledger:[]}],rules:[],meta:{}}};
+const SEM={settings:{accounts:[{id:'a1',firm:'Firma',name:'Evaluación 25K',kind:'Evaluación',size:25000,dd:1000,ddKind:'trailing_lock',trailBase:'intradia',limit:50,total:0,best:0,target:1500,status:'activa',ledger:[]}],rules:[],meta:{}}};
 const p=await (await b.newContext({viewport:{width:1500,height:1300}})).newPage();
 p.on('pageerror',e=>errs.push('PAGEERROR: '+e.message));
 await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);

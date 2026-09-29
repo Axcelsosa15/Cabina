@@ -1,7 +1,7 @@
 /* FASE 1 · El contrato de la firma, por cuenta.
 
-   La pregunta que esta prueba existe para responder: si tengo una LucidFlex con
-   tope de $200 y una Apex con tope de $1.100, ¿la cabina le dice a cada una su
+   La pregunta que esta prueba existe para responder: si tengo una cuenta con
+   tope de $200 y otra con tope de $1.100, ¿la cabina le dice a cada una su
    número, o le enseña a las dos el mismo? Hasta hoy, el mismo — y el que se
    equivoca en la dirección peligrosa te quema la cuenta. */
 import { chromium } from 'playwright';
@@ -13,10 +13,10 @@ const CUENTA = (id, firm, name, size, dd, rules) => ({ id, firm, name, kind: 'Ev
   size, dd, ddKind: 'trailing_lock', trailBase: 'intradia', limit: 50, total: 0, best: 0,
   target: 3000, status: 'activa', ledger: [], rules: rules || {} });
 
-const SEM = { settings: { meta: { acct: 'lucid' },
+const SEM = { settings: { meta: { acct: 'ctaA' },
   accounts: [
-    CUENTA('lucid', 'Lucid Trading', 'LucidFlex 25K', 25000, 1000, { maxLoss: 200, maxContracts: 2, instruments: 'MNQ' }),
-    CUENTA('apex',  'Apex Trader',   'Apex 50K',      50000, 2500, { maxLoss: 1100, maxContracts: 10, instruments: 'MNQ, MES' }),
+    CUENTA('ctaA', 'Firma A', 'Cuenta A 25K', 25000, 1000, { maxLoss: 200, maxContracts: 2, instruments: 'MNQ' }),
+    CUENTA('ctaB',  'Firma B',   'Cuenta B 50K',      50000, 2500, { maxLoss: 1100, maxContracts: 10, instruments: 'MNQ, MES' }),
     CUENTA('nueva', 'Sin verificar', 'Cuenta nueva',  50000, 0,    {}),
   ],
   rules: [
@@ -25,7 +25,7 @@ const SEM = { settings: { meta: { acct: 'lucid' },
     { id: 'maxlosses', kind: 'num', name: 'Pérdidas seguidas → cierre', why: '', value: 2, prefix: '', unit: 'ops', role: 'maxLosses' },
     { id: 'contracts', kind: 'num', name: 'Contratos máximos', why: '', value: 2, prefix: '', unit: 'MNQ', role: 'maxContracts' },
     /* Escrita en el protocolo pero SIN número: es el caso que hay que poder
-       distinguir de «se cumple». Lucid y Apex tampoco la tienen en su contrato. */
+       distinguir de «se cumple». Ninguna de las dos firmas la tiene en su contrato. */
     { id: 'maxgain',   kind: 'num', name: 'Tope de ganancia del día', why: '', value: 0, prefix: '$', unit: '', role: 'maxGain' },
   ] } };
 
@@ -41,9 +41,9 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 const reglas = id => p.evaluate(i => FUT.evaluateRules(i), id);
 
 console.log('\n═══ 1 · cada cuenta lee SU tope, no el del vecino ═══');
-const l = await reglas('lucid'), a = await reglas('apex');
-ok(l.dailyLossLimit === 200,  'LucidFlex: tope diario $200',  l.dailyLossLimit);
-ok(a.dailyLossLimit === 1100, 'Apex: tope diario $1.100',     a.dailyLossLimit);
+const l = await reglas('ctaA'), a = await reglas('ctaB');
+ok(l.dailyLossLimit === 200,  'Cuenta A: tope diario $200',  l.dailyLossLimit);
+ok(a.dailyLossLimit === 1100, 'Cuenta B: tope diario $1.100',     a.dailyLossLimit);
 ok(l.maxContracts === 2 && a.maxContracts === 10, 'y cada una sus contratos máximos', `${l.maxContracts} / ${a.maxContracts}`);
 ok(JSON.stringify(l.allowedInstruments) === '["MNQ"]' && a.allowedInstruments.includes('MES'),
    'y sus instrumentos', `${l.allowedInstruments} / ${a.allowedInstruments}`);
@@ -52,11 +52,11 @@ console.log('\n═══ 2 · −$600 en el mismo día: bloquea una y no la otra
 const mete = (acct, usd, hora) => p.evaluate(([id, u, h]) => FUT.createTrade({
   accountId: id, instrument: 'MNQ', direction: 'long', qty: 1, date: '2026-09-18',
   time: h, entry: 21000, stop: 20990, exit: 21000 + u / 2 }), [acct, usd, hora]);
-await mete('lucid', -600, '09:30'); await mete('apex', -600, '09:30');
+await mete('ctaA', -600, '09:30'); await mete('ctaB', -600, '09:30');
 await p.waitForTimeout(500);
-const l2 = await reglas('lucid'), a2 = await reglas('apex');
-ok(l2.status === 'LOCKED' && l2.canTrade === false, 'LucidFlex BLOQUEADA (−$600 sobre $200)', l2.status);
-ok(a2.status !== 'LOCKED' && a2.canTrade === true, 'Apex sigue operable (−$600 sobre $1.100)', a2.status);
+const l2 = await reglas('ctaA'), a2 = await reglas('ctaB');
+ok(l2.status === 'LOCKED' && l2.canTrade === false, 'Cuenta A BLOQUEADA (−$600 sobre $200)', l2.status);
+ok(a2.status !== 'LOCKED' && a2.canTrade === true, 'Cuenta B sigue operable (−$600 sobre $1.100)', a2.status);
 ok(a2.dailyLossRemaining === 500, 'y le quedan exactamente $500', a2.dailyLossRemaining);
 
 console.log('\n═══ 3 · una regla sin escribir NO se presenta como cumplida ═══');
@@ -90,40 +90,40 @@ p2.on('pageerror', e => errs.push('PAGEERROR(2): ' + e.message));
 await p2.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
 await p2.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(guardado)});}catch(e){}`);
 await p2.goto('file://' + process.cwd() + '/preview.html'); await p2.waitForTimeout(1300);
-const tras = await p2.evaluate(() => ({ lucid: FUT.evaluateRules('lucid').dailyLossLimit,
-  apex: FUT.evaluateRules('apex').dailyLossLimit, nueva: FUT.evaluateRules('nueva').dailyLossLimit }));
-ok(tras.lucid === 200 && tras.apex === 1100 && tras.nueva === 300, 'los tres contratos vuelven enteros', JSON.stringify(tras));
+const tras = await p2.evaluate(() => ({ ctaA: FUT.evaluateRules('ctaA').dailyLossLimit,
+  ctaB: FUT.evaluateRules('ctaB').dailyLossLimit, nueva: FUT.evaluateRules('nueva').dailyLossLimit }));
+ok(tras.ctaA === 200 && tras.ctaB === 1100 && tras.nueva === 300, 'los tres contratos vuelven enteros', JSON.stringify(tras));
 
 console.log('\n═══ 6 · el editor escribe el contrato ═══');
-await p.evaluate(() => FUT.setSelectedAccount('apex')); await p.waitForTimeout(400);
-await p.click('.acct[data-id="apex"] button[data-act="cfg"]:visible'); await p.waitForTimeout(400);
+await p.evaluate(() => FUT.setSelectedAccount('ctaB')); await p.waitForTimeout(400);
+await p.click('.acct[data-id="ctaB"] button[data-act="cfg"]:visible'); await p.waitForTimeout(400);
 ok(await p.isVisible('#ef_r_maxLoss'), 'el editor tiene el campo de pérdida máxima de la cuenta');
 ok((await p.inputValue('#ef_r_maxLoss')) === '1100', 'con el valor de la cuenta cargado', await p.inputValue('#ef_r_maxLoss'));
 await p.fill('#ef_r_maxLoss', '900');
 await p.fill('#ef_r_verifiedAt', '2026-09-18');
 await p.fill('#ef_r_url', 'https://apextraderfunding.com/rules');
 await p.click('#edSave'); await p.waitForTimeout(500);
-const trasEd = await p.evaluate(() => { const a = FUT.account('apex');
-  return { tope: FUT.evaluateRules('apex').dailyLossLimit, ver: a.rules.verifiedAt, url: a.rules.url, sobra: Object.keys(a).filter(k => k.startsWith('r_')).length }; });
+const trasEd = await p.evaluate(() => { const a = FUT.account('ctaB');
+  return { tope: FUT.evaluateRules('ctaB').dailyLossLimit, ver: a.rules.verifiedAt, url: a.rules.url, sobra: Object.keys(a).filter(k => k.startsWith('r_')).length }; });
 ok(trasEd.tope === 900, 'guardar cambia el tope de ESA cuenta', trasEd.tope);
 ok(trasEd.ver === '2026-09-18' && /apextrader/.test(trasEd.url || ''), 'y guarda fecha de verificación y enlace', `${trasEd.ver} · ${trasEd.url}`);
 ok(trasEd.sobra === 0, 'sin dejar campos r_* sueltos en la cuenta', trasEd.sobra);
-ok((await reglas('lucid')).dailyLossLimit === 200, 'y NO toca el de la otra cuenta');
+ok((await reglas('ctaA')).dailyLossLimit === 200, 'y NO toca el de la otra cuenta');
 
 /* ═══ 7 · lo que el rediseño rompió sin que nadie lo notara ═══
    Tres defectos que vivieron un turno entero porque ninguna prueba pulsaba el
    chevrón ni miraba el estado EN VIVO de una regla. Van aquí para que no
    vuelvan: son exactamente la clase de fallo que se cuela al mover el DOM. */
 console.log('\n═══ 7 · el panel de reglas, en vivo ═══');
-/* Con Apex: lleva −$600 sobre un tope de $900, así que aún le queda margen y
-   el texto del estado PUEDE cambiar. LucidFlex ya está en «tope alcanzado» y
+/* Con Cuenta B: lleva −$600 sobre un tope de $900, así que aún le queda margen y
+   el texto del estado PUEDE cambiar. Cuenta A ya está en «tope alcanzado» y
    ahí ninguna pérdida más mueve la frase. */
-await p.evaluate(() => FUT.setSelectedAccount('apex')); await p.waitForTimeout(500);
+await p.evaluate(() => FUT.setSelectedAccount('ctaB')); await p.waitForTimeout(500);
 const antesNow = await p.evaluate(() => [...document.querySelectorAll('.rulec')]
   .filter(x => /Pérdida máxima/.test(x.querySelector('.rname').textContent))
   .map(x => x.querySelector('.rnow').textContent.trim())[0]);
 // una pérdida más, SIN repintado completo: sólo paintRuleStates
-await p.evaluate(() => FUT.createTrade({ accountId: 'apex', instrument: 'MNQ', direction: 'long',
+await p.evaluate(() => FUT.createTrade({ accountId: 'ctaB', instrument: 'MNQ', direction: 'long',
   qty: 1, date: '2026-09-18', time: '13:00', entry: 21000, stop: 20990, exit: 20950 }));
 await p.waitForTimeout(600);
 const despuesNow = await p.evaluate(() => [...document.querySelectorAll('.rulec')]

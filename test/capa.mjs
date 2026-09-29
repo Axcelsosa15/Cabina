@@ -3,7 +3,7 @@
    una sola fuente de verdad. */
 import { chromium } from 'playwright';
 const errs=[]; const b=await chromium.launch(); const F=new Date('2026-09-18T14:00:00Z').getTime();
-const SEM={settings:{accounts:[{id:'a1',firm:'Lucid',name:'LucidFlex 25K',kind:'Evaluación',size:25000,dd:1000,
+const SEM={settings:{accounts:[{id:'a1',firm:'Firma',name:'Evaluación 25K',kind:'Evaluación',size:25000,dd:1000,
   ddKind:'trailing_lock',trailBase:'intradia',limit:50,total:0,best:0,target:1500,status:'activa',ledger:[]}],rules:[],meta:{}}};
 const p=await (await b.newContext({viewport:{width:1500,height:1400}})).newPage();
 p.on('pageerror',e=>errs.push('PAGEERROR: '+e.message));

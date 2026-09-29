@@ -28,8 +28,8 @@ La cabecera de `index.html` dice:
 
 Mientras esté, los buscadores no indexan la página: sólo la encuentra quien tenga el
 enlace. **Quitar esa línea es el lanzamiento.** Se deja puesta a propósito hasta que
-estén resueltas las decisiones de abajo — publicar indexable un producto sin licencia
-es publicarlo con todos los derechos reservados, y con un nombre que puede cambiar.
+esté decidida la licencia — publicar indexable un producto sin licencia es publicarlo
+con todos los derechos reservados.
 
 `test/lanzamiento.mjs` exige que, mientras la línea exista, este documento la explique.
 Cuando se quite, deja de exigirlo.
@@ -41,7 +41,8 @@ Cuando se quite, deja de exigirlo.
 | | Verificado en |
 |---|---|
 | **Primer arranque neutral.** Un desconocido arranca sin cuentas, con las reglas presentes pero sin valor —y una regla sin valor no bloquea nada—, sin restricción de instrumento y sin una sola cadena de la configuración del autor. | `primer.mjs` |
-| **Nadie pierde lo suyo.** La configuración guardada no se toca. Una guardada antigua a la que le falte un bloque lo rellena con la configuración de siempre. Una instalación que nunca guardó configuración pero tiene operaciones en las cuentas de siempre las recupera sola — sin escribir nada. En el navegador y en la base del artefacto. | `primer.mjs` |
+| **Nadie pierde lo suyo.** La configuración guardada no se toca, ni sus cuentas ni sus reglas. A una guardada antigua a la que le falte un bloque se le rellena con el bloque neutral, y conserva el resto. Una instalación sin configuración guardada arranca neutral y sus operaciones siguen ahí. En el navegador y en la base del artefacto, sin escribir nada al abrir. | `primer.mjs` |
+| **Sin rastro de la configuración del autor.** Sus cuentas, firmas y reglas salieron del código, de las pruebas, de la semilla y de la documentación; la recuperación que dependía de ellas, también. Antes de quitarla se comprobó que la instalación del autor no la necesitaba: su configuración está guardada completa y ninguna cuenta en uso depende de los identificadores antiguos. Una prueba recorre cada fichero versionado para que no vuelvan. | `lanzamiento.mjs` · `primer.mjs` |
 | **Una carrera que ya existía, cerrada.** En el artefacto, guardar configuración antes de que la base contestara escribía los valores por defecto encima de la real. Con el arranque neutral eso habría borrado todas las cuentas: medido, «SIN CUENTAS». Ahora no se guarda hasta que la base contesta. | `primer.mjs` |
 | **No es asesoramiento financiero**, dicho en las seis pestañas y en un teléfono, con el riesgo de pérdida. | `lanzamiento.mjs` |
 | **Privacidad**: el pie dice dónde viven los datos y que no se envían a ningún servidor. Lo sostiene que el código no tenga `fetch` externo, `sendBeacon` ni `<script src>`. | `lanzamiento.mjs` · `seguridad.mjs` |
@@ -54,21 +55,19 @@ Cuando se quite, deja de exigirlo.
 
 ## Decisiones tuyas — bloquean el interruptor
 
-1. **Licencia.** Hoy no hay: el repositorio es «todos los derechos reservados»,
-   público para leer y sin permiso para usar. Si quieres que otros lo usen y lo
-   mejoren, una licencia abierta (MIT es la más simple). Si quieres venderlo algún
-   día, puede convenir mantenerlo cerrado. No es una decisión técnica.
-2. **Nombre.** El repositorio se llama TURBOK2 y la app se presenta como Cabina. El
-   nombre va en el título, en la tarjeta del enlace, en la imagen para compartir —que
-   no se ha hecho por eso— y en la URL de Pages.
-3. **¿Las tres cuentas de la configuración de siempre son reales?** Están en el código
-   (`LEGADO_SETTINGS`) y en la historia del repositorio, que es público. Ya no se
-   enseñan a nadie, pero se pueden leer. La recuperación sólo necesita sus
-   **identificadores**, no sus nombres: si son reales y te importa, los nombres se
-   pueden anonimizar, con un coste — si tu instalación dependiera de ellos, verías los
-   nombres anónimos en tu propia cabina. Antes de hacerlo habría que comprobar que tu
-   configuración está guardada.
-4. **Idioma.** Sólo español. Es un mercado, y es una decisión.
+1. **Licencia — pendiente.** Hoy no hay: el repositorio es «todos los derechos
+   reservados», público para leer y sin permiso para usar. Si quieres que otros lo
+   usen y lo mejoren, una licencia abierta (MIT es la más simple). Si quieres venderlo
+   algún día, puede convenir mantenerlo cerrado. No es una decisión técnica.
+2. **Idioma.** Sólo español. Es un mercado, y es una decisión.
+
+Decididas: el **nombre** es Cabina (el repositorio sigue llamándose TURBOK2, y eso no
+se ve desde la app); las **cuentas del autor** se quitaron del código (arriba).
+
+**Lo que quitarlas del código no quita:** la historia de git. Los commits anteriores
+siguen conteniendo los nombres y el repositorio es público. Borrarlos de ahí exige
+reescribir la historia y forzar la subida a `main`, lo que invalida todo clon, toda
+rama y la PR abierta. Es posible, pero es una decisión tuya y no se hace sin pedirla.
 
 ---
 
@@ -90,7 +89,8 @@ Cuando se quite, deja de exigirlo.
   del navegador borra todo. La copia existe —«Ver el texto», importar—, pero nada te
   recuerda hacerla. Es el hueco más importante que queda para un usuario que no es el
   autor.
-- **Imagen para compartir** (`og:image`), cuando haya nombre.
+- **Imagen para compartir** (`og:image`). El nombre ya está; falta la imagen, y tiene
+  que ir dentro del repositorio, no en un servidor ajeno.
 - **Política de seguridad de contenido (CSP).** Endurecería la página, pero el
   artefacto inyecta su propio entorno y una política mal ajustada lo rompe. Hay que
   probarla dentro del artefacto, no sólo en Pages.

@@ -28,6 +28,30 @@ import { readFileSync } from 'node:fs';
    Es el mismo fallo que los imports por ruta absoluta, con otra cara. */
 export const SEMILLA = readFileSync(new URL('./semilla.json', import.meta.url), 'utf8');
 
+/* LAS CUENTAS YA NO VIENEN DE SERIE. Hasta el arranque neutral, una pagina vacia
+   traia tres cuentas y unas reglas con numeros: las del autor. Diez pruebas abrian
+   la cabina en blanco y daban eso por hecho. Al quitarlas del codigo se quedaron
+   sin cuentas -- y en local seguian verdes porque preview.html era una copia vieja
+   que aun las llevaba. CI construye el preview de cero y las vio caer.
+
+   Ahora una prueba que necesita cuentas LAS DECLARA, igual que equivalencia declara
+   su protocolo. Se siembra solo la CONFIGURACION de la semilla, nunca sus
+   operaciones, y solo si lo guardado no trae ya una: asi una prueba que siembra sus
+   propias operaciones sin configuracion (migra) recibe las cuentas encima, y una
+   recarga no pisa lo que la propia prueba cambio. Registrar DESPUES de la siembra
+   propia de la prueba: los init scripts corren en orden. */
+export const CONFIG_PRUEBA = JSON.parse(SEMILLA).settings;
+export const conCuentas = (pg) => pg.addInitScript(cfg => {
+  try {
+    const K = 'cabina-mnq:v1';
+    const d = JSON.parse(localStorage.getItem(K) || '{}');
+    if (d.settings) return;
+    d.settings = cfg;
+    if (!d.trades) d.trades = {};
+    localStorage.setItem(K, JSON.stringify(d));
+  } catch (e) { }
+}, CONFIG_PRUEBA);
+
 export const quieto = (pg, calma = 30, tope = 1500) => pg.evaluate(([c, t]) => new Promise(res => {
   let timer = setTimeout(fin, c);
   const ob = new MutationObserver(() => { clearTimeout(timer); timer = setTimeout(fin, c); });

@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { conCuentas } from './espera.mjs';
 const URL = 'file://' + process.cwd() + '/preview.html';
 const errs = []; const b = await chromium.launch();
 const say = (k, v) => console.log('  ' + String(k).padEnd(32) + v);
@@ -6,6 +7,7 @@ async function open() {
   const p = await (await b.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
   p.on('pageerror', e => errs.push('PAGEERROR: ' + e.message));
   p.on('console', m => { const t = m.text(); if (m.type() === 'error' && !/ERR_CERT|ERR_CONNECTION|fonts|ERR_FILE/.test(t)) errs.push('CONSOLE: ' + t); });
+  await conCuentas(p);
   await p.goto(URL); await p.waitForTimeout(900); return p;
 }
 console.log('=== acciones rápidas ===');

@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 const errs=[]; const b=await chromium.launch(); const F=new Date('2026-09-18T14:00:00Z').getTime();
-const SEM={settings:{accounts:[{id:'a1',firm:'Lucid',name:'L25K',kind:'Evaluación',size:25000,dd:1000,ddKind:'trailing_lock',trailBase:'intradia',limit:50,total:0,best:0,target:1500,status:'activa',ledger:[]}],rules:[],meta:{}}};
+const SEM={settings:{accounts:[{id:'a1',firm:'Firma',name:'L25K',kind:'Evaluación',size:25000,dd:1000,ddKind:'trailing_lock',trailBase:'intradia',limit:50,total:0,best:0,target:1500,status:'activa',ledger:[]}],rules:[],meta:{}}};
 function conDatos(n){ const d=JSON.parse(JSON.stringify(SEM)); d.trades={};
   for(let i=0;i<n;i++){ const dia=new Date(Date.UTC(2026,7,1+Math.floor(i/2)));
     const gana = i%3!==0;

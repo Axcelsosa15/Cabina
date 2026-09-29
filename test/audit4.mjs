@@ -1,9 +1,11 @@
 import { chromium } from 'playwright';
+import { conCuentas } from './espera.mjs';
 const errs=[]; const b=await chromium.launch();
 const p=await b.newPage({viewport:{width:1400,height:1100}});
 p.on('pageerror',e=>errs.push('PAGEERROR: '+e.message));
 p.on('console',m=>{const t=m.text(); if(m.type()==='error'&&!/ERR_CONNECTION|fonts|_blob|ERR_FILE/.test(t))errs.push('CONSOLE: '+t);});
 await p.addInitScript(()=>{window.claude={use:async n=>n==='permissions'?{state:async()=>'granted',request:async ns=>Object.fromEntries((ns||[]).map(x=>[x,'granted']))}:null};});
+await conCuentas(p);
 await p.goto('file://' + process.cwd() + '/preview.html');
 await p.waitForTimeout(700);
 const T=await p.evaluate(()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}));

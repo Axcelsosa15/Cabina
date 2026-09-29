@@ -374,7 +374,7 @@ umbral, colchón, ruina y número de contratos calculados sobre el balance
 equivocado. Justo el panel con el que decides el tamaño.
 
 Ahora queda **vinculada**: los cinco campos que derivan de la cuenta se releen
-solos al entrar una operación, y el panel lo dice (`● en vivo desde LucidFlex
+solos al entrar una operación, y el panel lo dice (`● en vivo desde la cuenta A
 25K`). Si escribes tú uno de esos campos, mandas tú: se desvincula y lo avisa,
 en vez de que el siguiente trade te pise el número.
 
@@ -880,7 +880,7 @@ y cualquier elemento cuyo contenido no quepa. Es la prueba que convierte
 ### El contrato de la firma, por cuenta
 
 Hasta aquí había **una** pérdida máxima diaria para todas las cuentas:
-`ruleByRole(role)` no recibía cuenta. Una LucidFlex con tope de $200 y una Apex
+`ruleByRole(role)` no recibía cuenta. Una cuenta con tope de $200 y otra
 con tope de $1.100 leían el mismo número, así que una de las dos mentía — y la
 que miente en la dirección peligrosa te quema la cuenta.
 
@@ -912,8 +912,8 @@ que la cabina no hace es decir que todo va bien cuando no tiene con qué saberlo
 Esto cambió el veredicto de una cuenta nueva de READY a WARNING, y con él una
 prueba de `sync.mjs` que lo daba por bueno.
 
-`test/prop.mjs` mete −$600 el mismo día en las dos cuentas: LucidFlex queda
-BLOQUEADA sobre su tope de $200 y Apex sigue operable con $500 restantes de sus
+`test/prop.mjs` mete −$600 el mismo día en las dos cuentas: la A queda
+BLOQUEADA sobre su tope de $200 y la B sigue operable con $500 restantes de sus
 $1.100. Ese contraste es toda la fase en una línea.
 
 **Tres defectos del rediseño anterior salieron a la luz al escribirla**, y los
@@ -1512,7 +1512,7 @@ información:
 
 | lista | lo que dice antes de borrar |
 |---|---|
-| Journal | `Borrar 2 operaciones: +$40.00 de resultado · afecta a Apex` |
+| Journal | `Borrar 2 operaciones: +$40.00 de resultado · afecta a Cuenta A` |
 | Inversiones | `$1,920 desplegados · $60 cobrados · VOO` |
 | Playbook | `1 operación queda sin estrategia` |
 | Sesiones | `+$80.00 en resultados · 2 pre-sesiones escritas` |
@@ -1548,7 +1548,7 @@ silencio.
 Ahora se dice, al borrar una y al borrar varias:
 
 ```
-Borrar 2 cuentas: Apex, Topstep · 4 operaciones quedan sin cuenta
+Borrar 2 cuentas: Cuenta A, Cuenta C · 4 operaciones quedan sin cuenta
 (+$480.00 fuera de las estadísticas)
 ```
 

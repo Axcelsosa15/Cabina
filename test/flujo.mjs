@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { conCuentas } from './espera.mjs';
 const URL = 'file://' + process.cwd() + '/preview.html';
 const b = await chromium.launch();
 const say = (k, v) => console.log('  ' + String(k).padEnd(32) + v);
@@ -6,6 +7,7 @@ const p = await (await b.newContext({ viewport: { width: 1400, height: 1100 } })
 p.on('pageerror', e => console.log('  PAGEERROR: ' + e.message));
 const F = new Date('2026-09-16T14:00:00Z').getTime();
 await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
+await conCuentas(p);
 await p.goto(URL); await p.waitForTimeout(900);
 const HOY = await p.evaluate(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }));
 

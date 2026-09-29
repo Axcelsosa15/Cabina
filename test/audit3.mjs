@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { conCuentas } from './espera.mjs';
 /* Apuntaba a una ruta ABSOLUTA del scratchpad. Ese archivo existía, así que
    el test pasaba en verde — midiendo una copia congelada de la app. Cuando se
    descubrió llevaba seis días sin regenerarse: 141 KB menos, sin posPerf, sin
@@ -10,6 +11,7 @@ const page = await browser.newPage({ viewport: { width: 1400, height: 1100 } });
 page.on('pageerror', e => errs.push('PAGEERROR: ' + e.message));
 page.on('console', m => { const t = m.text(); if (m.type()==='error' && !/ERR_CONNECTION|fonts|_blob|ERR_FILE/.test(t)) errs.push('CONSOLE: '+t); });
 await page.addInitScript(() => { window.claude = { use: async n => n==='permissions' ? { state: async()=> 'granted', request: async ns => Object.fromEntries((ns||[]).map(x=>[x,'granted'])) } : null }; });
+await conCuentas(page);
 await page.goto(URL); await page.waitForTimeout(700);
 const T = await page.evaluate(() => new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}));
 const say = (k,v) => console.log('  ' + k.padEnd(38) + v);

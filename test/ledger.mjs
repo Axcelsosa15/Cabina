@@ -6,7 +6,7 @@ const errs = [];
 // Cuenta con movimientos guardados EN NEGATIVO, como vendría de un respaldo viejo.
 const semilla = {
   settings: {
-    accounts: [{ id: 'a1', firm: 'Lucid', name: 'Prueba negativos', kind: 'Fondeada',
+    accounts: [{ id: 'a1', firm: 'Firma', name: 'Prueba negativos', kind: 'Fondeada',
       size: 25000, dd: 1000, ddKind: 'trailing_lock', limit: 50, total: 0, best: 0, target: 0, status: 'activa',
       ledger: [
         { id: 'l1', date: '2026-09-01', kind: 'payout',  amount: -500 },

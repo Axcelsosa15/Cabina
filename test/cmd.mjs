@@ -47,8 +47,8 @@ await p.keyboard.press('Escape');
 
 // cambiar de cuenta desde la paleta
 await p.keyboard.press('Control+k'); await p.waitForTimeout(250);
-await p.keyboard.type('Alpha'); await p.waitForTimeout(250);
+await p.keyboard.type('50K'); await p.waitForTimeout(250);
 await p.keyboard.press('Enter'); await p.waitForTimeout(500);
-ok(await p.evaluate(()=>FUT.selectedAccountId()==='alpha50'), 'selecciona cuenta por la puerta de FUT', await p.evaluate(()=>FUT.selectedAccountId()));
+ok(await p.evaluate(()=>FUT.selectedAccountId()==='prop50'), 'selecciona cuenta por la puerta de FUT', await p.evaluate(()=>FUT.selectedAccountId()));
 console.log('\n  errores JS:', errs.length, errs.join(' | '));
 await b.close(); process.exit(errs.length?1:0);

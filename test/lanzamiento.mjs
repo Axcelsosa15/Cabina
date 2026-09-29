@@ -19,6 +19,7 @@ import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
@@ -96,6 +97,23 @@ const icono = (cab.match(/<link[^>]+rel="icon"[^>]+href="([^"]+)"/) || [])[1] ||
 ok(/^data:image\/svg\+xml/.test(icono), 'con icono de pestaña, dentro del propio fichero: ningun recurso externo nuevo', icono ? icono.slice(0, 40) + '…' : 'sin icono');
 const personal = (cab.match(/Lucid|Alpha Futures|MGC|Protocolo v2\.0|instrumento perdedor/) || [])[0];
 ok(!personal, 'la cabecera no lleva nada de la configuracion personal', personal ? `aparece «${personal}»` : 'limpia');
+
+/* Y NO SOLO LA CABECERA: EL REPOSITORIO ENTERO. Las cuentas, firmas y reglas de su
+   autor salieron del codigo, de las pruebas, de la semilla y de la documentacion.
+   Se recorre todo fichero versionado (git ls-files) para que no vuelvan por la
+   puerta de atras: un fixture copiado, un comentario, un ejemplo. Se excluyen solo
+   este fichero y primer.mjs, que tienen que nombrar lo que prohiben. MGC a secas no
+   cuenta: es un contrato real del catalogo, no un dato personal. */
+const PERSONAL_REPO = /Lucid|lucid25|Alpha Futures|alpha50|Alpha 50K|Apex|Topstep|MGC eliminado|instrumento perdedor|Protocolo v2\.0|EMA 10\/20\/55|Cabina MNQ/;
+const versionados = execFileSync('git', ['ls-files'], { cwd: raiz, encoding: 'utf8' }).split('\n')
+  .filter(f => f && !/^test\/(lanzamiento|primer)\.mjs$/.test(f) && /\.(html|m?js|json|md|ya?ml|txt|css)$/.test(f));
+const conRastro = versionados.map(f => {
+  const m = readFileSync(join(raiz, f), 'utf8').match(PERSONAL_REPO);
+  return m ? `${f} «${m[0]}»` : null;
+}).filter(Boolean);
+ok(versionados.length > 50 && conRastro.length === 0,
+   'ningun fichero versionado lleva las cuentas ni las reglas personales',
+   conRastro.length ? conRastro.slice(0, 4).join(' · ') : `${versionados.length} ficheros revisados`);
 
 console.log('\n═══ EL INTERRUPTOR DEL LANZAMIENTO ═══');
 const noindex = /<meta[^>]+name="robots"[^>]+noindex/.test(cab);

@@ -1,10 +1,12 @@
 import { chromium } from 'playwright';
+import { conCuentas } from './espera.mjs';
 const URL = 'file://' + process.cwd() + '/preview.html';
 const b = await chromium.launch();
 const say = (k, v) => console.log('  ' + String(k).padEnd(34) + v);
 async function nueva() {
   const p = await (await b.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
   p.on('pageerror', e => console.log('  PAGEERROR: ' + e.message));
+  await conCuentas(p);
   await p.goto(URL); await p.waitForTimeout(900); return p;
 }
 async function verFuturos(p, tag) {

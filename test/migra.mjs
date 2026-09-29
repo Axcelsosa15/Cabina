@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { conCuentas } from './espera.mjs';
 const URL = 'file://' + process.cwd() + '/preview.html';
 const errs = []; const b = await chromium.launch();
 const say = (k, v) => console.log('  ' + String(k).padEnd(36) + v);
@@ -17,7 +18,7 @@ await p.addInitScript(() => {
   const d = { trades: {} };
   const mk = (id, date, time, instr, qty, entry, stop, exit, extra) => Object.assign({
     id, type: 'futuros', date, time, instrument: instr, qty, entry, stop, exit,
-    direction: 'long', accountId: 'lucidflex25',
+    direction: 'long', accountId: 'prop25',
     pnlEff: 999, rReal: 9.9, riskUsd: 999,       // basura del motor viejo, a propósito
   }, extra || {});
   d.trades.t1 = mk('t1', '2026-09-15', '09:45', 'MNQ', 2, 21000, 20950, 21042.5); // 42.5 pts x 2 ctos x $2 = +170
@@ -26,6 +27,7 @@ await p.addInitScript(() => {
   localStorage.setItem(K, JSON.stringify(d));
 });
 const dl = p.waitForEvent('download', { timeout: 20000 }).catch(() => null);
+await conCuentas(p);
 await p.goto(URL); await p.waitForTimeout(3200);
 
 console.log('=== (c) respaldo + migración ===');
