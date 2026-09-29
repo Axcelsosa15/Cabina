@@ -11,7 +11,7 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **71** · `1790695523-5808` · 2026-09-29 |
+| Versión viva | **72** · `1790699372-4415` · 2026-09-29 |
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
@@ -81,16 +81,41 @@ afectadas. Restaurado y md5 comprobado.
 
 El contenido del artefacto es `index.html` **desde su SEGUNDO `<style>`**. Decir
 «desde `<style>`» a secas no vale y costó una comparación falsa de 113 bloques: el
-PRIMER `<style>` de `index.html` (línea 13) es el reset mínimo del envoltorio de
-página estática, y el cuerpo del artefacto empieza en el SEGUNDO (línea 22), que
-es el sistema de diseño.
+PRIMER `<style>` de `index.html` es el reset mínimo del envoltorio de página
+estática, y el cuerpo del artefacto empieza en el SEGUNDO, que es el sistema de
+diseño. **Se busca, no se cuenta**: estuvo en la línea 22 hasta la 71, y con los
+metadatos de producto pasó a la 32 — con el número de siempre, la 72 habría llevado
+la cabecera entera dentro del artefacto.
 
 La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
 `test/sync-index.mjs`:
 
-- delante: `<!DOCTYPE html>`, `<head>` con las fuentes y los metas, el reset
-  mínimo, `</head><body>`
+- delante: `<!DOCTYPE html>`, `<head>` con los metas, el reset mínimo,
+  `</head><body>` — las fuentes ya no: las pide el script al cargar
 - detrás: `</body></html>`
+
+### Coinciden — republicado el 2026-09-29 (versión 72) · arranque neutral, y sin esperar a Google
+
+La versión viva es la **72** (`1790699372-4415`). Contrato `0.2.46` y capacidades
+arrastradas intactas.
+
+**11 líneas fuera, 107 dentro.** Es la republicación con más riesgo de toda la serie,
+porque cambia cómo carga la configuración **en el entorno principal**:
+
+- el primer arranque es neutral, y la configuración de siempre pasa a `LEGADO_SETTINGS`;
+- una configuración guardada no se toca; una antigua incompleta rellena sus huecos con
+  la de siempre; una instalación sin configuración guardada pero con operaciones en
+  las cuentas de siempre las recupera — sin escribir;
+- no se guarda configuración hasta que la base haya contestado. Sin eso, este cambio
+  habría convertido una carrera antigua en «SIN CUENTAS».
+
+Todo eso está probado contra el **doble** de la base (`primer.mjs`), no contra la base
+real de claude.ai, que desde aquí no se puede leer sin traer datos reales a la sesión.
+Es la fila `UNKNOWN` de siempre, y aquí pesa más que nunca: **si al abrir la 72 faltan
+cuentas o reglas, es esto**, y la 71 sigue en el historial de versiones.
+
+Dos cosas cambiaron en la receta de publicación, y las dos están arriba: el corte se
+busca (línea 32, ya no 22) y las fuentes ya no se copian delante.
 
 ### Coinciden — republicado el 2026-09-29 (versión 71) · las cuatro categorías de error
 
@@ -418,10 +443,14 @@ archivo.
 
 ### Cómo se republica
 
-El contenido del artefacto es `index.html` **desde su SEGUNDO `<style>`**, con el
-`<title>` y los dos `<link>` de fuentes tomados del fichero publicado — no del
-repositorio, cuyo título es otro y renombraría el artefacto. El `</body></html>`
-no va: lo pone el publicador.
+El contenido del artefacto es `index.html` **desde su SEGUNDO `<style>`**, con
+**sólo** `<title>Cabina</title>` delante — no el título del repositorio, que es otro y
+renombraría el artefacto. El `</body></html>` no va: lo pone el publicador.
+
+Hasta la 71 también iban delante los dos `<link>` de las fuentes de Google, copiados
+de lo publicado. **Desde la 72 no deben ir**: esas hojas de estilos bloqueaban el
+script y el evento load hasta que Google respondía, y ahora las pide el script al
+cargar. Copiarlas de una versión anterior reintroduciría el bloqueo en el artefacto.
 
 La herramienta **no acepta una comparación por hash**: exige haber leído las
 10.818 líneas de lo publicado, y hace bien — es lo que permitió diferenciar y
