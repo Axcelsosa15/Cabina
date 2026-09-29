@@ -5,11 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cabina · cockpit de sesión</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="description" content="Cabina: pre-sesión, reglas duras, cuentas prop, journal de futuros e inversiones. Copia estática del artefacto.">
+<meta name="description" content="Diario de trading de futuros con reglas duras, cuentas prop, pre-sesión y análisis de tus errores. Tus datos se quedan en tu navegador.">
+<!-- Lo que ve quien recibe el enlace. Sin og:image a proposito: la imagen lleva el
+     nombre del producto, y el nombre esta sin decidir. Ver docs/LANZAMIENTO.md. -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Cabina · diario de trading">
+<meta property="og:description" content="Diario de trading de futuros con reglas duras, cuentas prop, pre-sesión y análisis de tus errores. Tus datos se quedan en tu navegador.">
+<meta name="twitter:card" content="summary">
+<!-- El icono va dentro del fichero: ningun recurso externo nuevo (test/seguridad.mjs). -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B0E13'/%3E%3Cpath d='M44 21a15 15 0 1 0 0 22' fill='none' stroke='%234FB3A0' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0B0E13">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
+<!-- Las fuentes de Google NO van aqui: una hoja de estilos en la cabecera bloquea
+     el script y el evento load hasta que Google responde. Las pide el script
+     cuando la pagina ya ha cargado (cargaFuentes). Ver test/lanzamiento.mjs. -->
 <style>
   :root { color-scheme: dark; }
   html { background: #0B0E13; }
@@ -1988,6 +1998,8 @@
   <span>Ventana operativa: NY AM Kill Zone 8:30–11:00 AM ET</span>
   <span>Lunch 11:00 AM–1:30 PM ET: sin entradas</span>
   <span id="footerStore"></span>
+  <!-- Visible en las seis pestañas y en un teléfono: test/lanzamiento.mjs lo mide. -->
+  <span class="aviso">Cabina es una herramienta de registro y análisis, no asesoramiento financiero. Operar futuros conlleva un riesgo alto de pérdida.</span>
 </footer>
 
 <!-- ═══ PALETA DE COMANDOS ═══
@@ -2069,6 +2081,21 @@
 (function () {
   "use strict";
   const $ = id => document.getElementById(id);
+  /* LAS FUENTES DE GOOGLE, DESPUÉS DE ARRANCAR. Estaban como hoja de estilos en la
+     cabecera, y una hoja pendiente bloquea el script que viene detrás y el evento
+     load. Medido con la petición colgada —proxy, red lenta, sin conexión—: ni la
+     cabina en 8 s ni load en 5. Una app local-first que no arranca si Google no
+     responde no es local-first. Son un respaldo —la pila tipográfica pone primero
+     las del sistema—, así que se piden con la página ya cargada, y si no llegan no
+     pasa nada. */
+  function cargaFuentes() {
+    if (document.getElementById("fuentesGoogle")) return;
+    const l = document.createElement("link");
+    l.id = "fuentesGoogle"; l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap";
+    document.head.appendChild(l);
+  }
+  if (document.readyState === "complete") cargaFuentes(); else window.addEventListener("load", cargaFuentes, { once: true });
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
   function uid(p) { return p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
@@ -2091,7 +2118,18 @@
   function todayISO() { return etNow().date; }
 
   /* =============================== CABINA DEFAULTS =============================== */
-  const DEFAULT_SETTINGS = {
+  /* LA CONFIGURACIÓN DE SIEMPRE, INTACTA. Hasta el arranque neutral, esto era lo
+     que recibía CUALQUIERA que abriera la cabina: tres cuentas prop con nombre,
+     reglas con números concretos y una frase de historia personal en la lista.
+     Ya no es el primer arranque de nadie. Se conserva sin tocar una coma por una
+     sola razón: que ninguna instalación que dependiera de ella la pierda.
+     Se usa en dos sitios y en ninguno más:
+       · `normalize`, para rellenar lo que le falte a una configuración GUARDADA
+         antigua — si le falta un bloque, es de antes del arranque neutral;
+       · `recuperaLegado`, para una instalación que nunca guardó configuración pero
+         tiene operaciones en estas cuentas.
+     Ver test/primer.mjs. */
+  const LEGADO_SETTINGS = {
     meta: { title: "Cabina", subtitle: "" },
     checks: [
       { id: "levels",  t: "PDH / PDL y rangos de Asia y Londres marcados", s: "Los niveles de liquidez del día antes de mirar el 1m." },
@@ -2117,6 +2155,34 @@
       { id: "lucid25",     firm: "Lucid Trading", name: "Lucid 25K",     kind: "Fondeada",   limit: 50, total: 0, best: 0, size: 25000, dd: 1500, status: "fondeada" },
       { id: "alpha50",     firm: "Alpha Futures", name: "Alpha 50K",     kind: "Evaluación", limit: 50, total: 0, best: 0, size: 50000, dd: 2000, status: "evaluacion" },
     ],
+    customized: false,
+  };
+  const LEGADO_IDS = new Set(LEGADO_SETTINGS.accounts.map(a => a.id));
+
+  /* EL PRIMER ARRANQUE DE UN DESCONOCIDO. Vacío de todo lo que es de otra persona,
+     pero con la misma ESTRUCTURA: los mismos identificadores y roles de regla, para
+     que todo lo que depende de ellos —la compuerta, el riesgo, la consistencia—
+     siga funcionando. Una regla con valor 0 está «sin configurar» y no bloquea
+     nada; la de instrumentos vacía no restringe ninguno. */
+  const DEFAULT_SETTINGS = {
+    meta: { title: "Cabina", subtitle: "" },
+    checks: [
+      { id: "levels", t: "Niveles clave del día marcados", s: "Máximo y mínimo del día anterior y de las sesiones previas." },
+      { id: "bias",   t: "Sesgo del día definido en un marco mayor", s: "Sin dirección clara, no hay operación." },
+      { id: "setup",  t: "Sé qué setup busco y qué lo invalida", s: "Si no puedes escribir la invalidación, no hay operación." },
+      { id: "size",   t: "Stop y tamaño calculados antes del clic", s: "Se calculan en frío, no con la operación delante." },
+      { id: "news",   t: "Noticias de alto impacto de hoy revisadas", s: "Si hay un dato fuerte, se espera a que pase." },
+      { id: "mind",   t: "Estoy en condiciones de operar hoy", s: "Descansado y sin nada que «recuperar». Si no, hoy no se opera.", gate: true },
+    ],
+    rules: [
+      { id: "onlymnq",  kind: "fixed", name: "Instrumentos permitidos", why: "Escribe los que operas. Vacío: sin restricción.", role: "instrument", allow: "" },
+      { id: "maxloss",  kind: "num", name: "Pérdida máxima del día", why: "Al tocarla se cierra el día. Sin «una más».", value: 0, prefix: "$", unit: "", role: "maxLoss" },
+      { id: "maxlosses",kind: "num", name: "Pérdidas seguidas → cierre", why: "Contra el patrón de subir tamaño para recuperar.", value: 0, prefix: "", unit: "ops", role: "maxLosses" },
+      { id: "maxgain",  kind: "num", name: "Tope de ganancia del día", why: "Días verdes pequeños y repetidos: así se pasa una regla de consistencia.", value: 0, prefix: "$", unit: "", role: "maxGain" },
+      { id: "contracts",kind: "num", name: "Contratos máximos", why: "Tamaño fijo, decidido antes de la sesión y no durante.", value: 0, prefix: "", unit: "contratos", role: "maxContracts" },
+      { id: "nochange", kind: "fixed", name: "Sin cambios al protocolo en sesión", why: "El sistema se revisa con datos, no en caliente.", role: "" },
+    ],
+    accounts: [],
     customized: false,
   };
   /* ═══════════ EL CICLO DE VIDA DE UNA CUENTA PROP ═══════════
@@ -2281,7 +2347,7 @@
   }
 
   /* =============================== STATE + STORE =============================== */
-  const state = { today: etNow().date, settings: clone(DEFAULT_SETTINGS), day: null, history: [], store: "memory", db: null, unsub: [], editing: false, demo: false, tab: "cabina" };
+  const state = { today: etNow().date, settings: clone(DEFAULT_SETTINGS), cfgOrigen: "neutral", cfgAusente: false, cfgConocida: false, day: null, history: [], store: "memory", db: null, unsub: [], editing: false, demo: false, tab: "cabina" };
   function newDay(date) { return { date, checks: {}, checksBy: {}, levels: {}, result: null, trades: null, broke: false, note: "", closed: false, resultManual: false, pre: null, pres: {}, updatedAt: 0 }; }
   state.day = newDay(state.today);
 
@@ -2396,7 +2462,10 @@
     return out;
   }
   function normalize(s) {
-    const out = clone(DEFAULT_SETTINGS);
+    /* Lo que viene guardado y le falta un bloque es de antes del arranque neutral —
+       todo lo que se guarda hoy los trae los tres—, así que ese hueco se rellena
+       con la configuración de siempre, no con la vacía. Sin nada, neutral. */
+    const out = clone(s && typeof s === "object" ? LEGADO_SETTINGS : DEFAULT_SETTINGS);
     if (!s || typeof s !== "object") return out;
     if (s.meta && typeof s.meta === "object") Object.assign(out.meta, s.meta);
     if (out.meta.title === "Cabina MNQ") out.meta.title = "Cabina";
@@ -2404,8 +2473,15 @@
     if (Array.isArray(s.checks)) out.checks = s.checks.filter(c => c && c.id).map(c => ({ id: String(c.id), t: String(c.t || ""), s: String(c.s || ""), gate: !!c.gate }));
     if (Array.isArray(s.rules)) out.rules = s.rules.filter(r => r && r.id).map(r => ({ id: String(r.id), kind: r.kind === "fixed" ? "fixed" : "num", name: String(r.name || ""), why: String(r.why || ""), value: Number(r.value) || 0, prefix: String(r.prefix || ""), unit: String(r.unit || ""), allow: String(r.allow == null ? "" : r.allow), role: ROLE_KEYS.includes(r.role) ? r.role : (ROLE_SEED[String(r.id)] || "") }));
     else if (s.rules && typeof s.rules === "object") { const v = s.rules; for (const r of out.rules) { if (r.id === "maxloss" && v.maxLoss != null) r.value = Number(v.maxLoss); if (r.id === "maxlosses" && v.maxLosses != null) r.value = Number(v.maxLosses); if (r.id === "maxgain" && v.maxGain != null) r.value = Number(v.maxGain); if (r.id === "contracts" && v.maxContracts != null) r.value = Number(v.maxContracts); } if (v.custom) out.customized = true; }
-    // una cabina anterior guardaba «Solo MNQ» sin decir qué instrumento permitía
-    out.rules.forEach(r => { if (r.role === "instrument" && !r.allow) r.allow = "MNQ"; });
+    /* Una cabina anterior guardaba «Solo MNQ» sin decir qué instrumento permitía.
+       Sólo cuando la regla guardada NO TRAE el campo: `allow: ""` es «sin
+       restricción», escrito a propósito, y convertirlo en MNQ le cambiaba la regla
+       al recargar a quien la dejó vacía. La copia de arriba confunde los dos casos,
+       así que se mira el original. */
+    if (Array.isArray(s.rules)) {
+      const orig = s.rules.filter(r => r && r.id);
+      out.rules.forEach((r, i) => { if (r.role === "instrument" && !r.allow && orig[i] && orig[i].allow == null) r.allow = "MNQ"; });
+    }
     if (Array.isArray(s.accounts)) out.accounts = s.accounts.filter(a => a && a.id).map(a => ({ id: String(a.id), firm: String(a.firm || ""), name: String(a.name || ""), kind: String(a.kind || ""), limit: Number(a.limit) || 50, total: Number(a.total) || 0, best: Number(a.best) || 0, size: Math.max(0, Number(a.size) || 0), dd: Math.max(0, Number(a.dd) || 0), target: Math.max(0, Number(a.target) || 0), ddKind: DD_KEYS.includes(a.ddKind) ? a.ddKind : "trailing_lock", trailBase: a.trailBase === "cierre" ? "cierre" : "intradia", ledger: Array.isArray(a.ledger) ? a.ledger.filter(e => e && e.id).map(e => ({ id: String(e.id), date: String(e.date || ""), kind: LEDGER_KEYS.includes(e.kind) ? e.kind : "payout", amount: Math.abs(Number(e.amount) || 0), note: String(e.note || "") })) : [], status: migraEstado(a.status, a.kind),
       /* El contrato de la firma. Un campo vacío NO es cero: es «no escrito», y
          se distingue con null para poder decir «sin configurar» en vez de
@@ -2420,6 +2496,13 @@
     if (state.demo) return;
     if (!quiet) state.settings.customized = true;
     debounce("settings", async () => {
+      /* EN EL ARTEFACTO NO SE GUARDA CONFIGURACIÓN HASTA QUE LA BASE HAYA CONTESTADO.
+         Antes, guardar en ese hueco escribía los valores por defecto encima de la
+         configuración real — medido: «SIN CUENTAS», todas borradas por cambiar una
+         regla medio segundo antes de que cargara. Se comprueba AQUÍ, al escribir, y
+         no al pedir la escritura: entre las dos hay 500 ms. El cambio se queda en
+         pantalla hasta que llega lo guardado, y lo guardado manda. */
+      if (state.db && !state.cfgConocida) { flash("la configuración aún no había cargado: ese cambio no se guardó"); return; }
       if (state.db) { try { await state.db.doc("settings/main").set(clone(state.settings)); siSeGuardo("settings/main", "guardado"); } catch (e) { noSeGuardo("settings/main", motivoDb(e), "la configuracion"); } }
       else if (state.store === "local") { if (lsPatch(d => { d.settings = state.settings; })) siSeGuardo("settings/main", "guardado en este navegador"); else noSeGuardo("settings/main", lsMotivo, "la configuracion"); }
     }, 500);
@@ -2435,10 +2518,26 @@
   }
   function loadLocal() {
     const data = lsRead();
-    if (data.settings) state.settings = normalize(data.settings);
+    if (data.settings) { state.settings = normalize(data.settings); state.cfgOrigen = "guardada"; }
     if (data.days && data.days[state.today]) state.day = migrateDay(Object.assign(newDay(state.today), data.days[state.today]));
     renderHistoryFromLocal();
     COLLS.forEach(n => coll(n).loadLocal());
+    recuperaLegado();
+  }
+  /* UNA INSTALACIÓN QUE NUNCA GUARDÓ CONFIGURACIÓN dependía entera de los valores
+     por defecto. Si sus operaciones apuntan a las cuentas de siempre, recupera la
+     configuración de siempre. NUNCA GUARDA: sólo pinta lo que ya se veía. En el
+     artefacto espera a que la base CONFIRME que `settings/main` no existe — si
+     existe no hay nada que recuperar, y adoptar aquí algo que luego se guardara
+     sobrescribiría la configuración real. */
+  function recuperaLegado() {
+    if (state.demo || state.cfgOrigen !== "neutral") return;
+    if (state.db && !state.cfgAusente) return;
+    if (state.settings.customized || (state.settings.accounts || []).length) return;
+    if (!coll("trades").items.some(t => t && LEGADO_IDS.has(t.accountId))) return;
+    state.settings = normalize(clone(LEGADO_SETTINGS));
+    state.cfgOrigen = "legado";
+    try { renderSettings(); } catch (e) { }
   }
   function renderHistoryFromLocal() {
     const data = lsRead();
@@ -2454,7 +2553,10 @@
     if (!db) return;
     state.db = db; state.store = "db"; setStoreLabel();
     db.doc("settings/main").onSnapshot(snap => {
-      if (state.demo || !snap.exists) return;
+      if (state.demo) return;
+      state.cfgConocida = true;
+      if (!snap.exists) { state.cfgAusente = true; recuperaLegado(); return; }
+      state.cfgOrigen = "guardada";
       const incoming = normalize(snap.data());
       if (JSON.stringify(incoming) === JSON.stringify(state.settings)) return;
       state.settings = incoming;
@@ -2468,6 +2570,7 @@
       renderHistory();
     }, () => {});
     COLLS.forEach(n => coll(n).attachDb(db));
+    coll("trades").subscribe(() => recuperaLegado());
   }
   function subscribeDay() {
     state.unsub.forEach(u => u()); state.unsub = [];
@@ -2495,7 +2598,7 @@
     }
     f.className = "";
     if (state.store === "db") { el.textContent = "sincronizado"; el.className = "save-state cloud"; f.textContent = "Los cambios se guardan y se comparten con quien tenga acceso a esta página."; }
-    else if (state.store === "local") { el.textContent = "guardado local"; el.className = "save-state"; f.textContent = "Guardado solo en este navegador."; }
+    else if (state.store === "local") { el.textContent = "guardado local"; el.className = "save-state"; f.textContent = "Guardado solo en este navegador. Tus operaciones no se envían a ningún servidor."; }
     else { el.textContent = "sin guardado"; el.className = "save-state"; f.textContent = "Sin almacenamiento disponible: lo que escribas se pierde al recargar."; }
   }
 
@@ -10474,7 +10577,12 @@
     if (state.demo) return;
     const d = buildDemo();
     state.demo = true; document.body.classList.add("demo");
-    state.settings = normalize(Object.assign(clone(state.settings), { accounts: d.accounts }));
+    /* Un desconocido no tiene reglas con valor, y un demo sin números no enseña
+       nada: el demo pone los suyos, inventados como el resto de sus datos. */
+    const base = clone(state.settings);
+    if (!base.rules.some(r => r.kind === "num" && Number(r.value)))
+      base.rules.forEach(r => { const v = { maxLoss: 500, maxLosses: 3, maxGain: 750, maxContracts: 2 }[r.role]; if (r.kind === "num" && v != null) r.value = v; });
+    state.settings = normalize(Object.assign(base, { accounts: d.accounts }));
     state.history = d.history;
     state.day = Object.assign(newDay(state.today), { result: d.history[0] ? d.history[0].result : 0, trades: d.history[0] ? d.history[0].trades : 0, note: "Sesión de ejemplo. Nada de esto se guarda.", closed: false, levels: d.demoLevels });
     state.day.checksBy = { nyam: {} }; state.settings.checks.forEach((c, i) => { if (i < 6) state.day.checksBy.nyam[c.id] = true; });

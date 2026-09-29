@@ -193,6 +193,11 @@ dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia'
      los errores no entran en esa esperanza, y abrir una operacion vieja no la
      castiga. Ver docs/ERRORES.md. */
   dice('errores', 'suite', 'Las perdidas se clasifican sin absolver por defecto', 'index.html');
+  /* Un desconocido arranca vacio y nadie pierde lo suyo: la configuracion guardada
+     no se toca, lo antiguo se recupera sin escribir, y no se guarda configuracion
+     en el artefacto antes de que la base conteste. */
+  dice('primer', 'suite', 'Un desconocido arranca vacio y nadie pierde lo suyo', 'persistencia');
+  dice('lanzamiento', 'suite', 'Aviso legal, privacidad y metadatos de producto a la vista', 'index.html');
 }
 
 /* ── ARTEFACTO · lo que SÍ se puede comprobar desde aquí ─────────────────────

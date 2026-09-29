@@ -223,10 +223,13 @@ const dobleDb = async () => {
      que el dia se volvia a romper en la misma accion y el contador regresaba a 1
      solo. La asercion parecia vigilar la logica por documento y no vigilaba nada:
      el sabotaje del contador global la dejaba en verde. */
+  /* Una REGLA y no una cuenta: la primera version cogia `FUT.accounts()[0]`, que era
+     una de las cuentas por defecto. Desde el arranque neutral no hay ninguna. Una
+     regla existe siempre y tambien se guarda en settings/main. */
   const guardoOtro = await p.evaluate(async () => {
-    const a = (window.FUT.accounts() || [])[0];
-    if (!a) return false;
-    return window.FUT.updateAccount(a.id, { name: String(a.name || '') + ' x' });
+    const r = (window.FUT.rules() || []).find(x => x.role === 'maxLoss');
+    if (!r) return false;
+    return window.FUT.updateRule(r.id, { value: 123 });
   });
   await p.waitForTimeout(1400);
   const d1 = await lee(p);

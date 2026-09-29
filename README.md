@@ -1,11 +1,16 @@
 # TURBOK2 · Cabina
 
-Cockpit personal de trading de futuros e inversiones. Una sola página, sin build
-ni framework: pre-sesión, reglas duras, cuentas de prop firm, journal de futuros,
-cartera de inversiones, playbook y tesis por jugada.
+Diario de trading de futuros e inversiones que funciona entero en tu navegador. Una
+sola página, sin build ni framework: pre-sesión, reglas duras, cuentas de prop firm,
+journal de futuros, cartera de inversiones, playbook, tesis por jugada y
+clasificación de tus errores.
 
-No es un producto para terceros. Es la herramienta de una persona, y este
-repositorio es su fuente de verdad.
+**Tus datos no salen de tu navegador.** No es asesoramiento financiero: operar
+futuros conlleva un riesgo alto de pérdida.
+
+Preparado para lanzarse como producto local-first. Lo que está hecho, lo que falta y
+lo que es decisión del dueño —licencia, nombre— está en
+[docs/LANZAMIENTO.md](docs/LANZAMIENTO.md).
 
 ---
 
@@ -294,8 +299,8 @@ resuelve.
   puede hacer.
 - **`file://` tira el almacén al recargar**, de forma intermitente. Por eso el
   smoke test usa HTTP y dos pruebas abren una pestaña nueva en vez de recargar.
-- **33 de las 55 pruebas de `test/` no afirman nada**: miden y registran. Su
-  único modo de fallo es romperse. Las 22 que afirman están contadas abajo, y
+- **33 de las 57 pruebas de `test/` no afirman nada**: miden y registran. Su
+  único modo de fallo es romperse. Las 24 que afirman están contadas abajo, y
   tanto el número como la lista los imprime `npm test`, no un `grep` sobre el
   código — ver protocolo 14.
 - **El motor tiene 55 funciones que la app no usa**, incluido el módulo de
@@ -317,13 +322,13 @@ resuelve.
 
 | | |
 |---|---|
-| Suites que se ejecutan | **58** (55 de `test/` + 3 del motor) |
+| Suites que se ejecutan | **60** (57 de `test/` + 3 del motor) |
 | Aserciones del motor | **421** (`quant` 329 · `math` 92) |
-| Aserciones de navegador y guardianes | **777** en 22 archivos — las cuenta la propia suite |
+| Aserciones de navegador y guardianes | **814** en 24 archivos — las cuenta la propia suite |
 | Cobertura de la capa `db` del artefacto | **29** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
-| Compuerta de publicación | **19 PASS · 0 FAIL · 4 `UNKNOWN`** de 23 filas |
-| CI | ejecuta `npm run compuerta`: la suite entera más la tabla; última verificación local: **19 PASS · 0 FAIL · 4 UNKNOWN** en 698 s |
+| Compuerta de publicación | **21 PASS · 0 FAIL · 4 `UNKNOWN`** de 25 filas |
+| CI | ejecuta `npm run compuerta`: la suite entera más la tabla; última verificación local: **21 PASS · 0 FAIL · 4 UNKNOWN** en 712 s |
 | Secretos técnicos en el repositorio | ninguno |
 
 Detalle y evidencia en [PROTOCOLOS.md](PROTOCOLOS.md). La historia de cada fallo

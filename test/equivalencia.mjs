@@ -67,6 +67,15 @@ await p.waitForTimeout(1200);
    TRES dias distintos a proposito: la consistencia y el drawdown trailing no
    significan nada con un solo dia. */
 const R = await p.evaluate(async () => {
+  /* EL PROTOCOLO QUE ESTA PRUEBA MIDE, DECLARADO. Los dorados de abajo -- perdida
+     maxima 150, tope 21.43 frente a una regla dura de 200 -- salen de estas dos
+     reglas. Hasta el arranque neutral eran los valores por defecto de la cabina, y
+     la prueba nunca los escribia: los daba por hechos. Al vaciarse los defaults se
+     puso roja en siete sitios. Lo correcto no era cambiar los dorados, sino que la
+     prueba diga la configuracion que mide. */
+  const regla = rol => FUT.rules().find(r => r.role === rol);
+  FUT.updateRule(regla('maxLoss').id, { value: 150 });
+  FUT.updateRule(regla('maxGain').id, { value: 200 });
   FUT.createAccount({ id: 'EQ1', firm: 'Equivalencia', name: 'Guardian 25K', kind: 'Evaluación',
     size: 25000, dd: 1500, ddKind: 'trailing_lock', trailBase: 'intradia',
     target: 1500, limit: 30, status: 'activa', ledger: [], total: 0, best: 0 });
