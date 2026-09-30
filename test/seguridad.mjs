@@ -75,7 +75,7 @@ const urls = Array.from(new Set(Array.from(sinComentarios.matchAll(/https?:\/\/[
 ok(urls.length === 1 && urls[0] === NUBE, 'ningún otro proyecto Supabase citado en el código', urls.join(' · '));
 
 console.log('\n═══ SECRETOS · en el fichero que se publica ═══');
-/* El artefacto ES este fichero. Un secreto aqui es un secreto publicado. */
+/* Este fichero ES lo que se publica en Pages. Un secreto aqui es un secreto publicado. */
 const SOSPECHA = /(sk-[A-Za-z0-9]{20})|(ghp_[A-Za-z0-9]{20})|(AKIA[0-9A-Z]{16})|(-----BEGIN [A-Z ]*PRIVATE KEY)|(["'](?:api[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token)["']\s*:\s*["'][^"']{8,})/i;
 ok(!SOSPECHA.test(html), 'ningun patron de secreto en index.html', 'limpio');
 

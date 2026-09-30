@@ -22,9 +22,10 @@ La clave pública del proyecto va **dentro de la página**, que cualquiera puede
 Es así por diseño en Supabase, y significa que **lo único que separa la data de dos
 usuarios son las reglas de la base** (Row Level Security). No la app, no la clave.
 
-Una sola tabla, `cabina_docs (user_id, path, data, updated_at)`, con la misma forma
-que la base del artefacto: `settings/main`, `days/<fecha>`, `trades/<id>`. Por eso la
-app cambia un **adaptador**, no su modelo de datos ni sus 11.000 líneas.
+Una sola tabla, `cabina_docs (user_id, path, data, updated_at)`, con el mismo modelo
+de documentos que usa la app sin cuenta: `settings/main`, `days/<fecha>`,
+`trades/<id>` ([DATA_MODEL.md](DATA_MODEL.md)). La app cambia de **backend**, no de
+modelo de datos.
 
 Reglas (`supabase/migrations/20260930063500_cabina_docs_por_usuario.sql`):
 
@@ -42,7 +43,7 @@ Reglas (`supabase/migrations/20260930063500_cabina_docs_por_usuario.sql`):
 |---|---|---|
 | 1 | Tabla, reglas y prueba de aislamiento | **Hecha** · 2026-09-30 |
 | 2 | Adaptador en la app + pantalla de login | **Hecha en código** · 2026-09-30 · falta la primera prueba real (abajo) |
-| 3 | Migrar la data del dueño (respaldo del artefacto → importar en su cuenta) | pendiente · ya no necesita código: con sesión, «Importar copia» escribe en la cuenta |
+| 3 | Migrar la data del dueño | **Descartada** por el dueño el 2026-09-30: empieza de cero. Si hiciera falta, con sesión «Importar copia» escribe en la cuenta |
 | 4 | Lanzamiento: plan Pro, email propio, política de privacidad, borrar cuenta, `noindex` fuera | pendiente |
 
 ### Fase 1 — verificada
@@ -63,11 +64,11 @@ regla real intacta. El revisor de seguridad de Supabase: **sin avisos**.
 
 ### Fase 2 — lo que hay
 
-- **Botón «Entrar»** arriba, sólo fuera del artefacto. Email y contraseña: entrar,
+- **Botón «Entrar»** arriba. Email y contraseña: entrar,
   crear cuenta (confirmación por email), olvidé mi contraseña. Los enlaces del correo
   vuelven a la página; el token se recoge y **se borra de la barra de direcciones**.
-- **`nubeDb()`**: el mismo idioma que la base del artefacto, sobre `fetch` y sin
-  librería. Una sola función llama a la red, a un solo origen, con la clave publicable.
+- **`nubeDb()`**: la misma interfaz que el almacén local (`localDb()`), sobre
+  `fetch` y sin librería. Una sola función llama a la red, a un solo origen, con la clave publicable.
 - **El almacén se elige al arrancar y una sola vez.** Entrar y salir recargan la
   página: nunca conviven en memoria los datos de dos personas.
 - **Con sesión, lo local no se carga.** Si se pintara, la configuración de este
@@ -85,17 +86,39 @@ regla real intacta. El revisor de seguridad de Supabase: **sin avisos**.
 - **No es tiempo real.** Lo que escribes se ve al instante; lo de otro dispositivo,
   al volver a la pestaña (como mucho cada 20 s).
 
-Un arreglo que salió de aquí y **también afectaba al artefacto**: borrar varias
-sesiones a la vez leía y borraba de `localStorage`. Con base, la confirmación decía
+Un arreglo que salió de aquí: borrar varias sesiones a la vez leía y borraba de
+`localStorage`. Con base, la confirmación decía
 «sin resultados», no se borraba nada de la base y el historial se quedaba en blanco.
+
+### Capturas — bucket privado
+
+`supabase/migrations/20260930120000_capturas_por_usuario.sql`: bucket `capturas`,
+privado, 20 MB, sólo png/jpeg/webp/gif. Cada objeto vive en `<user_id>/<id>` y las
+políticas de `storage.objects` sólo dejan leer, subir y borrar bajo la carpeta propia.
+No hay URL pública de ninguna imagen: la app la pide con el token y la enseña desde un
+`objectURL`.
+
+`supabase/pruebas/capturas.sql`, contra el proyecto real, 2026-09-30:
+
+```
+A_ve_lo_suyo=1  A_fuera_de_su_carpeta_bloqueado=true  B_lee_de_A=0
+B_sube_en_carpeta_de_A_bloqueado=true  anonimo_ve=0  A_intacto=1
+```
+
+**Sabotaje**: con la lectura abierta a todos, B leyó 1 objeto de A. Después: política
+real intacta, 0 objetos, 0 usuarios de prueba. Avisos de seguridad de Supabase: 0.
+
+**No probado en SQL**: el borrado. Supabase prohíbe `delete from storage.objects`
+desde SQL con un trigger; la política de borrado usa la misma expresión que la de
+lectura. En la app lo cubre `test/capturas.mjs` contra el doble.
 
 ### Fase 2 — cómo se verificó, y lo que NO
 
 | | |
 |---|---|
-| `test/cuentas.mjs` | 63 comprobaciones contra un doble de Supabase: login, escritura con el `user_id` correcto, recarga, token caducado y revocado, salir sin dejar rastro, dos personas en el mismo navegador, borrado en lote, subir lo local, enlaces del correo, abrir sin red, 1005 operaciones, artefacto sin botón |
+| `test/cuentas.mjs` | contra un doble de Supabase: login, escritura con el `user_id` correcto, recarga, token caducado y revocado, salir sin dejar rastro, dos personas en el mismo navegador, borrado en lote, subir lo local, enlaces del correo, abrir sin red, 1005 operaciones |
 | Sabotajes | sin vaciar la papelera → 2 rojos; cargando lo local con sesión → rojo; sin el rótulo «sin conexión» → 2 rojos. Los tres cazados |
-| `test/seguridad.mjs` | un origen, una clave publicable, `fetch` sólo a la nube y a imágenes filtradas; sin cuenta, ninguna petición fuera |
+| `test/seguridad.mjs` | un origen, una clave publicable, un solo `fetch` en toda la app y va a la nube; sin cuenta, ninguna petición fuera |
 | Proyecto real, SQL | el upsert que hace el adaptador, bajo RLS: una fila por ruta, la segunda escritura reemplaza, el orden por fecha es el que espera la app, y B no puede escribir sobre la fila de A. En una transacción que se deshace |
 | **No verificado** | la app contra el proyecto real. El proxy del entorno de desarrollo devuelve **403** a `supabase.co`: desde aquí no hay túnel. La primera prueba real es la tuya (abajo) |
 

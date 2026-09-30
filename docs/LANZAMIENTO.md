@@ -48,12 +48,12 @@ Cuando se quite, deja de exigirlo.
 | **Primer arranque neutral.** Un desconocido arranca sin cuentas, con las reglas presentes pero sin valor —y una regla sin valor no bloquea nada—, sin restricción de instrumento y sin una sola cadena de la configuración del autor. | `primer.mjs` |
 | **Nadie pierde lo suyo.** La configuración guardada no se toca, ni sus cuentas ni sus reglas. A una guardada antigua a la que le falte un bloque se le rellena con el bloque neutral, y conserva el resto. Una instalación sin configuración guardada arranca neutral y sus operaciones siguen ahí. En el navegador y en la base del artefacto, sin escribir nada al abrir. | `primer.mjs` |
 | **Sin rastro de la configuración del autor.** Sus cuentas, firmas y reglas salieron del código, de las pruebas, de la semilla y de la documentación; la recuperación que dependía de ellas, también. Antes de quitarla se comprobó que la instalación del autor no la necesitaba: su configuración está guardada completa y ninguna cuenta en uso depende de los identificadores antiguos. Una prueba recorre cada fichero versionado para que no vuelvan. | `lanzamiento.mjs` · `primer.mjs` |
-| **Una carrera que ya existía, cerrada.** En el artefacto, guardar configuración antes de que la base contestara escribía los valores por defecto encima de la real. Con el arranque neutral eso habría borrado todas las cuentas: medido, «SIN CUENTAS». Ahora no se guarda hasta que la base contesta. | `primer.mjs` |
-| **No es asesoramiento financiero**, dicho en las seis pestañas y en un teléfono, con el riesgo de pérdida. | `lanzamiento.mjs` |
-| **Privacidad**: el pie dice dónde viven los datos y que no se envían a ningún servidor. Lo sostiene que el código no tenga `fetch` externo, `sendBeacon` ni `<script src>`. | `lanzamiento.mjs` · `seguridad.mjs` |
+| **Una carrera que ya existía, cerrada.** Con base remota, guardar configuración antes de que la base contestara escribía los valores por defecto encima de la real. Con el arranque neutral eso habría borrado todas las cuentas: medido, «SIN CUENTAS». Ahora no se guarda hasta que la base contesta. | `primer.mjs` |
+| **No es asesoramiento financiero**, dicho en las siete pestañas y en un teléfono, con el riesgo de pérdida. | `lanzamiento.mjs` |
+| **Privacidad**: el pie dice dónde viven los datos. Sin cuenta, «no se envían a ningún servidor», y es cierto: ninguna petición sale. Con cuenta, «guardado en tu cuenta» y que sólo tu sesión puede leerlos. Un solo `fetch` en todo el código, al proyecto Supabase; ni `sendBeacon` ni `<script src>`. | `lanzamiento.mjs` · `seguridad.mjs` |
 | **El enlace compartido** muestra título y descripción de producto, e icono de pestaña — dentro del propio fichero, sin ningún recurso externo nuevo. | `lanzamiento.mjs` |
-| **Se ve bien** en las seis pestañas a 1440, 834 y 430 px, sin desborde. | `vista.mjs` |
-| **Un guardado que falla se dice**, en la barra y en las seis pestañas, también en un teléfono y también a un lector de pantalla. | `guardado.mjs` |
+| **Se ve bien** en las siete pestañas a 1440, 834 y 430 px, sin desborde. | `vista.mjs` |
+| **Un guardado que falla se dice**, en la barra y en las siete pestañas, también en un teléfono y también a un lector de pantalla. | `guardado.mjs` |
 | **Las pérdidas se clasifican** en análisis, ejecución, psicológico y sistema, sin absolver por defecto. | `errores.mjs` |
 
 ---
@@ -78,9 +78,9 @@ rama y la PR abierta. Es posible, pero es una decisión tuya y no se hace sin pe
 
 ## Acciones tuyas fuera del código
 
-1. **Cerrar el compartido público del artefacto** — menú Share. Es el único riesgo vivo
-   y explotable: el artefacto tiene datos reales y está abierto a quien tenga el enlace.
-   El producto para terceros es Pages, no el artefacto.
+1. **Borrar el artefacto viejo de claude.ai, o al menos dejar de compartirlo.** La app
+   ya no lo usa, pero sigue existiendo con datos reales y, si se compartió por enlace,
+   abierto a quien lo tenga. Sólo su dueño puede hacerlo.
 2. **Abrir la URL de Pages** y comprobar que sirve. Desde este entorno no se puede: el
    proxy devuelve 403. La compuerta lo marca `UNKNOWN`, y así se queda hasta que alguien
    la abra.
@@ -96,6 +96,6 @@ rama y la PR abierta. Es posible, pero es una decisión tuya y no se hace sin pe
   autor.
 - **Imagen para compartir** (`og:image`). El nombre ya está; falta la imagen, y tiene
   que ir dentro del repositorio, no en un servidor ajeno.
-- **Política de seguridad de contenido (CSP).** Endurecería la página, pero el
-  artefacto inyecta su propio entorno y una política mal ajustada lo rompe. Hay que
-  probarla dentro del artefacto, no sólo en Pages.
+- **Política de seguridad de contenido (CSP).** Endurecería la página. Ya no hay
+  artefacto que la rompa; tiene que permitir `connect-src` al proyecto Supabase,
+  `img-src` `data:` y `blob:` (capturas) y las fuentes de Google, y probarse en Pages.

@@ -5,8 +5,8 @@ algo falló primero, y debajo de cada protocolo está escrito **qué falló**. S
 línea el protocolo es una opinión, y las opiniones se saltan cuando hay prisa.
 
 La columna que más importa es la última: **quién lo vigila**. Un protocolo que
-sólo vive en un documento se podrece igual que se podrió `preview.html` — seis
-días en verde midiendo una copia congelada. Los que dicen *humano* son los
+sólo vive en un documento se podrece igual que se podrió el antiguo
+`preview.html` — seis días en verde midiendo una copia congelada. Los que dicen *humano* son los
 frágiles, y están marcados para que se sepa.
 
 La última fila vigila a las demás: `capa2` §14 falla si algún documento cita
@@ -17,18 +17,18 @@ cabeza de quien escribía — en el fichero únicamente estaban etiquetadas §12
 
 | # | Protocolo | Quién lo vigila |
 |---|---|---|
-| 1 | Publicar un cambio en la app | `capa2` §9 (parcial) + humano |
+| 1 | Publicar un cambio en la app | `pruebas.yml` + `pagina.yml` |
 | 2 | Antes de decir «verde» | `correr.mjs` |
 | 3 | Añadir o cambiar una regla de `capa2` | humano |
 | 4 | Añadir una prueba | `capa2` §9, §13 |
 | 5 | Qué nunca entra al repositorio | humano |
 | 6 | Cuando CI falla | humano |
-| 7 | Republicar el artefacto | `capa2` §12 (parcial) |
+| 7 | *(retirado: ya no hay artefacto)* | `capa2` §12 |
 | 8 | Al clonar | humano |
 | 10 | Tocar el motor de cálculo | `motor-bundle` + `capa2` §15 |
 | 11 | Una aserción puede fallar por el motivo correcto | humano |
 | 12 | El porcentaje de riesgo se pasa como fracción | `invariantes` |
-| 13 | Probar una plataforma que no está en el repositorio | `capsula` + humano |
+| 13 | Probar una plataforma que no está en el repositorio | `nube-doble` + `supabase/pruebas` |
 | 14 | No contar aserciones leyendo el código | `correr.mjs` |
 | 15 | Un `UNKNOWN` nunca se convierte en `PASS` | `compuerta` |
 | 16 | La capa de riesgo: una sola fuente para cada cálculo | `equivalencia` |
@@ -43,27 +43,21 @@ cabeza de quien escribía — en el fichero únicamente estaban etiquetadas §12
 
 ## 1 · Publicar un cambio en la app
 
-`index.html` es la fuente. `test/preview.html` se **genera** y no se versiona.
+`index.html` es la fuente y es lo que se publica. No hay copia intermedia.
 
 ```
-1. editar index.html          (o traer el cuerpo: node test/sync-index.mjs <ruta/cabina.html>)
-2. npm run preview            ← regenera test/preview.html desde index.html
-3. npm test                   ← 45/45 o no se sigue
-4. git commit && git push
-5. republicar el artefacto    (ver protocolo 7)
+1. editar index.html
+2. npm run compuerta          ← en verde o no se sigue
+3. git commit && git push     ← pruebas.yml corre la compuerta en CI
+4. pagina.yml publica en Pages sólo si pruebas pasó, y compara byte a byte
+   la URL publicada con index.html
 ```
-
-**El paso 2 no es opcional y es el que se olvida.** Las pruebas cargan
-`preview.html`, no `index.html`. Si no se regenera, miden el archivo viejo.
 
 > **Qué falló:** siete pruebas apuntaron durante seis días a un `preview.html`
 > obsoleto — 633 KB contra 774 KB, sin una sola mención de `posPerf`, `INV`,
 > `TES`, `tesisCalc` ni `QE.dimensionar`. Estuvieron en verde todo ese tiempo
-> midiendo código muerto, y se anunció «42/42» cuatro veces. Una imprimía
-> `cuenta en Cabina del journal: undefined` sin que nadie lo mirara.
-
-`capa2` §9 comprueba que `preview.html` contiene los símbolos de `index.html`,
-así que caza un preview rancio. No caza que te olvides del paso 5.
+> midiendo código muerto, y se anunció «42/42» cuatro veces. La copia se quitó:
+> todas las pruebas cargan `index.html`, y `capa2` §9 impide rutas fijas.
 
 ---
 
@@ -131,7 +125,7 @@ hay que haber comprobado que X revienta.
 ## 4 · Añadir una prueba
 
 - **Ninguna ruta absoluta del sistema.** Ni para leer, ni para escribir, ni para
-  capturas. Lo relativo sí: `process.cwd() + '/preview.html'`,
+  capturas. Lo relativo sí: `process.cwd() + '/../index.html'`,
   `new URL('./x', import.meta.url)`. Vigilado por `capa2` §13.
 - **La semilla es `test/semilla.json`**, importada como `SEMILLA` desde
   `espera.mjs`. Una sola copia, resuelta contra la ubicación del módulo.
@@ -178,8 +172,9 @@ Es público. No entra:
 
 - **Operaciones, cuentas o reglas reales.** Los fixtures son **sintéticos**: la
   misma forma, todos los valores inventados.
-- **Capturas de gráficos de operaciones.** Las del artefacto quedan
-  inventariadas en `ARTEFACTO.md` por id y sha256, y fuera del repositorio.
+- **Capturas de gráficos de operaciones.** Viven en el bucket privado de cada
+  cuenta; un fixture de prueba usa una imagen sintética (el PNG de 1 px de
+  `capturas.mjs`).
 - Claves, tokens, correos.
 
 Subir algo aquí **no se deshace**: queda en el historial y se indexa.
@@ -211,31 +206,15 @@ minutos sí corrió la suite y está diciendo algo del código.
 
 ---
 
-## 7 · Republicar el artefacto
+## 7 · Retirado: republicar el artefacto
 
-- **Omitir `capabilities`.** Eso arrastra la declaración guardada intacta y
-  mantiene fijado el contrato. Pasarla de nuevo es una declaración **completa**:
-  lo que no se repita queda revocado.
-- **Mover el contrato es deliberado**, nunca un efecto colateral de editar.
-- El contenido es `index.html` **desde el segundo `<style>`** en adelante. Lo de
-  antes y después es la cáscara de página estática que añade `sync-index.mjs`.
-- `permissions` **no se declara**: es built-in y declararla la rechaza el
-  contrato.
+La app ya no se publica como artefacto de claude.ai: sólo en Pages. `capa2` §12
+comprueba que no quede ninguna llamada a `window.claude` en `index.html`.
 
-**Hoy `index.html` va por delante de lo publicado**, en comentarios y en una
-función muerta — cero cambio de comportamiento. El alcance exacto y cómo cerrar
-la divergencia están en [ARTEFACTO.md](ARTEFACTO.md), y ahí queda escrito que en
-cuanto toque una línea que se EJECUTA deja de ser aceptable.
-
-Detalle completo en [ARTEFACTO.md](ARTEFACTO.md). `capa2` §12 vigila que toda
-capacidad que el código llame esté documentada, que `permissions` no figure entre
-las declaradas y que cada llamada degrade a `null`.
-
-> **Qué falló:** durante semanas el repositorio no registraba **nada** de esto.
-> El dato de qué se declara al publicar vivía únicamente en la llamada de
-> publicación, que no está en ningún archivo: quien clonara veía un HTML y
-> ninguna forma de saber por qué el mismo archivo se comporta distinto según
-> dónde se abra.
+> **Qué falló:** durante semanas el repositorio no registraba qué capacidades se
+> declaraban al publicar el artefacto; el mismo archivo se comportaba distinto
+> según dónde se abriera y nadie podía saber por qué. Tener dos destinos con dos
+> almacenes era la causa de fondo, y se quitó.
 
 ---
 
@@ -383,55 +362,33 @@ Tres niveles, y cada uno responde algo que los otros no:
 
 ## 13 · Probar una plataforma que no está en el repositorio
 
-La app tiene **dos** ramas de persistencia y son un `if/else`, no una mezcla:
+Con cuenta, la app habla con Supabase: auth, la tabla `cabina_docs` y el bucket
+`capturas`. Nada de eso existe en CI. Se prueba en dos capas, y cada una dice lo
+que la otra no puede:
 
-```
-if (state.db)                    → el artefacto: window.claude.use("db")
-else if (state.store === "local") → Pages y file://: localStorage
-```
+| capa | qué demuestra | qué NO demuestra |
+|---|---|---|
+| `test/nube-doble.mjs` (dentro de Playwright) | que la app llama bien: rutas, `user_id`, token, reintentos, qué dice cuando falla | que la base real aísle a los usuarios |
+| `supabase/pruebas/*.sql` (contra el proyecto real) | que la RLS de la tabla y del bucket aísla de verdad | nada de la app |
 
-Las pruebas de navegador corren sin `window.claude`, así que **todas medían la
-segunda rama**. La primera —la que el usuario usa de verdad— se prueba con un
-**doble fiel** instalado con `addInitScript` antes del script de la app
-(`test/capsula.mjs`).
+Reglas al escribir una prueba contra el doble:
 
-Fiel quiere decir que el doble **no simplifica el contrato**:
+1. **Afirmar sobre lo que salió por la red**, no sólo sobre la pantalla: una
+   pantalla correcta con la base vacía es exactamente el fallo que se busca.
+2. **Romper el doble a propósito** (`e.caida`, `e.roto`, `e.rutaRota`, …): la app
+   debe avisar con el código real del error, nunca «guardado».
+3. **El doble no simplifica el contrato**: RLS por token, corte en 1000 filas,
+   tokens que caducan, refresh que se gasta.
 
-| lo que la app llama | lo que el doble implementa |
-|---|---|
-| `doc(p).set / get / delete` | y devuelve promesas, que la app espera con `await` |
-| `doc(p).onSnapshot(cb)` | dispara al suscribirse, y devuelve la función de baja |
-| `collection(n).limit(1000).onSnapshot` | con `{ docs: [{ data() }] }` |
-| `collection("days").orderBy("date","desc").limit(15)` | la cadena entera |
-| `collection(n).doc(id).set / delete` | y hace **eco** al suscriptor, como un Firestore |
+Y cada prueba SQL lleva su **sabotaje**: abrir la política dentro de la misma
+transacción y ver que la prueba caza la fuga. Una prueba de aislamiento que nunca
+se ha visto fallar no demuestra nada.
 
-Reglas al escribir una prueba de esta rama:
-
-1. **Registrar las llamadas, no mirar la pantalla.** Se afirma sobre la ruta y el
-   contenido del documento que salió (`settings/main`, `days/<hoy>`,
-   `col:tesis/<id>`), porque una pantalla correcta con el disco vacío es
-   exactamente el fallo que se busca.
-2. **Comprobar que la otra rama no se toca.** Con `db` conectado, `localStorage`
-   tiene que quedarse sin una sola clave `cabina-mnq`. Es lo único que prueba que
-   el `if/else` es un `if/else`.
-3. **Romper el doble a propósito.** Con todo `set()` rechazando, la app debe
-   avisar **con el código del error**, no con un genérico ni con «guardado».
-4. **Probar el snapshot entrante**, que es la mitad que nadie prueba: un
-   documento más nuevo reemplaza el día, uno más viejo no, y **con el foco
-   dentro de un campo no se sobreescribe lo que se está escribiendo**.
-
-> **Qué falló:** durante toda esta auditoría la suite dio **50/50 en verde**
-> mientras el entorno **principal** tenía **cero** aserciones. El artefacto es
-> donde el usuario trabaja; Pages es la copia de respaldo. Un fallo en la rama
-> `db` habría sido invisible para 50 suites y visible para el usuario en el primer
-> uso. No lo tapó nadie: simplemente nunca se preguntó *qué* rama medían las
-> pruebas, que es el protocolo 2 aplicado a la arquitectura y no a un número.
->
-> Y la primera versión de `capsula.mjs` falló acusando a la app de borrar el
-> campo del diario al llegar un snapshot. La app tenía razón: `index.html:3689`
-> guarda el campo enfocado a propósito. El fallo era de la prueba, que empujaba
-> el snapshot con el foco dentro. Ahora se prueban **los dos lados de esa
-> guarda**, que es una aserción más de las que había antes de equivocarme.
+> **Qué falló:** durante una auditoría entera la suite dio **50/50 en verde**
+> mientras el entorno donde el usuario trabajaba de verdad tenía **cero**
+> aserciones: las pruebas sólo medían la rama de `localStorage`. Nadie preguntó
+> *qué* rama medían. Hoy las dos ramas pasan por el mismo `almacen()` y las dos
+> tienen pruebas.
 
 ---
 
@@ -503,15 +460,14 @@ Tres veredictos, y no hay un cuarto:
 | `UNKNOWN` | **no puede comprobarse automáticamente desde aquí** |
 
 `UNKNOWN` no es un `FAIL` blando ni un `PASS` con reservas: es la frontera del
-instrumento, escrita. `npm run compuerta` imprime hoy cuatro, y las cuatro son
+instrumento, escrita. `npm run compuerta` imprime hoy tres, y las tres son
 fronteras de plataforma, no pruebas que falten:
 
-1. Que el artefacto publicado sea igual a `index.html`. No hay URL que Actions
-   pueda leer.
-2. Que el `db` real de claude.ai se comporte como el doble de `capsula.mjs`
-   (protocolo 13).
-3. Que la URL de Pages sirva.
-4. Que el CDN de GitHub entregue exactamente lo verificado.
+1. Que la base real aísle a los usuarios. Lo prueba `supabase/pruebas/*.sql`
+   contra el proyecto, a mano: CI no tiene credenciales (protocolo 13).
+2. Que la URL de Pages sirva. Lo comprueba `pagina.yml` DESPUÉS de la compuerta,
+   comparando byte a byte lo publicado con `index.html`.
+3. Que el CDN de GitHub entregue exactamente lo verificado.
 
 Las reglas:
 
@@ -962,18 +918,12 @@ Honestidad sobre los límites:
   **avisa y se queda quieto** en vez de fallar — un check rojo en cada push
   entrena a ignorar el rojo, y quien dice si el código está bien es `pruebas`.
   En cuanto se active, el siguiente push que pase la suite publica solo.
-- **La compartición del artefacto sólo la cambia su dueño**, desde el menú Share.
 - **No hay LICENSE**, así que el repositorio es «todos los derechos reservados»:
   público para leer, sin permiso para usar.
-- **El doble de `db` fija el CONTRATO, no la plataforma.** `capsula.mjs` prueba
-  que la app usa correctamente el `db` que *espera*. Si claude.ai cambiara ese
-  contrato, la prueba seguiría **verde** y el artefacto estaría **roto**. Eso sólo
-  lo detecta abrir el artefacto. Por eso el contrato está escrito en el
-  encabezado del fichero y en el protocolo 13, no sólo codificado.
-- **Si el `db` falla al escribir, el dato se queda en memoria.** Eso sigue igual, y
-  a propósito: la app **no** cae a `localStorage`, así que al recargar se pierde.
-  Elegir una segunda fuente de verdad es una decisión de producto —dos copias que
-  divergen es un problema peor— y no se toma en una auditoría. Lo que **sí** cambió
-  es que ya no lo disimula: el rótulo de la barra dice «SIN GUARDAR · *n*» con el
-  código del error, en las seis pestañas, hasta que se guarde (protocolo 20).
-  Afirmado en `capsula.mjs` y en `guardado.mjs`.
+- **El doble de Supabase fija el CONTRATO, no la plataforma.** Si Supabase
+  cambiara su API REST, `cuentas` y `capturas` seguirían en verde. Lo detecta
+  abrir la app con cuenta, y las pruebas SQL sólo cubren la RLS.
+- **Sin red, lo escrito con cuenta se queda en memoria.** La app no cae a
+  `localStorage`: dos copias que divergen es un problema peor. No lo disimula: el
+  rótulo dice «SIN GUARDAR · *n*» con el código del error hasta que se guarde
+  (protocolo 20). Afirmado en `guardado.mjs`.
