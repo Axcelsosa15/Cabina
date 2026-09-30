@@ -1654,7 +1654,7 @@
       <div class="bkcard">
         <span class="lab">Exportar</span>
         <label class="bkchk"><input type="checkbox" id="bkImgs"> Meter las capturas dentro del archivo</label>
-        <p class="help" id="bkImgsNote">Sin esto el archivo pesa poco, pero las capturas se quedan atrás: solo existen en esta cabina.</p>
+        <p class="help" id="bkImgsNote">Sin esto el archivo pesa poco, pero las capturas se quedan atrás: solo existen en tu cuenta.</p>
         <div class="bkbtns">
           <button type="button" class="btn primary" id="bkExport">Descargar copia</button>
           <button type="button" class="btn ghost" id="bkShow">Ver el texto</button>
@@ -2296,8 +2296,7 @@
      la duda, evaluación — es lo que se corrige con un clic, y equivocarse hacia
      «fondeada» pintaría de verde una cuenta que aún no lo está. */
   /* Se migra AL LEER, no sólo al normalizar. Una cuenta puede entrar por
-     FUT.createAccount, por un respaldo viejo o por la base del artefacto sin
-     pasar por normalize(), y un estado desconocido hacía que EST_VIVA
+     FUT.createAccount o por un respaldo viejo sin pasar por normalize(), y un estado desconocido hacía que EST_VIVA
      devolviera undefined: la cuenta quedaba BLOQUEADA para siempre sin que
      nada explicara por qué. Leer siempre por aquí lo hace imposible. */
   function estadoDe(a) { return migraEstado(a && a.status, a && a.kind); }
@@ -2671,23 +2670,22 @@
   }
 
   /* =============================== CUENTAS CON SYNC ===============================
-     Fuera del artefacto, quien crea una cuenta guarda su cabina en Supabase y la
-     abre desde cualquier dispositivo. Sin cuenta, nada cambia: localStorage, y
+     Quien entra con su cuenta guarda su cabina en Supabase y la abre desde
+     cualquier dispositivo. Sin cuenta, nada cambia: localStorage, y
      ni una sola petición de red.
 
      LO QUE SEPARA LA DATA DE DOS USUARIOS NO ESTÁ AQUÍ. La clave de abajo es la
      PÚBLICA del proyecto: va en la página a propósito y cualquiera puede leerla.
      La privacidad la imponen las reglas de la base (RLS forzado, cada fila con
-     su user_id, anónimo sin permisos). Ver supabase/migrations y la prueba de
-     supabase/pruebas/aislamiento.sql. Este código sólo tiene que pedir lo suyo;
+     su user_id, anónimo sin permisos; las capturas en un bucket privado con la
+     carpeta de cada usuario). Ver supabase/migrations y supabase/pruebas/. Este código sólo tiene que pedir lo suyo;
      aunque pidiera lo ajeno, la base no se lo daría.
 
-     Sin librería: fetch contra dos APIs REST (auth y datos). Un <script src> de
+     Sin librería: fetch contra tres APIs REST (auth, datos y capturas). Un <script src> de
      terceros sería código ajeno con acceso a todas las operaciones.
 
-     nubeDb() habla el MISMO idioma que la base del artefacto (doc, collection,
-     onSnapshot), así que el resto de la app no sabe cuál de las dos tiene
-     debajo. Diferencia honesta: aquí no hay tiempo real. Lo que escribes se ve
+     nubeDb() y localDb() hablan el MISMO idioma (doc, collection, onSnapshot),
+     así que el resto de la app no sabe cuál de las dos tiene debajo. Diferencia honesta: aquí no hay tiempo real. Lo que escribes se ve
      al instante porque lo aplica el propio adaptador; lo que escribas en OTRO
      dispositivo llega al volver a esta pestaña (máximo cada 20 s). */
   const NUBE_URL = "https://lazniuuedlhqomfyykvf.supabase.co";
@@ -2706,9 +2704,12 @@
 
   async function nubeHttp(ruta, opt) {
     let r;
-    try { r = await fetch(NUBE_URL + ruta, { method: opt.method || "GET", headers: opt.headers, body: opt.body == null ? undefined : JSON.stringify(opt.body) }); }
+    /* `crudo`: el cuerpo va tal cual (una imagen), no como JSON. `blob`: la
+       respuesta se devuelve como Blob (una imagen), no se interpreta. */
+    try { r = await fetch(NUBE_URL + ruta, { method: opt.method || "GET", headers: opt.headers, body: opt.body == null ? undefined : opt.crudo ? opt.body : JSON.stringify(opt.body) }); }
     catch (e) { marcaRed(false); throw { code: "sin_conexion" }; }
     marcaRed(true);
+    if (opt.blob && r.ok) return r.blob();
     const txt = await r.text(); let j = null;
     try { j = txt ? JSON.parse(txt) : null; } catch (e) { j = null; }
     if (!r.ok) throw { code: String((j && (j.error_code || j.code || j.error)) || ("http_" + r.status)), msg: String((j && (j.msg || j.message || j.error_description)) || ""), status: r.status };
@@ -2741,6 +2742,7 @@
   async function nubeFetch(ruta, opt) {
     opt = opt || {};
     const h = Object.assign(nubeCab(), opt.headers || {});
+    Object.keys(h).forEach(k => { if (h[k] === undefined) delete h[k]; });
     if (opt.anonimo) return nubeHttp(ruta, Object.assign({}, opt, { headers: h }));
     let s = nube.ses;
     if (s && s.exp - Date.now() < 60000) { try { s = await renueva(); } catch (e) { s = nube.ses; } }
@@ -7067,28 +7069,25 @@
   }
   /* =============================== CAPTURAS =============================== */
   const ASSET_MAX = 20 * 1024 * 1024;
-  function assetsReady() { return !!(typeof pb !== "undefined" && pb && pb.assets); }
-  /* Una captura vive de dos formas: subida al almacenamiento del artefacto
-     (se sirve en /_blob/<id>) o metida dentro del propio dato como data URI,
-     que es como llega cuando se importa una copia en otra cabina. */
-  /* ── DE DÓNDE PUEDE VENIR UNA IMAGEN ──────────────────────────────────────
-     Sólo dos sitios: incrustada como `data:image/…`, o una referencia al almacén
-     de assets del artefacto (`/_blob/<id>`). Cualquier otra cosa —`https:`,
-     `blob:`, `file:`, `javascript:`— sólo puede haber llegado dentro de un
-     respaldo que alguien escribió a mano, porque la app nunca la produce.
+  function capt() { return typeof pb !== "undefined" && pb && pb.assets ? pb.assets : null; }
+  function assetsReady() { return !!capt(); }
+  /* Una captura vive de dos formas: subida al bucket privado «capturas» de tu
+     cuenta (`{ id }`, ruta <tu usuario>/<id>) o metida dentro del propio dato como
+     data URI, que es como llega cuando se importa un respaldo.
 
-     Por qué importa, y no es teórico: `imgSrc()` alimenta cinco `<img src>` Y un
-     `fetch()` en el empaquetado de respaldos. Sin este filtro, importar un
-     respaldo ajeno con `data: "https://…"` hace que la cabina PIDA esa URL — le
-     revela a quien escribió el fichero que lo abriste, tu IP y tu navegador. No es
-     ejecución de código; es balizamiento, y en una aplicación con datos de trading
-     personales eso basta para que no se permita.
-
-     `esc()` no servía aquí: escapa HTML, no valida el esquema de una URL.
+     ── DE DÓNDE PUEDE VENIR UNA IMAGEN ──────────────────────────────────────
+     Sólo esos dos sitios. Cualquier otra cosa —`https:`, `blob:`, `file:`,
+     `javascript:`— sólo puede haber llegado dentro de un respaldo que alguien
+     escribió a mano, porque la app nunca la produce. Pedir esa URL le revelaría a
+     quien escribió el fichero que lo abriste, tu IP y tu navegador: balizamiento.
+     `esc()` no servía: escapa HTML, no valida el esquema de una URL.
 
      Una imagen rechazada NO desaparece en silencio: se dibuja una caja con una
      diagonal, que es un SVG constante de este fichero, no un dato de nadie.
-     Encontrado en la auditoría de seguridad; ver docs/SEGURIDAD-2026-09-27.md §3.1. */
+
+     Un bucket privado no tiene URL que poner en un <img>: cada imagen se pide con
+     tu token y se enseña desde un objectURL. Mientras llega, el <img> muestra una
+     caja gris y lleva `data-shot` con su id; al llegar se le pone el src. */
   const IMG_DATA_OK = /^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]*$/i;
   const IMG_ID_OK = /^[A-Za-z0-9_-]{1,128}$/;
   const IMG_RECHAZADA = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 32'%3E%3Crect width='48' height='32' fill='none' stroke='%23E0604F' stroke-dasharray='3 2'/%3E%3Cpath d='M0 0l48 32' stroke='%23E0604F'/%3E%3C/svg%3E";
@@ -7098,9 +7097,54 @@
     if (im.id != null) return IMG_ID_OK.test(String(im.id));
     return false;
   }
+  const IMG_CARGANDO = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 32'%3E%3Crect width='48' height='32' fill='%23808080' fill-opacity='.15'/%3E%3C/svg%3E";
   function imgSrc(im) {
     if (!imgValida(im)) return IMG_RECHAZADA;
-    return im.data != null ? String(im.data) : "/_blob/" + String(im.id);
+    if (im.data != null) return String(im.data);
+    const A = capt();
+    const u = A && A.url(String(im.id));
+    if (u) return u;
+    if (A) A.carga(String(im.id));
+    return A ? IMG_CARGANDO : IMG_RECHAZADA;
+  }
+  function imgAttrs(im) {
+    const A = capt();
+    const espera = imgValida(im) && im.data == null && A && !A.url(String(im.id));
+    return `src="${esc(imgSrc(im))}"` + (espera ? ` data-shot="${esc(String(im.id))}"` : "");
+  }
+  /* El bucket «capturas» de la cuenta. Sin sesión no hay dónde guardar imágenes:
+     pb.assets se queda en null y la app lo dice. */
+  function capturasNube() {
+    const O = "/storage/v1/object";
+    const ruta = id => "capturas/" + encodeURIComponent(nube.ses ? nube.ses.uid : "") + "/" + encodeURIComponent(id);
+    const urls = new Map(), blobs = new Map(), pedidas = new Map();
+    const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    const pinta = (id, u) => document.querySelectorAll("img[data-shot]").forEach(img => {
+      if (img.dataset.shot === id) { img.src = u; img.removeAttribute("data-shot"); } });
+    const blob = id => nubeFetch(O + "/authenticated/" + ruta(id), { blob: true, headers: { "content-type": undefined } });
+    return {
+      url: id => urls.get(id) || null,
+      blob: id => blobs.has(id) ? Promise.resolve(blobs.get(id)) : blob(id),
+      carga(id) {
+        if (urls.has(id) || pedidas.has(id)) return pedidas.get(id);
+        const p = blob(id)
+          .then(b => { const u = URL.createObjectURL(b); blobs.set(id, b); urls.set(id, u); pinta(id, u); return u; })
+          .catch(() => { pinta(id, IMG_RECHAZADA); return null; })
+          .finally(() => pedidas.delete(id));
+        pedidas.set(id, p); return p;
+      },
+      async upload(file) {
+        const id = nuevoId();
+        await nubeFetch(O + "/" + ruta(id), { method: "POST", crudo: true, body: file,
+          headers: { "content-type": file.type || "application/octet-stream", "x-upsert": "false" } });
+        blobs.set(id, file); urls.set(id, URL.createObjectURL(file));
+        return { id };
+      },
+      async delete(id) {
+        await nubeFetch(O + "/" + ruta(id), { method: "DELETE" });
+        const u = urls.get(id); if (u) { URL.revokeObjectURL(u); urls.delete(id); blobs.delete(id); }
+      },
+    };
   }
   function hasImg(x) { return !!(x && (x.id || x.data)); }
   async function uploadShot(file) {
@@ -7112,10 +7156,11 @@
   }
   function uploadErrMsg(err) {
     const c = err && err.code;
-    if (c === "no_assets") return "sin almacenamiento de imágenes en esta vista";
-    if (c === "type" || c === "unsupported_type") return "solo imágenes (png, jpg, webp, gif)";
-    if (c === "size" || c === "too_large") return "imagen demasiado grande (máx. 20 MB)";
-    if (c === "quota_or_state") return "sin espacio de almacenamiento";
+    const st = err && err.status;
+    if (c === "no_assets") return "entra con tu cuenta para adjuntar capturas";
+    if (c === "sin_conexion") return "sin conexión: la captura no se subió";
+    if (c === "type" || st === 415 || /mime/i.test(c || "")) return "solo imágenes (png, jpg, webp, gif)";
+    if (c === "size" || st === 413) return "imagen demasiado grande (máx. 20 MB)";
     return "no se pudo subir la imagen";
   }
   // Bloque de capturas dentro del editor modal. Devuelve el estado para leerlo al guardar.
@@ -7127,11 +7172,11 @@
     const draw = () => {
       // Las capturas que ya existen se ven siempre; añadir nuevas necesita almacenamiento.
       const grid = st.imgs.length
-        ? `<div class="pbimgs">${st.imgs.map((im, i) => `<figure class="pbimg" data-i="${i}"><img src="${esc(imgSrc(im))}" alt="captura ${i + 1}" loading="lazy"><input class="tin small cap" type="text" data-cap="${i}" value="${esc(im.caption || "")}" placeholder="qué se ve" aria-label="Nota de la captura ${i + 1}"><button type="button" class="icon del" data-act="rm" data-i="${i}" title="Quitar captura">×</button></figure>`).join("")}</div>`
+        ? `<div class="pbimgs">${st.imgs.map((im, i) => `<figure class="pbimg" data-i="${i}"><img ${imgAttrs(im)} alt="captura ${i + 1}" loading="lazy"><input class="tin small cap" type="text" data-cap="${i}" value="${esc(im.caption || "")}" placeholder="qué se ve" aria-label="Nota de la captura ${i + 1}"><button type="button" class="icon del" data-act="rm" data-i="${i}" title="Quitar captura">×</button></figure>`).join("")}</div>`
         : "";
       box.innerHTML = `<span class="lab">Capturas · antes, durante y después</span>` + grid + (assetsReady()
         ? `<div class="imgbar"><button type="button" class="btn sm" data-act="add">+ Añadir captura</button><span class="help">${st.imgs.length ? plu(st.imgs.length, "captura adjunta", "capturas adjuntas") : "sin gráfico, la lección se olvida en una semana"}</span></div>`
-        : `<p class="help" style="font-family:var(--font-mono);font-size:11.5px;color:var(--dim);margin:4px 0 0">${st.imgs.length ? plu(st.imgs.length, "captura adjunta", "capturas adjuntas") + ", traídas en una copia. Esta vista no da acceso al almacenamiento de imágenes, así que no se pueden añadir nuevas." : "Esta vista no da acceso al almacenamiento de imágenes, así que no se pueden adjuntar capturas."}</p>`);
+        : `<p class="help" style="font-family:var(--font-mono);font-size:11.5px;color:var(--dim);margin:4px 0 0">${st.imgs.length ? plu(st.imgs.length, "captura adjunta", "capturas adjuntas") + ", traídas en un respaldo. Las capturas nuevas se guardan en tu cuenta: entra con ella para añadir más." : "Las capturas se guardan en tu cuenta, no en este navegador: entra con ella para adjuntarlas."}</p>`);
     };
     draw();
     box.addEventListener("input", e => { const i = e.target.dataset.cap; if (i != null && st.imgs[Number(i)]) st.imgs[Number(i)].caption = e.target.value.slice(0, 120); });
@@ -7159,7 +7204,7 @@
   }
   function thumbCell(t) {
     const ims = t.images || []; if (!ims.length) return '<span class="noshot">—</span>';
-    return `<img class="thumb" src="${esc(imgSrc(ims[0]))}" alt="captura de ${esc(t.instrument || t.asset || "la operación")}" loading="lazy">${ims.length > 1 ? `<span class="shotn">+${ims.length - 1}</span>` : ""}`;
+    return `<img class="thumb" ${imgAttrs(ims[0])} alt="captura de ${esc(t.instrument || t.asset || "la operación")}" loading="lazy">${ims.length > 1 ? `<span class="shotn">+${ims.length - 1}</span>` : ""}`;
   }
   function tradeFields(type) {
     const pbs = coll("playbooks").items.filter(p => p.type === type).map(p => [p.id, p.name]);
@@ -8237,7 +8282,7 @@
     const nShots = withShots.reduce((n, t) => n + t.images.length, 0);
     const lessons = list.filter(t => t.lesson);
     const review = `<section class="panel" style="margin-top:16px"><header><h2>Revisión del día</h2><span class="meta">${nShots ? nShots + (nShots === 1 ? " captura" : " capturas") : "sin capturas"}${lessons.length ? ` · ${lessons.length} ${lessons.length === 1 ? "lección" : "lecciones"}` : ""}</span></header><div class="body">
-      ${nShots ? `<div class="pbimgs">${withShots.map(t => (t.images || []).map((im, i) => `<figure class="pbimg big"><img src="${esc(imgSrc(im))}" alt="${esc((t.time ? h12(t.time) : "") + " " + (t.instrument || ""))}" loading="lazy"><figcaption>${esc((t.time ? h12(t.time) : "—") + " · " + (t.instrument || ""))}${im.caption ? " · " + esc(im.caption) : ""}</figcaption></figure>`).join("")).join("")}</div>` : `<p class="empty" style="padding:0">Ninguna operación de este día tiene captura. Adjunta el gráfico al registrar cada una: revisar diez capturas con su lección enseña más que mirar la curva de equity.</p>`}
+      ${nShots ? `<div class="pbimgs">${withShots.map(t => (t.images || []).map((im, i) => `<figure class="pbimg big"><img ${imgAttrs(im)} alt="${esc((t.time ? h12(t.time) : "") + " " + (t.instrument || ""))}" loading="lazy"><figcaption>${esc((t.time ? h12(t.time) : "—") + " · " + (t.instrument || ""))}${im.caption ? " · " + esc(im.caption) : ""}</figcaption></figure>`).join("")).join("")}</div>` : `<p class="empty" style="padding:0">Ninguna operación de este día tiene captura. Adjunta el gráfico al registrar cada una: revisar diez capturas con su lección enseña más que mirar la curva de equity.</p>`}
       ${lessons.length ? `<div class="twrap" style="margin-top:16px"><table class="t"><thead><tr><th>Hora</th><th class="r">R</th><th>Lección</th></tr></thead><tbody>${lessons.slice().reverse().map(t => `<tr><td>${esc(t.time ? h12(t.time) : "—")}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="ui">${esc(t.lesson)}</td></tr>`).join("")}</tbody></table></div>` : ""}
     </div></section>`;
     $("dayBody").innerHTML = `<div class="daygrid"><div>${rows}<button type="button" class="add" id="dayAdd">+ Añadir operación en ${date}</button></div>
@@ -9755,7 +9800,7 @@
       if (fam === "futuros") { const st = futStats(trades); const full = conds.length ? trades.filter(t => t.setupChecks && conds.every((c, i) => t.setupChecks[i])).length : null; stats = `<span>ops <strong>${st.n}</strong></span><span>WR <strong>${st.wr == null ? "—" : pct(st.wr)}</strong></span><span>R prom. <strong>${st.avgR == null ? "—" : (st.avgR >= 0 ? "+" : "") + st.avgR.toFixed(2)}</strong></span><span>PF <strong>${st.pf == null ? "—" : st.pf.toFixed(2)}</strong></span><span>P&amp;L <strong class="${st.pnl > 0 ? "pos" : st.pnl < 0 ? "neg" : ""}">${st.closed ? money(st.pnl) : "—"}</strong></span>${full != null && st.n ? `<span>condiciones completas <strong class="${full / st.n >= .9 ? "pos" : full / st.n < .6 ? "neg" : ""}">${pct(full / st.n)}</strong></span>` : ""}`; }
       else { const invested = trades.filter(t => t.op === "compra" || t.op === "aporte").reduce((a, t) => a + (t.qty || 0) * (t.price || 0), 0); const real = trades.reduce((a, t) => a + (t.pnl || 0), 0); const income = trades.filter(t => t.op === "dividendo").reduce((a, t) => a + (t.pnl || 0), 0); stats = `<span>ops <strong>${trades.length}</strong></span><span>desplegado <strong>${invested ? money(invested) : "—"}</strong></span><span>cobrado <strong class="${income > 0 ? "pos" : ""}">${income ? money(income) : "—"}</strong></span><span>realizado <strong class="${real > 0 ? "pos" : real < 0 ? "neg" : ""}">${real ? money(real) : "—"}</strong></span>${invested && real ? `<span>sobre lo desplegado <strong class="${real > 0 ? "pos" : "neg"}">${(real / invested * 100).toFixed(1)}%</strong></span>` : ""}`; }
       const kv = [["contexto", p.context], ["entrada", p.entry], [inv ? "salida" : "stop", p.stop], ["objetivo", p.target], ["gestión", p.management], ["invalida", p.invalidation], ["costes", p.costs], ["impuestos", p.taxes], ["edge", p.edge], ["A", p.gradeA], ["C", p.gradeC]].filter(x => x[1]);
-      const imgs = (p.images || []).map((im, i) => `<figure class="pbimg" data-i="${i}"><img src="${esc(imgSrc(im))}" alt="${esc(im.caption || p.name)}" loading="lazy"><figcaption>${esc(im.caption || "sin nota")}</figcaption>${pb.assets ? `<button type="button" class="icon" data-act="imgcap" data-i="${i}" title="Escribir qué se ve" style="left:2px;right:auto">✎</button><button type="button" class="icon del" data-act="imgdel" data-i="${i}" title="Quitar captura">×</button>` : ""}</figure>`).join("");
+      const imgs = (p.images || []).map((im, i) => `<figure class="pbimg" data-i="${i}"><img ${imgAttrs(im)} alt="${esc(im.caption || p.name)}" loading="lazy"><figcaption>${esc(im.caption || "sin nota")}</figcaption>${pb.assets ? `<button type="button" class="icon" data-act="imgcap" data-i="${i}" title="Escribir qué se ve" style="left:2px;right:auto">✎</button><button type="button" class="icon del" data-act="imgdel" data-i="${i}" title="Quitar captura">×</button>` : ""}</figure>`).join("");
       return `<div class="card ${p.status === "retirado" ? "retired" : ""}" data-id="${p.id}">
         <div class="ch"><h3>${esc(p.name)}${p.version > 1 ? ` <span class="chip">v${p.version}</span>` : ""}</h3><select class="pbst" data-act="status" aria-label="Estado" style="font-size:11px;padding:2px 22px 2px 6px">${PB_STATUS.map(([v, l]) => `<option value="${v}" ${p.status === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
         <div class="chips"><span class="chip ${inv ? "inv" : "fut"}">${esc(def.label)}</span>${p.market ? `<span class="chip">${esc(p.market)}</span>` : ""}${p.timeframe ? `<span class="chip">${esc(p.timeframe)}</span>` : ""}${p.window ? `<span class="chip">${esc(p.window)}</span>` : ""}${(p.tags || "").split(",").map(t => t.trim()).filter(Boolean).map(t => `<span class="chip">#${esc(t)}</span>`).join("")}</div>
@@ -9800,11 +9845,9 @@
   $("pbFile").addEventListener("change", async e => {
     const file = e.target.files && e.target.files[0]; const id = e.target.dataset.id; if (!file || !id || !pb.assets) return;
     const p = coll("playbooks").get(id); if (!p) return;
-    if (!/^image\//.test(file.type)) { flash("solo imágenes (png, jpg, webp, gif)"); return; }
-    if (file.size > 20 * 1024 * 1024) { flash("imagen demasiado grande (máx. 20 MB)"); return; }
     flash("subiendo imagen…");
-    try { const r = await pb.assets.upload(file); const caption = ""; coll("playbooks").set(id, Object.assign({}, p, { images: (p.images || []).concat([{ id: r.id, caption, name: file.name }]) })); flash("imagen guardada"); }
-    catch (err) { const c = err && err.code; flash(c === "too_large" ? "imagen demasiado grande" : c === "unsupported_type" ? "formato no admitido" : c === "quota_or_state" ? "sin espacio de almacenamiento" : "no se pudo subir la imagen"); }
+    try { const im = await uploadShot(file); coll("playbooks").set(id, Object.assign({}, p, { images: (p.images || []).concat([im]) })); flash("imagen guardada"); }
+    catch (err) { flash(uploadErrMsg(err)); }
   });
   function openLightbox(src, alt) { const lb = $("lightbox"); lb.querySelector("img").src = src; lb.querySelector("img").alt = alt || ""; lb.classList.add("open"); }
   $("lightbox").addEventListener("click", () => $("lightbox").classList.remove("open"));
@@ -11731,7 +11774,7 @@
      colaría en la cuenta al primer cambio. */
   const enlace = nubeDesdeEnlace();
   nube.ses = sesLee();
-  if (nube.ses) { state.nube = true; state.db = nubeDb(); state.store = "db"; }
+  if (nube.ses) { state.nube = true; state.db = nubeDb(); state.store = "db"; pb.assets = capturasNube(); }
   else state.db = localDb(state.store === "memory");
   connectDb();
   pintaCuentaBtn();
@@ -11847,8 +11890,7 @@
     if (opts.images) await inlineImages(b, opts.onStep);
     return b;
   }
-  /* Las capturas no viven dentro del dato: se sirven en /_blob/<id> desde el
-     almacenamiento de ESTA cabina. Para que viajen hay que meterlas dentro como
+  /* Las capturas no viven dentro del dato: están en el bucket de tu cuenta. Para que viajen hay que meterlas dentro como
      data URI; si no, la copia llega con las operaciones pero sin los gráficos. */
   async function inlineImages(b, onStep) {
     const pend = []; eachImage(b, im => { if (im && im.id && !im.data) pend.push(im); });
@@ -11860,9 +11902,8 @@
            convertiria un respaldo ajeno en una baliza. Cuenta como fallo, que es lo
            que es, y el resumen del empaquetado ya los muestra. */
         if (!imgValida(im)) { failed++; done++; continue; }
-        const r = await fetch(imgSrc(im));
-        if (!r.ok) throw new Error("http " + r.status);
-        const blob = await r.blob();
+        if (!capt()) throw new Error("sin cuenta");
+        const blob = await capt().blob(String(im.id));
         im.data = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.onerror = () => rej(fr.error); fr.readAsDataURL(blob); });
       } catch (e) { failed++; }
       done++;

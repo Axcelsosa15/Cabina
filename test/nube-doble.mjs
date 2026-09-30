@@ -11,6 +11,9 @@
      e.lecturasRotas  las lecturas de esa colección fallan (503 unavailable)
      e.retraso        { ruta: ms } — la lectura de ese documento tarda
 
+   Y el bucket privado «capturas» de Storage (e.objetos), con la regla del real:
+   cada token sólo sube, lee y borra bajo la carpeta <su user_id>/.
+
    LO QUE ESTE DOBLE NO DEMUESTRA: que la base real aísle a los usuarios. Eso es
    supabase/pruebas/aislamiento.sql, contra el proyecto de verdad. */
 const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -22,7 +25,7 @@ export function nubeDoble(html) {
   const e = {
     usuarios: new Map(), tokens: new Map(), refresh: new Map(), filas: new Map(), pedidas: [], n: 0,
     caida: false, roto: false, rutaRota: '', lecturasRotas: '', retraso: {},
-    ultimoRegistro: null, ultimaRecuperacion: null,
+    ultimoRegistro: null, ultimaRecuperacion: null, objetos: new Map(),
   };
   function nuevoUsuario(email, pass, confirmado = true) {
     const id = `00000000-0000-4000-8000-${String(++e.n).padStart(12, '0')}`;
@@ -82,6 +85,33 @@ export function nubeDoble(html) {
       const usr = porId(uid); const b = cuerpo() || {};
       if (b.password === usr.pass) return json(422, { code: 422, error_code: 'same_password', msg: 'New password should be different from the old password.' });
       usr.pass = b.password; return json(200, { id: usr.id, email: usr.email });
+    }
+    const st = u.pathname.match(/^\/storage\/v1\/object\/(authenticated\/)?capturas\/([^/]+)\/([^/]+)$/);
+    if (st) {
+      const [, leer, carpeta, id] = st, clave = decodeURIComponent(carpeta) + '/' + decodeURIComponent(id);
+      const ajeno = decodeURIComponent(carpeta) !== uid;
+      const err = (status, error, message) => json(status, { statusCode: String(status), error, message });
+      if (req.method() === 'POST' && !leer) {
+        if (e.roto) return err(403, 'Unauthorized', 'sin permiso');
+        if (ajeno) return err(403, 'Unauthorized', 'new row violates row-level security policy');
+        const tipo = h['content-type'] || '';
+        if (!/^image\/(png|jpeg|webp|gif)$/.test(tipo)) return err(415, 'invalid_mime_type', `mime type ${tipo} is not supported`);
+        const bytes = req.postDataBuffer() || Buffer.alloc(0);
+        if (bytes.length > 20971520) return err(413, 'Payload too large', 'The object exceeded the maximum allowed size');
+        if (e.objetos.has(clave)) return err(409, 'Duplicate', 'The resource already exists');
+        e.objetos.set(clave, { tipo, bytes });
+        return json(200, { Key: 'capturas/' + clave });
+      }
+      if (req.method() === 'GET' && leer) {
+        const o = !ajeno && e.objetos.get(clave);
+        if (!o) return err(400, 'not_found', 'Object not found');
+        return route.fulfill({ status: 200, contentType: o.tipo, body: o.bytes });
+      }
+      if (req.method() === 'DELETE' && !leer) {
+        if (!ajeno) e.objetos.delete(clave);
+        return json(200, []);
+      }
+      return err(405, 'metodo', 'metodo');
     }
     if (u.pathname !== '/rest/v1/cabina_docs') return json(404, { message: 'no existe en el doble' });
 

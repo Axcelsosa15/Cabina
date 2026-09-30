@@ -65,11 +65,12 @@ const CLAVE = (sinComentarios.match(/const NUBE_CLAVE = "([^"]+)"/) || [])[1] ||
 ok(/^https:\/\/[a-z0-9]{20}\.supabase\.co$/.test(NUBE), 'el origen de la nube es un proyecto Supabase exacto, por https', NUBE);
 ok(/^sb_publishable_/.test(CLAVE), 'la clave es la publicable, nunca una secreta', CLAVE.slice(0, 15) + '…');
 ok(!/service_role|sb_secret_/.test(html), 'ni rastro de service_role ni de sb_secret_ en el fichero', 'limpio');
-/* Dos llamadas y ni una más: la de la nube, y la que mete las capturas dentro de
-   un respaldo, que sólo recibe lo que ya pasó por imgSrc (el filtro de abajo). */
+/* UNA llamada y ni una más: la de la nube. Las capturas también salen de ahí (el
+   bucket privado de la cuenta); ninguna imagen se pide a una URL que venga de un
+   dato, que es lo que convertiría un respaldo ajeno en una baliza. */
 const llamadas = Array.from(sinComentarios.matchAll(/\bfetch\(([^,)]*)/g)).map(m => m[1].trim());
-ok(llamadas.length === 2 && llamadas.includes('NUBE_URL + ruta') && llamadas.includes('imgSrc(im'),
-   'fetch sólo a NUBE_URL y a imágenes ya filtradas por imgSrc', llamadas.join(' · '));
+ok(llamadas.length === 1 && llamadas[0] === 'NUBE_URL + ruta',
+   'un solo fetch en toda la app, y va a NUBE_URL', llamadas.join(' · '));
 const urls = Array.from(new Set(Array.from(sinComentarios.matchAll(/https?:\/\/[a-z0-9.-]+\.supabase\.(co|in|com)/gi)).map(m => m[0])));
 ok(urls.length === 1 && urls[0] === NUBE, 'ningún otro proyecto Supabase citado en el código', urls.join(' · '));
 
