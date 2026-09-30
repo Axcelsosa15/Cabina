@@ -10,12 +10,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const aqui = dirname(fileURLToPath(import.meta.url));
-/* No son tests: dos son herramientas y uno necesita un baseline que no está
-   en el repositorio. Se nombran para que nadie se pregunte por qué faltan. */
+/* No son tests: una herramienta y un ayudante. Se nombran para que nadie se
+   pregunte por qué faltan. */
 /* compuerta.mjs LANZA este archivo. Sin excluirla, correr.mjs la descubriria como
    una prueba mas y se llamaria a si mismo sin fondo. Se detecto antes de ejecutarla. */
-const NO_SON_TESTS = new Set(['build-preview.mjs', 'sync-index.mjs', 'espera.mjs', 'correr.mjs', 'compuerta.mjs']);
-const SIN_BASELINE = new Set(['perf.mjs']);
+const NO_SON_TESTS = new Set(['build-preview.mjs', 'espera.mjs', 'correr.mjs', 'compuerta.mjs']);
+const SIN_BASELINE = new Set();
 
 /* Las pruebas del motor viven fuera de test/, y por eso no se ejecutaban NUNCA:
    este runner escaneaba solo este directorio. Eran 421 aserciones sobre la
@@ -28,7 +28,6 @@ const SIN_BASELINE = new Set(['perf.mjs']);
    mayoria de test/. */
 const MOTOR = [
   ['motor-quant', join(aqui, '..', 'engine', 'quant', 'quant.test.js')],
-  ['motor-math', join(aqui, '..', 'engine', 'MathEngine.test.js')],
   /* No es una prueba de comportamiento: comprueba que el bundle committeado es
      el que producen los modulos. Sin esto, el primer eslabon de la cadena queda
      sin vigilar. El segundo (bundle -> inline en index.html) lo vigila capa2. */

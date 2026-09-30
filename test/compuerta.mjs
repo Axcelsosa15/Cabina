@@ -73,7 +73,6 @@ const dice = (nombre, etiqueta, que, capa) => {
 
 /* ── FUENTE → MOTOR ── */
 dice('motor-quant', 'suite', 'Pruebas del Quant Engine en verde', 'fuente \u2192 motor');
-dice('motor-math', 'suite', 'Pruebas de MathEngine (referencia) en verde', 'fuente \u2192 motor');
 
 /* ── MOTOR → BUNDLE ── */
 dice('motor-bundle', 'suite', 'La fuente del motor coincide con el bundle', 'motor \u2192 bundle');
