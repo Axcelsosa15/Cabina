@@ -16,6 +16,11 @@ entre dispositivos, cobro— necesitaría servidor, autenticación, base de dato
 usuario, textos legales de verdad y credenciales que no pasan por un chat. Todo lo que
 se hace aquí lo necesitaría también un SaaS; lo contrario no.
 
+**Actualización, 2026-09-30:** el dueño eligió dar el paso — cuentas con contraseña y
+sync entre dispositivos, sobre Supabase, sin perder el modo local. Plan, decisiones y
+estado en [`MULTIUSUARIO.md`](MULTIUSUARIO.md). La fase 1 (reglas de la base y la
+prueba de que un usuario no ve la data de otro) está hecha y verificada.
+
 ---
 
 ## El interruptor
