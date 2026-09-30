@@ -21,8 +21,8 @@ const PUBLICOS = [
   "analizarEdge",
   "DD_TIPOS", "sueloPara", "construirCurva", "metricasCurva", "evaluarConsistencia",
   "RESULTADO", "simularCuenta", "barridoDeRiesgo", "simularParametrico", "probabilidadDeRacha",
-  "ESTADOS", "margenDePerdida", "topeDeGanancia", "margenDeDrawdown", "evaluarCumplimiento",
-  "desdeTradeApp", "calcularTradeApp", "rRealApp", "rPlanApp", "radiografiaCuenta",
+  "margenDePerdida", "topeDeGanancia", "margenDeDrawdown",
+  "desdeTradeApp", "calcularTradeApp", "rRealApp", "rPlanApp",
   "excursionDeOperacion", "analizarExcursion",
   "analizarCartera", "irr", "vpn", "valorCapitalizado", "cagr", "fechaMs", "aniosEntre",
 ];

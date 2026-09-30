@@ -1,40 +1,33 @@
-/* EQUIVALENCIA · la capa de riesgo de la UI contra la del motor, MISMA pagina,
-   MISMOS datos.
+/* EQUIVALENCIA · la capa de riesgo de la tarjeta de cuenta contra el motor,
+   MISMA pagina, MISMOS datos.
 
-   index.html reimplementa cinco calculos que el Quant Engine ya tiene:
+   La tarjeta ya no calcula nada por su cuenta: cada funcion es un adaptador de
+   vocabulario sobre el motor.
 
        app (index.html)                motor (engine/quant/)
        ────────────────────────────    ──────────────────────────────
-       ddEngine        (linea 2926)    margenDeDrawdown   compliance.js:53
-       riskEngine      (linea 2951)    margenDePerdida    compliance.js:30
-       consistency     (linea 2878)    evaluarConsistencia curve.js
-         + consEngine  (linea 2936)
-       gainCap         (linea 2963)    topeDeGanancia     compliance.js:42
-       evaluateAccountRules (3196)     evaluarCumplimiento compliance.js:72
+       ddEngine                        margenDeDrawdown    compliance.js
+       riskEngine                      margenDePerdida     compliance.js
+       consistency + consEngine        evaluarConsistencia curve.js
+       gainCap                         topeDeGanancia      compliance.js
 
-   Y dos tablas de umbrales identicas con nombres de clave distintos: NIVELES en
-   el motor (`hasta`/`codigo`/`etiqueta`/`clase`) contra RISK_STEPS en la app
-   (`under`/`code`/`label`/`cls`), ambas 0.50 / 0.75 / 1.00.
+   El veredicto (evaluateAccountRules) es solo de la app: conoce pausa, archivo,
+   instrumentos y rachas, que el motor no sabe. El motor tenia un segundo veredicto
+   (evaluarCumplimiento) y una tercera copia de acctAgg (radiografiaCuenta), sin
+   uso; se quitaron.
 
-   ESTE FICHERO NO ARREGLA LA DUPLICACION. La MIDE, y por eso se escribe ANTES de
-   tocar nada: fija la REFERENCIA DORADA. Hoy las dos implementaciones coinciden
-   al centavo, asi que la consolidacion de la fase 2 se verifica por igualdad
-   numerica y no a ojo. El dia que una de las dos cambie sola, esto se pone rojo
-   en la corrida siguiente en vez de descubrirse meses despues con un numero malo
-   en pantalla.
+   Como la app ya llama al motor, comparar una con otro es casi tautologico. Lo que
+   de verdad vigila este fichero es la REFERENCIA DORADA del final: numeros
+   escritos a mano que no pueden moverse sin que alguien lo decida.
 
-   Las DOS diferencias conocidas, medidas y toleradas a proposito:
-
-     1. El motor redondea a 4 decimales en la frontera de presentacion; la app no.
-        Por eso se compara con tolerancia en `pct`, no con ===.
-     2. Los codigos de nivel estan en idiomas distintos: la app dice `caution`, el
-        motor dice `precaucion`. Y el CSS de la app se cuelga de `code`, asi que
-        una consolidacion ingenua ROMPE LOS COLORES. Se comprueba la
-        CORRESPONDENCIA entre los dos vocabularios, no la igualdad de la cadena.
-
-   Su modo de fallo: que alguien "consolide" cambiando la UI para que llame al
-   motor, y los numeros salgan distintos sin que nadie lo note porque la pantalla
-   sigue teniendo el aspecto de siempre. */
+   Las diferencias que quedan, a proposito y afirmadas abajo:
+     1. El motor redondea `pct` a 4 decimales; se compara con tolerancia.
+     2. Los codigos de nivel: la app `caution`, el motor `precaucion`. El CSS se
+        cuelga del de la app.
+     3. En una cuenta quemada la tarjeta dice colchon 0 y usado = maximo; el motor
+        da el exceso negativo.
+     4. En una cuenta sin ganancia la tarjeta dice «cumple» y el motor «no se
+        puede decir». */
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -214,8 +207,20 @@ const R = await p.evaluate(async () => {
     })(),
 
     /* Las huerfanas que la fase 2 va a conectar: existir es requisito previo. */
-    huerfanas: ['evaluarCumplimiento', 'radiografiaCuenta', 'topeDeGanancia', 'margenDeDrawdown',
-                'margenDePerdida', 'evaluarConsistencia'].map(n => [n, typeof QE[n]]),
+    huerfanas: ['topeDeGanancia', 'margenDeDrawdown', 'margenDePerdida', 'evaluarConsistencia'].map(n => [n, typeof QE[n]]),
+
+    /* UNA FEE EN EL LEDGER. Se paga con tarjeta, no sale del saldo de la cuenta,
+       asi que no mueve ni el balance ni el colchon. Antes entraba en la curva como
+       «costo» y la misma tarjeta decia colchon 1.800 y peor momento 1.650. */
+    fee: (function () {
+      FUT.createAccount({ id: 'EQF', firm: 'Equivalencia', name: 'Con fee', kind: 'Evaluación',
+        size: 50000, dd: 2000, ddKind: 'estatico', trailBase: 'intradia', target: 3000, limit: 30,
+        status: 'activa', total: 0, best: 0,
+        ledger: [{ id: 'f1', kind: 'fee', amount: 150, date: iso(d3) }] });
+      FUT.createTrade({ accountId: 'EQF', instrument: 'MNQ', date: iso(d), time: '10:00',
+        entry: 21000, exit: 20900, qty: 1, direction: 'long', stop: 20950 });   /* -100 pts = -$200 */
+      return 'EQF';
+    })(),
   };
 });
 
@@ -249,6 +254,15 @@ const QUEMADA = await p.evaluate(async (id) => {
            app: { colchon: app.buffer, usado: app.used, pct: app.util, quemada: app.breached },
            motor: { colchon: motor.colchon, usado: motor.usado, pct: motor.pct, quemada: motor.quemada } };
 }, R.quemada);
+
+/* La cuenta con fee, en la segunda pasada. */
+const FEE = await p.evaluate(async (id) => {
+  if (!id) return null;
+  await new Promise(r => setTimeout(r, 600));
+  const g = FUT.calculateAccountStats(id), dd = FUT.calculateDrawdown(id);
+  return { balance: g.balance, fees: g.fees, colchon: dd.buffer, curva: g.curva.colchon,
+           peor: g.peorMomento ? g.peorMomento.colchon : null };
+}, R.fee);
 
 /* Las dos cuentas de consistencia, en la segunda pasada. */
 const CONS = await p.evaluate(async (ids) => {
@@ -549,7 +563,17 @@ if (BANDAS) {
      malas.length ? malas.join(' · ') : DORADO.bandas.map(g => `${g.frac * 100}%=${g.app}`).join(' · '));
 }
 
-console.log('\n═══ LAS FUNCIONES QUE LA FASE 2 VA A CONECTAR · existen hoy ═══');
+console.log('\n═══ FEES · no salen del saldo de la cuenta ═══');
+ok(FEE !== null, 'la cuenta con fee se sembro', FEE ? 'sembrada' : 'no se sembro');
+if (FEE) {
+  ok(casi(FEE.fees, 150), 'la fee esta en el ledger', `${FEE.fees}`);
+  dorado(FEE.balance, 49800, 'el balance no resta la fee: 50.000 - 200');
+  dorado(FEE.colchon, 1800, 'el colchon de la tarjeta: 49.800 - 48.000');
+  dorado(FEE.curva, 1800, 'la curva da el MISMO colchon (antes 1.650: restaba la fee)');
+  dorado(FEE.peor, 1800, 'y el peor momento tambien');
+}
+
+console.log('\n═══ LAS FUNCIONES DEL MOTOR QUE USA LA TARJETA · existen ═══');
 R.huerfanas.forEach(([n, t]) => ok(t === 'function', `QE.${n} existe y es funcion`, t));
 
 ok(errs.length === 0, 'la pagina no lanzo ningun error', errs.length ? errs.join(' | ') : 'sin pageerror');

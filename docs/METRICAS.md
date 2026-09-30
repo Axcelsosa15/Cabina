@@ -55,7 +55,15 @@ guardan en `settings.meta.mx`. No hubo que migrar nada: `normalize()` ya conserv
 
 ## Relación con la Radiografía de Futuros
 
-La Radiografía (Futuros → Resumen) sigue igual y mide otras cosas: su tasa de acierto
-**excluye** las planas, su curva usa $25.000 fijos y su R es bruto. Aquí la tasa
-incluye las planas, el capital es el de la cuenta y el R es neto. Las dos se nombran
-distinto en pantalla para que no se confundan.
+Las dos pestañas llaman a las mismas funciones del motor (`analizarEdge`,
+`metricasCurva`, `simularCuenta`). Lo que no se repite es lo que se ve:
+
+- **Caída máxima y Sharpe** están sólo aquí, netos y sobre el capital de la cuenta.
+  La Radiografía los pintaba también, en bruto y sobre $25.000 fijos; se quitaron
+  de allí y la pantalla dice dónde están.
+- **Úlcera y Sortino** siguen en la Radiografía, medidos sobre el capital de las
+  cuentas del filtro (la misma regla que aquí). Sin cuenta no se pintan.
+- **Tasa de acierto** de la Radiografía excluye las planas; el **win rate** de aquí
+  las incluye. Son dos preguntas distintas y tienen nombres distintos.
+
+`test/radiografia.mjs` lo comprueba.

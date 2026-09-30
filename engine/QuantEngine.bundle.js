@@ -1429,22 +1429,11 @@ function probabilidadDeRacha(probPerdida, k, n) {
 /* =========================================================================
    QuantEngine · cumplimiento de reglas de cuenta
    -------------------------------------------------------------------------
-   Traduce el estado numerico de la cuenta a la unica pregunta operativa:
-   puedo abrir la siguiente operacion, y de que tamano.
-
-   Escalera de prioridad (gana la mas grave):
-     QUEMADA > BLOQUEADA > RESTRINGIDA > AVISO > LISTA
-
-   Distincion deliberada: la consistencia NO impide operar, impide cobrar.
-   Marcarla como "no puedes operar" es factualmente falso y ademas empuja al
-   trader a dejar de registrar justo los dias que mas informacion tienen.
+   Los margenes de las reglas de una cuenta de fondeo: cuanto queda de la
+   perdida diaria, del drawdown y hasta donde se puede ganar hoy. El veredicto
+   (lista / aviso / bloqueada / quemada) lo da la app en evaluateAccountRules,
+   que conoce tambien pausa, archivo, instrumentos y rachas.
    ========================================================================= */
-
-const ESTADOS = Object.freeze({
-  QUEMADA: "quemada", BLOQUEADA: "bloqueada", RESTRINGIDA: "restringida",
-  AVISO: "aviso", LISTA: "lista",
-});
-const ORDEN = [ESTADOS.QUEMADA, ESTADOS.BLOQUEADA, ESTADOS.RESTRINGIDA, ESTADOS.AVISO, ESTADOS.LISTA];
 
 const NIVELES = [
   { hasta: 0.50, codigo: "seguro", etiqueta: "SEGURO", clase: "good" },
@@ -1490,82 +1479,6 @@ function margenDeDrawdown(curva, riesgoPorOperacion) {
     stopsRestantes: riesgo && riesgo > 0 ? roundTo(colchon / riesgo, 2) : null,
     peorMomento: curva && curva.peorMomento ? curva.peorMomento : null,
   };
-}
-
-/* -------------------------------------------------------------------------
-   evaluarCumplimiento(): un solo veredicto, con los motivos en claro.
-   ------------------------------------------------------------------------- */
-function evaluarCumplimiento(entrada) {
-  const e = entrada || {};
-  const curva = e.curva || null;
-  const cons = e.consistencia || null;
-  const hoy = e.hoy || { pnl: 0, operaciones: [], perdidasSeguidas: 0, contratosMax: 0 };
-  const reglas = e.reglas || {};
-
-  const bloqueos = [], avisos = [], notas = [];
-  const riesgo = toNum(e.riesgoPorOperacion);
-
-  const dd = margenDeDrawdown(curva, riesgo);
-  const perdida = margenDePerdida(hoy.pnl, reglas.perdidaDiariaMax);
-  const tope = topeDeGanancia(cons, reglas.gananciaDiariaMax);
-
-  let estado = ESTADOS.LISTA;
-  const subir = s => { if (ORDEN.indexOf(s) < ORDEN.indexOf(estado)) estado = s; };
-
-  if (dd.aplica && dd.quemada) {
-    subir(ESTADOS.QUEMADA);
-    bloqueos.push({ codigo: "DRAWDOWN_TOCADO", texto: `La cuenta toco el suelo de ${roundTo(curva.suelo, 2)}.` });
-  } else if (dd.aplica && dd.pct >= 0.75) {
-    subir(ESTADOS.AVISO);
-    avisos.push({ codigo: "DRAWDOWN_CERCA", texto: `Queda ${roundTo(dd.colchon, 2)} de colchon${dd.stopsRestantes !== null ? ` (${dd.stopsRestantes} stops)` : ""}.` });
-  }
-
-  if (perdida.aplica && perdida.agotado) {
-    subir(ESTADOS.BLOQUEADA);
-    bloqueos.push({ codigo: "PERDIDA_DIARIA", texto: `Perdida maxima diaria alcanzada (${roundTo(perdida.usado, 2)} de ${perdida.max}).` });
-  } else if (perdida.aplica && perdida.pct >= 0.75) {
-    subir(ESTADOS.AVISO);
-    avisos.push({ codigo: "PERDIDA_DIARIA_CERCA", texto: `Quedan ${perdida.restante} antes del bloqueo diario.` });
-  }
-
-  const maxSeg = toNum(reglas.maxPerdidasSeguidas);
-  if (maxSeg && (toNum(hoy.perdidasSeguidas) ?? 0) >= maxSeg) {
-    subir(ESTADOS.BLOQUEADA);
-    bloqueos.push({ codigo: "RACHA_PERDEDORA", texto: `${hoy.perdidasSeguidas} perdidas seguidas: tu regla corta en ${maxSeg}.` });
-  }
-
-  const maxC = toNum(reglas.maxContratos);
-  if (maxC && (toNum(hoy.contratosMax) ?? 0) > maxC) {
-    subir(ESTADOS.AVISO);
-    avisos.push({ codigo: "CONTRATOS", texto: `Se opero con ${hoy.contratosMax} contratos y el tope es ${maxC}.` });
-  }
-
-  if (cons && cons.aplica && cons.sinGanancia) {
-    /* Estar en rojo NO es incumplir la consistencia: es otro problema, peor y
-       distinto. Marcarlo como violacion de regla esconde el de verdad. */
-    notas.push({ codigo: "SIN_GANANCIA", texto: `Sin ganancia acumulada (${roundTo(cons.total, 2)}). La consistencia todavia no aplica: no hay nada que repartir. El problema no es la regla, es el resultado.` });
-  } else if (cons && cons.aplica && cons.cumple === false) {
-    subir(ESTADOS.RESTRINGIDA);
-    notas.push({ codigo: "CONSISTENCIA", texto: `Consistencia ${roundTo(cons.ratio * 100, 2)}% sobre un limite de ${roundTo(cons.limite * 100, 0)}%: faltan ${cons.falta} de ganancia acumulada para poder cobrar. Operar sigue permitido.` });
-  } else if (cons && cons.aplica && cons.cerca) {
-    subir(ESTADOS.AVISO);
-    notas.push({ codigo: "CONSISTENCIA_CERCA", texto: `La consistencia va al ${roundTo(cons.ratio * 100, 2)}%; el dia mas grande que aun cumple es ${cons.topeDiaHoy}.` });
-  }
-
-  /* Solo lo que realmente impide abrir la siguiente operacion. */
-  const puedeOperar = estado !== ESTADOS.QUEMADA && estado !== ESTADOS.BLOQUEADA;
-
-  return Ok({
-    estado, puedeOperar,
-    bloqueos, avisos, notas,
-    drawdown: dd, perdidaDiaria: perdida, topeGanancia: tope,
-    consistencia: cons,
-    resumen: estado === ESTADOS.QUEMADA ? "Cuenta quemada."
-           : estado === ESTADOS.BLOQUEADA ? "Bloqueada por hoy."
-           : estado === ESTADOS.RESTRINGIDA ? "Puedes operar; no puedes cobrar todavia."
-           : estado === ESTADOS.AVISO ? "Puedes operar, pero con poco margen."
-           : "Lista para operar.",
-  });
 }
 
 /* ─── excursion.js ─────────────────────────────────────────────── */
@@ -1927,7 +1840,7 @@ function cagr(valorInicial, valorFinal, anios) {
      edge        esperanza, profit factor, Kelly, SQN, rachas
      curve       curva de capital, drawdown como maquina de estados
      survival    Monte Carlo de supervivencia de cuenta
-     compliance  veredicto operativo
+     compliance  margenes de perdida diaria, drawdown y tope de ganancia
 
    Nada de esto toca el DOM, ni el reloj, ni el azar sin semilla.
    ========================================================================= */
@@ -2021,96 +1934,16 @@ function rRealApp(t) {
   return roundTo(((x - e) * dir) / riesgo, 4);
 }
 
-/* -------------------------------------------------------------------------
-   Radiografia completa de una cuenta en una sola llamada.
-   trades: operaciones ya calculadas de la app [{date, pnlEff, rReal, qty,...}]
-   cuenta: { size, dd, ddKind, limit, total, best, ledger }
-   ------------------------------------------------------------------------- */
-function radiografiaCuenta(trades, cuenta, opciones) {
-  const cfg = Object.assign({ hoy: null, reglas: {}, base: "cierre", semilla: 20260917, simular: false, caminos: 3000 }, opciones || {});
-  const a = cuenta || {};
-
-  const cerradas = (trades || []).filter(t => toNum(t.pnlEff) !== null);
-  const ops = cerradas.map((t, i) => ({ fecha: t.date, orden: i, pnl: toNum(t.pnlEff) }));
-
-  const movimientos = (a.ledger || []).map(m => ({
-    fecha: m.date, monto: toNum(m.amount),
-    tipo: m.kind === "deposit" ? "deposito" : m.kind === "payout" ? "retiro" : "costo",
-  })).filter(m => m.monto !== null);
-
-  const ddTipo = a.ddKind === "estatico" ? DD_TIPOS.ESTATICO
-               : a.ddKind === "trailing" ? DD_TIPOS.TRAILING
-               : DD_TIPOS.TRAILING_BLOQUEADO;
-
-  /* La ganancia previa escrita a mano se inyecta como saldo de arranque para
-     que pico, suelo y colchon la tengan en cuenta desde el primer dia. */
-  const previa = toNum(a.total) || 0;
-  const tamano = toNum(a.size) || 0;
-
-  const curva = construirCurva(ops, {
-    saldoInicial: tamano + previa,
-    ddTipo, ddMaximo: toNum(a.dd), base: cfg.base, movimientos,
-  }).value;
-  /* El suelo se mide contra el tamano nominal de la cuenta, no contra el
-     arranque inflado por la ganancia previa. */
-  if (tamano > 0) {
-    const curvaReal = construirCurva(ops, {
-      saldoInicial: tamano, ddTipo, ddMaximo: toNum(a.dd), base: cfg.base,
-      movimientos: movimientos.concat(previa ? [{ fecha: (ops[0] && ops[0].fecha) || "0000-00-00", monto: previa, tipo: "deposito" }] : []),
-    }).value;
-    curva.suelo = curvaReal.suelo; curva.colchon = curvaReal.colchon;
-    curva.pico = curvaReal.pico; curva.peorMomento = curvaReal.peorMomento;
-    curva.ddUsado = curvaReal.ddUsado; curva.bloqueado = curvaReal.bloqueado;
-  }
-
-  const diarios = curva.dias.map(d => ({ fecha: d.fecha, pnl: d.pnl }));
-  const consist = evaluarConsistencia(diarios, toNum(a.limit), {
-    gananciaPrevia: previa, mejorDiaPrevio: toNum(a.best) || 0,
-  }).value;
-
-  const edge = analizarEdge(cerradas.map(t => ({ pnl: toNum(t.pnlEff), r: toNum(t.rReal), fecha: t.date })), { semilla: cfg.semilla }).value;
-  const met = metricasCurva(curva).value;
-
-  const riesgos = cerradas.map(t => toNum(t.riskUsd)).filter(x => x !== null && x > 0);
-  const riesgoTipico = riesgos.length ? roundTo(riesgos.reduce((s, x) => s + x, 0) / riesgos.length, 2) : null;
-
-  const cumpl = evaluarCumplimiento({
-    curva, consistencia: consist, hoy: cfg.hoy || { pnl: 0 },
-    reglas: cfg.reglas, riesgoPorOperacion: riesgoTipico,
-  }).value;
-
-  let simulacion = null;
-  if (cfg.simular && riesgoTipico) {
-    const rs = cerradas.map(t => toNum(t.rReal)).filter(x => x !== null);
-    const opsPorDia = curva.nDias ? cerradas.length / curva.nDias : 3;
-    const sim = simularCuenta({
-      rMultiples: rs, riesgoPorOperacion: riesgoTipico, operacionesPorDia: opsPorDia,
-      saldoInicial: tamano || 25000, ddTipo, ddMaximo: toNum(a.dd),
-      objetivoGanancia: toNum(a.target) || toNum(cfg.objetivo),
-      perdidaDiariaMax: toNum(cfg.reglas && cfg.reglas.perdidaDiariaMax),
-      limiteConsistencia: toNum(a.limit), diasMax: 120, caminos: cfg.caminos, semilla: cfg.semilla,
-    });
-    simulacion = sim.ok ? sim.value : { error: sim.error };
-  }
-
-  return {
-    curva, metricas: met, consistencia: consist, edge, cumplimiento: cumpl,
-    riesgoTipico, simulacion,
-    balance: curva.equity, pico: curva.pico, suelo: curva.suelo, colchon: curva.colchon,
-  };
-}
-
 const QuantEngine = {
   /* contratos */ CONTRACTS, resolveContract, rootOf,
   /* operacion */ valuarOperacion, dirOf,
   /* ventaja   */ analizarEdge,
   /* curva     */ construirCurva, metricasCurva, evaluarConsistencia, DD_TIPOS,
   /* riesgo    */ simularCuenta, barridoDeRiesgo, simularParametrico, probabilidadDeRacha,
-  /* reglas    */ evaluarCumplimiento,
   /* excursion */ analizarExcursion, excursionDeOperacion,
   /* cartera   */ analizarCartera, irr, cagr,
-  /* app       */ calcularTradeApp, rRealApp, rPlanApp, radiografiaCuenta, desdeTradeApp,
+  /* app       */ calcularTradeApp, rRealApp, rPlanApp, desdeTradeApp,
 };
 
-return { QE_VERSION, Ok, Err, isOk, addWarn, unwrapOr, allOk, isFiniteNum, toNum, toInt, toPosInt, clamp, sym, roundHalfAway, roundTo, toCents, fromCents, sumCents, rng, randInt, randNormal, normalQuantile, zFor, normalCDF, CONTRACTS, rootOf, resolveContract, listContracts, valuarOperacion, dimensionar, dirOf, limpiar, momentos, cuantil, mediana, forma, ciProporcion, ciMedia, bootstrapCI, muestraMinima, significanciaMedia, veredicto, UMBRALES, analizarEdge, DD_TIPOS, sueloPara, construirCurva, metricasCurva, evaluarConsistencia, RESULTADO, simularCuenta, barridoDeRiesgo, simularParametrico, probabilidadDeRacha, ESTADOS, margenDePerdida, topeDeGanancia, margenDeDrawdown, evaluarCumplimiento, desdeTradeApp, calcularTradeApp, rRealApp, rPlanApp, radiografiaCuenta, excursionDeOperacion, analizarExcursion, analizarCartera, irr, vpn, valorCapitalizado, cagr, fechaMs, aniosEntre };
+return { QE_VERSION, Ok, Err, isOk, addWarn, unwrapOr, allOk, isFiniteNum, toNum, toInt, toPosInt, clamp, sym, roundHalfAway, roundTo, toCents, fromCents, sumCents, rng, randInt, randNormal, normalQuantile, zFor, normalCDF, CONTRACTS, rootOf, resolveContract, listContracts, valuarOperacion, dimensionar, dirOf, limpiar, momentos, cuantil, mediana, forma, ciProporcion, ciMedia, bootstrapCI, muestraMinima, significanciaMedia, veredicto, UMBRALES, analizarEdge, DD_TIPOS, sueloPara, construirCurva, metricasCurva, evaluarConsistencia, RESULTADO, simularCuenta, barridoDeRiesgo, simularParametrico, probabilidadDeRacha, margenDePerdida, topeDeGanancia, margenDeDrawdown, desdeTradeApp, calcularTradeApp, rRealApp, rPlanApp, excursionDeOperacion, analizarExcursion, analizarCartera, irr, vpn, valorCapitalizado, cagr, fechaMs, aniosEntre };
 })();

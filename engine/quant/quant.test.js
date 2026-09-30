@@ -334,34 +334,6 @@ ok(!Q.simularCuenta({ rMultiples: [1, -1, 1, -1, 1, -1], riesgoPorOperacion: 0 }
 /* ═══ cumplimiento ═══ */
 grupo("cumplimiento");
 {
-  const c = Q.construirCurva([{ fecha: "2026-09-16", pnl: -450 }], { saldoInicial: 25000, ddTipo: "trailing_lock", ddMaximo: 1000 }).value;
-  const v = Q.evaluarCumplimiento({ curva: c, hoy: { pnl: -450 }, reglas: { perdidaDiariaMax: 500 }, riesgoPorOperacion: 100 }).value;
-  eq(v.estado, "aviso", "al 90% del limite diario avisa");
-  ok(v.puedeOperar, "pero todavia puede operar");
-}
-{
-  const c = Q.construirCurva([{ fecha: "2026-09-16", pnl: -500 }], { saldoInicial: 25000, ddTipo: "trailing_lock", ddMaximo: 1000 }).value;
-  const v = Q.evaluarCumplimiento({ curva: c, hoy: { pnl: -500 }, reglas: { perdidaDiariaMax: 500 } }).value;
-  eq(v.estado, "bloqueada", "al tocar el limite diario bloquea");
-  ok(!v.puedeOperar, "y no puede operar");
-}
-{
-  const c = Q.construirCurva([{ fecha: "2026-09-16", pnl: -1000 }], { saldoInicial: 25000, ddTipo: "estatico", ddMaximo: 1000 }).value;
-  const v = Q.evaluarCumplimiento({ curva: c, hoy: { pnl: -1000 }, reglas: {} }).value;
-  eq(v.estado, "quemada", "al tocar el suelo la cuenta esta quemada");
-}
-{
-  const k = Q.evaluarConsistencia([{ pnl: 170 }, { pnl: 145 }], 50).value;
-  const c = Q.construirCurva([{ fecha: "2026-09-15", pnl: 170 }, { fecha: "2026-09-16", pnl: 145 }], { saldoInicial: 25000, ddTipo: "trailing_lock", ddMaximo: 1000 }).value;
-  const v = Q.evaluarCumplimiento({ curva: c, consistencia: k, hoy: { pnl: 145 }, reglas: { perdidaDiariaMax: 500 } }).value;
-  eq(v.estado, "restringida", "incumplir consistencia deja la cuenta restringida");
-  eq(v.puedeOperar, true, "pero NO impide operar: la consistencia limita el cobro, no la operativa");
-}
-{
-  const v = Q.evaluarCumplimiento({ hoy: { pnl: 0, perdidasSeguidas: 3 }, reglas: { maxPerdidasSeguidas: 3 } }).value;
-  eq(v.estado, "bloqueada", "la racha perdedora bloquea");
-}
-{
   const c = Q.construirCurva([{ fecha: "2026-09-16", pnl: -800 }], { saldoInicial: 25000, ddTipo: "estatico", ddMaximo: 1000 }).value;
   const m = Q.margenDeDrawdown(c, 100);
   eq(m.stopsRestantes, 2, "traduce el colchon a numero de stops");
@@ -391,17 +363,6 @@ grupo("adaptador Cabina");
 {
   const r = Q.calcularTradeApp({ instrument: "MNQ", direction: "long", entry: 20000, exit: 20042.5, qty: 2, pnl: 999 });
   eq(r.pnlEff, 999, "un P&L escrito a mano gana sobre el calculado");
-}
-{
-  const trades = [{ date: "2026-09-15", pnlEff: 170, rReal: 4.25, riskUsd: 40 }, { date: "2026-09-16", pnlEff: 145, rReal: 3.6, riskUsd: 40 }];
-  const rx = Q.radiografiaCuenta(trades, { size: 25000, dd: 1000, ddKind: "trailing_lock", limit: 50 });
-  eq(rx.balance, 25315, "radiografia: balance 25315");
-  eq(rx.pico, 25315, "radiografia: pico 25315");
-  eq(rx.suelo, 24315, "radiografia: suelo 24315");
-  near(rx.consistencia.ratio * 100, 53.97, 0.01, "radiografia: consistencia 53.97%");
-  eq(rx.consistencia.falta, 25, "radiografia: faltan $25");
-  eq(rx.cumplimiento.estado, "restringida", "radiografia: estado restringida");
-  eq(rx.cumplimiento.puedeOperar, true, "radiografia: puede operar");
 }
 
 /* ═══ pureza ═══ */
@@ -450,14 +411,6 @@ grupo("negativos · consistencia sin ganancia");
   eq(k.mejor, 0, "sin días verdes el mejor día es 0");
   eq(k.ratio, null, "ratio null");
   eq(k.falta, 0, "sin mejor día no hay nada que exigir");
-}
-{
-  const c = Q.construirCurva([{ fecha: "2026-09-01", pnl: 100 }, { fecha: "2026-09-02", pnl: -220 }], { saldoInicial: 25000, ddTipo: "trailing_lock", ddMaximo: 1000 }).value;
-  const k = Q.evaluarConsistencia([{ pnl: 100 }, { pnl: -220 }], 50).value;
-  const v = Q.evaluarCumplimiento({ curva: c, consistencia: k, hoy: { pnl: -220 }, reglas: {} }).value;
-  ok(v.notas.some(n => n.codigo === "SIN_GANANCIA"), "el veredicto nombra la falta de ganancia");
-  ok(!v.notas.some(n => n.codigo === "CONSISTENCIA"), "y NO la reporta como violación de consistencia");
-  eq(v.estado, "lista", "estar en rojo sin tocar ningún límite no restringe la cuenta");
 }
 
 grupo("negativos · ganancia previa y mejor día previos en rojo");
