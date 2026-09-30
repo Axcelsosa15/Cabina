@@ -18,7 +18,7 @@ await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(
 /* Sembrado desde un documento ya cargado, no con addInitScript: en `file://`
    la semilla condicional se reescribía al recargar y borraba lo guardado.
    El detalle, en espera.mjs. */
-const URL = 'file://' + process.cwd() + '/preview.html';
+const URL = 'file://' + process.cwd() + '/../index.html';
 await siembra(p, URL, { settings: { meta: {}, accounts: [], rules: [] } });
 await p.waitForTimeout(1300);
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };

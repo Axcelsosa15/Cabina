@@ -2431,7 +2431,7 @@
   }
 
   /* =============================== STATE + STORE =============================== */
-  const state = { today: etNow().date, settings: clone(DEFAULT_SETTINGS), cfgConocida: false, day: null, history: [], store: "memory", db: null, unsub: [], editing: false, demo: false, tab: "cabina" };
+  const state = { today: etNow().date, settings: clone(DEFAULT_SETTINGS), cfgConocida: false, day: null, history: [], dias: [], listo: false, store: "memory", db: null, unsub: [], editing: false, demo: false, tab: "cabina" };
   function newDay(date) { return { date, checks: {}, checksBy: {}, levels: {}, result: null, trades: null, broke: false, note: "", closed: false, resultManual: false, pre: null, pres: {}, updatedAt: 0 }; }
   state.day = newDay(state.today);
 
@@ -2455,13 +2455,11 @@
 
   const LS_KEY = "cabina-mnq:v1";
   function lsRead() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "null") || {}; } catch { return {}; } }
-  /* Estos dos ya devolvian si habian podido escribir, y NADIE lo miraba: las
-     ocho llamadas a `lsPatch` tiraban el booleano y el codigo seguia diciendo
-     «guardado en este navegador». La importacion si lo mira (`almacenamiento
-     lleno`), asi que el fichero ya sabia que importaba -- en un solo sitio. */
+  /* lsWrite dice si pudo escribir, y el almacén local convierte un «no» en un
+     error con su motivo (almacenamiento lleno, modo privado): la puerta de
+     escritura lo recibe y lo dice, en vez de afirmar «guardado». */
   let lsMotivo = "";
   function lsWrite(obj) { try { localStorage.setItem(LS_KEY, JSON.stringify(obj)); lsMotivo = ""; return true; } catch (e) { lsMotivo = (e && e.name) || "almacenamiento lleno"; return false; } }
-  function lsPatch(fn) { const d = lsRead(); fn(d); return lsWrite(d); }
   const timers = {};
   function debounce(key, fn, ms) { clearTimeout(timers[key]); timers[key] = setTimeout(fn, ms); }
   function flash(msg) { const el = $("jSaved"); el.textContent = msg; clearTimeout(timers.flash); timers.flash = setTimeout(() => { el.textContent = ""; }, 2500); }
@@ -2514,21 +2512,30 @@
         const i = this.items.findIndex(x => x.id === id); if (i >= 0) this.items[i] = data; else this.items.push(data); this.emit();
         if (state.demo) return;
         const clave = name + "/" + id;
-        if (state.db) { try { await state.db.collection(name).doc(id).set(data); siSeGuardo(clave); } catch (e) { noSeGuardo(clave, motivoDb(e), "la ficha"); } }
-        else if (state.store === "local") { if (lsPatch(d => { d[name] = d[name] || {}; d[name][id] = data; })) siSeGuardo(clave); else noSeGuardo(clave, lsMotivo, "la ficha"); }
+        try { await state.db.collection(name).doc(id).set(data); siSeGuardo(clave); } catch (e) { noSeGuardo(clave, motivoDb(e), "la ficha"); }
       },
       async remove(id) {
         this.items = this.items.filter(x => x.id !== id); this.emit();
         if (state.demo) return;
         const clave = name + "/" + id;
-        if (state.db) { try { await state.db.collection(name).doc(id).delete(); siSeGuardo(clave); } catch (e) { noSeGuardo(clave, motivoDb(e), "el borrado"); } }
-        else if (state.store === "local") { if (lsPatch(d => { if (d[name]) delete d[name][id]; })) siSeGuardo(clave); else noSeGuardo(clave, lsMotivo, "el borrado"); }
+        try { await state.db.collection(name).doc(id).delete(); siSeGuardo(clave); } catch (e) { noSeGuardo(clave, motivoDb(e), "el borrado"); }
       },
-      loadLocal() { if (state.demo) return; this.items = Object.values(lsRead()[name] || {}); this.emit(); },
-      /* Con cuenta no hay tope: el adaptador pagina, y una operación 1001 que
-         no se pintara tampoco entraría en el respaldo. El tope del artefacto
-         es el de su base y se deja como estaba. */
-      attachDb(db) { (state.nube ? db.collection(name) : db.collection(name).limit(1000)).onSnapshot(q => { if (state.demo) return; this.items = q.docs.map(d => d.data()).filter(x => x && x.id); this.emit(); }, () => {}); },
+      /* Sin tope: la cuenta pagina, y una operación 1001 que no se pintara
+         tampoco entraría en el respaldo.
+         Lo que NO se pudo guardar se queda en pantalla aunque llegue una lista
+         nueva del almacén: la lista trae sólo lo confirmado, y sin esto la
+         operación rechazada desaparecía al guardar la siguiente — con el rótulo
+         aún diciendo «SIN GUARDAR · 1» y sin forma de volver a intentarlo. */
+      attachDb(db) {
+        db.collection(name).onSnapshot(q => {
+          if (state.demo) return;
+          const pend = new Map(this.items.filter(x => sinGuardar.has(name + "/" + x.id)).map(x => [x.id, x]));
+          const llegan = q.docs.map(d => d.data()).filter(x => x && x.id).map(x => pend.get(x.id) || x);
+          const ids = new Set(llegan.map(x => x.id));
+          pend.forEach((x, id) => { if (!ids.has(id)) llegan.push(x); });
+          this.items = llegan; this.emit();
+        }, () => {});
+      },
     };
     colls[name] = c; return c;
   }
@@ -2569,15 +2576,14 @@
     if (state.demo) return;
     if (!quiet) state.settings.customized = true;
     debounce("settings", async () => {
-      /* EN EL ARTEFACTO NO SE GUARDA CONFIGURACIÓN HASTA QUE LA BASE HAYA CONTESTADO.
-         Antes, guardar en ese hueco escribía los valores por defecto encima de la
-         configuración real — medido: «SIN CUENTAS», todas borradas por cambiar una
-         regla medio segundo antes de que cargara. Se comprueba AQUÍ, al escribir, y
-         no al pedir la escritura: entre las dos hay 500 ms. El cambio se queda en
-         pantalla hasta que llega lo guardado, y lo guardado manda. */
-      if (state.db && !state.cfgConocida) { flash("la configuración aún no había cargado: ese cambio no se guardó"); return; }
-      if (state.db) { try { await state.db.doc("settings/main").set(clone(state.settings)); siSeGuardo("settings/main", "guardado"); } catch (e) { noSeGuardo("settings/main", motivoDb(e), "la configuracion"); } }
-      else if (state.store === "local") { if (lsPatch(d => { d.settings = state.settings; })) siSeGuardo("settings/main", "guardado en este navegador"); else noSeGuardo("settings/main", lsMotivo, "la configuracion"); }
+      /* NO SE GUARDA CONFIGURACIÓN HASTA QUE LA BASE HAYA CONTESTADO. Con cuenta la
+         configuración llega por red; guardar en ese hueco escribía los valores por
+         defecto encima de la real — medido: «SIN CUENTAS», todas borradas por
+         cambiar una regla medio segundo antes de que cargara. Se comprueba AQUÍ, al
+         escribir, y no al pedir la escritura: entre las dos hay 500 ms. El cambio se
+         queda en pantalla hasta que llega lo guardado, y lo guardado manda. */
+      if (!state.cfgConocida) { flash("la configuración aún no había cargado: ese cambio no se guardó"); return; }
+      try { await state.db.doc("settings/main").set(clone(state.settings)); siSeGuardo("settings/main", state.nube ? "guardado" : "guardado en este navegador"); } catch (e) { noSeGuardo("settings/main", motivoDb(e), "la configuracion"); }
     }, 500);
   }
   function persistDay() {
@@ -2585,33 +2591,22 @@
     state.day.updatedAt = Date.now();
     debounce("day", async () => {
       const clave = "days/" + state.day.date;
-      if (state.db) { try { await state.db.doc(clave).set(clone(state.day)); siSeGuardo(clave, "guardado"); } catch (e) { noSeGuardo(clave, motivoDb(e), "el dia"); } }
-      else if (state.store === "local") { if (lsPatch(d => { d.days = d.days || {}; d.days[state.day.date] = state.day; })) siSeGuardo(clave, "guardado en este navegador"); else noSeGuardo(clave, lsMotivo, "el dia"); renderHistoryFromLocal(); }
+      try { await state.db.doc(clave).set(clone(state.day)); siSeGuardo(clave, state.nube ? "guardado" : "guardado en este navegador"); } catch (e) { noSeGuardo(clave, motivoDb(e), "el dia"); }
     }, 400);
   }
-  function loadLocal() {
-    const data = lsRead();
-    if (data.settings) state.settings = normalize(data.settings);
-    if (data.days && data.days[state.today]) state.day = migrateDay(Object.assign(newDay(state.today), data.days[state.today]));
-    renderHistoryFromLocal();
-    COLLS.forEach(n => coll(n).loadLocal());
+  /* Todas las sesiones guardadas viven en state.dias; el historial de la Cabina
+     son las 14 últimas cerradas o con resultado, derivadas de ahí. */
+  function derivaHistoria() {
+    state.history = state.dias.filter(d => (d.date !== state.today || d.closed) && (d.result != null || d.closed || d.broke))
+      .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
   }
-  function renderHistoryFromLocal() {
-    const data = lsRead();
-    const days = data.days ? Object.values(data.days) : [];
-    state.history = days.filter(d => (d.date !== state.today || d.closed) && (d.result != null || d.closed || d.broke)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
-    renderHistory();
-  }
-  function loadDay() { state.day = newDay(state.today); if (state.db) subscribeDay(); else loadLocal(); renderAll(); }
+  function loadDay() { state.day = newDay(state.today); subscribeDay(); derivaHistoria(); renderAll(); }
 
-  async function connectDb() {
-    /* Con sesión de cuenta, el almacén ya se eligió al arrancar (nubeDb): aquí
-       sólo se engancha. Las dos bases hablan el mismo idioma, así que todo lo
-       de abajo es común. */
-    let db = state.nube ? state.db : null;
-    if (!db) { try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch { db = null; } }
-    if (!db) return;
-    state.db = db; state.store = "db"; setStoreLabel();
+  /* Engancha la app al almacén elegido al arrancar. Con el local todo llega en el
+     acto, antes del primer pintado (por eso los render esperan a state.listo);
+     con la cuenta llega cuando contesta la red. */
+  function connectDb() {
+    const db = state.db;
     db.doc("settings/main").onSnapshot(snap => {
       if (state.demo) return;
       state.cfgConocida = true;
@@ -2620,14 +2615,16 @@
       const incoming = normalize(snap.data());
       if (JSON.stringify(incoming) === JSON.stringify(state.settings)) return;
       state.settings = incoming;
+      if (!state.listo) return;
       const ae = document.activeElement; const typing = ae && ae.dataset && ae.dataset.f;
       if (state.editing || typing) { renderAccountsMeters(); updateCheckProgress(); } else renderSettings();
     }, () => {});
     subscribeDay();
-    db.collection("days").orderBy("date", "desc").limit(15).onSnapshot(q => {
+    db.collection("days").onSnapshot(q => {
       if (state.demo) return;
-      state.history = q.docs.map(d => d.data()).filter(d => d && d.date && (d.date !== state.today || d.closed) && (d.result != null || d.closed || d.broke)).slice(0, 14);
-      renderHistory();
+      state.dias = q.docs.map(d => d.data()).filter(d => d && d.date);
+      derivaHistoria();
+      if (state.listo) renderHistory();
     }, () => {});
     COLLS.forEach(n => coll(n).attachDb(db));
   }
@@ -2636,7 +2633,7 @@
     state.unsub.push(state.db.doc("days/" + state.today).onSnapshot(snap => {
       if (state.demo) return;
       if (snap.exists) { const remote = snap.data(); if ((remote.updatedAt || 0) >= (state.day.updatedAt || 0)) state.day = migrateDay(Object.assign(newDay(state.today), remote)); }
-      renderChecklist(); renderJournalDay(); renderLevels();
+      if (state.listo) { renderChecklist(); renderJournalDay(); renderLevels(); }
     }, () => {}));
   }
   function setStoreLabel() {
@@ -2669,8 +2666,7 @@
     }
     f.className = "";
     if (state.nube) { el.textContent = "sincronizado"; el.className = "save-state cloud"; f.textContent = "Guardado en tu cuenta" + (nube.ses && nube.ses.email ? " (" + nube.ses.email + ")" : "") + ". Sólo tu sesión puede leer estos datos: ningún otro usuario los ve."; return; }
-    if (state.store === "db") { el.textContent = "sincronizado"; el.className = "save-state cloud"; f.textContent = "Los cambios se guardan y se comparten con quien tenga acceso a esta página."; }
-    else if (state.store === "local") { el.textContent = "guardado local"; el.className = "save-state"; f.textContent = "Guardado solo en este navegador. Tus operaciones no se envían a ningún servidor."; }
+    if (state.store === "local") { el.textContent = "guardado local"; el.className = "save-state"; f.textContent = "Guardado solo en este navegador. Tus operaciones no se envían a ningún servidor."; }
     else { el.textContent = "sin guardado"; el.className = "save-state"; f.textContent = "Sin almacenamiento disponible: lo que escribas se pierde al recargar."; }
   }
 
@@ -2758,38 +2754,40 @@
     }
   }
 
-  function nubeDb() {
-    const T = "/rest/v1/cabina_docs", PAG = 1000, enc = encodeURIComponent;
+  /* ═══════════════ EL ALMACÉN · una interfaz, dos sitios donde guardar ═══════════════
+     Toda la app lee y escribe por aquí: doc(ruta).get/set/delete/onSnapshot y
+     collection(nombre)[.orderBy][.limit].get/onSnapshot. Debajo hay un «backend»
+     que sólo sabe cuatro cosas —leer un documento, leer una colección, escribir,
+     borrar— y hay dos: la cuenta (Supabase) y este navegador (localStorage).
+
+     Antes cada puerta de escritura tenía su propio `if (state.db) … else
+     localStorage …`: la misma operación escrita dos veces, y un calendario que con
+     base veía 14 sesiones y sin base las veía todas. Ahora hay un solo camino.
+
+     Las suscripciones se enteran de cada escritura confirmada sin volver a pedir
+     nada. El backend local contesta EN EL ACTO (síncrono): así la cabina sin
+     cuenta arranca con su configuración ya cargada, como siempre. */
+  function almacen(be) {
     const collDe = p => String(p).replace(/\/[^/]+$/, "");
     const subs = new Set(); let ultima = Date.now();
     const snapDoc = d => ({ exists: d != null, data: () => (d == null ? undefined : clone(d)) });
     const snapFilas = a => ({ docs: a.map(d => ({ data: () => clone(d) })) });
-    async function leeDoc(p) { const a = await nubeFetch(`${T}?select=data&path=eq.${enc(p)}`); return a && a[0] ? a[0].data : null; }
-    /* Por páginas: la API corta en 1000 filas, y una colección que se quedara
-       en la fila 1000 sin decirlo haría un respaldo incompleto que parece entero. */
-    async function leeFilas(q) {
-      const orden = q.orden ? `data->>${q.orden.f}.${q.orden.dir === "desc" ? "desc" : "asc"},path.asc` : "path.asc";
-      const tope = q.lim || Infinity, out = [];
-      while (out.length < tope) {
-        const n = Math.min(PAG, tope - out.length);
-        const a = (await nubeFetch(`${T}?select=path,data&coll=eq.${enc(q.coll)}&order=${orden}&limit=${n}&offset=${out.length}`)) || [];
-        out.push(...a);
-        if (a.length < n) break;
-      }
-      return out;
+    /* Síncrono si el backend lo es; si no, cuando conteste. */
+    function cuando(fn, ok, mal) {
+      let r;
+      try { r = fn(); } catch (e) { if (mal) mal(e); return; }
+      if (r && typeof r.then === "function") r.then(ok, e => { if (mal) mal(e); }); else ok(r);
     }
     function ordena(q, filas) {
-      let a = [...filas.entries()];
+      let a = filas.slice();
       if (q.orden) {
         const f = q.orden.f, s = q.orden.dir === "desc" ? -1 : 1, k = d => String(d && d[f] != null ? d[f] : "");
-        a.sort((x, y) => (k(x[1]) < k(y[1]) ? -s : k(x[1]) > k(y[1]) ? s : x[0] < y[0] ? -1 : 1));
+        a.sort((x, y) => (k(x.data) < k(y.data) ? -s : k(x.data) > k(y.data) ? s : x.path < y.path ? -1 : 1));
       }
       if (q.lim) a = a.slice(0, q.lim);
-      return a.map(e => e[1]);
+      return a.map(r => r.data);
     }
     function suscribe(s) { subs.add(s); s.carga(); return () => { subs.delete(s); }; }
-    /* Tras cada escritura confirmada, las suscripciones afectadas se enteran
-       sin volver a pedir nada: es lo que la base del artefacto hace sola. */
     function avisa(p, d) {
       const c = collDe(p);
       subs.forEach(s => { try { if (s.path === p) s.cambia(d); else if (s.q && s.q.coll === c) s.cambia(d, p); } catch (e) { } });
@@ -2797,19 +2795,12 @@
     function doc(p) {
       p = String(p);
       return {
-        get: async () => snapDoc(await leeDoc(p)),
-        async set(data) {
-          const d = clone(data);
-          await nubeFetch(`${T}?on_conflict=user_id,path`, { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=minimal" }, body: { user_id: nube.ses ? nube.ses.uid : null, path: p, data: d } });
-          avisa(p, d);
-        },
-        async delete() {
-          await nubeFetch(`${T}?path=eq.${enc(p)}`, { method: "DELETE", headers: { prefer: "return=minimal" } });
-          avisa(p, null);
-        },
+        get: async () => snapDoc(await be.leeDoc(p)),
+        async set(data) { const d = clone(data); await be.escribe(p, d); avisa(p, d); },
+        async delete() { await be.borra(p); avisa(p, null); },
         onSnapshot(cb, err) {
           return suscribe({ path: p,
-            carga() { leeDoc(p).then(d => cb(snapDoc(d)), e => { if (err) err(e); }); },
+            carga() { cuando(() => be.leeDoc(p), d => cb(snapDoc(d)), err); },
             cambia(d) { cb(snapDoc(d)); } });
         },
       };
@@ -2818,18 +2809,78 @@
       return {
         orderBy: (f, dir) => consulta(Object.assign({}, q, { orden: { f: /^[A-Za-z0-9_]+$/.test(String(f)) ? String(f) : "id", dir } })),
         limit: k => consulta(Object.assign({}, q, { lim: Math.max(1, Math.floor(Number(k) || 1)) })),
-        get: async () => snapFilas((await leeFilas(q)).map(r => r.data)),
+        get: async () => snapFilas(ordena(q, await be.leeFilas(q))),
         onSnapshot(cb, err) {
           const s = { q, filas: new Map(),
-            emite() { cb(snapFilas(ordena(q, s.filas))); },
-            carga() { leeFilas(q).then(a => { s.filas = new Map(a.map(r => [r.path, r.data])); s.emite(); }, e => { if (err) err(e); }); },
+            emite() { cb(snapFilas(ordena(q, [...s.filas].map(([path, data]) => ({ path, data }))))); },
+            carga() { cuando(() => be.leeFilas(q), a => { s.filas = new Map(a.map(r => [r.path, r.data])); s.emite(); }, err); },
             cambia(d, p) { if (d == null) s.filas.delete(p); else s.filas.set(p, d); s.emite(); } };
           return suscribe(s);
         },
       };
     }
     function refresca(forzar) { if (!forzar && Date.now() - ultima < 20000) return; ultima = Date.now(); subs.forEach(s => s.carga()); }
-    return { doc, collection: n => Object.assign(consulta({ coll: String(n) }), { doc: id => doc(n + "/" + id) }), refresca };
+    /* Importar mil documentos de golpe: el backend local los escribe en UNA
+       pasada (no mil lecturas y escrituras de todo el almacén); la cuenta, uno a
+       uno, que es como la API los acepta. */
+    async function escribeVarios(pares) {
+      if (be.escribeVarios) { await be.escribeVarios(pares.map(([p, d]) => [p, clone(d)])); pares.forEach(([p, d]) => avisa(p, clone(d))); return { escritos: pares.length, fallos: 0 }; }
+      let fallos = 0;
+      for (const [p, d] of pares) { try { await doc(p).set(d); } catch (e) { fallos++; } }
+      return { escritos: pares.length - fallos, fallos };
+    }
+    return { doc, collection: n => Object.assign(consulta({ coll: String(n) }), { doc: id => doc(n + "/" + id) }),
+      refresca, escribeVarios, vaciar: be.vaciar || null };
+  }
+
+  /* LA CUENTA · Supabase, tabla cabina_docs, una fila por documento y usuario.
+     Diferencia honesta con el local: no hay tiempo real. Lo que escribes se ve al
+     instante porque lo aplica el propio almacén; lo que escribas en OTRO
+     dispositivo llega al volver a esta pestaña (máximo cada 20 s). */
+  function nubeDb() {
+    const T = "/rest/v1/cabina_docs", PAG = 1000, enc = encodeURIComponent;
+    return almacen({
+      async leeDoc(p) { const a = await nubeFetch(`${T}?select=data&path=eq.${enc(p)}`); return a && a[0] ? a[0].data : null; },
+      /* Por páginas: la API corta en 1000 filas, y una colección que se quedara
+         en la fila 1000 sin decirlo haría un respaldo incompleto que parece entero. */
+      async leeFilas(q) {
+        const orden = q.orden ? `data->>${q.orden.f}.${q.orden.dir === "desc" ? "desc" : "asc"},path.asc` : "path.asc";
+        const tope = q.lim || Infinity, out = [];
+        while (out.length < tope) {
+          const n = Math.min(PAG, tope - out.length);
+          const a = (await nubeFetch(`${T}?select=path,data&coll=eq.${enc(q.coll)}&order=${orden}&limit=${n}&offset=${out.length}`)) || [];
+          out.push(...a);
+          if (a.length < n) break;
+        }
+        return out;
+      },
+      async escribe(p, d) {
+        await nubeFetch(`${T}?on_conflict=user_id,path`, { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=minimal" }, body: { user_id: nube.ses ? nube.ses.uid : null, path: p, data: d } });
+      },
+      async borra(p) { await nubeFetch(`${T}?path=eq.${enc(p)}`, { method: "DELETE", headers: { prefer: "return=minimal" } }); },
+    });
+  }
+
+  /* ESTE NAVEGADOR · localStorage, clave cabina-mnq:v1, con la forma de siempre:
+     { settings, days: {fecha: día}, trades: {id: op}, … }. Sin localStorage (modo
+     privado estricto) vive en memoria, y el rótulo dice que no se guarda. */
+  function localDb(enMemoria) {
+    let mem = {};
+    const lee = () => (enMemoria ? mem : lsRead());
+    const guarda = d => { if (enMemoria) { mem = d; return; } if (!lsWrite(d)) throw { code: lsMotivo || "almacenamiento lleno" }; };
+    const ref = (d, p) => {
+      const i = p.lastIndexOf("/"), c = p.slice(0, i), id = p.slice(i + 1);
+      if (c === "settings" && id === "main") return { get: () => d.settings ?? null, set: v => { d.settings = v; }, del: () => { delete d.settings; } };
+      return { get: () => (d[c] && d[c][id]) ?? null, set: v => { (d[c] = d[c] || {})[id] = v; }, del: () => { if (d[c]) delete d[c][id]; } };
+    };
+    return almacen({
+      leeDoc: p => clone(ref(lee(), p).get()),
+      leeFilas: q => { const c = lee()[q.coll] || {}; return Object.keys(c).map(id => ({ path: q.coll + "/" + id, data: c[id] })); },
+      async escribe(p, v) { const d = lee(); ref(d, p).set(v); guarda(d); },
+      async borra(p) { const d = lee(); ref(d, p).del(); guarda(d); },
+      async escribeVarios(pares) { const d = lee(); pares.forEach(([p, v]) => ref(d, p).set(v)); guarda(d); },
+      async vaciar() { guarda({}); },
+    });
   }
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && state.nube && state.db && state.db.refresca) state.db.refresca();
@@ -2873,7 +2924,6 @@
   }
   function pintaCuentaBtn() {
     const b = $("cuentaBtn");
-    if (window.claude) { b.hidden = true; return; }
     b.hidden = false;
     b.textContent = nube.ses ? "Cuenta" : "Entrar";
     b.title = nube.ses ? "Sesión iniciada como " + nube.ses.email : "Entra o crea una cuenta para tener tu cabina en todos tus dispositivos";
@@ -4587,8 +4637,7 @@
   $("histWrap").addEventListener("click", async e => {
     const btn = e.target.closest("button[data-act='del']"); if (!btn || !armed(btn)) return;
     const date = btn.closest("tr").dataset.date;
-    if (state.db) { try { await state.db.doc("days/" + date).delete(); siSeGuardo("days/" + date); } catch (err) { noSeGuardo("days/" + date, motivoDb(err), "el borrado del dia"); } }
-    else { if (lsPatch(d => { if (d.days) delete d.days[date]; })) siSeGuardo("days/" + date); else noSeGuardo("days/" + date, lsMotivo, "el borrado del dia"); renderHistoryFromLocal(); }
+    try { await state.db.doc("days/" + date).delete(); siSeGuardo("days/" + date); } catch (err) { noSeGuardo("days/" + date, motivoDb(err), "el borrado del dia"); }
     if (date === state.today) { state.day = newDay(state.today); renderChecklist(); renderJournalDay(); }
   });
   function renderSettings() { renderMeta(); renderChecklist(); renderRules(); renderAccounts(); if (typeof renderFutAccounts === "function") { try { renderFutAccounts(); } catch (e) { } } }
@@ -8297,8 +8346,7 @@
       if (doc.resultManual || !d.closed) { d.pnl = Number(doc.result) || 0; d.closed = Math.max(d.closed, 1); }
       if (!d.n) d.n = Number(doc.trades) || 0;
     };
-    (state.history || []).forEach(apply);
-    if (!state.db && !state.demo) { const l = lsRead().days; if (l) Object.keys(l).forEach(k => apply(l[k])); }
+    (state.demo ? state.history : state.dias).forEach(apply);
     apply(state.day);
     return m;
   }
@@ -8318,8 +8366,7 @@
   let dayNoteTimer = null;
   async function saveDayNote(date, patch) {
     if (state.demo) return;
-    if (state.db) { try { const ref = state.db.doc("days/" + date); const snap = await ref.get(); const cur = snap.exists ? snap.data() : newDay(date); const next = Object.assign({}, cur, patch, { updatedAt: Date.now() }); await ref.set(next); siSeGuardo("days/" + date); if (date === state.today) { state.day = migrateDay(Object.assign(newDay(date), next)); renderJournalDay(); } } catch (e) { noSeGuardo("days/" + date, motivoDb(e), "el dia " + date); } }
-    else { if (lsPatch(d => { d.days = d.days || {}; d.days[date] = Object.assign(newDay(date), d.days[date] || {}, patch, { updatedAt: Date.now() }); })) siSeGuardo("days/" + date); else noSeGuardo("days/" + date, lsMotivo, "el dia " + date); if (date === state.today) { state.day = migrateDay(Object.assign(newDay(date), lsRead().days[date])); renderJournalDay(); } renderHistoryFromLocal(); }
+    try { const ref = state.db.doc("days/" + date); const snap = await ref.get(); const cur = snap.exists ? snap.data() : newDay(date); const next = Object.assign({}, cur, patch, { updatedAt: Date.now() }); await ref.set(next); siSeGuardo("days/" + date); if (date === state.today) { state.day = migrateDay(Object.assign(newDay(date), next)); renderJournalDay(); } } catch (e) { noSeGuardo("days/" + date, motivoDb(e), "el dia " + date); }
   }
   function dayDoc(date) { if (date === state.today) return state.day; const h = state.history.find(d => d.date === date); if (h) return migrateDay(h); const l = lsRead().days; return l && l[date] ? migrateDay(l[date]) : null; }
   function renderDay() {
@@ -8360,7 +8407,7 @@
     $("dayBody").querySelectorAll("button[data-act='edit']").forEach(b => b.addEventListener("click", () => { const t = coll("trades").get(b.closest("tr").dataset.id); if (t) openTrade(t); }));
     $("dayBody").querySelectorAll("button[data-act='hitstop']").forEach(b => b.addEventListener("click", () => hitStop(b.closest("tr").dataset.id)));
     $("dayBody").addEventListener("click", e => { if (e.target.tagName === "IMG" && (e.target.classList.contains("thumb") || e.target.closest("figure.pbimg"))) openLightbox(e.target.src, e.target.alt); });
-    if (state.db && !dd) { state.db.doc("days/" + date).get().then(snap => { if (!snap.exists || ft.day !== date) return; const d = snap.data(); const ta = $("dayNote"), cb = $("dayBroke"); if (ta && document.activeElement !== ta) ta.value = d.note || ""; if (cb) cb.checked = !!d.broke; }).catch(() => {}); }
+    if (!dd) { state.db.doc("days/" + date).get().then(snap => { if (!snap.exists || ft.day !== date) return; const d = snap.data(); const ta = $("dayNote"), cb = $("dayBroke"); if (ta && document.activeElement !== ta) ta.value = d.note || ""; if (cb) cb.checked = !!d.broke; }).catch(() => {}); }
   }
 
   // El viewBox se dibuja al ancho real del contenedor: así el texto del gráfico
@@ -9920,7 +9967,7 @@
   });
   function openLightbox(src, alt) { const lb = $("lightbox"); lb.querySelector("img").src = src; lb.querySelector("img").alt = alt || ""; lb.classList.add("open"); }
   $("lightbox").addEventListener("click", () => $("lightbox").classList.remove("open"));
-  (async () => { try { pb.assets = window.claude && window.claude.use ? await window.claude.use("assets") : null; } catch { pb.assets = null; } renderPlaybook(); })();
+  pb.assets = null;
 
   /* =============================== IDEAS (formas de hacer dinero) =============================== */
   const idf = { cat: "", status: "" };
@@ -11095,12 +11142,9 @@
     ];
   }
   function listaDe(id) { return borrables().find(x => x.id === id); }
-  /* Las sesiones guardadas, de donde de verdad estén. Con base (artefacto o
-     cuenta) NO están en localStorage: leerlas de ahí daba una selección vacía,
-     el borrado no llegaba a la base y el historial se quedaba en blanco. */
+  /* Las sesiones guardadas, del almacén, por fecha. */
   function diasGuardados() {
-    if (!state.db) return lsRead().days || {};
-    const m = {}; state.history.forEach(d => { if (d && d.date && !d.synthetic) m[d.date] = d; });
+    const m = {}; state.dias.forEach(d => { if (d && d.date && !d.synthetic) m[d.date] = d; });
     if (state.day && state.day.date) m[state.day.date] = m[state.day.date] || state.day;
     return m;
   }
@@ -11196,12 +11240,11 @@
       ? ids.map(i => { const j = state.settings.accounts.findIndex(x => x.id === i); return j < 0 ? null : Object.assign(clone(state.settings.accounts[j]), { __pos: j }); }).filter(Boolean)
       : ids.map(i => coll(val(L.col)).get(i)).filter(Boolean).map(x => clone(x));
     guardaPapelera({ lista: L.id, col: L.dias ? "days" : L.cuentas ? "accounts" : val(L.col), dias: !!L.dias, cuentas: !!L.cuentas, regs, cuando: Date.now() });
-    if (L.dias && state.db) { borraDiasDb(ids); state.history = state.history.filter(d => !ids.includes(d.date)); renderHistory(); }
-    else if (L.dias) lsPatch(d => { if (d.days) ids.forEach(k => delete d.days[k]); });
+    if (L.dias) borraDiasDb(ids);
     /* Por la puerta, no a mano: FUT.deleteAccount limpia el filtro y el meta. */
     else if (L.cuentas) ids.forEach(i => FUT.deleteAccount(i));
     else ids.forEach(i => coll(val(L.col)).remove(i));
-    if (L.dias) { if (!state.db) renderHistoryFromLocal(); if (ids.includes(state.today)) { state.day = newDay(state.today); renderChecklist(); renderJournalDay(); } }
+    if (L.dias) { if (ids.includes(state.today)) { state.day = newDay(state.today); renderChecklist(); renderJournalDay(); } }
     selCierra();
     avisaPapelera();
   }
@@ -11212,14 +11255,10 @@
 
   function deshaceBorrado() {
     const p = leePapelera(); if (!p || !p.regs || !p.regs.length) return;
-    if (p.dias && state.db) {
+    if (p.dias) {
       p.regs.forEach(r => { if (!r || !r.date) return; const clave = "days/" + r.date; state.db.doc(clave).set(r).then(() => siSeGuardo(clave), e => noSeGuardo(clave, motivoDb(e), "el dia " + r.date)); });
-      const vuelven = p.regs.filter(r => r && r.date && !state.history.some(d => d.date === r.date));
-      state.history = state.history.concat(vuelven).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
-      renderHistory();
       if (p.regs.some(r => r && r.date === state.today)) { const r = p.regs.find(x => x.date === state.today); state.day = migrateDay(Object.assign(newDay(state.today), r)); renderChecklist(); renderJournalDay(); }
     }
-    else if (p.dias) lsPatch(d => { d.days = d.days || {}; p.regs.forEach(r => { if (r && r.date) d.days[r.date] = r; }); });
     else if (p.cuentas) {
       /* De menor a mayor índice, para que cada una caiga en su hueco. */
       p.regs.slice().sort((a, b) => (a.__pos ?? 0) - (b.__pos ?? 0)).forEach(r => {
@@ -11230,7 +11269,6 @@
       persistSettings(); fanout(FANOUT_SEL);
     }
     else p.regs.forEach(r => { if (r && r.id) coll(p.col).set(r.id, r); });
-    if (p.dias && !state.db) renderHistoryFromLocal();
     vaciaPapelera();
     flash(plu(p.regs.length, "elemento devuelto", "elementos devueltos"));
   }
@@ -11670,7 +11708,7 @@
 
   /* Las zonas pendientes se acumulan y se pintan UNA vez por tick.
 
-     Motivo medido, no estético: al arrancar, loadLocal() emite una vez por
+     Motivo medido, no estético: al arrancar, el almacén emite una vez por
      colección —trades, playbooks, ideas, markets, watch, positions…— y cada
      emisión repintaba la vista de Futuros entera. Con 1.500 operaciones eso eran
      CUATRO reconstrucciones de la tabla, el calendario y los gráficos: 468 ms de
@@ -11849,11 +11887,12 @@
   try { localStorage.getItem(LS_KEY); state.store = "local"; } catch { state.store = "memory"; }
   /* El almacén se elige aquí y una sola vez. Con sesión de cuenta NO se carga
      lo local: si se pintara primero, la configuración de este navegador se
-     colaría en la cuenta al primer cambio. Dentro del artefacto, las cuentas
-     no existen: allí manda su propia base. */
-  const enlace = window.claude ? null : nubeDesdeEnlace();
-  nube.ses = window.claude ? null : sesLee();
-  if (nube.ses) { state.nube = true; state.db = nubeDb(); state.store = "db"; } else loadLocal();
+     colaría en la cuenta al primer cambio. */
+  const enlace = nubeDesdeEnlace();
+  nube.ses = sesLee();
+  if (nube.ses) { state.nube = true; state.db = nubeDb(); state.store = "db"; }
+  else state.db = localDb(state.store === "memory");
+  connectDb();
   pintaCuentaBtn();
   try { avisaPapelera(); pintaSel(); } catch (e) { }
   /* La cuenta seleccionada es parte del estado, no del momento: si ayer cerraste
@@ -11863,6 +11902,7 @@
   if (state.settings.meta && state.settings.meta.acct && acctById(state.settings.meta.acct)) ft.acct = state.settings.meta.acct;
   else if (state.settings.meta) state.settings.meta.acct = "";
   setStoreLabel();
+  state.listo = true;
   renderAll();
   if (enlace && enlace.error) abreCuenta("fuera", "El enlace no sirvió (" + enlace.error + "). Si caducó, pide otro.", "bad");
   else if (enlace && enlace.tipo === "recovery") abreCuenta("nueva");
@@ -11927,13 +11967,13 @@
      los datos a otra copia de Cabina (la del repositorio, por ejemplo). El formato
      va versionado: si algún día cambia la forma de los datos, quien importe sabrá
      de qué versión viene y podrá convertirla en vez de romperse en silencio. */
-  const baseDe = () => (state.nube ? "tu cuenta" : "la base del artefacto");
+  const baseDe = () => (state.nube ? "tu cuenta" : "este navegador");
   const BK_FORMAT = "cabina-backup";
   const BK_VERSION = 1;
   // El historial en pantalla son 14 días; la copia se lleva todos los que existan.
   async function allDayDocs() {
-    if (state.db) {
-      try { const q = await state.db.collection("days").limit(2000).get(); return q.docs.map(d => migrateDay(d.data())).filter(d => d && d.date); }
+    {
+      try { const q = await state.db.collection("days").get(); return q.docs.map(d => migrateDay(d.data())).filter(d => d && d.date); }
       catch (e) {
         /* NO se cae a localStorage. Este `catch` estaba vacío, y el resultado era una
            trampa: con la base caída se producía un respaldo que sólo traía los días
@@ -11947,8 +11987,6 @@
         throw err;
       }
     }
-    const l = lsRead().days || {};
-    return Object.values(l).filter(d => d && d.date).map(migrateDay);
   }
   function imagesOf(rec) { return rec && Array.isArray(rec.images) ? rec.images : []; }
   function eachImage(b, fn) { ["trades", "playbooks"].forEach(n => Object.values(b[n] || {}).forEach(r => imagesOf(r).forEach(fn))); }
@@ -11960,7 +11998,7 @@
     const b = {
       format: BK_FORMAT, version: BK_VERSION,
       exportedAt: new Date().toISOString(),
-      source: state.nube ? "cuenta" : state.db ? "artefacto" : "navegador",
+      source: state.nube ? "cuenta" : "navegador",
       settings: clone(state.settings),
       days,
     };
@@ -12016,14 +12054,7 @@
     el.className = "synced" + (bad ? " bad" : "");
     el.innerHTML = `<span class="dotg"${bad ? "" : ""}></span><span>${esc(msg)}</span>`;
   }
-  /* Dentro del artefacto la página no puede descargar por su cuenta: lo hace la
-     cápsula, que enseña al usuario el nombre y el tamaño y espera su permiso.
-     Servida como archivo suelto vale la descarga normal del navegador. */
   async function bkDownload(text, name) {
-    let dl = null;
-    try { dl = window.claude && window.claude.use ? await window.claude.use("downloads") : null; } catch { dl = null; }
-    if (dl) { await dl.save({ filename: name, data: text }); return "guardado"; }
-    if (window.claude) throw { code: "unavailable" };
     const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
     const a = document.createElement("a"); a.href = url; a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
@@ -12161,40 +12192,39 @@
     if (!st.parts.length && !b.settings) return { err: "La copia está vacía: no trae nada que importar." };
     return { bundle: b, stats: st };
   }
+  /* Empezar de cero sólo existe en este navegador. En la cuenta se escribe encima
+     por id y no se borra nada que no venga en la copia: un borrado masivo en la
+     nube no se deshace, y la cabina nunca va a provocarlo desde un botón. */
   async function applyBundle(b, mode) {
-    if (state.db) return applyBundleDb(b);
-    const cur = mode === "replace" ? {} : lsRead();
-    const next = Object.assign({}, cur);
-    if (b.settings) next.settings = clone(normalize(b.settings));
-    next.days = Object.assign({}, next.days || {}, b.days);
-    COLLS.forEach(n => { next[n] = Object.assign({}, next[n] || {}, b[n]); });
-    if (!lsWrite(next)) throw new Error("almacenamiento lleno");
-    return { escritos: Object.keys(b.days).length + COLLS.reduce((n, k) => n + Object.keys(b[k]).length, 0) };
+    if (mode === "replace" && !state.nube && state.db.vaciar) await state.db.vaciar();
+    return applyBundleDb(b);
   }
-  /* En la base del artefacto se escribe encima por id y no se borra nada que no
-     venga en la copia: un borrado masivo en la nube no se deshace, y la cabina
-     nunca va a provocarlo desde un botón de importar. */
   async function applyBundleDb(b) {
-    const tareas = [];
-    if (b.settings) tareas.push(() => state.db.doc("settings/main").set(clone(normalize(b.settings))));
-    Object.keys(b.days).forEach(d => tareas.push(() => state.db.doc("days/" + d).set(clone(b.days[d]))));
-    COLLS.forEach(n => Object.keys(b[n]).forEach(id => tareas.push(() => state.db.collection(n).doc(id).set(Object.assign(clone(b[n][id]), { id })))));
-    let hechos = 0, fallos = 0;
-    for (const t of tareas) {
-      try { await t(); } catch (e) { fallos++; }
-      hechos++;
-      if (hechos % 10 === 0 || hechos === tareas.length) bkSay(`Escribiendo en ${baseDe()}… ${hechos} de ${tareas.length}.`);
+    const pares = [];
+    if (b.settings) pares.push(["settings/main", clone(normalize(b.settings))]);
+    Object.keys(b.days).forEach(d => pares.push(["days/" + d, clone(b.days[d])]));
+    COLLS.forEach(n => Object.keys(b[n]).forEach(id => pares.push([n + "/" + id, Object.assign(clone(b[n][id]), { id })])));
+    /* En este navegador, de una pasada: si no cabe, no entra nada (y se dice). */
+    if (!state.nube) {
+      try { return await state.db.escribeVarios(pares); }
+      catch (e) { throw new Error((e && (e.code || e.message)) || "almacenamiento lleno"); }
     }
-    if (fallos && fallos === tareas.length) throw new Error("no se pudo escribir nada");
+    let hechos = 0, fallos = 0;
+    for (const [ruta, dato] of pares) {
+      try { await state.db.doc(ruta).set(dato); } catch (e) { fallos++; }
+      hechos++;
+      if (hechos % 10 === 0 || hechos === pares.length) bkSay(`Escribiendo en ${baseDe()}… ${hechos} de ${pares.length}.`);
+    }
+    if (fallos && fallos === pares.length) throw new Error("no se pudo escribir nada");
     return { escritos: hechos - fallos, fallos };
   }
   function bkMode() { const r = document.querySelector('input[name="bkmode"]:checked'); return r ? r.value : "replace"; }
   function bkConfirmImport(txt) {
     const r = bkParse(txt);
     if (r.err) { bkSay(r.err, true); return; }
-    const modo = state.db ? "merge" : bkMode();
+    const modo = state.nube ? "merge" : bkMode();
     const cuando = r.bundle.exportedAt ? dmy(String(r.bundle.exportedAt).slice(0, 10)) : "fecha desconocida";
-    const aviso = state.db
+    const aviso = state.nube
       ? "Se escribe encima por id en " + baseDe() + ". No se borra nada que no venga en la copia."
       : modo === "replace"
         ? "REEMPLAZA todo lo que haya en esta cabina. Lo que no esté en la copia se pierde."
@@ -12358,9 +12388,9 @@
     let imgs = 0; ["trades", "playbooks"].forEach(n => coll(n).items.forEach(r => { imgs += imagesOf(r).length; }));
     meta.textContent = parts.length ? parts.join(" · ") + (imgs ? " · " + plu(imgs, "captura", "capturas") : "") : "sin datos todavía";
     const nota = $("bkModeNote"), modos = $("bkModes");
-    if (state.db) {
+    if (state.nube) {
       modos.hidden = true;
-      nota.textContent = (state.nube ? "Conectada a tu cuenta" : "Conectada a la base del artefacto") + ": la importación escribe encima por id y nunca borra lo que no venga en la copia.";
+      nota.textContent = "Conectada a tu cuenta: la importación escribe encima por id y nunca borra lo que no venga en la copia.";
     } else {
       modos.hidden = false;
       nota.textContent = "Guardado en este navegador: aquí sí se puede empezar de cero.";
@@ -12384,15 +12414,8 @@
   tickClock();
   setInterval(tickClock, 1000);
   renderLevels();
-  // Un solo diálogo de permisos al arrancar, para db y assets.
-  (async () => {
-    let perms = null;
-    try { perms = window.claude && window.claude.use ? await window.claude.use("permissions") : null; } catch { perms = null; }
-    if (perms) { try { await perms.request(["db", "assets"]); } catch { } }
-    try { await connectDb(); } catch { }
-    // La migración corre después de que los datos estén cargados, nunca antes.
-    setTimeout(() => { migrarSiHaceFalta().catch(e => { try { console.warn(e); } catch (x) { } }); }, 1200);
-  })();
+  // La migración corre después de que los datos estén cargados, nunca antes.
+  setTimeout(() => { migrarSiHaceFalta().catch(e => { try { console.warn(e); } catch (x) { } }); }, 1200);
 })();
 </script>
 </body>

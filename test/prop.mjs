@@ -34,7 +34,7 @@ const p = await ctx.newPage();
 p.on('pageerror', e => errs.push('PAGEERROR: ' + e.message));
 await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
 await p.addInitScript(`try{if(!localStorage.getItem('cabina-mnq:v1'))localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(JSON.stringify(SEM))});}catch(e){}`);
-await p.goto('file://' + process.cwd() + '/preview.html');
+await p.goto('file://' + process.cwd() + '/../index.html');
 await p.waitForTimeout(1300);
 
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
@@ -89,7 +89,7 @@ const p2 = await ctx.newPage();
 p2.on('pageerror', e => errs.push('PAGEERROR(2): ' + e.message));
 await p2.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
 await p2.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(guardado)});}catch(e){}`);
-await p2.goto('file://' + process.cwd() + '/preview.html'); await p2.waitForTimeout(1300);
+await p2.goto('file://' + process.cwd() + '/../index.html'); await p2.waitForTimeout(1300);
 const tras = await p2.evaluate(() => ({ ctaA: FUT.evaluateRules('ctaA').dailyLossLimit,
   ctaB: FUT.evaluateRules('ctaB').dailyLossLimit, nueva: FUT.evaluateRules('nueva').dailyLossLimit }));
 ok(tras.ctaA === 200 && tras.ctaB === 1100 && tras.nueva === 300, 'los tres contratos vuelven enteros', JSON.stringify(tras));

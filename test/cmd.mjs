@@ -9,7 +9,7 @@ const p=await (await b.newContext({viewport:{width:1500,height:1000},deviceScale
 p.on('pageerror',e=>errs.push('PAGEERROR: '+e.message));
 await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
 await p.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(sem)});}catch(e){}`);
-await p.goto('file://'+process.cwd()+'/preview.html'); await p.waitForTimeout(1400);
+await p.goto('file://'+process.cwd()+'/../index.html'); await p.waitForTimeout(1400);
 const ok=(c,t,d)=>console.log(`  ${c?'✅':'❌'} ${t}${d!=null?'   '+d:''}`);
 
 await p.keyboard.press('Control+k'); await p.waitForTimeout(350);

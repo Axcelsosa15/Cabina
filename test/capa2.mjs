@@ -291,22 +291,6 @@ for (const f of tests) {
 ok(porRutaAbsoluta.length === 0, 'ninguna dependencia se importa por ruta absoluta',
    porRutaAbsoluta.length ? porRutaAbsoluta.slice(0, 3).join(' · ') + ' — usa el nombre del paquete' : 'se resuelven por node_modules');
 
-/* Y que el preview contra el que corren sea el de AHORA, no uno de ayer. */
-const prev = join(dirTest, 'preview.html');
-const idx = leer(join(dirTest, '..', 'index.html'), 'utf8');
-const pv = leer(prev, 'utf8');
-/* EXACTO, no por marcas. La version anterior buscaba cinco cadenas de funciones
-   NUEVAS: cazaba un preview al que le faltaba codigo, nunca uno que aun llevaba
-   codigo QUITADO. Asi paso: el preview conservaba las cuentas del autor despues de
-   sacarlas de index.html, diez pruebas vivian de ellas, y la suite daba 60/60 en
-   local mientras CI, que construye el preview de cero, estaba en rojo. El preview
-   es un esqueleto fijo + index.html desde su primer <style>: tiene que acabar
-   exactamente en eso. */
-const desdeStyle = idx.slice(idx.indexOf('<style>'));
-const alDia = pv.endsWith(desdeStyle);
-ok(alDia, 'preview.html está reconstruido desde el index.html actual',
-   alDia ? 'idéntico desde el primer <style>' : 'difiere del index.html actual — corre build-preview.mjs');
-
 console.log('\n═══ 10 · nadie recarga antes de que el disco tenga el dato ═══');
 /* §10 — Nada de recargar sin esperar el guardado.
 
@@ -372,50 +356,15 @@ ok(/offsetParent !== null/.test(cuerpoDe('selFilas')),
 ok(/localStorage\.setItem\(PAPELERA/.test(codigo) && /localStorage\.getItem\(PAPELERA\)/.test(codigo),
    'la papelera se guarda en disco: deshacer sobrevive a recargar');
 
-/* §12 — Las capacidades del artefacto.
+/* §12 — Una sola base de datos.
 
-   El mismo index.html corre en dos sitios: dentro del artefacto, donde
-   window.claude existe y concede db/assets/downloads, y servido como archivo
-   suelto, donde no existe nada de eso. Dos reglas lo sostienen, y ninguna era
-   comprobable hasta ahora porque el repositorio no registraba qué se declara al
-   publicar: durante semanas la única copia de ese dato estuvo en la llamada de
-   publicación, que no está en ningún archivo. */
-const manif = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'ARTEFACTO.md'), 'utf8');
-const usadas = [...new Set([...codigo.matchAll(/window\.claude\.use\("([a-z]+)"\)/g)].map(m => m[1]))].sort();
-ok(usadas.length > 0, 'el código llama a alguna capacidad', usadas.join(', '));
-for (const cap of usadas)
-  ok(new RegExp('`' + cap + '`').test(manif), `«${cap}» está documentada en ARTEFACTO.md`,
-     new RegExp('`' + cap + '`').test(manif) ? '' : 'se llama pero no se declara ni se explica en ninguna parte');
-
-/* permissions es built-in: declararla es un error que el contrato rechaza. Si
-   alguien la mete en la lista de declaradas, esto se pone rojo. */
-const declaradas = (manif.match(/^```\n([a-z, ]+)\n```$/m) || [, ''])[1].split(',').map(x => x.trim()).filter(Boolean);
-ok(declaradas.length === 3, 'ARTEFACTO.md declara tres capacidades', declaradas.join(', ') || 'no encontré el bloque');
-ok(!declaradas.includes('permissions'), 'permissions NO figura entre las declaradas',
-   declaradas.includes('permissions') ? 'es built-in; declararla la rechaza el contrato' : 'built-in, se llama sin declarar');
-
-/* Cada llamada necesita AL MENOS UNA de las dos defensas.
-
-   Servida sin capsula, `window.claude` no existe. Hay dos cosas que lo
-   absorben, y cada una basta por si sola:
-     - el ternario `window.claude && window.claude.use ? await ... : null`,
-       que no llega a llamar nada;
-     - el `catch { x = null; }`, que recoge el TypeError si se llama.
-   Son redundantes a proposito. Dos versiones anteriores de esta regla vigilaban
-   una sola y afirmaban que sin ella la pagina reventaba: las dos eran falsas, y
-   el sabotaje lo demostro las dos veces -- quitar una deja que la otra cubra.
-   Lo que de verdad hay que impedir es que se vayan LAS DOS, que es lo unico que
-   rompe la pagina. */
-for (const cap of usadas) {
-  const k = codigo.indexOf(`use("${cap}")`);
-  const trozo = k < 0 ? '' : codigo.slice(Math.max(0, k - 220), k + 220);
-  const ternario = new RegExp('window\\.claude && window\\.claude\\.use \\? await window\\.claude\\.use\\("' + cap + '"\\) : null').test(trozo);
-  const atrapa = /catch\s*(?:\([^)]*\))?\s*\{\s*[\w.$]+\s*=\s*null\s*;?\s*\}/.test(trozo);
-  ok(ternario || atrapa, `«${cap}» degrada a null sin capsula`,
-     ternario && atrapa ? 'ternario y catch (redundante a proposito)'
-     : ternario ? 'solo el ternario' : atrapa ? 'solo el catch'
-     : 'NINGUNA de las dos: servida sin capsula revienta en el primer await');
-}
+   La app corrió dentro de un artefacto de Claude con su propia base
+   (`window.claude.use("db")`), y fuera con localStorage o la cuenta: tres sitios
+   donde guardar y un `if/else` en cada puerta de escritura. El artefacto se dejó
+   de usar y todo pasa por el almacén (`almacen()`). Si alguien vuelve a colgar de
+   `window.claude`, vuelve la segunda base silenciosa: esto se pone rojo. */
+ok(!/window\.claude/.test(codigo), 'ninguna referencia a window.claude: una sola vía de datos',
+   /window\.claude/.test(codigo) ? 'vuelve a haber una base del artefacto' : 'sólo el almacén');
 
 
 /* §13 — Ninguna prueba puede apuntar a una raiz del sistema de archivos.
@@ -426,7 +375,7 @@ for (const cap of usadas) {
    vigilaba `file:///` y los imports, no una lectura cualquiera, asi que no lo
    vio -- y encima excluia sync-index.mjs, que era el fichero con una ruta de
    contenedor clavada. Esta mira las raices reales. Lo relativo no la toca:
-   process.cwd() + '/preview.html' y new URL('./x', import.meta.url) pasan. */
+   process.cwd() + '/../index.html' y new URL('./x', import.meta.url) pasan. */
 const sucias = [];
 for (const f of tests) {
   const t = leer(join(dirTest, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');

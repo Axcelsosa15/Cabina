@@ -1,11 +1,8 @@
-/* La página servida por HTTP, sin cápsula.
+/* La página servida por HTTP, como en GitHub Pages.
 
-   GitHub Pages es una entrada documentada y nada la comprobaba: los 44 tests
-   cargan `file://`, y siete de ellos además simulan `window.claude`. Servida de
-   verdad no hay cápsula, así que las cuatro llamadas a capacidades caen a
-   `null` y la app tiene que degradar a localStorage en vez de reventar en el
-   primer `await`. Esa promesa está escrita en el README y en ARTEFACTO.md; esto
-   la mide.
+   Casi todas las pruebas cargan `file://`. Servida de verdad cambian el origen,
+   la carga de fuentes y el almacenamiento: esto comprueba que arranca, guarda en
+   este navegador y sobrevive a recargar.
 
    Levanta su propio servidor: sin puerto fijo (0 = el sistema elige, así dos
    corridas en paralelo no se pisan) y sirviendo sólo lo que Pages publica. */
@@ -44,9 +41,7 @@ await p.goto(base, { waitUntil: 'load' });
 await p.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 15000 });
 await p.waitForTimeout(1200);
 
-console.log('\n═══ ARRANCA SIN CÁPSULA ═══');
-ok(await p.evaluate(() => typeof window.claude === 'undefined'),
-   'no hay window.claude, que es el punto de la prueba');
+console.log('\n═══ ARRANCA SERVIDA POR HTTP ═══');
 const fach = await p.evaluate(() => ['FUT', 'INV', 'TES'].filter(k => typeof window[k] !== 'undefined'));
 ok(fach.length === 3, 'las tres fachadas existen igual', fach.join(' '));
 ok(await p.evaluate(() => document.querySelectorAll('.tabbtn').length) > 0,

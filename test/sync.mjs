@@ -31,7 +31,7 @@ await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(
    que sin la guarda el refresh del test 10 restauraría el estado inicial y la
    prueba de persistencia se aprobaría a sí misma sin probar nada. */
 await p.addInitScript(`try{if(!localStorage.getItem('cabina-mnq:v1'))localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(JSON.stringify(SEM))});}catch(e){}`);
-await p.goto('file://' + process.cwd() + '/preview.html');
+await p.goto('file://' + process.cwd() + '/../index.html');
 await p.waitForTimeout(1200);
 
 /* ---------- utilidades ---------- */
@@ -260,7 +260,7 @@ const p2 = await ctx.newPage();
 p2.on('pageerror', e => errs.push('PAGEERROR(recarga): ' + e.message));
 await p2.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
 await p2.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(guardado)});}catch(e){}`);
-await p2.goto('file://' + process.cwd() + '/preview.html'); await p2.waitForTimeout(1400);
+await p2.goto('file://' + process.cwd() + '/../index.html'); await p2.waitForTimeout(1400);
 const post = await foto(p2);
 /* ANCLAJE. Comparar una foto de la app contra otra foto de la app no distingue
    «todo sobrevive» de «todo está vacío en los dos lados»: si foto() devolviera

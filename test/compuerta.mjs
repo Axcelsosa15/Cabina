@@ -2,7 +2,7 @@
    ─────────────────────────────────────────────────────────────────────────────
    La cadena que hay que poder afirmar de punta a punta:
 
-     FUENTE → MOTOR → BUNDLE → INDEX.HTML → GITHUB PAGES → ARTEFACTO DE CLAUDE
+     FUENTE → MOTOR → BUNDLE → INDEX.HTML → GITHUB PAGES
 
    Esto NO es una suite nueva: es un agregador. Cada fila se apoya en algo que ya
    se ejecuta (la suite, el empaquetador, capa2) o en una lectura del disco. No
@@ -16,9 +16,9 @@
      UNKNOWN   la plataforma NO PERMITE comprobarlo desde aquí.
 
    UNKNOWN nunca se convierte en PASS. No es un hueco que falte por rellenar: es
-   una frontera. Un artefacto de Claude no es alcanzable desde GitHub Actions —no
-   hay URL que CI pueda leer ni credencial que pueda usar— así que fingir un PASS
-   ahí sería exactamente falsificar una verificación de producción.
+   una frontera. La base real de Supabase no es alcanzable desde esta suite —CI
+   no tiene credenciales del proyecto— así que fingir un PASS ahí sería
+   exactamente falsificar una verificación de producción.
 
    LA PROPIEDAD QUE HACE QUE ESTO NO MIENTA: si la línea de evidencia que una fila
    necesita NO APARECE en la salida, la fila es FAIL, no PASS. Un cambio en el
@@ -86,8 +86,8 @@ dice('motor-bundle', 'suite', 'La fuente del motor coincide con el bundle', 'mot
 }
 
 /* ── INDEX.HTML · integridad estructural ─────────────────────────────────────
-   No es «parece bien»: son invariantes que, si se rompen, el artefacto o Pages
-   dejan de funcionar. Cada una con su número medido al lado. */
+   No es «parece bien»: son invariantes que, si se rompen, la página publicada
+   deja de funcionar. Cada una con su número medido al lado. */
 {
   const h = leer('index.html');
   if (h === null) fila('index.html', 'Integridad estructural', 'FAIL', 'no se pudo leer index.html');
@@ -100,8 +100,8 @@ dice('motor-bundle', 'suite', 'La fuente del motor coincide con el bundle', 'mot
     const expone = n(/^  window\.QuantEngine = QE;$/gm);
     const fachadas = ['window.FUT = FUT;', 'window.INV = INV;', 'window.TES = TES;'].filter(x => h.includes(x)).length;
     const mal = [];
-    /* Dos <style>: el primero es el reset del envoltorio estático, el segundo es
-       el sistema de diseño y el cuerpo real del artefacto empieza ahí. */
+    /* Dos <style>: el primero es el reset que pinta el fondo antes de que cargue
+       nada (sin destello blanco), el segundo es el sistema de diseño. */
     if (estilos !== 2) mal.push(`${estilos} <style> (esperados 2)`);
     if (scripts !== 1) mal.push(`${scripts} <script> (esperado 1)`);
     if (!cierra) mal.push('no cierra con </script></body></html>');
@@ -130,11 +130,10 @@ dice('motor-bundle', 'suite', 'La fuente del motor coincide con el bundle', 'mot
 /* ── INDEX.HTML → GITHUB PAGES ── */
 dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP', 'index.html \u2192 pages');
 
-/* ── PERSISTENCIA · las dos ramas ── */
-dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia');
+/* ── PERSISTENCIA ── */
 {
-  /* La rama de localStorage la cubren tres pruebas distintas; se exige que las
-     tres estén verdes, no una. */
+  /* El almacén de este navegador lo cubren tres pruebas distintas; se exige que
+     las tres estén verdes, no una. La cuenta la cubre `cuentas`, más abajo. */
   const tres = ['sync', 'borrar', 'servida'].map(x => ({ n: x, v: verde(x) }));
   const malas = tres.filter(x => !x.v.ok);
   fila('persistencia', 'Contrato de la rama localStorage (Pages y file://)',
@@ -194,7 +193,7 @@ dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia'
   dice('errores', 'suite', 'Las perdidas se clasifican sin absolver por defecto', 'index.html');
   /* Un desconocido arranca vacio y nadie pierde lo suyo: la configuracion guardada
      no se toca, lo antiguo se recupera sin escribir, y no se guarda configuracion
-     en el artefacto antes de que la base conteste. */
+     en la cuenta antes de que la base conteste. */
   dice('primer', 'suite', 'Un desconocido arranca vacio y nadie pierde lo suyo', 'persistencia');
   /* Las cuentas. cuentas.mjs prueba LA APP contra un doble: que pide lo suyo, que
      no mezcla a dos personas en el mismo navegador y que sin cuenta no sale nada.
@@ -210,39 +209,11 @@ dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia'
   dice('lanzamiento', 'suite', 'Aviso legal, privacidad y metadatos de producto a la vista', 'index.html');
 }
 
-/* ── ARTEFACTO · lo que SÍ se puede comprobar desde aquí ─────────────────────
-   Se comprueba que esté ANOTADO y que la anotación tenga forma de versión real.
-   Que COINCIDA con lo publicado es otra fila, y es UNKNOWN. */
-{
-  const doc = leer('ARTEFACTO.md');
-  if (doc === null) fila('artefacto', 'Versión del artefacto anotada', 'FAIL', 'no hay ARTEFACTO.md');
-  else {
-    const v = doc.match(/Versi[oó]n viva \|\s*\*\*(\d+)\*\*\s*·\s*`([0-9]+-[0-9a-f]+)`/);
-    fila('artefacto', 'Versión del artefacto anotada', v ? 'PASS' : 'FAIL',
-      v ? `versión ${v[1]} · ${v[2]} en ARTEFACTO.md`
-        : 'ARTEFACTO.md no anota una versión viva con el formato «**N** · `sello-hash`»');
-    /* Las limitaciones tienen que estar DICHAS, no implícitas. */
-    const limites = [
-      [/fija el (?:\*\*)?CONTRATO(?:\*\*)?, no la plataforma/i, 'el doble fija el contrato, no la plataforma'],
-      [/se queda en memoria/i, 'un fallo de escritura del db deja el dato en memoria'],
-    ];
-    const faltan = limites.filter(([re]) => !re.test(doc)).map(([, n]) => n);
-    fila('artefacto', 'Limitaciones conocidas del artefacto documentadas',
-      faltan.length ? 'FAIL' : 'PASS',
-      faltan.length ? 'sin documentar: ' + faltan.join(' · ')
-        : `${limites.length} limitaciones nombradas en ARTEFACTO.md`);
-  }
-}
-
 /* ── LO QUE LA PLATAFORMA NO PERMITE COMPROBAR ───────────────────────────────
-   Estas cuatro no son pruebas pendientes. Son fronteras. Están aquí para que la
+   Estas no son pruebas pendientes. Son fronteras. Están aquí para que la
    compuerta no pueda dar una impresión de cobertura total que no tiene. */
-fila('artefacto', 'El artefacto publicado coincide con index.html', 'UNKNOWN',
-  'el artefacto no es alcanzable desde GitHub Actions: sin URL que CI pueda leer ni credencial que pueda usar. Se comprueba leyendo las líneas publicadas desde una sesión de Claude (ver ARTEFACTO.md)');
-fila('artefacto', 'El db real de claude.ai se comporta como el doble', 'UNKNOWN',
-  'capsula.mjs fija el CONTRATO que la app espera, no la plataforma. Si claude.ai lo cambiara, sus 28 aserciones seguirían verdes y el artefacto estaría roto. Sólo lo detecta abrir el artefacto');
 fila('pages', 'GitHub Pages sirve la página', 'UNKNOWN',
-  'Pages exige un clic del dueño (Settings → Pages → Source: GitHub Actions) que el GITHUB_TOKEN de Actions no puede dar. Hasta entonces pagina.yml avisa y no despliega');
+  'el despliegue ocurre DESPUÉS de esta compuerta (pagina.yml, cuando pruebas sale verde), y es ese flujo el que pide la URL publicada y comprueba que responde con la cabina');
 fila('pages', 'El CDN de GitHub sirve el payload verificado', 'UNKNOWN',
   'humo.mjs verifica el MISMO payload en el MISMO protocolo, no el CDN de GitHub ni su configuración');
 

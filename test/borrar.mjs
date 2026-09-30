@@ -20,7 +20,7 @@ async function pagina(semilla) {
   p.on('pageerror', e => errs.push('PAGEERROR: ' + e.message));
   await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
   await p.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(JSON.stringify(semilla))});}catch(e){}`);
-  await p.goto('file://' + process.cwd() + '/preview.html'); await arrancada(p, '.tabbtn');
+  await p.goto('file://' + process.cwd() + '/../index.html'); await arrancada(p, '.tabbtn');
   return p;
 }
 const base = extra => Object.assign({ settings: { meta: {}, accounts: [CUENTA], rules: [] } }, extra || {});
@@ -89,7 +89,7 @@ console.log('\n═══ el clic selecciona; borrar dice qué cambia ═══')
   q.on('pageerror', e => errs.push('PAGEERROR(reapertura): ' + e.message));
   await q.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
   await q.addInitScript(`try{const g=${JSON.stringify(enDiscoAhora)};if(g.datos)localStorage.setItem('cabina-mnq:v1',g.datos);if(g.papelera)localStorage.setItem('cabina-mnq:v1:papelera',g.papelera);}catch(e){}`);
-  await q.goto('file://' + process.cwd() + '/preview.html'); await arrancada(q, '.tabbtn');
+  await q.goto('file://' + process.cwd() + '/../index.html'); await arrancada(q, '.tabbtn');
   /* Que el borrado siguiera hecho al reabrir es la mitad que faltaba: con la
      semilla re-sembrándose en cada navegación, las 2 operaciones volvían solas y
      «vuelven las 6» pasaba sin que «Deshacer» hiciera nada. Medido: 6 en disco

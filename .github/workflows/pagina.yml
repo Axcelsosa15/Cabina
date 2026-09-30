@@ -34,48 +34,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # `enablement: true` sólo sirve SI Pages ya está activado: el GITHUB_TOKEN
-      # de Actions no tiene permiso para crear el sitio (eso es administración
-      # del repositorio), así que la primera vez falla con «Resource not
-      # accessible by integration». Se deja puesto porque en cuanto Pages esté
-      # activado este paso lo encuentra y no intenta crear nada.
-      - id: cfg
-        uses: actions/configure-pages@v5
-        continue-on-error: true
-        with:
-          enablement: true
-
-      # No falla: AVISA y se queda quieto.
-      #
-      # La primera versión hacía `exit 1`, con el argumento de que sin página hay
-      # que verlo rojo. Estaba mal: «Pages sin activar» es una configuración del
-      # dueño, no una regresión, y un check rojo en CADA push entrena a ignorar el
-      # rojo — el mismo motivo por el que capa2 no admite guardianes que fallen
-      # siempre. La suite (`pruebas`) es la que dice si el código está bien, y esa
-      # sí es roja cuando toca. En cuanto Pages esté activado, el siguiente push
-      # que pase la suite publica sin tocar nada de aquí.
-      - name: Pages no está activado
-        if: steps.cfg.outcome == 'failure'
-        run: |
-          {
-            echo "### Pages no está activado"
-            echo ""
-            echo "Un workflow no puede activarlo: el \`GITHUB_TOKEN\` de Actions no tiene permiso"
-            echo "para **crear** el sitio de Pages — eso es administración del repositorio."
-            echo ""
-            echo "**Settings → Pages → Build and deployment → Source: GitHub Actions**"
-            echo ""
-            echo "<https://github.com/${{ github.repository }}/settings/pages>"
-            echo ""
-            echo "Hecho eso, el próximo push que pase la suite publica solo."
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "::warning title=Pages no está activado::Settings → Pages → Source: GitHub Actions. Hasta entonces no se despliega nada."
+      # Pages está activado (Settings → Pages → Source: GitHub Actions). Si alguien
+      # lo desactivara, este paso falla en rojo: es una regresión de producción,
+      # no un aviso.
+      - uses: actions/configure-pages@v5
 
       # Sólo lo que la página necesita. index.html es autosuficiente: no
       # referencia ningún archivo del repositorio, así que test/ y engine/ no
       # tienen por qué acabar servidos.
       - name: Armar lo que se publica
-        if: steps.cfg.outcome == 'success'
         run: |
           mkdir -p sitio
           cp index.html sitio/index.html
@@ -83,10 +50,25 @@ jobs:
           ls -la sitio
 
       - uses: actions/upload-pages-artifact@v3
-        if: steps.cfg.outcome == 'success'
         with:
           path: sitio
 
       - id: deploy
-        if: steps.cfg.outcome == 'success'
         uses: actions/deploy-pages@v4
+
+      # LO PUBLICADO ES LO PROBADO. Se pide la URL real y se compara byte a byte
+      # con el index.html que acaba de pasar la suite. El CDN tarda unos segundos
+      # en servir la versión nueva: hasta un minuto de reintentos.
+      - name: La página publicada es exactamente index.html
+        run: |
+          url="${{ steps.deploy.outputs.page_url }}"
+          for i in $(seq 1 12); do
+            if curl -fsSL "$url" -o publicado.html && cmp -s publicado.html index.html; then
+              echo "✅ $url sirve exactamente el index.html probado ($(wc -c < index.html) bytes)"
+              echo "✅ $url sirve exactamente el index.html probado" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::$url no sirve el index.html de este commit"
+          exit 1

@@ -26,6 +26,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { nubeDoble } from './nube-doble.mjs';
 
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
@@ -122,43 +123,25 @@ const opRapida = async (p, txt) => {
   await ctx.close();
 }
 
-/* ═══ CASO B · la base del artefacto rechaza la escritura ════════════════ */
+/* ═══ CASO B · la cuenta rechaza la escritura ════════════════════════════
+   Con el doble de Supabase (test/nube-doble.mjs) y la sesión ya abierta. La
+   avería se pone desde el test, en el doble, no desde la página. */
 const dobleDb = async () => {
+  const d = nubeDoble(html.toString());
   const ctx = await b.newContext();
-  await ctx.addInitScript(() => {
-    const DOCS = {}, CB = {}; let roto = false, rutaRota = '';
-    const cp = o => JSON.parse(JSON.stringify(o));
-    const snap = ruta => ({ exists: Object.prototype.hasOwnProperty.call(DOCS, ruta), data: () => DOCS[ruta] });
-    const doc = ruta => ({
-      async set(d) {
-        if (roto) { const e = new Error('sin permiso'); e.code = 'permission-denied'; throw e; }
-        if (rutaRota && ruta === rutaRota) { const e = new Error('solo ese documento'); e.code = 'doc-roto'; throw e; }
-        DOCS[ruta] = cp(d); (CB[ruta] || []).forEach(f => { try { f(snap(ruta)); } catch (e) { } });
-      },
-      async get() { return snap(ruta); }, async delete() { delete DOCS[ruta]; },
-      onSnapshot(cb) { (CB[ruta] = CB[ruta] || []).push(cb); try { cb(snap(ruta)); } catch (e) { } return () => { }; },
-    });
-    const consulta = n => ({
-      doc: id => doc(n + '/' + id), orderBy() { return this; }, limit() { return this; },
-      async get() { const pref = n + '/'; return { docs: Object.keys(DOCS).filter(k => k.indexOf(pref) === 0).map(k => ({ id: k.slice(pref.length), data: () => DOCS[k] })) }; },
-      onSnapshot(cb) { this.get().then(q => { try { cb(q); } catch (e) { } }).catch(() => { }); return () => { }; },
-    });
-    window.claude = { use: async n => n === 'db' ? { doc, collection: consulta } : n === 'permissions' ? { request: async () => true } : null };
-    window.__ROMPE = v => { roto = v; };
-    window.__ROMPE_RUTA = r => { rutaRota = r; };
-  });
+  await d.conSesion(ctx, 'guardado@prueba.invalid');
   const p = await ctx.newPage();
   p.on('pageerror', e => errs.push(e.message));
   await p.goto(BASE, { waitUntil: 'load' });
   await p.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
   await p.waitForTimeout(1700);
-  return { ctx, p };
+  return { ctx, p, d };
 };
 {
-  const { ctx, p } = await dobleDb();
+  const { ctx, p, d } = await dobleDb();
   const antes = await lee(p);
   ok(/sincronizado/i.test(antes.rotulo), 'de partida esta sincronizado con la base', `«${antes.rotulo.trim()}»`);
-  await p.evaluate(() => window.__ROMPE(true));
+  d.e.roto = true;
   await opRapida(p, 'NQ +185');
   const t0 = await lee(p);
   ok(t0.ops === 1, 'la operacion sigue en pantalla', `ops ${t0.ops}`);
@@ -173,7 +156,7 @@ const dobleDb = async () => {
   /* Cuando la base vuelve: guardar OTRO documento no limpia el aviso, porque los
      dos que fallaron siguen sin guardar. Esto no es un defecto del aviso, es la
      razon de llevarlo por documento -- y se comprueba en las dos direcciones. */
-  await p.evaluate(() => window.__ROMPE(false));
+  d.e.roto = false;
   const pend0 = Number((await lee(p)).rotulo.replace(/[^0-9]/g, '')) || 0;
   await opRapida(p, 'MNQ +40');
   await p.waitForTimeout(1200);
@@ -204,16 +187,14 @@ const dobleDb = async () => {
    cero. Se rompe SOLO el dia de hoy: la ficha de la operacion entra, el dia
    no, y el rotulo tiene que seguir avisando. */
 {
-  const { ctx, p } = await dobleDb();
-  /* Se rompe UNICAMENTE el documento del dia, sin recargar: `addInitScript`
-     vuelve a correr en cada navegacion y reemplazaria cualquier parche puesto
-     despues de cargar -- se intento asi y el doble quedaba intacto. */
+  const { ctx, p, d } = await dobleDb();
+  /* Se rompe UNICAMENTE el documento del dia, en el doble. */
   const hoy = await p.evaluate(() => {
     /* El día de la app es el de Nueva York, no el del navegador: con la hora
        local, entre las 00:00 y las 04:00 UTC se rompía el documento de mañana. */
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
   });
-  await p.evaluate(f => window.__ROMPE_RUTA('days/' + f), hoy);
+  d.e.rutaRota = 'days/' + hoy;
   await p.click('[data-tab="cabina"]'); await p.waitForTimeout(350);
   const hay = await p.evaluate(() => document.querySelectorAll('.check input[type=checkbox]:not(:disabled)').length);
   if (hay) { await p.click('.check input[type=checkbox]:not(:disabled)'); await p.waitForTimeout(1200); }

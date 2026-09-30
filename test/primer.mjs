@@ -12,7 +12,7 @@
        instrumento, y sin una sola cadena de la configuracion personal;
      · quien ya estaba NO pierde nada: la configuracion guardada no se toca, y
        ninguna operacion se pierde aunque su cuenta ya no exista -- queda como
-       «sin cuenta asignada». En los dos modos: navegador y base del artefacto.
+       «sin cuenta asignada». En los dos modos: navegador y cuenta.
 
    Su modo de fallo: arreglar el primer arranque borrando las cuentas de alguien.
 
@@ -25,6 +25,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { nubeDoble } from './nube-doble.mjs';
 
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
@@ -146,83 +147,75 @@ console.log('\n═══ QUIEN YA ESTABA · navegador ═══');
   await ctx.close();
 }
 
-console.log('\n═══ QUIEN YA ESTABA · base del artefacto ═══');
-const conDb = (docs) => ({ fn: (docs) => {
-  const DOCS = Object.assign({}, docs), CB = {}; delete DOCS.__retraso;
-  window.__ESCRITURAS = [];
-  const cp = o => JSON.parse(JSON.stringify(o));
-  const snap = ruta => ({ exists: Object.prototype.hasOwnProperty.call(DOCS, ruta), data: () => cp(DOCS[ruta]) });
-  const doc = ruta => ({
-    async set(d) { window.__ESCRITURAS.push(ruta); DOCS[ruta] = cp(d); (CB[ruta] || []).forEach(f => { try { f(snap(ruta)); } catch (e) { } }); },
-    async get() { return snap(ruta); }, async delete() { delete DOCS[ruta]; },
-    onSnapshot(cb) { (CB[ruta] = CB[ruta] || []).push(cb); setTimeout(() => { try { cb(snap(ruta)); } catch (e) { } }, ruta === 'settings/main' ? (docs.__retraso || 0) : 0); return () => { }; },
-  });
-  const consulta = n => ({
-    doc: id => doc(n + '/' + id), orderBy() { return this; }, limit() { return this; }, where() { return this; },
-    async get() { const pref = n + '/'; return { docs: Object.keys(DOCS).filter(k => k.indexOf(pref) === 0).map(k => ({ id: k.slice(pref.length), data: () => cp(DOCS[k]) })) }; },
-    onSnapshot(cb) { this.get().then(q => { try { cb(q); } catch (e) { } }).catch(() => { }); return () => { }; },
-  });
-  window.claude = { use: async n => n === 'db' ? { doc, collection: consulta } : n === 'permissions' ? { request: async () => true } : null };
-}, arg: docs });
+console.log('\n═══ QUIEN YA ESTABA · con cuenta ═══');
+/* La cuenta, con el doble de Supabase (test/nube-doble.mjs): se siembran sus
+   documentos y la página arranca con la sesión abierta. Las escrituras se cuentan
+   en el doble, que es donde de verdad llegarían. */
+const conDb = async (docs, retrasoCfg) => {
+  const d = nubeDoble(html.toString());
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 } });
+  const uid = await d.conSesion(ctx, 'primer@prueba.invalid');
+  Object.entries(docs).forEach(([ruta, dato]) => d.siembra(uid, ruta, dato));
+  if (retrasoCfg) d.e.retraso['settings/main'] = retrasoCfg;
+  const p = await ctx.newPage();
+  p.on('pageerror', e => errs.push(e.message));
+  await p.goto(BASE, { waitUntil: 'load' });
+  await p.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
+  if (!retrasoCfg) await p.waitForTimeout(1500);
+  return { ctx, p, d };
+};
 {
-  const { ctx, p } = await abre(conDb({ 'trades/v1': { id: 'v1', type: 'futuros', date: '2026-03-02', accountId: 'cta_antigua', instrument: 'MNQ', direction: 'long', qty: 1, entry: 20000, stop: 19990, exit: 20020 } }));
+  const { ctx, p, d } = await conDb({ 'trades/v1': { id: 'v1', type: 'futuros', date: '2026-03-02', accountId: 'cta_antigua', instrument: 'MNQ', direction: 'long', qty: 1, entry: 20000, stop: 19990, exit: 20020 } });
   const f = await foto(p);
   const ops = await p.evaluate(() => FUT.trades().map(t => t.id));
-  ok(f.cuentas.length === 0 && ops.join() === 'v1', 'artefacto sin settings/main y con operaciones: neutral, y la operacion sigue ahi',
+  ok(f.cuentas.length === 0 && ops.join() === 'v1', 'cuenta sin settings/main y con operaciones: neutral, y la operacion sigue ahi',
      `${f.cuentas.length} cuentas · operaciones ${ops.join() || 'ninguna'}`);
-  const w = await p.evaluate(() => window.__ESCRITURAS.filter(r => r === 'settings/main').length);
+  const w = d.escriturasA('settings/main');
   ok(w === 0, 'y abrirla NO ESCRIBE configuracion en la base', `${w} escrituras en settings/main`);
   await ctx.close();
 }
 {
   /* EL CASO PELIGROSO: configuracion guardada Y operaciones en las cuentas de
-     siempre. Si la recuperacion corriera antes de que llegue la configuracion y
-     algo la guardara, sobrescribiria la real. */
-  const { ctx, p } = await abre(conDb({
+     siempre. Si algo guardara configuración antes de que llegue la real, la
+     sobrescribiría. */
+  const { ctx, p, d } = await conDb({
     'settings/main': { checks: [{ id: 'k1', t: 'x', s: '' }], rules: [{ id: 'maxloss', kind: 'num', name: 'P', why: '', value: 250, role: 'maxLoss' }],
       accounts: [{ id: 'cta1', firm: 'Su firma', name: 'Su nombre propio', kind: 'Fondeada', size: 25000, dd: 1500 }] },
-    'trades/v1': { id: 'v1', type: 'futuros', date: '2026-03-02', accountId: 'cta1', instrument: 'MNQ', direction: 'long', qty: 1, entry: 20000, stop: 19990, exit: 20020 } }));
+    'trades/v1': { id: 'v1', type: 'futuros', date: '2026-03-02', accountId: 'cta1', instrument: 'MNQ', direction: 'long', qty: 1, entry: 20000, stop: 19990, exit: 20020 } });
   const f = await foto(p);
-  const w = await p.evaluate(() => window.__ESCRITURAS.filter(r => r === 'settings/main').length);
+  const w = d.escriturasA('settings/main');
   ok(f.cuentas.join() === 'cta1' && f.nombres[0] === 'Su firma · Su nombre propio' && Number((f.reglas.find(r => r.id === 'maxloss') || {}).value) === 250,
      'configuracion guardada + operaciones: gana SIEMPRE la guardada', `${f.nombres.join(' | ')} · maxloss ${(f.reglas.find(r => r.id === 'maxloss') || {}).value}`);
   ok(w === 0, 'y nadie escribio encima', `${w} escrituras en settings/main`);
   await ctx.close();
 }
 {
-  const { ctx, p } = await abre(conDb({ 'settings/main': { checks: [{ id: 'k1', t: 'x', s: '' }], rules: [{ id: 'maxloss', kind: 'num', name: 'P', why: '', value: 250, role: 'maxLoss' }],
-    accounts: [{ id: 'suya', firm: 'F', name: 'Suya', kind: 'Fondeada', size: 25000, dd: 1500 }] } }));
+  const { ctx, p } = await conDb({ 'settings/main': { checks: [{ id: 'k1', t: 'x', s: '' }], rules: [{ id: 'maxloss', kind: 'num', name: 'P', why: '', value: 250, role: 'maxLoss' }],
+    accounts: [{ id: 'suya', firm: 'F', name: 'Suya', kind: 'Fondeada', size: 25000, dd: 1500 }] } });
   const f = await foto(p);
-  ok(f.cuentas.length === 1 && f.cuentas[0] === 'suya', 'artefacto con settings/main: se respeta tal cual', f.cuentas.join(', '));
+  ok(f.cuentas.length === 1 && f.cuentas[0] === 'suya', 'cuenta con settings/main: se respeta tal cual', f.cuentas.join(', '));
   await ctx.close();
 }
 {
-  const { ctx, p } = await abre(conDb({}));
+  const { ctx, p } = await conDb({});
   const f = await foto(p);
-  ok(f.cuentas.length === 0, 'artefacto vacio: arranca neutral como cualquiera', f.cuentas.join(', ') || 'ninguna');
+  ok(f.cuentas.length === 0, 'cuenta vacia: arranca neutral como cualquiera', f.cuentas.join(', ') || 'ninguna');
   await ctx.close();
 }
 
 {
-  /* LA CARRERA QUE YA EXISTIA. Si algo guarda configuracion ANTES de que la base
-     conteste -- elegir una cuenta guarda en silencio --, lo que se escribe son los
-     valores por defecto, encima de la configuracion real. Con el arranque neutral
-     eso borraria todas las cuentas. Se retrasa la respuesta de la base 2 s y se
+  /* LA CARRERA. Si algo guarda configuracion ANTES de que la base conteste --
+     elegir una cuenta guarda en silencio --, lo que se escribe son los valores por
+     defecto, encima de la configuracion real. Con el arranque neutral eso borraria
+     todas las cuentas. La lectura de settings/main tarda 2 s en el doble, y se
      cambia una regla en ese hueco. */
-  const ctx = await b.newContext();
-  await ctx.addInitScript(conDb({ __retraso: 2000, 'settings/main': { checks: [{ id: 'k1', t: 'x', s: '' }],
+  const { ctx, p, d } = await conDb({ 'settings/main': { checks: [{ id: 'k1', t: 'x', s: '' }],
     rules: [{ id: 'maxloss', kind: 'num', name: 'P', why: '', value: 250, role: 'maxLoss' }],
-    accounts: [{ id: 'suya', firm: 'F', name: 'Suya', kind: 'Fondeada', size: 25000, dd: 1500 }] } }).fn,
-    { __retraso: 2000, 'settings/main': { checks: [{ id: 'k1', t: 'x', s: '' }],
-    rules: [{ id: 'maxloss', kind: 'num', name: 'P', why: '', value: 250, role: 'maxLoss' }],
-    accounts: [{ id: 'suya', firm: 'F', name: 'Suya', kind: 'Fondeada', size: 25000, dd: 1500 }] } });
-  const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message));
-  await p.goto(BASE, { waitUntil: 'load' });
-  await p.waitForFunction(() => typeof window.FUT !== 'undefined' && window.__ESCRITURAS, null, { timeout: 20000 });
+    accounts: [{ id: 'suya', firm: 'F', name: 'Suya', kind: 'Fondeada', size: 25000, dd: 1500 }] } }, 2000);
   const enElHueco = await p.evaluate(() => { const r = FUT.rules().find(x => x.role === 'maxLoss'); return r ? FUT.updateRule(r.id, { value: 999 }) : 'sin regla'; });
   await p.waitForTimeout(3200);
   const f = await foto(p);
-  const w = await p.evaluate(() => window.__ESCRITURAS.filter(r => r === 'settings/main').length);
+  const w = d.escriturasA('settings/main');
   ok(w === 0, 'un cambio de configuracion ANTES de que la base conteste no se escribe encima de la real',
      `${w} escrituras en settings/main · cambio hecho: ${enElHueco}`);
   ok(f.cuentas.join() === 'suya' && Number((f.reglas.find(r => r.id === 'maxloss') || {}).value) === 250,

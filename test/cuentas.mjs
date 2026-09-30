@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { quieto, conCuentas } from './espera.mjs';
+import { nubeDoble } from './nube-doble.mjs';
 
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
@@ -35,105 +36,10 @@ const srv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/ht
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${srv.address().port}/`;
 
-/* ═══ EL DOBLE ═══ */
-const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
-const nube = {
-  usuarios: new Map(),      // email -> { id, pass, confirmado }
-  tokens: new Map(),        // at -> { uid, caduca }
-  refresh: new Map(),       // rt -> uid (se gasta al usarse)
-  filas: new Map(),         // uid|path -> { user_id, path, data }
-  pedidas: [],
-  n: 0,
-};
-function nuevoUsuario(email, pass, confirmado = true) {
-  const id = `00000000-0000-4000-8000-${String(++nube.n).padStart(12, '0')}`;
-  nube.usuarios.set(email, { id, email, pass, confirmado });
-  return id;
-}
-function sesion(u) {
-  const at = `${b64({ alg: 'HS256' })}.${b64({ sub: u.id, email: u.email, role: 'authenticated' })}.firma${++nube.n}`;
-  const rt = `rt${++nube.n}`;
-  nube.tokens.set(at, { uid: u.id, caduca: Date.now() + 3600e3 });
-  nube.refresh.set(rt, u.id);
-  return { access_token: at, refresh_token: rt, expires_in: 3600, token_type: 'bearer', user: { id: u.id, email: u.email } };
-}
-const porId = id => [...nube.usuarios.values()].find(u => u.id === id);
-const filasDe = uid => [...nube.filas.values()].filter(f => f.user_id === uid);
-const PATH_OK = /^[A-Za-z0-9_.~:@+-]+(\/[A-Za-z0-9_.~:@+-]+)+$/;
-
-async function doble(route) {
-  if (nube.caida) return route.abort('internetdisconnected');
-  const req = route.request(), u = new URL(req.url()), h = req.headers();
-  const cuerpo = () => { try { return JSON.parse(req.postData() || 'null'); } catch { return null; } };
-  const json = (status, obj) => route.fulfill({ status, contentType: 'application/json', body: obj == null ? '' : JSON.stringify(obj) });
-  nube.pedidas.push({ m: req.method(), ruta: u.pathname + u.search, auth: h.authorization || '', apikey: h.apikey || '', body: req.postData() || '' });
-  if (h.apikey !== CLAVE) return json(401, { message: 'Invalid API key' });
-
-  if (u.pathname === '/auth/v1/token') {
-    const b = cuerpo() || {};
-    if (u.searchParams.get('grant_type') === 'password') {
-      const usr = nube.usuarios.get(b.email);
-      if (!usr || usr.pass !== b.password) return json(400, { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' });
-      if (!usr.confirmado) return json(400, { code: 400, error_code: 'email_not_confirmed', msg: 'Email not confirmed' });
-      return json(200, sesion(usr));
-    }
-    const uid = nube.refresh.get(b.refresh_token);
-    if (!uid) return json(400, { code: 400, error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token' });
-    nube.refresh.delete(b.refresh_token);
-    return json(200, sesion(porId(uid)));
-  }
-  if (u.pathname === '/auth/v1/signup') {
-    const b = cuerpo() || {};
-    nube.ultimoRegistro = { email: b.email, redirect: u.searchParams.get('redirect_to') };
-    if (!nube.usuarios.has(b.email)) nuevoUsuario(b.email, b.password, false);
-    const usr = nube.usuarios.get(b.email);
-    return json(200, { id: usr.id, email: usr.email, confirmation_sent_at: new Date().toISOString() });
-  }
-  if (u.pathname === '/auth/v1/recover') { nube.ultimaRecuperacion = { email: (cuerpo() || {}).email, redirect: u.searchParams.get('redirect_to') }; return json(200, {}); }
-
-  const at = String(h.authorization || '').replace(/^Bearer /, '');
-  const t = nube.tokens.get(at);
-  if (!t) return json(401, { code: 'PGRST301', message: 'No suitable key or wrong key type' });
-  if (t.caduca < Date.now()) return json(401, { code: 'PGRST301', message: 'JWT expired' });
-  const uid = t.uid;
-
-  if (u.pathname === '/auth/v1/logout') { nube.tokens.delete(at); return route.fulfill({ status: 204, body: '' }); }
-  if (u.pathname === '/auth/v1/user' && req.method() === 'PUT') {
-    const usr = porId(uid); const b = cuerpo() || {};
-    if (b.password === usr.pass) return json(422, { code: 422, error_code: 'same_password', msg: 'New password should be different from the old password.' });
-    usr.pass = b.password; return json(200, { id: usr.id, email: usr.email });
-  }
-  if (u.pathname !== '/rest/v1/cabina_docs') return json(404, { message: 'no existe en el doble' });
-
-  /* RLS del doble: todo lo que se lee, cambia o borra es SOLO del dueño del token. */
-  const mias = filasDe(uid);
-  const eq = k => { const v = u.searchParams.get(k); return v && v.startsWith('eq.') ? v.slice(3) : null; };
-  if (req.method() === 'GET') {
-    let a = mias;
-    if (eq('path') != null) a = a.filter(f => f.path === eq('path'));
-    if (eq('coll') != null) a = a.filter(f => f.path.replace(/\/[^/]+$/, '') === eq('coll'));
-    const orden = (u.searchParams.get('order') || 'path.asc').split(',')[0];
-    const m = orden.match(/^(?:data->>(\w+)|(path))\.(asc|desc)$/);
-    if (m) { const k = f => String(m[1] ? (f.data[m[1]] ?? '') : f.path); const s = m[3] === 'desc' ? -1 : 1; a = a.slice().sort((x, y) => (k(x) < k(y) ? -s : k(x) > k(y) ? s : x.path < y.path ? -1 : 1)); }
-    const off = Number(u.searchParams.get('offset') || 0);
-    const lim = Math.min(1000, Number(u.searchParams.get('limit') || 1000));   // la API real corta en 1000
-    a = a.slice(off, off + lim);
-    const sel = (u.searchParams.get('select') || 'data').split(',');
-    return json(200, a.map(f => Object.fromEntries(sel.map(c => [c, f[c]]))));
-  }
-  if (req.method() === 'POST') {
-    const b = cuerpo();
-    if (!b || b.user_id !== uid) return json(403, { code: '42501', message: 'new row violates row-level security policy for table "cabina_docs"' });
-    if (!PATH_OK.test(b.path)) return json(400, { code: '23514', message: 'violates check constraint "cabina_docs_path_forma"' });
-    nube.filas.set(uid + '|' + b.path, { user_id: uid, path: b.path, data: b.data });
-    return route.fulfill({ status: 201, body: '' });
-  }
-  if (req.method() === 'DELETE') {
-    const p = eq('path'); if (p != null) nube.filas.delete(uid + '|' + p);
-    return route.fulfill({ status: 204, body: '' });
-  }
-  return json(405, { message: 'metodo' });
-}
+/* ═══ EL DOBLE (test/nube-doble.mjs) ═══ */
+const d = nubeDoble(html);
+const nube = d.e, doble = d.ruta;
+const { nuevoUsuario, sesion, filasDe } = d;
 
 const b = await chromium.launch();
 const errs = [];
@@ -182,7 +88,7 @@ await conCuentas(ctx);
 {
   const p = await abre(ctx);
   const r = await lee(p);
-  ok(r.boton === 'Entrar', 'fuera del artefacto aparece el botón «Entrar»', r.boton);
+  ok(r.boton === 'Entrar', 'sin sesión aparece el botón «Entrar»', r.boton);
   ok(/no se envían a ningún servidor/.test(r.pie), 'y el pie sigue diciendo la verdad: no se envía nada', r.pie.slice(0, 70));
   await p.evaluate(() => FUT.createTrade({ id: 'loc1', type: 'futuros', accountId: FUT.accounts()[0].id, date: '2026-09-17', instrument: 'MNQ', direction: 'long', qty: 1, entry: 21000, stop: 20990, exit: 21010, notes: 'SOLO-LOCAL' }));
   await quieto(p);
@@ -390,17 +296,6 @@ console.log('\n═══ MÁS DE 1000 OPERACIONES · no se quedan en la 1000 ═
   await entra(p, 'muchas@prueba.invalid', 'contrasena-larga');
   ok(await esperaNube(p, () => FUT.trades().length === 1005), 'las 1005 operaciones llegan (la API corta en 1000)', String(await p.evaluate(() => FUT.trades().length)));
   await c3.close();
-}
-
-console.log('\n═══ DENTRO DEL ARTEFACTO · la cuenta no existe ═══');
-{
-  const c4 = await contexto();
-  await c4.addInitScript(() => { window.claude = { use: async () => null }; });
-  const antes = nube.pedidas.length;
-  const p = await abre(c4);
-  ok((await lee(p)).boton === null, 'el botón de cuenta no aparece: allí manda la base del artefacto');
-  ok(nube.pedidas.length === antes, 'y no sale ni una petición a la nube');
-  await c4.close();
 }
 
 ok(errs.length === 0, 'la página no lanzó ningún error', errs.join(' | ') || 'sin pageerror');

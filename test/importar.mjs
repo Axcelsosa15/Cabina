@@ -22,6 +22,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { nubeDoble } from './nube-doble.mjs';
 
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
@@ -175,45 +176,20 @@ console.log('\n═══ LA OTRA DIRECCION · exportar con la base caida ══�
    salia con uno, diciendo «1 sesion». Se guarda, se confia en el, y se descubre al
    restaurar. Hallazgo de una revision externa, verificado aqui antes de adoptarlo. */
 {
+  /* Con la cuenta (doble de Supabase) y dos días guardados en ella. Después se
+     rompe la lectura de `days` en el doble y se pide la copia. */
+  const d = nubeDoble(html.toString());
   const ctx = await b.newContext();
-  await ctx.addInitScript(() => {
-    const DOCS = {}, CB = {}; let roto = false;
-    const cp = o => JSON.parse(JSON.stringify(o));
-    const snap = ruta => ({ exists: Object.prototype.hasOwnProperty.call(DOCS, ruta), data: () => DOCS[ruta] });
-    const doc = ruta => ({
-      async set(d) { DOCS[ruta] = cp(d); (CB[ruta] || []).forEach(f => { try { f(snap(ruta)); } catch (e) { } }); },
-      async get() { return snap(ruta); }, async delete() { delete DOCS[ruta]; },
-      onSnapshot(cb) { (CB[ruta] = CB[ruta] || []).push(cb); try { cb(snap(ruta)); } catch (e) { } return () => { }; },
-    });
-    const consulta = (n) => ({
-      doc: id => doc(n + '/' + id), orderBy() { return this; }, limit() { return this; },
-      async get() {
-        if (roto && n === 'days') { const e = new Error('db caida'); e.code = 'unavailable'; throw e; }
-        const pref = n + '/';
-        return { docs: Object.keys(DOCS).filter(k => k.indexOf(pref) === 0).map(k => ({ id: k.slice(pref.length), data: () => DOCS[k] })) };
-      },
-      onSnapshot(cb) { this.get().then(q => { try { cb(q); } catch (e) { } }).catch(() => { }); return () => { }; },
-    });
-    window.claude = { use: async n => n === 'db' ? { doc, collection: consulta }
-      : n === 'permissions' ? { request: async () => true } : null };
-    window.__ROMPE = v => { roto = v; };
-  });
+  const uid = await d.conSesion(ctx, 'importar@prueba.invalid');
+  d.siembra(uid, 'days/2026-03-01', { date: '2026-03-01', note: 'nube uno', checks: {}, pres: {} });
+  d.siembra(uid, 'days/2026-03-02', { date: '2026-03-02', note: 'nube dos', checks: {}, pres: {} });
   const q = await ctx.newPage();
   q.on('pageerror', e => errs.push(e.message));
   await q.goto(BASE, { waitUntil: 'load' });
   await q.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
   await q.waitForTimeout(1700);
-  const sembrado = await q.evaluate(async () => {
-    const db = await window.claude.use('db');
-    await Promise.all([
-      db.doc('days/2026-03-01').set({ date: '2026-03-01', note: 'nube uno', checks: {}, pres: {} }),
-      db.doc('days/2026-03-02').set({ date: '2026-03-02', note: 'nube dos', checks: {}, pres: {} }),
-    ]);
-    await new Promise(r => setTimeout(r, 600));
-    return true;
-  });
-  ok(sembrado, 'se sembraron dos dias en la base del artefacto');
-  await q.evaluate(() => window.__ROMPE(true));
+  ok(d.filasDe(uid).filter(f => f.path.startsWith('days/')).length === 2, 'hay dos dias en la cuenta');
+  d.e.lecturasRotas = 'days';
   await q.click('[data-tab="cabina"]'); await q.waitForTimeout(400);
   await q.click('button:has-text("Ver el texto")'); await q.waitForTimeout(3000);
   const e = await q.evaluate(() => {

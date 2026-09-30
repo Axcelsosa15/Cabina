@@ -5,7 +5,7 @@ const p=await (await b.newContext({viewport:{width:1500,height:1200}})).newPage(
 p.on('pageerror',e=>errs.push('PAGEERROR: '+e.message));
 await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
 await p.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(JSON.stringify(SEM))});}catch(e){}`);
-await p.goto('file://'+process.cwd()+'/preview.html'); await p.waitForTimeout(1100);
+await p.goto('file://'+process.cwd()+'/../index.html'); await p.waitForTimeout(1100);
 const id=await p.evaluate(()=>document.querySelector('.acct').dataset.id);
 const av = () => p.evaluate(()=>{const z=document.getElementById('edAvisos');return z&&!z.hidden?z.innerText.replace(/\n+/g,' | '):'(sin avisos)';});
 

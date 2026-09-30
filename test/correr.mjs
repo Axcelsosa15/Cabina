@@ -1,6 +1,6 @@
 /* Corre la suite entera y devuelve un código de salida útil para CI.
 
-   Cada archivo es un proceso aparte a propósito: comparten `preview.html` pero
+   Cada archivo es un proceso aparte a propósito: comparten `index.html` pero
    no estado de navegador, y uno que se cuelgue no se lleva a los demás. El
    `timeout` está para que un test colgado falle como test colgado y no como
    una tubería de CI que se agota a los seis minutos sin decir cuál fue. */
@@ -14,7 +14,7 @@ const aqui = dirname(fileURLToPath(import.meta.url));
    pregunte por qué faltan. */
 /* compuerta.mjs LANZA este archivo. Sin excluirla, correr.mjs la descubriria como
    una prueba mas y se llamaria a si mismo sin fondo. Se detecto antes de ejecutarla. */
-const NO_SON_TESTS = new Set(['build-preview.mjs', 'espera.mjs', 'correr.mjs', 'compuerta.mjs']);
+const NO_SON_TESTS = new Set(['espera.mjs', 'nube-doble.mjs', 'correr.mjs', 'compuerta.mjs']);
 const SIN_BASELINE = new Set();
 
 /* Las pruebas del motor viven fuera de test/, y por eso no se ejecutaban NUNCA:
@@ -33,13 +33,6 @@ const MOTOR = [
      sin vigilar. El segundo (bundle -> inline en index.html) lo vigila capa2. */
   ['motor-bundle', join(aqui, '..', 'engine', 'quant', 'bundle.mjs'), ['--check']],
 ];
-
-/* EL PREVIEW SE CONSTRUYE AQUI, SIEMPRE. CI lo construia en un paso aparte y en local
-   dependia de acordarse. Un preview viejo con codigo ya quitado de index.html dio
-   60/60 en local sobre un main que en CI estaba rojo. El runner mide el index.html de
-   AHORA o no mide. */
-import { execFileSync } from 'node:child_process';
-execFileSync(process.execPath, [join(aqui, 'build-preview.mjs')], { stdio: 'ignore' });
 
 const solo = process.argv.slice(2);
 let archivos = readdirSync(aqui)
@@ -78,7 +71,7 @@ for (const entrada of archivos) {
   const rojo = r.code !== 0 || cruces > 0;
   /* CUANTAS ASERCIONES CORRIERON DE VERDAD, contando la SALIDA y no el fuente.
      Contarlas con una regex sobre el codigo NO funciona: se cuelan las que
-     aparecen dentro de un comentario. Paso aqui — capsula.mjs daba 29 por grep y
+     aparecen dentro de un comentario. Paso aqui — un test daba 29 por grep y
      28 al ejecutarse, y la de mas estaba en una linea de su encabezado que
      menciona `paso(...)` como prosa. Ese mismo error ya se habia cometido en la
      §14 de capa2, que contaba «§13» escrito en un parrafo como si fuera una

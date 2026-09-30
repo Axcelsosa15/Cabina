@@ -64,13 +64,11 @@ const carga = await p.evaluate(() => ({
   tick: window.QuantEngine ? window.QuantEngine.CONTRACTS.MNQ.tickValue : null,
   pestanas: document.querySelectorAll('.tabbtn').length,
   css: getComputedStyle(document.body).backgroundColor,
-  claude: typeof window.claude,
 }));
 paso('APP LOAD', carga.fachadas === 3 && carga.pestanas > 0, `${carga.fachadas}/3 fachadas · ${carga.pestanas} pestañas`);
 paso('CSS', carga.css !== '' && carga.css !== 'rgba(0, 0, 0, 0)', carga.css);
 paso('BUNDLE presente', carga.qe === 'object' && carga.ver === '2.0.0', `QuantEngine ${carga.ver}`);
 paso('BUNDLE vivo (rejilla de ticks)', carga.tick === 0.5, `MNQ tickValue ${carga.tick} · esperado 0.5`);
-paso('SIN CAPSULA (como Pages)', carga.claude === 'undefined', 'window.claude ' + carga.claude);
 
 /* 2 · NAVIGATION */
 const tabs = await p.$$eval('.tabbtn', n => n.map(x => x.dataset.tab).filter(Boolean));

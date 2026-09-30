@@ -37,12 +37,6 @@ jobs:
       - name: Instalar Chromium
         run: npx playwright install --with-deps chromium
 
-      # preview.html se genera desde index.html. Si se olvidara, los tests
-      # medirían una copia vieja — que es exactamente lo que pasó una vez y por
-      # lo que capa2.mjs tiene una comprobación para ello.
-      - name: Construir el preview
-        run: npm run preview
-
       # npm run compuerta, no npm test: la compuerta LANZA la suite una sola vez
       # (correr.mjs como proceso hijo) y todas sus filas dependientes de pruebas
       # derivan de ESA salida. No cuesta una corrida extra. Lo que suma es la
