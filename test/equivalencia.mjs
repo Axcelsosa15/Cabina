@@ -79,7 +79,11 @@ const R = await p.evaluate(async () => {
   FUT.createAccount({ id: 'EQ1', firm: 'Equivalencia', name: 'Guardian 25K', kind: 'Evaluación',
     size: 25000, dd: 1500, ddKind: 'trailing_lock', trailBase: 'intradia',
     target: 1500, limit: 30, status: 'activa', ledger: [], total: 0, best: 0 });
-  const d = new Date(), iso = x => x.toISOString().slice(0, 10);
+  /* EL «HOY» DE LA APP ES EL DE NUEVA YORK (etNow), no el de UTC. Con
+     toISOString() esta prueba sembraba las operaciones de «hoy» en el día UTC, y
+     entre las 00:00 y las 04:00 UTC —las 20:00-24:00 ET del día anterior— la app
+     miraba otro día: P&L de hoy 0, siete aserciones en rojo. El reloj, no el código. */
+  const d = new Date(), iso = x => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(x);
   const d3 = new Date(d.getTime() - 86400000 * 3), d2 = new Date(d.getTime() - 86400000 * 2);
   [
     { date: iso(d3), time: '09:00', entry: 21000, exit: 21060, qty: 2, direction: 'long' }, /* +120 pts x2 = +$240 */

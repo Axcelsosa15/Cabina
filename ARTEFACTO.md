@@ -11,7 +11,7 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **72** · `1790699372-4415` · 2026-09-29 |
+| Versión viva | **73** · `1790726231-3eb4` · 2026-09-29 |
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
@@ -93,6 +93,26 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
 - delante: `<!DOCTYPE html>`, `<head>` con los metas, el reset mínimo,
   `</head><body>` — las fuentes ya no: las pide el script al cargar
 - detrás: `</body></html>`
+
+### Coinciden — republicado el 2026-09-29 (versión 73) · sin las cuentas del autor
+
+La versión viva es la **73** (`1790726231-3eb4`). Contrato `0.2.46` y capacidades
+arrastradas intactas. Publicada sólo después de que CI diera verde a `d7251b9`.
+
+**89 líneas fuera, 17 dentro.** Sale `LEGADO_SETTINGS`, `recuperaLegado` y las
+migraciones que sólo servían a la configuración del autor; los textos de ejemplo, el
+catálogo y el demo dejan de nombrar firmas reales. Comprobado sobre el candidato,
+contando apariciones y no líneas: cero nombres de firma o cuenta del autor (la misma
+lista que vigila `lanzamiento.mjs`), cero `LEGADO` y `recuperaLegado`; `</body>` y
+`</html>` cero; una sola URL de fuentes, la que pide el script.
+
+Por qué es seguro en el entorno principal: la recuperación sólo actuaba en una
+instalación SIN `settings/main`. Antes de quitarla se leyó la forma —no el
+contenido— de la base: `settings/main` existe completo y ninguna cuenta en uso
+depende de los identificadores antiguos. La copia se borró.
+
+Antes de publicar, la herramienta exigió leer entero lo publicado: coincidía con la
+72 salvo el envoltorio del host, así que no había nada que fusionar.
 
 ### Coinciden — republicado el 2026-09-29 (versión 72) · arranque neutral, y sin esperar a Google
 

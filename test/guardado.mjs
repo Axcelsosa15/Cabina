@@ -209,8 +209,9 @@ const dobleDb = async () => {
      vuelve a correr en cada navegacion y reemplazaria cualquier parche puesto
      despues de cargar -- se intento asi y el doble quedaba intacto. */
   const hoy = await p.evaluate(() => {
-    const d = new Date(), z = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+    /* El día de la app es el de Nueva York, no el del navegador: con la hora
+       local, entre las 00:00 y las 04:00 UTC se rompía el documento de mañana. */
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
   });
   await p.evaluate(f => window.__ROMPE_RUTA('days/' + f), hoy);
   await p.click('[data-tab="cabina"]'); await p.waitForTimeout(350);
