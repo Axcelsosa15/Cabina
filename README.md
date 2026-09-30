@@ -95,7 +95,7 @@ También se abre como archivo suelto (`file://`), con las limitaciones de abajo.
 
 ```sh
 npm run preview         # regenera test/preview.html desde index.html — NO es opcional
-npm test                # las 55 suites
+npm test                # las 61 suites
 npm test motor          # sólo el motor
 npm test humo           # sólo el smoke test de producción
 npm run compuerta       # la suite + la tabla de la cadena (lo que corre CI)
@@ -282,21 +282,29 @@ Es un `if/else`: **cuando hay `db`, no se escribe en `localStorage`**, y al
 contrario. La app arranca en `localStorage` y **sube** a `db` si la capacidad
 resuelve.
 
-| | Artefacto | GitHub Pages / `file://` |
-|---|---|---|
-| Dónde vive el estado | almacén `db` de documentos | `localStorage` de ese navegador |
-| Entre dispositivos | **sí**, en vivo por `onSnapshot` | **no** |
-| Subir imágenes | sí (`assets`) | no |
-| Respaldo JSON | por la cápsula, con permiso | descarga normal |
-| Se pierde si borras datos del sitio | no | **sí** |
+| | Artefacto | Pages, sin cuenta | Pages, con cuenta |
+|---|---|---|---|
+| Dónde vive el estado | almacén `db` de documentos | `localStorage` de ese navegador | Supabase, tabla `cabina_docs`, una fila por documento y por usuario |
+| Entre dispositivos | **sí**, en vivo por `onSnapshot` | **no** | **sí**, al volver a la pestaña (no en vivo) |
+| Sale algo del navegador | a la base del artefacto | **nada** | a la cuenta, con el token de esa persona |
+| Subir imágenes | sí (`assets`) | no | no |
+| Respaldo JSON | por la cápsula, con permiso | descarga normal | descarga normal |
+| Se pierde si borras datos del sitio | no | **sí** | no (sólo la sesión) |
+
+Con cuenta, el adaptador `nubeDb()` habla el mismo idioma que la base del
+artefacto (`doc`, `collection`, `onSnapshot`), así que el resto de la app no
+sabe cuál tiene debajo. Lo que separa a dos usuarios **no está en la página**:
+es la RLS de la base. Ver [docs/MULTIUSUARIO.md](docs/MULTIUSUARIO.md).
 
 ---
 
 ## Limitaciones conocidas
 
-- **Sin sincronización fuera del artefacto.** En Pages los datos viven en el
-  `localStorage` de ese navegador. No es un fallo: es lo que una página estática
-  puede hacer.
+- **Sin cuenta, sin sincronización.** En Pages, sin cuenta, los datos viven en el
+  `localStorage` de ese navegador. Con cuenta se sincronizan, pero **no en vivo**:
+  lo escrito en otro dispositivo llega al volver a la pestaña. Y las cuentas aún
+  **no están abiertas al público**: faltan los pasos del dueño en
+  [docs/MULTIUSUARIO.md](docs/MULTIUSUARIO.md).
 - **`file://` tira el almacén al recargar**, de forma intermitente. Por eso el
   smoke test usa HTTP y dos pruebas abren una pestaña nueva en vez de recargar.
 - **33 de las 57 pruebas de `test/` no afirman nada**: miden y registran. Su
@@ -324,11 +332,11 @@ resuelve.
 |---|---|
 | Suites que se ejecutan | **60** (57 de `test/` + 3 del motor) |
 | Aserciones del motor | **421** (`quant` 329 · `math` 92) |
-| Aserciones de navegador y guardianes | **815** en 24 archivos — las cuenta la propia suite |
+| Aserciones de navegador y guardianes | **884** en 25 archivos — las cuenta la propia suite |
 | Cobertura de la capa `db` del artefacto | **29** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
-| Compuerta de publicación | **21 PASS · 0 FAIL · 4 `UNKNOWN`** de 25 filas |
-| CI | ejecuta `npm run compuerta`: la suite entera más la tabla; última verificación local: **21 PASS · 0 FAIL · 4 UNKNOWN** en 720 s, con el preview reconstruido por el propio runner |
+| Compuerta de publicación | **22 PASS · 0 FAIL · 5 `UNKNOWN`** de 27 filas |
+| CI | ejecuta `npm run compuerta`: la suite entera más la tabla; última verificación local: **22 PASS · 0 FAIL · 5 UNKNOWN** en 752 s, con el preview reconstruido por el propio runner |
 | Secretos técnicos en el repositorio | ninguno |
 
 Detalle y evidencia en [PROTOCOLOS.md](PROTOCOLOS.md). La historia de cada fallo

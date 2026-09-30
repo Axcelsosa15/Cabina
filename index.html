@@ -1467,6 +1467,14 @@
   .qk .qin { width: 100%; font-family: var(--font-mono); font-size: 21px; font-weight: 600;
     letter-spacing: .02em; text-align: center; padding:12px 8px; }
   .qk .qhint { font-family: var(--font-mono); font-size: 11px; color: var(--dim); text-align: center; }
+  /* La cuenta reutiliza el marco del registro rápido: un diálogo pequeño. */
+  .au .body input { width: 100%; }
+  .au .aubox { display: grid; gap: 12px; }  .au .body p { margin: 0; font-size: 13px; line-height: 1.5; }
+  .au .aunota { font-family: var(--font-mono); font-size: 11px; color: var(--dim); }
+  .au .aumsg { font-family: var(--font-mono); font-size: 12px; min-height: 1.3em; color: var(--muted); }
+  .au .aumsg.bad { color: var(--negative); }
+  .au .aumsg.good { color: var(--positive); }
+  .au footer { flex-wrap: wrap; }
   /* La vista previa es obligatoria: nunca se guarda una entrada sin mostrar qué
      se entendió y qué queda vacío. */
   .qkprev { border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); padding:12px 12px;
@@ -1503,6 +1511,7 @@
     <span><span id="etTime" class="time">--:--:--</span> <span class="tz">ET · Nueva York</span></span>
     <span id="saveState" class="save-state" role="status" aria-live="polite" aria-atomic="true">guardado local</span>
     <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)">+ Rápido</button>
+    <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
     <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
     <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
   </div>
@@ -2032,6 +2041,37 @@
     </footer>
   </div>
 </div>
+<div class="ov" id="authOv" role="dialog" aria-modal="true" aria-labelledby="auTitle">
+  <div class="ed qk au">
+    <header><h3 id="auTitle">Tu cuenta</h3><button type="button" class="icon" id="auClose" aria-label="Cerrar">×</button></header>
+    <div class="body">
+      <div id="auFuera" class="aubox">
+        <p>Con cuenta, tu cabina se guarda en la nube y la abres desde cualquier dispositivo. Sólo tú la ves: ni otros usuarios ni quien tenga el enlace.</p>
+        <p class="aunota">Sin cuenta, Cabina sigue funcionando como hasta ahora: todo se queda en este navegador y no se envía nada.</p>
+        <div><label class="lab" for="auEmail">Email</label><input id="auEmail" type="email" autocomplete="email" spellcheck="false"></div>
+        <div id="auPassBox"><label class="lab" for="auPass">Contraseña</label><input id="auPass" type="password" autocomplete="current-password"></div>
+      </div>
+      <div id="auDentro" class="aubox" hidden>
+        <p>Sesión iniciada como <b id="auQuien"></b>. Lo que hagas se guarda en tu cuenta.</p>
+        <p class="aunota" id="auLocal" hidden></p>
+      </div>
+      <div id="auNueva" class="aubox" hidden>
+        <p>Escribe tu contraseña nueva.</p>
+        <div><label class="lab" for="auNuevaPass">Contraseña nueva</label><input id="auNuevaPass" type="password" autocomplete="new-password"></div>
+      </div>
+      <p class="aumsg" id="auMsg" role="status" aria-live="polite"></p>
+    </div>
+    <footer>
+      <button type="button" class="btn ghost sm" id="auOlvide">Olvidé mi contraseña</button>
+      <button type="button" class="btn ghost sm" id="auSubir" hidden>Subir lo de este navegador</button>
+      <span class="sp"></span>
+      <button type="button" class="btn" id="auCrear">Crear cuenta</button>
+      <button type="button" class="btn primary" id="auEntrar">Entrar</button>
+      <button type="button" class="btn" id="auSalir" hidden>Cerrar sesión</button>
+      <button type="button" class="btn primary" id="auGuardarNueva" hidden>Guardar contraseña</button>
+    </footer>
+  </div>
+</div>
 <div class="ov" id="quickOv" role="dialog" aria-modal="true" aria-labelledby="qkTitle">
   <div class="ed qk">
     <header>
@@ -2401,7 +2441,10 @@
         else if (state.store === "local") { if (lsPatch(d => { if (d[name]) delete d[name][id]; })) siSeGuardo(clave); else noSeGuardo(clave, lsMotivo, "el borrado"); }
       },
       loadLocal() { if (state.demo) return; this.items = Object.values(lsRead()[name] || {}); this.emit(); },
-      attachDb(db) { db.collection(name).limit(1000).onSnapshot(q => { if (state.demo) return; this.items = q.docs.map(d => d.data()).filter(x => x && x.id); this.emit(); }, () => {}); },
+      /* Con cuenta no hay tope: el adaptador pagina, y una operación 1001 que
+         no se pintara tampoco entraría en el respaldo. El tope del artefacto
+         es el de su base y se deja como estaba. */
+      attachDb(db) { (state.nube ? db.collection(name) : db.collection(name).limit(1000)).onSnapshot(q => { if (state.demo) return; this.items = q.docs.map(d => d.data()).filter(x => x && x.id); this.emit(); }, () => {}); },
     };
     colls[name] = c; return c;
   }
@@ -2478,13 +2521,17 @@
   function loadDay() { state.day = newDay(state.today); if (state.db) subscribeDay(); else loadLocal(); renderAll(); }
 
   async function connectDb() {
-    let db = null;
-    try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch { db = null; }
+    /* Con sesión de cuenta, el almacén ya se eligió al arrancar (nubeDb): aquí
+       sólo se engancha. Las dos bases hablan el mismo idioma, así que todo lo
+       de abajo es común. */
+    let db = state.nube ? state.db : null;
+    if (!db) { try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch { db = null; } }
     if (!db) return;
     state.db = db; state.store = "db"; setStoreLabel();
     db.doc("settings/main").onSnapshot(snap => {
       if (state.demo) return;
       state.cfgConocida = true;
+      state.cfgRemota = !!snap.exists;
       if (!snap.exists) return;
       const incoming = normalize(snap.data());
       if (JSON.stringify(incoming) === JSON.stringify(state.settings)) return;
@@ -2512,6 +2559,18 @@
     const el = $("saveState"), f = $("footerStore");
     if (state.demo) { el.textContent = "demo · sin guardar"; el.className = "save-state"; f.className = ""; f.textContent = "Modo demo: datos inventados, no se guarda nada."; return; }
     if (typeof renderBackup === "function") { try { renderBackup(); } catch (e) { } }
+    /* Una sesión caducada es peor que un fallo suelto: TODO lo que escribas a
+       partir de ahí se rechaza. Se dice primero, y se dice qué hacer. */
+    if (state.nube && nube.caducada) {
+      el.textContent = "sesión caducada"; el.className = "save-state nosave"; f.className = "nosave";
+      f.textContent = "Tu sesión caducó: lo que cambies NO se guarda hasta que vuelvas a entrar (botón Entrar, arriba).";
+      return;
+    }
+    if (state.nube && nube.sinRed) {
+      el.textContent = "sin conexión"; el.className = "save-state nosave"; f.className = "nosave";
+      f.textContent = "Sin conexión con tu cuenta: lo que ves puede no estar al día y lo que cambies NO se guarda. Se vuelve a cargar solo cuando vuelva la red.";
+      return;
+    }
     /* Lo que no se guardo manda sobre el modo de guardado: decir
        «sincronizado» mientras hay un documento que la base rechazo es la
        mentira que este rotulo contaba antes. */
@@ -2525,10 +2584,331 @@
       return;
     }
     f.className = "";
+    if (state.nube) { el.textContent = "sincronizado"; el.className = "save-state cloud"; f.textContent = "Guardado en tu cuenta" + (nube.ses && nube.ses.email ? " (" + nube.ses.email + ")" : "") + ". Sólo tu sesión puede leer estos datos: ningún otro usuario los ve."; return; }
     if (state.store === "db") { el.textContent = "sincronizado"; el.className = "save-state cloud"; f.textContent = "Los cambios se guardan y se comparten con quien tenga acceso a esta página."; }
     else if (state.store === "local") { el.textContent = "guardado local"; el.className = "save-state"; f.textContent = "Guardado solo en este navegador. Tus operaciones no se envían a ningún servidor."; }
     else { el.textContent = "sin guardado"; el.className = "save-state"; f.textContent = "Sin almacenamiento disponible: lo que escribas se pierde al recargar."; }
   }
+
+  /* =============================== CUENTAS CON SYNC ===============================
+     Fuera del artefacto, quien crea una cuenta guarda su cabina en Supabase y la
+     abre desde cualquier dispositivo. Sin cuenta, nada cambia: localStorage, y
+     ni una sola petición de red.
+
+     LO QUE SEPARA LA DATA DE DOS USUARIOS NO ESTÁ AQUÍ. La clave de abajo es la
+     PÚBLICA del proyecto: va en la página a propósito y cualquiera puede leerla.
+     La privacidad la imponen las reglas de la base (RLS forzado, cada fila con
+     su user_id, anónimo sin permisos). Ver supabase/migrations y la prueba de
+     supabase/pruebas/aislamiento.sql. Este código sólo tiene que pedir lo suyo;
+     aunque pidiera lo ajeno, la base no se lo daría.
+
+     Sin librería: fetch contra dos APIs REST (auth y datos). Un <script src> de
+     terceros sería código ajeno con acceso a todas las operaciones.
+
+     nubeDb() habla el MISMO idioma que la base del artefacto (doc, collection,
+     onSnapshot), así que el resto de la app no sabe cuál de las dos tiene
+     debajo. Diferencia honesta: aquí no hay tiempo real. Lo que escribes se ve
+     al instante porque lo aplica el propio adaptador; lo que escribas en OTRO
+     dispositivo llega al volver a esta pestaña (máximo cada 20 s). */
+  const NUBE_URL = "https://lazniuuedlhqomfyykvf.supabase.co";
+  const NUBE_CLAVE = "sb_publishable_bVnEXWKwvIAnmJ5BfIup3w_B9_7HWAf";
+  const SES_KEY = "cabina-sesion:v1";
+  const nube = { ses: null, caducada: false, renovando: null };
+  function jwtDatos(t) { try { return JSON.parse(atob(String(t).split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))) || {}; } catch (e) { return {}; } }
+  function sesDe(at, rt, segs, user) {
+    if (!at || !rt) return null;
+    const j = jwtDatos(at), uid = (user && user.id) || j.sub;
+    if (!uid) return null;
+    return { at: String(at), rt: String(rt), exp: Date.now() + (Number(segs) || 3600) * 1000, uid: String(uid), email: String((user && user.email) || j.email || "") };
+  }
+  function sesLee() { try { const s = JSON.parse(localStorage.getItem(SES_KEY) || "null"); return s && s.at && s.rt && s.uid ? s : null; } catch (e) { return null; } }
+  function sesGuarda(s) { nube.ses = s; try { if (s) localStorage.setItem(SES_KEY, JSON.stringify(s)); else localStorage.removeItem(SES_KEY); } catch (e) { } }
+
+  async function nubeHttp(ruta, opt) {
+    let r;
+    try { r = await fetch(NUBE_URL + ruta, { method: opt.method || "GET", headers: opt.headers, body: opt.body == null ? undefined : JSON.stringify(opt.body) }); }
+    catch (e) { marcaRed(false); throw { code: "sin_conexion" }; }
+    marcaRed(true);
+    const txt = await r.text(); let j = null;
+    try { j = txt ? JSON.parse(txt) : null; } catch (e) { j = null; }
+    if (!r.ok) throw { code: String((j && (j.error_code || j.code || j.error)) || ("http_" + r.status)), msg: String((j && (j.msg || j.message || j.error_description)) || ""), status: r.status };
+    return j;
+  }
+  /* ABRIR SIN RED NO PUEDE PARECER «SINCRONIZADO». Sin esto, entrar con sesión y
+     sin conexión pintaba una cabina vacía bajo el rótulo «sincronizado»: parecía
+     una cuenta sin nada, y no lo es. Cuando vuelve la red se recarga todo. */
+  function marcaRed(hay) {
+    if (!!nube.sinRed === !hay) return;
+    nube.sinRed = !hay;
+    setStoreLabel();
+    if (hay && state.nube && state.db && state.db.refresca) state.db.refresca(true);
+  }
+  window.addEventListener("online", () => { if (state.nube && state.db && state.db.refresca) state.db.refresca(true); });
+  const nubeCab = () => ({ apikey: NUBE_CLAVE, "content-type": "application/json" });
+  /* Una sola renovación a la vez: si tres escrituras ven el token viejo, las tres
+     esperan a la misma. El refresh se gasta al usarse; renovar dos veces en
+     paralelo invalidaría la sesión. */
+  function renueva() {
+    if (nube.renovando) return nube.renovando;
+    const s = nube.ses; if (!s) return Promise.resolve(null);
+    nube.renovando = nubeHttp("/auth/v1/token?grant_type=refresh_token", { method: "POST", headers: nubeCab(), body: { refresh_token: s.rt } })
+      .then(r => { const n = sesDe(r && r.access_token, r && r.refresh_token, r && r.expires_in, r && r.user); if (!n) throw { code: "respuesta_rara" }; sesGuarda(n); return n; })
+      .catch(e => { if (e && e.status >= 400 && e.status < 500 && e.status !== 429) caduca(); throw e; })
+      .finally(() => { nube.renovando = null; });
+    return nube.renovando;
+  }
+  function caduca() { sesGuarda(null); nube.caducada = true; setStoreLabel(); pintaCuentaBtn(); }
+  async function nubeFetch(ruta, opt) {
+    opt = opt || {};
+    const h = Object.assign(nubeCab(), opt.headers || {});
+    if (opt.anonimo) return nubeHttp(ruta, Object.assign({}, opt, { headers: h }));
+    let s = nube.ses;
+    if (s && s.exp - Date.now() < 60000) { try { s = await renueva(); } catch (e) { s = nube.ses; } }
+    if (!s) throw { code: "sin_sesion" };
+    h.authorization = "Bearer " + s.at;
+    try { return await nubeHttp(ruta, Object.assign({}, opt, { headers: h })); }
+    catch (e) {
+      if (!e || e.status !== 401 || opt.reintento) throw e;
+      try { await renueva(); } catch (x) { throw e; }
+      return nubeFetch(ruta, Object.assign({}, opt, { reintento: true }));
+    }
+  }
+
+  function nubeDb() {
+    const T = "/rest/v1/cabina_docs", PAG = 1000, enc = encodeURIComponent;
+    const collDe = p => String(p).replace(/\/[^/]+$/, "");
+    const subs = new Set(); let ultima = Date.now();
+    const snapDoc = d => ({ exists: d != null, data: () => (d == null ? undefined : clone(d)) });
+    const snapFilas = a => ({ docs: a.map(d => ({ data: () => clone(d) })) });
+    async function leeDoc(p) { const a = await nubeFetch(`${T}?select=data&path=eq.${enc(p)}`); return a && a[0] ? a[0].data : null; }
+    /* Por páginas: la API corta en 1000 filas, y una colección que se quedara
+       en la fila 1000 sin decirlo haría un respaldo incompleto que parece entero. */
+    async function leeFilas(q) {
+      const orden = q.orden ? `data->>${q.orden.f}.${q.orden.dir === "desc" ? "desc" : "asc"},path.asc` : "path.asc";
+      const tope = q.lim || Infinity, out = [];
+      while (out.length < tope) {
+        const n = Math.min(PAG, tope - out.length);
+        const a = (await nubeFetch(`${T}?select=path,data&coll=eq.${enc(q.coll)}&order=${orden}&limit=${n}&offset=${out.length}`)) || [];
+        out.push(...a);
+        if (a.length < n) break;
+      }
+      return out;
+    }
+    function ordena(q, filas) {
+      let a = [...filas.entries()];
+      if (q.orden) {
+        const f = q.orden.f, s = q.orden.dir === "desc" ? -1 : 1, k = d => String(d && d[f] != null ? d[f] : "");
+        a.sort((x, y) => (k(x[1]) < k(y[1]) ? -s : k(x[1]) > k(y[1]) ? s : x[0] < y[0] ? -1 : 1));
+      }
+      if (q.lim) a = a.slice(0, q.lim);
+      return a.map(e => e[1]);
+    }
+    function suscribe(s) { subs.add(s); s.carga(); return () => { subs.delete(s); }; }
+    /* Tras cada escritura confirmada, las suscripciones afectadas se enteran
+       sin volver a pedir nada: es lo que la base del artefacto hace sola. */
+    function avisa(p, d) {
+      const c = collDe(p);
+      subs.forEach(s => { try { if (s.path === p) s.cambia(d); else if (s.q && s.q.coll === c) s.cambia(d, p); } catch (e) { } });
+    }
+    function doc(p) {
+      p = String(p);
+      return {
+        get: async () => snapDoc(await leeDoc(p)),
+        async set(data) {
+          const d = clone(data);
+          await nubeFetch(`${T}?on_conflict=user_id,path`, { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=minimal" }, body: { user_id: nube.ses ? nube.ses.uid : null, path: p, data: d } });
+          avisa(p, d);
+        },
+        async delete() {
+          await nubeFetch(`${T}?path=eq.${enc(p)}`, { method: "DELETE", headers: { prefer: "return=minimal" } });
+          avisa(p, null);
+        },
+        onSnapshot(cb, err) {
+          return suscribe({ path: p,
+            carga() { leeDoc(p).then(d => cb(snapDoc(d)), e => { if (err) err(e); }); },
+            cambia(d) { cb(snapDoc(d)); } });
+        },
+      };
+    }
+    function consulta(q) {
+      return {
+        orderBy: (f, dir) => consulta(Object.assign({}, q, { orden: { f: /^[A-Za-z0-9_]+$/.test(String(f)) ? String(f) : "id", dir } })),
+        limit: k => consulta(Object.assign({}, q, { lim: Math.max(1, Math.floor(Number(k) || 1)) })),
+        get: async () => snapFilas((await leeFilas(q)).map(r => r.data)),
+        onSnapshot(cb, err) {
+          const s = { q, filas: new Map(),
+            emite() { cb(snapFilas(ordena(q, s.filas))); },
+            carga() { leeFilas(q).then(a => { s.filas = new Map(a.map(r => [r.path, r.data])); s.emite(); }, e => { if (err) err(e); }); },
+            cambia(d, p) { if (d == null) s.filas.delete(p); else s.filas.set(p, d); s.emite(); } };
+          return suscribe(s);
+        },
+      };
+    }
+    function refresca(forzar) { if (!forzar && Date.now() - ultima < 20000) return; ultima = Date.now(); subs.forEach(s => s.carga()); }
+    return { doc, collection: n => Object.assign(consulta({ coll: String(n) }), { doc: id => doc(n + "/" + id) }), refresca };
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && state.nube && state.db && state.db.refresca) state.db.refresca();
+  });
+
+  /* Los enlaces del correo (confirmar cuenta, recuperar contraseña) vuelven con
+     la sesión en el hash. Se recoge y se BORRA de la barra de direcciones antes
+     de que nada más lo lea: el hash de esta app son las pestañas. */
+  function nubeDesdeEnlace() {
+    const h = String(location.hash || "").slice(1);
+    if (!/(^|&)(access_token|error_description)=/.test(h)) return null;
+    const p = new URLSearchParams(h);
+    try { history.replaceState(null, "", location.pathname + location.search + "#cabina"); } catch (e) { location.hash = "cabina"; }
+    if (p.get("error_description")) return { error: p.get("error_description") };
+    const s = sesDe(p.get("access_token"), p.get("refresh_token"), p.get("expires_in"), null);
+    if (!s) return { error: "el enlace no traía una sesión válida" };
+    sesGuarda(s);
+    return { tipo: p.get("type") || "" };
+  }
+  function nubeError(e) {
+    const c = String((e && e.code) || ""), m = String((e && e.msg) || ""), st = e && e.status;
+    if (c === "sin_conexion") return "No hay conexión con el servidor de cuentas. Inténtalo en un momento.";
+    if (c === "invalid_credentials" || /invalid login/i.test(m)) return "Email o contraseña incorrectos.";
+    if (c === "email_not_confirmed") return "Falta confirmar el email: abre el enlace que te enviamos.";
+    if (c === "weak_password" || (/password/i.test(m) && /least|short|weak|pwned|leaked/i.test(m))) return "Contraseña demasiado débil o conocida por filtraciones. Usa otra, de 8 caracteres o más.";
+    if (c === "over_email_send_rate_limit" || c === "over_request_rate_limit" || st === 429) return "Demasiados intentos seguidos. Espera unos minutos.";
+    if (c === "signup_disabled") return "El registro de cuentas está cerrado ahora mismo.";
+    if (c === "email_address_invalid" || c === "validation_failed") return "Ese email no es válido.";
+    if (c === "same_password") return "Esa ya es tu contraseña: escribe una distinta.";
+    return "No se pudo" + (m ? ": " + m : c ? " (" + c + ")" : "") + ".";
+  }
+  const volverA = () => location.origin + location.pathname;
+
+  const auOv = $("authOv");
+  let auModo = "fuera";
+  function auDi(msg, tono) { const el = $("auMsg"); el.textContent = msg || ""; el.className = "aumsg" + (tono ? " " + tono : ""); }
+  function localCuenta() {
+    const l = lsRead(); let n = Object.keys(l.days || {}).length;
+    COLLS.forEach(k => { n += Object.keys(l[k] || {}).length; });
+    return { n, cuentas: l.settings && Array.isArray(l.settings.accounts) ? l.settings.accounts.length : 0 };
+  }
+  function pintaCuentaBtn() {
+    const b = $("cuentaBtn");
+    if (window.claude) { b.hidden = true; return; }
+    b.hidden = false;
+    b.textContent = nube.ses ? "Cuenta" : "Entrar";
+    b.title = nube.ses ? "Sesión iniciada como " + nube.ses.email : "Entra o crea una cuenta para tener tu cabina en todos tus dispositivos";
+  }
+  function abreCuenta(modo, msg, tono) {
+    auModo = modo || (nube.ses ? "dentro" : "fuera");
+    $("auFuera").hidden = auModo !== "fuera";
+    $("auDentro").hidden = auModo !== "dentro";
+    $("auNueva").hidden = auModo !== "nueva";
+    ["auOlvide", "auCrear", "auEntrar"].forEach(id => { $(id).hidden = auModo !== "fuera"; });
+    $("auSalir").hidden = auModo !== "dentro";
+    $("auGuardarNueva").hidden = auModo !== "nueva";
+    $("auSubir").hidden = true; $("auSubir").dataset.armed = "";
+    $("auTitle").textContent = auModo === "fuera" ? "Entrar o crear cuenta" : auModo === "nueva" ? "Contraseña nueva" : "Tu cuenta";
+    if (auModo === "dentro") {
+      $("auQuien").textContent = nube.ses ? nube.ses.email : "";
+      const lc = localCuenta(), nota = $("auLocal");
+      nota.hidden = !(lc.n || lc.cuentas);
+      nota.textContent = lc.n || lc.cuentas
+        ? `Este navegador guarda además datos de antes de tener cuenta (${plu(lc.n, "registro", "registros")}${lc.cuentas ? ", " + plu(lc.cuentas, "cuenta prop", "cuentas prop") : ""}). No se mezclan con tu cuenta salvo que los subas.`
+        : "";
+      $("auSubir").hidden = !(lc.n || lc.cuentas) || !state.nube;
+    }
+    auDi(msg, tono);
+    auOv.classList.add("open");
+    const f = auOv.querySelector(".aubox:not([hidden]) input"); if (f) f.focus();
+  }
+  function cierraCuenta() { auOv.classList.remove("open"); $("auPass").value = ""; $("auNuevaPass").value = ""; }
+  function auDatos() {
+    const email = String($("auEmail").value || "").trim(), pass = String($("auPass").value || "");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { auDi("Escribe un email válido.", "bad"); return null; }
+    return { email, pass };
+  }
+  async function auOcupado(btn, fn) {
+    const botones = auOv.querySelectorAll("footer button"); botones.forEach(b => { b.disabled = true; });
+    try { await fn(); } catch (e) { auDi(nubeError(e), "bad"); } finally { botones.forEach(b => { b.disabled = false; }); }
+  }
+  /* Entrar o salir recarga la página: así el almacén se elige UNA vez, al
+     arrancar, y nunca conviven en memoria los datos de dos personas. La
+     papelera (deshacer) vive en este navegador y se vacía en los dos sentidos:
+     sin eso, lo borrado por una persona se podría «deshacer» dentro de la
+     cuenta de otra. */
+  function cambiaDeDueno(s) { sesGuarda(s); nube.caducada = false; vaciaPapelera(); location.reload(); }
+
+  $("cuentaBtn").addEventListener("click", () => abreCuenta());
+  $("auClose").addEventListener("click", cierraCuenta);
+  auOv.addEventListener("click", e => { if (e.target === auOv) cierraCuenta(); });
+  auOv.addEventListener("keydown", e => {
+    if (e.key === "Escape") { e.preventDefault(); cierraCuenta(); return; }
+    if (e.key === "Enter" && e.target.tagName === "INPUT") { e.preventDefault(); (auModo === "nueva" ? $("auGuardarNueva") : $("auEntrar")).click(); }
+  });
+  $("auEntrar").addEventListener("click", () => {
+    const d = auDatos(); if (!d) return;
+    if (!d.pass) { auDi("Escribe tu contraseña.", "bad"); return; }
+    auOcupado($("auEntrar"), async () => {
+      auDi("Entrando…");
+      const r = await nubeFetch("/auth/v1/token?grant_type=password", { method: "POST", anonimo: true, body: { email: d.email, password: d.pass } });
+      const s = sesDe(r && r.access_token, r && r.refresh_token, r && r.expires_in, r && r.user);
+      if (!s) throw { code: "respuesta_rara" };
+      auDi("Dentro. Cargando tu cabina…", "good");
+      cambiaDeDueno(s);
+    });
+  });
+  $("auCrear").addEventListener("click", () => {
+    const d = auDatos(); if (!d) return;
+    if (d.pass.length < 8) { auDi("La contraseña necesita al menos 8 caracteres.", "bad"); return; }
+    auOcupado($("auCrear"), async () => {
+      auDi("Creando la cuenta…");
+      const r = await nubeFetch("/auth/v1/signup?redirect_to=" + encodeURIComponent(volverA()), { method: "POST", anonimo: true, body: { email: d.email, password: d.pass } });
+      const s = r && r.access_token ? sesDe(r.access_token, r.refresh_token, r.expires_in, r.user) : null;
+      if (s) { auDi("Cuenta creada. Cargando tu cabina…", "good"); cambiaDeDueno(s); return; }
+      /* Con confirmación por email, la respuesta es la MISMA exista o no la
+         cuenta: así nadie averigua qué emails están registrados. */
+      $("auPass").value = "";
+      auDi(`Si el email es correcto, te llegará un enlace a ${d.email} para activar la cuenta. Ábrelo en este mismo navegador.`, "good");
+    });
+  });
+  $("auOlvide").addEventListener("click", () => {
+    const d = auDatos(); if (!d) return;
+    auOcupado($("auOlvide"), async () => {
+      await nubeFetch("/auth/v1/recover?redirect_to=" + encodeURIComponent(volverA()), { method: "POST", anonimo: true, body: { email: d.email } });
+      auDi(`Si existe una cuenta con ${d.email}, te llegará un enlace para poner una contraseña nueva.`, "good");
+    });
+  });
+  $("auGuardarNueva").addEventListener("click", () => {
+    const pass = String($("auNuevaPass").value || "");
+    if (pass.length < 8) { auDi("La contraseña necesita al menos 8 caracteres.", "bad"); return; }
+    auOcupado($("auGuardarNueva"), async () => {
+      await nubeFetch("/auth/v1/user", { method: "PUT", body: { password: pass } });
+      $("auNuevaPass").value = "";
+      abreCuenta("dentro", "Contraseña cambiada.", "good");
+    });
+  });
+  $("auSalir").addEventListener("click", () => {
+    auOcupado($("auSalir"), async () => {
+      auDi("Cerrando sesión…");
+      /* Las escrituras van con 400-500 ms de retraso: se deja que salgan. */
+      await new Promise(r => setTimeout(r, 700));
+      try { await nubeFetch("/auth/v1/logout", { method: "POST" }); } catch (e) { }
+      cambiaDeDueno(null);
+    });
+  });
+  /* Subir lo de antes de tener cuenta. Nunca solo: el mismo navegador puede ser
+     de otra persona. Por id, sin borrar nada de la cuenta, y la configuración
+     sólo si la cuenta aún no tiene una — jamás encima de la tuya. */
+  $("auSubir").addEventListener("click", function () {
+    const lc = localCuenta();
+    if (this.dataset.armed !== "1") { this.dataset.armed = "1"; this.textContent = `¿Subir ${plu(lc.n, "registro", "registros")}? Pulsa otra vez`; return; }
+    this.dataset.armed = ""; this.textContent = "Subir lo de este navegador";
+    if (!state.cfgConocida) { auDi("Tu cuenta aún está cargando. Espera un segundo y vuelve a pulsar.", "bad"); return; }
+    auOcupado(this, async () => {
+      const l = lsRead(), b = { settings: state.cfgRemota ? null : (l.settings || null), days: l.days || {} };
+      COLLS.forEach(n => { b[n] = l[n] || {}; });
+      auDi("Subiendo…");
+      const r = await applyBundleDb(b);
+      auDi(`Subido: ${plu(r.escritos, "registro", "registros")}${r.fallos ? `, ${r.fallos} con error` : ""}. Siguen también en este navegador. Recargando…`, r.fallos ? "bad" : "good");
+      setTimeout(() => location.reload(), 1500);
+    });
+  });
 
   /* =============================== TABS =============================== */
   function showTab(name) {
@@ -10610,7 +10990,7 @@
       { id: "histWrap", tab: "cabina", host: "histWrap", fila: "tr[data-date]:not(.sintetica)", clave: "date", dias: true,
         uno: "sesión", varios: "sesiones",
         resumen: ids => {
-          const d = lsRead().days || {};
+          const d = diasGuardados();
           const r = ids.map(k => d[k]).filter(Boolean);
           const tot = r.reduce((a, x) => a + (Number(x.result) || 0), 0);
           const pres = r.filter(x => x.pres && Object.keys(x.pres).length).length;
@@ -10619,6 +10999,21 @@
     ];
   }
   function listaDe(id) { return borrables().find(x => x.id === id); }
+  /* Las sesiones guardadas, de donde de verdad estén. Con base (artefacto o
+     cuenta) NO están en localStorage: leerlas de ahí daba una selección vacía,
+     el borrado no llegaba a la base y el historial se quedaba en blanco. */
+  function diasGuardados() {
+    if (!state.db) return lsRead().days || {};
+    const m = {}; state.history.forEach(d => { if (d && d.date && !d.synthetic) m[d.date] = d; });
+    if (state.day && state.day.date) m[state.day.date] = m[state.day.date] || state.day;
+    return m;
+  }
+  async function borraDiasDb(fechas) {
+    for (const f of fechas) {
+      const clave = "days/" + f;
+      try { await state.db.doc(clave).delete(); siSeGuardo(clave); } catch (e) { noSeGuardo(clave, motivoDb(e), "el borrado del dia"); }
+    }
+  }
   const val = v => typeof v === "function" ? v() : v;
 
   function selAbre(id) {
@@ -10696,19 +11091,21 @@
     const L = listaDe(sel.lista); if (!L) return;
     const ids = [...sel.ids]; if (!ids.length) return;
     /* Se guarda ENTERO antes de tocar nada, para poder devolverlo tal cual. */
+    const dg = L.dias ? diasGuardados() : null;
     const regs = L.dias
-      ? ids.map(k => (lsRead().days || {})[k]).filter(Boolean)
+      ? ids.map(k => dg[k]).filter(Boolean).map(x => clone(x))
       : L.cuentas
       /* Con el índice: el orden de las cuentas es una decisión del usuario, y
          devolverlas al final no es deshacer, es devolver otra cosa. */
       ? ids.map(i => { const j = state.settings.accounts.findIndex(x => x.id === i); return j < 0 ? null : Object.assign(clone(state.settings.accounts[j]), { __pos: j }); }).filter(Boolean)
       : ids.map(i => coll(val(L.col)).get(i)).filter(Boolean).map(x => clone(x));
     guardaPapelera({ lista: L.id, col: L.dias ? "days" : L.cuentas ? "accounts" : val(L.col), dias: !!L.dias, cuentas: !!L.cuentas, regs, cuando: Date.now() });
-    if (L.dias) lsPatch(d => { if (d.days) ids.forEach(k => delete d.days[k]); });
+    if (L.dias && state.db) { borraDiasDb(ids); state.history = state.history.filter(d => !ids.includes(d.date)); renderHistory(); }
+    else if (L.dias) lsPatch(d => { if (d.days) ids.forEach(k => delete d.days[k]); });
     /* Por la puerta, no a mano: FUT.deleteAccount limpia el filtro y el meta. */
     else if (L.cuentas) ids.forEach(i => FUT.deleteAccount(i));
     else ids.forEach(i => coll(val(L.col)).remove(i));
-    if (L.dias) { renderHistoryFromLocal(); if (ids.includes(state.today)) { state.day = newDay(state.today); renderChecklist(); renderJournalDay(); } }
+    if (L.dias) { if (!state.db) renderHistoryFromLocal(); if (ids.includes(state.today)) { state.day = newDay(state.today); renderChecklist(); renderJournalDay(); } }
     selCierra();
     avisaPapelera();
   }
@@ -10719,7 +11116,14 @@
 
   function deshaceBorrado() {
     const p = leePapelera(); if (!p || !p.regs || !p.regs.length) return;
-    if (p.dias) lsPatch(d => { d.days = d.days || {}; p.regs.forEach(r => { if (r && r.date) d.days[r.date] = r; }); });
+    if (p.dias && state.db) {
+      p.regs.forEach(r => { if (!r || !r.date) return; const clave = "days/" + r.date; state.db.doc(clave).set(r).then(() => siSeGuardo(clave), e => noSeGuardo(clave, motivoDb(e), "el dia " + r.date)); });
+      const vuelven = p.regs.filter(r => r && r.date && !state.history.some(d => d.date === r.date));
+      state.history = state.history.concat(vuelven).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
+      renderHistory();
+      if (p.regs.some(r => r && r.date === state.today)) { const r = p.regs.find(x => x.date === state.today); state.day = migrateDay(Object.assign(newDay(state.today), r)); renderChecklist(); renderJournalDay(); }
+    }
+    else if (p.dias) lsPatch(d => { d.days = d.days || {}; p.regs.forEach(r => { if (r && r.date) d.days[r.date] = r; }); });
     else if (p.cuentas) {
       /* De menor a mayor índice, para que cada una caiga en su hueco. */
       p.regs.slice().sort((a, b) => (a.__pos ?? 0) - (b.__pos ?? 0)).forEach(r => {
@@ -10730,7 +11134,7 @@
       persistSettings(); fanout(FANOUT_SEL);
     }
     else p.regs.forEach(r => { if (r && r.id) coll(p.col).set(r.id, r); });
-    if (p.dias) renderHistoryFromLocal();
+    if (p.dias && !state.db) renderHistoryFromLocal();
     vaciaPapelera();
     flash(plu(p.regs.length, "elemento devuelto", "elementos devueltos"));
   }
@@ -11043,7 +11447,14 @@
   });
 
   try { localStorage.getItem(LS_KEY); state.store = "local"; } catch { state.store = "memory"; }
-  loadLocal();
+  /* El almacén se elige aquí y una sola vez. Con sesión de cuenta NO se carga
+     lo local: si se pintara primero, la configuración de este navegador se
+     colaría en la cuenta al primer cambio. Dentro del artefacto, las cuentas
+     no existen: allí manda su propia base. */
+  const enlace = window.claude ? null : nubeDesdeEnlace();
+  nube.ses = window.claude ? null : sesLee();
+  if (nube.ses) { state.nube = true; state.db = nubeDb(); state.store = "db"; } else loadLocal();
+  pintaCuentaBtn();
   try { avisaPapelera(); pintaSel(); } catch (e) { }
   /* La cuenta seleccionada es parte del estado, no del momento: si ayer cerraste
      mirando una cuenta, hoy abres mirando esa cuenta. Se valida contra las
@@ -11053,6 +11464,9 @@
   else if (state.settings.meta) state.settings.meta.acct = "";
   setStoreLabel();
   renderAll();
+  if (enlace && enlace.error) abreCuenta("fuera", "El enlace no sirvió (" + enlace.error + "). Si caducó, pide otro.", "bad");
+  else if (enlace && enlace.tipo === "recovery") abreCuenta("nueva");
+  else if (enlace) flash("email confirmado · sesión iniciada");
   $("riskForm").innerHTML = riskFormHtml();
   setRiskForm(riskDefaults());
   /* Si escribes tú mismo uno de los campos que vienen de la cuenta, mandas tú:
@@ -11113,6 +11527,7 @@
      los datos a otra copia de Cabina (la del repositorio, por ejemplo). El formato
      va versionado: si algún día cambia la forma de los datos, quien importe sabrá
      de qué versión viene y podrá convertirla en vez de romperse en silencio. */
+  const baseDe = () => (state.nube ? "tu cuenta" : "la base del artefacto");
   const BK_FORMAT = "cabina-backup";
   const BK_VERSION = 1;
   // El historial en pantalla son 14 días; la copia se lleva todos los que existan.
@@ -11127,7 +11542,7 @@
            incompleto que parece completo es peor que ninguno — se guarda, se confía en
            él, y se descubre al restaurar.
            Hallazgo de una revisión externa (PR #1); verificado aquí antes de adoptarlo. */
-        const err = new Error("No se pudo leer la base del artefacto para preparar la copia.");
+        const err = new Error("No se pudo leer " + baseDe() + " para preparar la copia.");
         err.code = "backup_source_unavailable";
         throw err;
       }
@@ -11145,7 +11560,7 @@
     const b = {
       format: BK_FORMAT, version: BK_VERSION,
       exportedAt: new Date().toISOString(),
-      source: state.db ? "artefacto" : "navegador",
+      source: state.nube ? "cuenta" : state.db ? "artefacto" : "navegador",
       settings: clone(state.settings),
       days,
     };
@@ -11368,7 +11783,7 @@
     for (const t of tareas) {
       try { await t(); } catch (e) { fallos++; }
       hechos++;
-      if (hechos % 10 === 0 || hechos === tareas.length) bkSay(`Escribiendo en la base del artefacto… ${hechos} de ${tareas.length}.`);
+      if (hechos % 10 === 0 || hechos === tareas.length) bkSay(`Escribiendo en ${baseDe()}… ${hechos} de ${tareas.length}.`);
     }
     if (fallos && fallos === tareas.length) throw new Error("no se pudo escribir nada");
     return { escritos: hechos - fallos, fallos };
@@ -11380,7 +11795,7 @@
     const modo = state.db ? "merge" : bkMode();
     const cuando = r.bundle.exportedAt ? dmy(String(r.bundle.exportedAt).slice(0, 10)) : "fecha desconocida";
     const aviso = state.db
-      ? "Se escribe encima por id en la base del artefacto. No se borra nada que no venga en la copia."
+      ? "Se escribe encima por id en " + baseDe() + ". No se borra nada que no venga en la copia."
       : modo === "replace"
         ? "REEMPLAZA todo lo que haya en esta cabina. Lo que no esté en la copia se pierde."
         : "Se añade encima de lo que ya hay. Lo que coincida por id se sobreescribe.";
@@ -11493,7 +11908,11 @@
     let hecha = false;
     try { hecha = !!localStorage.getItem(MIG_KEY); } catch (e) { hecha = false; }
     const trades = coll("trades").items;
-    if (hecha || state.demo) {
+    /* Con cuenta no hay nada que migrar: la marca de «hecha» vive en cada
+       navegador, y sin esto entrar desde un dispositivo nuevo descargaría un
+       respaldo que nadie pidió. Lo de versiones viejas entra por importar, que
+       ya normaliza. */
+    if (hecha || state.demo || state.nube) {
       // ya migrada: solo se reenseña el panel si quedan operaciones sin valorar
       const res = migAuditar(trades);
       let visto = false; try { visto = !!localStorage.getItem(MIG_KEY + ":visto"); } catch (e) { }
@@ -11541,7 +11960,7 @@
     const nota = $("bkModeNote"), modos = $("bkModes");
     if (state.db) {
       modos.hidden = true;
-      nota.textContent = "Conectada a la base del artefacto: la importación escribe encima por id y nunca borra lo que no venga en la copia.";
+      nota.textContent = (state.nube ? "Conectada a tu cuenta" : "Conectada a la base del artefacto") + ": la importación escribe encima por id y nunca borra lo que no venga en la copia.";
     } else {
       modos.hidden = false;
       nota.textContent = "Guardado en este navegador: aquí sí se puede empezar de cero.";

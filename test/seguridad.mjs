@@ -54,6 +54,25 @@ ok(hosts.every(h => /(^|\.)fonts\.googleapis\.com$|(^|\.)fonts\.gstatic\.com$/.t
 ok(!/<script[^>]+src=/i.test(html), 'cero <script src>: no se carga codigo de terceros',
    'el motor va incrustado');
 
+console.log('\n═══ LA RED · un solo destino, y sólo con cuenta ═══');
+/* Con las cuentas, la página habla con Supabase. Eso abre una puerta que antes no
+   existía, y se vigila en tres propiedades: un ÚNICO origen (el del proyecto), una
+   única función que llama a la red, y una clave que es la PÚBLICA. La clave
+   secreta (service_role, sb_secret_) salta la RLS: si apareciera aquí, cualquiera
+   que leyera la página leería la data de todos. */
+const NUBE = (sinComentarios.match(/const NUBE_URL = "([^"]+)"/) || [])[1] || '';
+const CLAVE = (sinComentarios.match(/const NUBE_CLAVE = "([^"]+)"/) || [])[1] || '';
+ok(/^https:\/\/[a-z0-9]{20}\.supabase\.co$/.test(NUBE), 'el origen de la nube es un proyecto Supabase exacto, por https', NUBE);
+ok(/^sb_publishable_/.test(CLAVE), 'la clave es la publicable, nunca una secreta', CLAVE.slice(0, 15) + '…');
+ok(!/service_role|sb_secret_/.test(html), 'ni rastro de service_role ni de sb_secret_ en el fichero', 'limpio');
+/* Dos llamadas y ni una más: la de la nube, y la que mete las capturas dentro de
+   un respaldo, que sólo recibe lo que ya pasó por imgSrc (el filtro de abajo). */
+const llamadas = Array.from(sinComentarios.matchAll(/\bfetch\(([^,)]*)/g)).map(m => m[1].trim());
+ok(llamadas.length === 2 && llamadas.includes('NUBE_URL + ruta') && llamadas.includes('imgSrc(im'),
+   'fetch sólo a NUBE_URL y a imágenes ya filtradas por imgSrc', llamadas.join(' · '));
+const urls = Array.from(new Set(Array.from(sinComentarios.matchAll(/https?:\/\/[a-z0-9.-]+\.supabase\.(co|in|com)/gi)).map(m => m[0])));
+ok(urls.length === 1 && urls[0] === NUBE, 'ningún otro proyecto Supabase citado en el código', urls.join(' · '));
+
 console.log('\n═══ SECRETOS · en el fichero que se publica ═══');
 /* El artefacto ES este fichero. Un secreto aqui es un secreto publicado. */
 const SOSPECHA = /(sk-[A-Za-z0-9]{20})|(ghp_[A-Za-z0-9]{20})|(AKIA[0-9A-Z]{16})|(-----BEGIN [A-Z ]*PRIVATE KEY)|(["'](?:api[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token)["']\s*:\s*["'][^"']{8,})/i;
@@ -147,6 +166,13 @@ ok(buenas.conData >= 1, 'una imagen legitima data:image/png SI se renderiza',
    `${buenas.conData} de ${buenas.total} imagenes`);
 ok(buenas.rechazadas >= 1, 'y las rechazadas se dibujan con la marca visible, no desaparecen',
    `${buenas.rechazadas} marcadas`);
+
+/* Sin cuenta, el pie promete «no se envía a ningún servidor». Se comprueba sobre
+   TODO lo que el navegador pidió en esta corrida, que crea operaciones y cambia
+   de pestaña: fuera del propio servidor y de las fuentes, nada. */
+const fuera = pedidas.filter(u => { try { const h = new URL(u).host; return !/^127\.0\.0\.1(:\d+)?$/.test(h) && !/(^|\.)fonts\.(googleapis|gstatic)\.com$/.test(h) && !/^(data|blob):/.test(u); } catch { return false; } });
+ok(fuera.length === 0, 'sin cuenta, el navegador no pide nada a ningún otro sitio (tampoco a la nube)',
+   fuera.length ? fuera.slice(0, 3).join(' · ') : `${pedidas.length} peticiones, todas locales o de fuentes`);
 
 ok(errs.length === 0, 'la pagina no lanzo ningun error', errs.length ? errs.join(' | ') : 'sin pageerror');
 await b.close(); srv.close();

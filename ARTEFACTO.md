@@ -15,6 +15,13 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
+> **`index.html` va por delante de la 73** desde la fase 2 de cuentas (2026-09-30).
+> Dos cosas: el código de cuentas, que dentro del artefacto es inerte (el botón no
+> aparece y no sale ninguna petición — lo comprueba `cuentas.mjs`), y el arreglo de
+> **borrar sesiones en lote**, que sí afecta al artefacto: allí leía de
+> `localStorage`, no borraba nada de la base y dejaba el historial en blanco.
+> Pendiente de republicar.
+
 ## Capacidades declaradas
 
 Al publicar se declara esto, y sólo esto:

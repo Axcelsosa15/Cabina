@@ -197,6 +197,14 @@ dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia'
      no se toca, lo antiguo se recupera sin escribir, y no se guarda configuracion
      en el artefacto antes de que la base conteste. */
   dice('primer', 'suite', 'Un desconocido arranca vacio y nadie pierde lo suyo', 'persistencia');
+  /* Las cuentas. cuentas.mjs prueba LA APP contra un doble: que pide lo suyo, que
+     no mezcla a dos personas en el mismo navegador y que sin cuenta no sale nada.
+     Lo que separa de verdad a dos usuarios es la RLS de la base, y eso sólo se
+     demuestra contra el proyecto real: CI no tiene con qué, así que esa fila es
+     UNKNOWN y nunca PASS. */
+  dice('cuentas', 'suite', 'Con cuenta: cada uno lo suyo, y el navegador no guarda lo ajeno', 'persistencia');
+  fila('persistencia', 'La base real aísla a los usuarios (RLS)', 'UNKNOWN',
+    'supabase/pruebas/aislamiento.sql corre contra el proyecto real, no desde CI: sin credenciales ni salida al proyecto. Última corrida y su sabotaje en docs/MULTIUSUARIO.md');
   dice('lanzamiento', 'suite', 'Aviso legal, privacidad y metadatos de producto a la vista', 'index.html');
 }
 
