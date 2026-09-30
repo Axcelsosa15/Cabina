@@ -11,16 +11,9 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **73** · `1790726231-3eb4` · 2026-09-29 |
-| Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.60`; no se mueve sin motivo) |
+| Versión viva | **74** · `1790783175-4a25` · 2026-09-30 |
+| Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.66`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
-
-> **`index.html` va por delante de la 73** desde la fase 2 de cuentas (2026-09-30).
-> Dos cosas: el código de cuentas, que dentro del artefacto es inerte (el botón no
-> aparece y no sale ninguna petición — lo comprueba `cuentas.mjs`), y el arreglo de
-> **borrar sesiones en lote**, que sí afecta al artefacto: allí leía de
-> `localStorage`, no borraba nada de la base y dejaba el historial en blanco.
-> Pendiente de republicar.
 
 ## Capacidades declaradas
 
@@ -100,6 +93,25 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
 - delante: `<!DOCTYPE html>`, `<head>` con los metas, el reset mínimo,
   `</head><body>` — las fuentes ya no: las pide el script al cargar
 - detrás: `</body></html>`
+
+### Coinciden — republicado el 2026-09-30 (versión 74) · cuentas inertes, y el borrado en lote
+
+La versión viva es la **74** (`1790783175-4a25`). Contrato `0.2.46` y capacidades
+arrastradas intactas. Publicada después de que la compuerta diera 22 PASS · 0 FAIL
+sobre `a6817c4`.
+
+Antes de publicar, la 73 viva se comparó entera contra el `index.html` de `ef60e98`:
+idéntica salvo el envoltorio del host. **16 líneas fuera, 435 dentro**, y la 74 leída
+de vuelta es byte a byte lo enviado.
+
+Lo que cambia **aquí**: el borrado de sesiones en lote. Con base leía y borraba de
+`localStorage`, así que la confirmación decía «sin resultados», no se borraba nada
+de la base y el historial se quedaba en blanco hasta recargar. Ahora lee y borra donde
+están, y «Deshacer» las devuelve allí.
+
+Lo que **no** cambia aquí: las cuentas. Dentro del artefacto el botón no aparece y no
+sale ninguna petición a la nube — lo comprueba `cuentas.mjs` con `window.claude`
+presente. El código está, pero no se ejecuta.
 
 ### Coinciden — republicado el 2026-09-29 (versión 73) · sin las cuentas del autor
 
