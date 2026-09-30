@@ -95,7 +95,7 @@ También se abre como archivo suelto (`file://`), con las limitaciones de abajo.
 
 ```sh
 npm run preview         # regenera test/preview.html desde index.html — NO es opcional
-npm test                # las 61 suites
+npm test                # las 62 suites
 npm test motor          # sólo el motor
 npm test humo           # sólo el smoke test de producción
 npm run compuerta       # la suite + la tabla de la cadena (lo que corre CI)
@@ -296,6 +296,11 @@ artefacto (`doc`, `collection`, `onSnapshot`), así que el resto de la app no
 sabe cuál tiene debajo. Lo que separa a dos usuarios **no está en la página**:
 es la RLS de la base. Ver [docs/MULTIUSUARIO.md](docs/MULTIUSUARIO.md).
 
+La pestaña **Métricas / Edge** calcula expectancy, win rate, reward-to-risk, tamaño de
+posición, Kelly (sólo referencia), profit factor, Sharpe, max drawdown, break-even y
+riesgo de ruina de prop sobre las operaciones de futuros, netas de comisión. Fórmulas,
+fuentes y las tres decisiones que cambian el número: [docs/METRICAS.md](docs/METRICAS.md).
+
 ---
 
 ## Limitaciones conocidas
@@ -332,11 +337,11 @@ es la RLS de la base. Ver [docs/MULTIUSUARIO.md](docs/MULTIUSUARIO.md).
 |---|---|
 | Suites que se ejecutan | **60** (57 de `test/` + 3 del motor) |
 | Aserciones del motor | **421** (`quant` 329 · `math` 92) |
-| Aserciones de navegador y guardianes | **884** en 25 archivos — las cuenta la propia suite |
+| Aserciones de navegador y guardianes | **939** en 26 archivos — las cuenta la propia suite |
 | Cobertura de la capa `db` del artefacto | **29** aserciones contra un doble fiel del contrato |
 | Smoke test de producción | 23 comprobaciones sobre HTTP |
-| Compuerta de publicación | **22 PASS · 0 FAIL · 5 `UNKNOWN`** de 27 filas |
-| CI | ejecuta `npm run compuerta`: la suite entera más la tabla; última verificación local: **22 PASS · 0 FAIL · 5 UNKNOWN** en 752 s, con el preview reconstruido por el propio runner |
+| Compuerta de publicación | **23 PASS · 0 FAIL · 5 `UNKNOWN`** de 28 filas |
+| CI | ejecuta `npm run compuerta`: la suite entera más la tabla; última verificación local: **23 PASS · 0 FAIL · 5 UNKNOWN** en 752 s, con el preview reconstruido por el propio runner |
 | Secretos técnicos en el repositorio | ninguno |
 
 Detalle y evidencia en [PROTOCOLOS.md](PROTOCOLOS.md). La historia de cada fallo

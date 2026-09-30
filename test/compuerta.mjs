@@ -188,7 +188,7 @@ dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia'
   dice('guardado', 'suite', 'Un cambio que no se guardo no parece guardado', 'persistencia');
   /* Una cabina que no se puede leer en el telefono no esta entregada. `diseno.mjs`
      mide UNA pestana a 1600px; esto mide las seis, y en 430px. */
-  dice('vista', 'suite', 'Ninguna de las seis pestanas se sale de la pantalla', 'index.html');
+  dice('vista', 'suite', 'Ninguna de las siete pestanas se sale de la pantalla', 'index.html');
   /* Las cuatro categorias de error: la 4 se gana con esperanza positiva en limpio,
      los errores no entran en esa esperanza, y abrir una operacion vieja no la
      castiga. Ver docs/ERRORES.md. */
@@ -205,6 +205,9 @@ dice('capsula', 'suite', 'Contrato de la rama db (el artefacto)', 'persistencia'
   dice('cuentas', 'suite', 'Con cuenta: cada uno lo suyo, y el navegador no guarda lo ajeno', 'persistencia');
   fila('persistencia', 'La base real aísla a los usuarios (RLS)', 'UNKNOWN',
     'supabase/pruebas/aislamiento.sql corre contra el proyecto real, no desde CI: sin credenciales ni salida al proyecto. Última corrida y su sabotaje en docs/MULTIUSUARIO.md');
+  /* Métricas / Edge: cada fórmula contra una cuenta hecha a mano, netas de
+     comisión, y sin que una operación de inversión entre en ninguna. */
+  dice('edge', 'suite', 'Las métricas de edge dan lo que da la cuenta a mano', 'index.html');
   dice('lanzamiento', 'suite', 'Aviso legal, privacidad y metadatos de producto a la vista', 'index.html');
 }
 

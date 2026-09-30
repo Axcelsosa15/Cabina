@@ -1,4 +1,4 @@
-/* VISTA · que ninguna de las seis pestanas se salga de la pantalla.
+/* VISTA · que ninguna de las siete pestanas se salga de la pantalla.
 
    `diseno.mjs` mide una sola pestana a 1600x1200: espaciado, tipos, contraste. Esto
    mide algo mas tonto y mas facil de romper -- si la pagina desborda en horizontal --
@@ -29,7 +29,7 @@ const BASE = `http://127.0.0.1:${srv.address().port}/`;
 const b = await chromium.launch();
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
-const TABS = ['cabina', 'futuros', 'invest', 'playbook', 'ideas', 'calc'];
+const TABS = ['cabina', 'futuros', 'edge', 'invest', 'playbook', 'ideas', 'calc'];
 const ANCHOS = [[1440, 900, 'escritorio'], [834, 1000, 'tableta'], [430, 900, 'telefono']];
 
 const mide = p => p.evaluate(() => {

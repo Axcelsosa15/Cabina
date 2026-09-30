@@ -979,7 +979,10 @@ function construirCurva(operaciones, opciones) {
    el motor los marca no fiables: con 8 dias un Sharpe de 3 no dice nada.
    ------------------------------------------------------------------------- */
 function metricasCurva(curva, opciones) {
-  const cfg = Object.assign({ diasAnio: 252, minDiasFiable: 60 }, opciones || {});
+  /* tasaLibreAnual: tasa libre de riesgo en decimal por ANO (0.05 = 5%). Se
+     reparte en dias habiles y se resta de cada rendimiento diario. Por defecto 0,
+     que es lo que habia: sin ella, Sharpe y Sortino dan exactamente lo mismo. */
+  const cfg = Object.assign({ diasAnio: 252, minDiasFiable: 60, tasaLibreAnual: 0 }, opciones || {});
   const c = curva && curva.dias ? curva : (curva && curva.value) || null;
   if (!c || !c.dias.length) return Ok({ n: 0, fiable: false, razon: "sin dias operados" });
 
@@ -1009,10 +1012,14 @@ function metricasCurva(curva, opciones) {
   }
   if (enDD > maxEnDD) maxEnDD = enDD;
 
-  const sharpe = mR.n > 1 && mR.desv > 0 ? mR.media / mR.desv * Math.sqrt(cfg.diasAnio) : null;
+  /* Restar una constante no cambia la desviacion: el exceso solo mueve la media. */
+  const rfDia = (toNum(cfg.tasaLibreAnual) ?? 0) / cfg.diasAnio;
+  const exceso = mR.media === null ? null : mR.media - rfDia;
+  const sharpeDiario = mR.n > 1 && mR.desv > 0 ? exceso / mR.desv : null;
+  const sharpe = sharpeDiario === null ? null : sharpeDiario * Math.sqrt(cfg.diasAnio);
   const negativos = rets.filter(r => r < 0);
   const downside = negativos.length ? Math.sqrt(negativos.reduce((s, r) => s + r * r, 0) / rets.length) : 0;
-  const sortino = downside > 0 ? mR.media / downside * Math.sqrt(cfg.diasAnio) : null;
+  const sortino = downside > 0 ? exceso / downside * Math.sqrt(cfg.diasAnio) : null;
   const retAnual = mR.n ? mR.media * cfg.diasAnio : null;
   const calmar = retAnual !== null && maxDDpct > 0 ? retAnual / maxDDpct : null;
 
@@ -1036,6 +1043,10 @@ function metricasCurva(curva, opciones) {
     factorRecuperacion: maxDD > 0 ? roundTo(mP.suma / maxDD, 3) : null,
 
     sharpe: sharpe === null ? null : roundTo(sharpe, 3),
+    sharpeDiario: sharpeDiario === null ? null : roundTo(sharpeDiario, 4),
+    retornoDiarioMedio: mR.media === null ? null : roundTo(mR.media, 6),
+    retornoDiarioDesv: mR.desv === null ? null : roundTo(mR.desv, 6),
+    tasaLibreDiaria: roundTo(rfDia, 8),
     sortino: sortino === null ? null : roundTo(sortino, 3),
     calmar: calmar === null ? null : roundTo(calmar, 3),
     retornoAnualizado: retAnual === null ? null : roundTo(retAnual, 4),

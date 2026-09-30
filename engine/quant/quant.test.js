@@ -266,6 +266,20 @@ eq(Q.construirCurva([], { saldoInicial: 25000, ddMaximo: 1000 }).value.nDias, 0,
   const m = Q.metricasCurva(Q.construirCurva([{ fecha: "2026-09-01", pnl: 10 }], { saldoInicial: 25000 }).value).value;
   ok(!m.fiable, "con 1 dia los ratios se marcan NO fiables");
 }
+{
+  /* Sharpe con tasa libre de riesgo, contra la cuenta hecha a mano. Tres dias sobre
+     10.000: +100, -50, +150 -> rendimientos 0.01, -0.004950..., 0.015075... */
+  const c = Q.construirCurva([{ fecha: "2026-09-01", pnl: 100 }, { fecha: "2026-09-02", pnl: -50 }, { fecha: "2026-09-03", pnl: 150 }], { saldoInicial: 10000 }).value;
+  const r = [100 / 10000, -50 / 10100, 150 / 10050];
+  const media = r.reduce((a, b) => a + b, 0) / 3;
+  const desv = Math.sqrt(r.reduce((a, b) => a + (b - media) ** 2, 0) / 2);
+  const m0 = Q.metricasCurva(c).value, m5 = Q.metricasCurva(c, { tasaLibreAnual: 0.05 }).value;
+  near(m0.sharpeDiario, media / desv, 1e-4, "Sharpe diario sin tasa = media / desviacion");
+  near(m5.sharpeDiario, (media - 0.05 / 252) / desv, 1e-4, "con 5% anual se resta 0.05/252 de cada dia");
+  near(m5.sharpe, (media - 0.05 / 252) / desv * Math.sqrt(252), 1e-3, "y el anualizado es el diario por raiz de 252");
+  ok(m5.sharpe < m0.sharpe, "una tasa positiva baja el Sharpe");
+  eq(Q.metricasCurva(c, { tasaLibreAnual: 0 }).value.sharpe, m0.sharpe, "tasa 0 da exactamente lo de antes");
+}
 
 grupo("consistencia");
 {

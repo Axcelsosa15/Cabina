@@ -1467,6 +1467,20 @@
   .qk .qin { width: 100%; font-family: var(--font-mono); font-size: 21px; font-weight: 600;
     letter-spacing: .02em; text-align: center; padding:12px 8px; }
   .qk .qhint { font-family: var(--font-mono); font-size: 11px; color: var(--dim); text-align: center; }
+  /* ---------- MÉTRICAS / EDGE ---------- */
+  .mxd { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+  .mxparams { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: end; }
+  .mxparams input[type="number"], #mxSize input[type="number"], #mxSize select, #mxRuina select { width: 100%; }
+  .mxchk { display: flex; align-items: center; gap: 8px; font-size: 13px; padding-bottom: 8px; }
+  .mxchk input { width: 16px; height: 16px; margin: 0; }
+  .mxform { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .qec.ref { border-style: dashed; }
+  .qec.ref .qv { color: var(--muted); }
+  .mxgood { color: var(--good); } .mxbad { color: var(--bad); }
+  table.t tr[data-mx] { cursor: pointer; }
+  /* El drawdown de Métricas es un panel propio, no el sombreado bajo la curva:
+     con la opacidad de .dd (10%) no se leía. */
+  .chart .mxdd { fill: rgba(224,96,79,.28); stroke: var(--negative); stroke-width: 1.25; }
   /* La cuenta reutiliza el marco del registro rápido: un diálogo pequeño. */
   .au .body input { width: 100%; }
   .au .aubox { display: grid; gap: 12px; }  .au .body p { margin: 0; font-size: 13px; line-height: 1.5; }
@@ -1519,6 +1533,7 @@
 <nav class="tabnav" id="tabnav" aria-label="Secciones">
   <button class="tabbtn active" data-tab="cabina">Cabina</button>
   <button class="tabbtn" data-tab="futuros">Futuros<span class="n" id="nFut"></span></button>
+  <button class="tabbtn" data-tab="edge">Métricas / Edge</button>
   <button class="tabbtn" data-tab="invest">Inversiones<span class="n" id="nInvest"></span></button>
   <button class="tabbtn" data-tab="playbook">Playbook<span class="n" id="nPlaybook"></span></button>
   <button class="tabbtn" data-tab="ideas">Formas de hacer dinero<span class="n" id="nIdeas"></span></button>
@@ -1830,6 +1845,75 @@
 </div>
 
 <!-- ======================= PLAYBOOK ======================= -->
+<!-- MÉTRICAS / EDGE · sólo operaciones de FUTUROS del journal, netas de comisión.
+     Las inversiones no entran nunca: tradesOf("futuros") las deja fuera por tipo. -->
+<div class="tab" data-tab="edge">
+  <div class="toolbar">
+    <select id="mxAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select>
+    <select id="mxSetup" aria-label="Setup"><option value="">todos los setups</option></select>
+    <label class="mxd">desde <input type="date" id="mxDesde" aria-label="Desde"></label>
+    <label class="mxd">hasta <input type="date" id="mxHasta" aria-label="Hasta"></label>
+    <span class="sp"></span>
+    <span class="mono" id="mxN" style="font-size:12.5px;color:var(--muted)"></span>
+  </div>
+  <div id="mxAviso"></div>
+  <div class="stack">
+    <section class="panel">
+      <header><h2>Parámetros</h2><span class="meta">se guardan con tu configuración</span></header>
+      <div class="body">
+        <div class="mxparams">
+          <div><label class="lab" for="mxCom">Comisión por contrato, ida y vuelta ($)</label><input type="number" id="mxCom" step="0.01" min="0" inputmode="decimal"></div>
+          <div><label class="lab" for="mxRf">Tasa libre de riesgo anual (%)</label><input type="number" id="mxRf" step="0.1" inputmode="decimal"></div>
+          <div><label class="lab" for="mxCap">Capital de referencia ($)</label><input type="number" id="mxCap" step="100" min="0" inputmode="decimal" placeholder="el de la cuenta"></div>
+          <div class="mxchk"><input type="checkbox" id="mxManualNeto"><label for="mxManualNeto">Mis P&amp;L escritos a mano ya son netos</label></div>
+        </div>
+        <p class="csub" id="mxComNota" style="margin-top:12px"></p>
+      </div>
+    </section>
+    <section class="panel">
+      <header><h2>Edge</h2><span class="meta" id="mxEdgeMeta"></span></header>
+      <div class="body"><div class="qeg" id="mxEdge"></div><div id="mxEdgeNotas"></div></div>
+    </section>
+    <section class="panel">
+      <header><h2>Curva de equity y drawdown</h2><span class="meta" id="mxCurvaMeta"></span></header>
+      <div class="body"><div class="chartwrap" id="mxCurva"></div><div id="mxDD"></div></div>
+    </section>
+    <div class="grid eq">
+      <section class="panel">
+        <header><h2>Tamaño de posición</h2><span class="meta">futuros · floor(riesgo ÷ (puntos × $/pt + comisión))</span></header>
+        <div class="body" id="mxSize">
+          <div class="mxform">
+            <div><label class="lab" for="mxFuente">Riesgo en $ de</label><select id="mxFuente">
+              <option value="mano">lo escribo a mano</option>
+              <option value="cuenta">pérdida diaria máx. de la cuenta</option>
+              <option value="regla">mi regla de pérdida máx. diaria</option></select></div>
+            <div><label class="lab" for="mxRiesgo">Riesgo ($)</label><input type="number" id="mxRiesgo" step="1" min="0" inputmode="decimal"></div>
+            <div><label class="lab" for="mxInstr">Contrato</label><select id="mxInstr"></select></div>
+            <div><label class="lab" for="mxStop">Stop (puntos)</label><input type="number" id="mxStop" step="0.25" min="0" inputmode="decimal"></div>
+          </div>
+          <div id="mxSizeRes"></div>
+        </div>
+      </section>
+      <section class="panel">
+        <header><h2>Riesgo de ruina · prop</h2><span class="meta">Monte Carlo · 10.000 caminos</span></header>
+        <div class="body" id="mxRuina">
+          <div class="mxform">
+            <div><label class="lab" for="mxUnR">1R en la simulación vale</label><select id="mxUnR">
+              <option value="hist">mi riesgo medio real por operación</option>
+              <option value="calc">el riesgo del cálculo de tamaño</option></select></div>
+            <div style="align-self:end"><button type="button" class="btn primary" id="mxSimular">Simular 10.000 caminos</button></div>
+          </div>
+          <div id="mxRuinaRes"></div>
+        </div>
+      </section>
+    </div>
+    <section class="panel">
+      <header><h2>Operación por operación</h2><span class="meta" id="mxTablaMeta"></span></header>
+      <div class="body"><div class="twrap" id="mxTabla"></div></div>
+    </section>
+  </div>
+</div>
+
 <div class="tab" data-tab="playbook">
   <nav class="tabnav sub" id="pbNav" aria-label="Tipo de inversión o trading"></nav>
   <div class="toolbar">
@@ -2930,6 +3014,7 @@
     try {
       if (state.tab === "futuros") renderFutures();
       else if (state.tab === "invest") renderInvestMetrics();
+      else if (state.tab === "edge") renderEdge();
       else if (state.tab === "calc") { if (cc.view === "risk") renderRisk(); else renderCalc(); }
     } catch (e) { }
   }
@@ -5538,7 +5623,10 @@
      el motor los marca no fiables: con 8 dias un Sharpe de 3 no dice nada.
      ------------------------------------------------------------------------- */
   function metricasCurva(curva, opciones) {
-    const cfg = Object.assign({ diasAnio: 252, minDiasFiable: 60 }, opciones || {});
+    /* tasaLibreAnual: tasa libre de riesgo en decimal por ANO (0.05 = 5%). Se
+       reparte en dias habiles y se resta de cada rendimiento diario. Por defecto 0,
+       que es lo que habia: sin ella, Sharpe y Sortino dan exactamente lo mismo. */
+    const cfg = Object.assign({ diasAnio: 252, minDiasFiable: 60, tasaLibreAnual: 0 }, opciones || {});
     const c = curva && curva.dias ? curva : (curva && curva.value) || null;
     if (!c || !c.dias.length) return Ok({ n: 0, fiable: false, razon: "sin dias operados" });
 
@@ -5568,10 +5656,14 @@
     }
     if (enDD > maxEnDD) maxEnDD = enDD;
 
-    const sharpe = mR.n > 1 && mR.desv > 0 ? mR.media / mR.desv * Math.sqrt(cfg.diasAnio) : null;
+    /* Restar una constante no cambia la desviacion: el exceso solo mueve la media. */
+    const rfDia = (toNum(cfg.tasaLibreAnual) ?? 0) / cfg.diasAnio;
+    const exceso = mR.media === null ? null : mR.media - rfDia;
+    const sharpeDiario = mR.n > 1 && mR.desv > 0 ? exceso / mR.desv : null;
+    const sharpe = sharpeDiario === null ? null : sharpeDiario * Math.sqrt(cfg.diasAnio);
     const negativos = rets.filter(r => r < 0);
     const downside = negativos.length ? Math.sqrt(negativos.reduce((s, r) => s + r * r, 0) / rets.length) : 0;
-    const sortino = downside > 0 ? mR.media / downside * Math.sqrt(cfg.diasAnio) : null;
+    const sortino = downside > 0 ? exceso / downside * Math.sqrt(cfg.diasAnio) : null;
     const retAnual = mR.n ? mR.media * cfg.diasAnio : null;
     const calmar = retAnual !== null && maxDDpct > 0 ? retAnual / maxDDpct : null;
 
@@ -5595,6 +5687,10 @@
       factorRecuperacion: maxDD > 0 ? roundTo(mP.suma / maxDD, 3) : null,
 
       sharpe: sharpe === null ? null : roundTo(sharpe, 3),
+      sharpeDiario: sharpeDiario === null ? null : roundTo(sharpeDiario, 4),
+      retornoDiarioMedio: mR.media === null ? null : roundTo(mR.media, 6),
+      retornoDiarioDesv: mR.desv === null ? null : roundTo(mR.desv, 6),
+      tasaLibreDiaria: roundTo(rfDia, 8),
       sortino: sortino === null ? null : roundTo(sortino, 3),
       calmar: calmar === null ? null : roundTo(calmar, 3),
       retornoAnualizado: retAnual === null ? null : roundTo(retAnual, 4),
@@ -11235,7 +11331,310 @@
      importa: si «inversiones» apareciera con dos nombres distintos en dos
      listas, se pintaría dos veces. El nombre es también lo que se le enseña al
      usuario cuando una zona revienta. */
+  /* ═════════════════ MÉTRICAS / EDGE ═════════════════
+     Las fórmulas del trader, sobre SUS operaciones de futuros y SIEMPRE netas de
+     comisión. Nada aquí vuelve a calcular lo que el motor ya calcula: ganadoras,
+     perdedoras, medias y profit factor salen de QE.analizarEdge; la curva diaria y
+     el Sharpe, de QE.construirCurva y QE.metricasCurva; la ruina, de
+     QE.simularCuenta. Lo que se hace aquí es aritmética de una línea encima.
+
+     Tres definiciones, dichas donde se muestran porque cambian el número:
+     - p = ganadoras / TODAS (las planas cuentan en el denominador, como en los
+       tiles de Futuros; la Radiografía las excluye y lo dice).
+     - En E = p·W − q·L, q son las PERDEDORAS / N. Con q = 1 − p, cada operación
+       plana se contaría como una pérdida media entera y E saldría falsamente baja.
+       Sin planas, las dos q son la misma.
+     - R neto = P&L neto ÷ riesgo inicial, y el riesgo inicial incluye la comisión:
+       |entrada − stop| × $/punto × contratos + comisión × contratos. Es el mismo
+       denominador que el cálculo de tamaño. */
+  const mx = { acct: "", setup: "", desde: "", hasta: "", mc: null, sim: false };
+  const MX_COM_DEF = (QE.CONTRACTS.MNQ && QE.CONTRACTS.MNQ.commissionPerContract) || 1.5;
+  const MX_DEF = { com: MX_COM_DEF, rf: 0, cap: null, manualNeto: false, fuente: "mano", riesgo: 200, stop: 20, instr: "MNQ", unR: "hist" };
+  function mxP() { return Object.assign({}, MX_DEF, (state.settings.meta && state.settings.meta.mx) || {}); }
+  function mxGuarda(patch) {
+    state.settings.meta = state.settings.meta || {};
+    state.settings.meta.mx = Object.assign({}, mxP(), patch);
+    persistSettings();
+  }
+  const mxNum = v => { if (v == null || v === "") return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
+  function mxPv(instr) { const r = QE.resolveContract(instr); return r.ok ? r.value.multiplier : null; }
+  function mxOps() {
+    let l = tradesOf("futuros");
+    if (mx.acct) l = l.filter(t => mx.acct === "__none" ? !t.accountId : t.accountId === mx.acct);
+    if (mx.setup) l = l.filter(t => t.setupId === mx.setup);
+    if (mx.desde) l = l.filter(t => (t.date || "") >= mx.desde);
+    if (mx.hasta) l = l.filter(t => (t.date || "") <= mx.hasta);
+    return l;
+  }
+  /* El neto de UNA operación. Si el journal ya descontó la comisión (campo
+     «Comisiones $» o comisiones automáticas), se respeta; si no, se descuenta la
+     comisión por contrato. Un P&L escrito a mano se trata como bruto salvo que
+     digas que ya es neto: el motor lo usa tal cual y no le resta nada. */
+  function mxNeto(t, P) {
+    const bruto = mxNum(t.pnlEff); if (bruto === null) return null;
+    const qty = Math.abs(mxNum(t.qty) || 0) || 1, fees = Math.abs(mxNum(t.fees) || 0);
+    const manual = mxNum(t.pnl) !== null;
+    let desc = 0, como;
+    if (manual && P.manualNeto) como = "manual";
+    else if (manual) { desc = fees > 0 ? fees : P.com * qty; como = "descontada"; }
+    else if (fees > 0 || autoFeesOn()) como = "journal";
+    else { desc = P.com * qty; como = "descontada"; }
+    return { neto: bruto - desc, desc, como, qty };
+  }
+  function mxRiesgo(t, P, qty) {
+    const e = mxNum(t.entry), s = mxNum(t.stop), pv = mxPv(t.instrument);
+    if (e === null || s === null || e === s || !pv) return null;
+    return Math.abs(e - s) * pv * qty + P.com * qty;
+  }
+  /* Reward-to-risk PLANEADO y neto: lo que el target paga menos la comisión,
+     entre lo que el stop cuesta más la comisión. */
+  function mxRR(t, P, qty) {
+    const e = mxNum(t.entry), o = mxNum(t.target), pv = mxPv(t.instrument), riesgo = mxRiesgo(t, P, qty);
+    if (o === null || e === null || !riesgo) return null;
+    return (Math.abs(o - e) * pv * qty - P.com * qty) / riesgo;
+  }
+  function mxCurvaOps(filas, capital) {
+    let eq = capital, pico = capital, mdd = 0, mddPct = 0;
+    const pts = [{ v: capital, dd: 0, f: null }];
+    for (const f of filas) {
+      eq += f.neto; if (eq > pico) pico = eq;
+      const dd = eq - pico; if (-dd > mdd) mdd = -dd;
+      const pct = pico > 0 ? (pico - eq) / pico : 0; if (pct > mddPct) mddPct = pct;
+      pts.push({ v: eq, dd, f });
+    }
+    return { pts, mdd, mddPct };
+  }
+  function mxCalc(list, P) {
+    const filas = [];
+    for (const t of list) {
+      const n = mxNeto(t, P); if (!n) continue;
+      const riesgo = mxRiesgo(t, P, n.qty);
+      filas.push({ t, neto: n.neto, desc: n.desc, como: n.como, qty: n.qty, riesgo, r: riesgo ? n.neto / riesgo : null, rr: mxRR(t, P, n.qty) });
+    }
+    filas.sort((a, b) => (a.t.date || "").localeCompare(b.t.date || "") || (a.t.time || "").localeCompare(b.t.time || "") || (a.t.updatedAt || 0) - (b.t.updatedAt || 0));
+    const e = QE.analizarEdge(filas.map(f => ({ pnl: f.neto, r: f.r, fecha: f.t.date }))).value;
+    const N = e.n;
+    const p = N ? e.ganadoras / N : null, q = p === null ? null : 1 - p, qL = N ? e.perdedoras / N : null;
+    /* W y L sin redondear: el motor los devuelve a centavos para pintarlos, y un
+       centavo de L movía b en la cuarta cifra y, con ella, E, el break-even y Kelly. */
+    const G = filas.filter(f => f.neto > 0), Pd = filas.filter(f => f.neto < 0);
+    const W = G.length ? G.reduce((s, f) => s + f.neto, 0) / G.length : null;
+    const L = Pd.length ? -Pd.reduce((s, f) => s + f.neto, 0) / Pd.length : null;
+    const b = W != null && L ? W / L : null;
+    const E = N ? (W != null ? p * W : 0) - (L != null ? qL * L : 0) : null;
+    const rs = filas.map(f => f.r).filter(x => x !== null);
+    const ER = rs.length ? rs.reduce((s, x) => s + x, 0) / rs.length : null;
+    const rrs = filas.map(f => f.rr).filter(x => x !== null);
+    const rrMedio = rrs.length ? rrs.reduce((s, x) => s + x, 0) / rrs.length : null;
+    const riesgos = filas.map(f => f.riesgo).filter(x => x);
+    /* Capital: el que escribas; si no, el de la cuenta filtrada; si no, la suma de
+       las cuentas que aparecen. Sin capital no hay porcentajes, y se dice. */
+    const ac = mx.acct && mx.acct !== "__none" ? acctById(mx.acct) : null;
+    let capital = P.cap > 0 ? P.cap : ac ? Number(ac.size) || 0 : 0;
+    if (!capital && !ac) { const ids = new Set(filas.map(f => f.t.accountId).filter(Boolean)); ids.forEach(id => { const a = acctById(id); if (a) capital += Number(a.size) || 0; }); }
+    const conFecha = filas.filter(f => f.t.date);
+    const cv = capital > 0 && conFecha.length ? QE.construirCurva(conFecha.map((f, i) => ({ fecha: f.t.date, orden: i, pnl: f.neto })), { saldoInicial: capital }).value : null;
+    const mt = cv ? QE.metricasCurva(cv, { tasaLibreAnual: (P.rf || 0) / 100 }).value : null;
+    const curva = mxCurvaOps(filas, capital);
+    return { filas, e, N, p, q, qL, W, L, b, E, ER, nR: rs.length, rs, rrMedio, nRR: rrs.length,
+      pf: e.profitFactor, pfRazon: e.profitFactorRazon,
+      kelly: b ? p - q / b : null, pBE: b ? 1 / (1 + b) : null,
+      riesgoMedio: riesgos.length ? riesgos.reduce((s, x) => s + x, 0) / riesgos.length : null,
+      capital, mt, curva, desc: filas.reduce((s, f) => s + f.desc, 0),
+      nDesc: filas.filter(f => f.como === "descontada").length, nJournal: filas.filter(f => f.como === "journal").length,
+      nManualNeto: filas.filter(f => f.como === "manual").length };
+  }
+  function mxCard(k, label, valor, cls, sub, raw, extra) {
+    return `<div class="qec${extra ? " " + extra : ""}" data-k="${k}" data-v="${raw == null ? "" : raw}"><span class="qk">${esc(label)}</span><div class="qv ${cls || ""}">${valor}</div>${sub ? `<div class="qs">${sub}</div>` : ""}</div>`;
+  }
+  const mxPct = x => x == null ? "—" : (x * 100).toFixed(1) + "%";
+  const mxPmc = (x, se) => x === 0 ? `0% <span style="font-size:12px;color:var(--dim)">(ninguno de los 10.000 caminos)</span>` : qePmc(x, se);
+  function mxRiesgoFuente(P) {
+    const ac = mx.acct && mx.acct !== "__none" ? acctById(mx.acct) : null;
+    const deCuenta = ac && ac.rules && ac.rules.maxLoss ? Number(ac.rules.maxLoss) : null;
+    const regla = ruleByRole("maxLoss"); const deRegla = regla ? Math.abs(Number(regla.value) || 0) || null : null;
+    if (P.fuente === "cuenta") return { v: deCuenta, falta: !ac ? "elige una cuenta en el filtro de arriba" : "esa cuenta no tiene escrita su pérdida diaria máxima (Cabina → cuenta → reglas de la firma)" };
+    if (P.fuente === "regla") return { v: deRegla, falta: "no tienes una regla dura con el papel «pérdida máxima diaria»" };
+    return { v: P.riesgo > 0 ? P.riesgo : null, falta: "escribe el riesgo en $" };
+  }
+  /* Contratos = floor(riesgo ÷ (puntos de stop × $/punto + comisión ida y vuelta)).
+     Kelly NO entra aquí, ni como techo ni como sugerencia. */
+  function mxTamano(P) {
+    const f = mxRiesgoFuente(P), pv = mxPv(P.instr), c = QE.resolveContract(P.instr);
+    const tick = c.ok ? c.value.tickSize : null, stop = mxNum(P.stop);
+    if (!f.v) return { error: f.falta };
+    if (!pv) return { error: "contrato desconocido" };
+    if (!(stop > 0)) return { error: "escribe el stop en puntos" };
+    const porContrato = stop * pv + P.com;
+    const contratos = Math.floor(f.v / porContrato + 1e-9);
+    const fueraRejilla = tick ? Math.abs(stop / tick - Math.round(stop / tick)) > 1e-9 : false;
+    return { riesgo: f.v, pv, tick, stop, porContrato, contratos, usado: contratos * porContrato, fueraRejilla };
+  }
+
+  function renderEdge() {
+    if (!$("mxEdge")) return;
+    const P = mxP();
+    /* filtros y parámetros: se sincronizan sin pisar lo que estás escribiendo */
+    const setOpts = (id, html, val) => { const el = $(id); if (el.innerHTML !== html) el.innerHTML = html; el.value = val; };
+    const accts = state.settings.accounts || [];
+    if (mx.acct && mx.acct !== "__none" && !acctById(mx.acct)) mx.acct = "";
+    setOpts("mxAcct", `<option value="">todas las cuentas</option>` + accts.map(a => `<option value="${esc(a.id)}">${esc(a.name || a.firm || "cuenta")}</option>`).join("") + `<option value="__none">sin cuenta asignada</option>`, mx.acct);
+    const setups = coll("playbooks").items.filter(p => p.type === "futuros");
+    if (mx.setup && !setups.some(s => s.id === mx.setup)) mx.setup = "";
+    setOpts("mxSetup", `<option value="">todos los setups</option>` + setups.map(s => `<option value="${esc(s.id)}">${esc(s.name || "setup")}</option>`).join(""), mx.setup);
+    setOpts("mxInstr", QE.listContracts().map(c => `<option value="${esc(c.symbol)}">${esc(c.symbol)} · $${c.multiplier}/pt</option>`).join(""), P.instr);
+    const vivo = el => document.activeElement === el;
+    [["mxCom", P.com], ["mxRf", P.rf], ["mxCap", P.cap == null ? "" : P.cap], ["mxRiesgo", P.riesgo], ["mxStop", P.stop]].forEach(([id, v]) => { const el = $(id); if (!vivo(el)) el.value = v; });
+    $("mxManualNeto").checked = !!P.manualNeto; $("mxFuente").value = P.fuente; $("mxUnR").value = P.unR;
+    $("mxDesde").value = mx.desde; $("mxHasta").value = mx.hasta;
+    $("mxRiesgo").disabled = P.fuente !== "mano";
+
+    const c = mxCalc(mxOps(), P);
+    const N = c.N;
+    $("mxN").textContent = `N = ${N} ${N === 1 ? "operación" : "operaciones"} de futuros · netas de comisión`;
+    $("mxAviso").innerHTML = N < 30
+      ? `<div class="qnote bad" id="mxPoca" style="margin:0 0 16px"><b>Muestra insuficiente, no confiar en las métricas.</b> N = ${N}; hacen falta al menos 30 operaciones para que estos números signifiquen algo.</div>` : "";
+    $("mxComNota").textContent = N
+      ? `De ${N}: a ${c.nDesc} se les descontó comisión aquí (${money(c.desc)} en total), ${c.nJournal} ya la traían del journal${c.nManualNeto ? `, ${c.nManualNeto} con P&L manual tomado como neto` : ""}. En el journal esas ${c.nDesc} siguen figurando sin descontar.`
+      : "Sin operaciones de futuros cerradas en este filtro.";
+
+    /* ---------- edge ---------- */
+    const out = [];
+    const planas = c.e.planas;
+    out.push(mxCard("n", "Muestra", String(N), N < 30 ? "bad" : "", `${c.e.ganadoras} ganadoras · ${c.e.perdedoras} perdedoras${planas ? " · " + planas + " planas" : ""} · ${c.nR} con stop`, N));
+    out.push(mxCard("expectancy", "Expectancy ($)", qeM(c.E == null ? null : roundMD(c.E)), qeCls(c.E),
+      c.E == null ? "" : `E = p×W − q×L = ${mxPct(c.p)}×${money(c.W || 0)} − ${mxPct(c.qL)}×${money(c.L || 0)}${planas ? ` · q = perdedoras/N: ${planas === 1 ? "la plana no es una pérdida" : "las " + planas + " planas no son pérdidas"}` : ""}`, c.E == null ? null : c.E));
+    out.push(mxCard("expectancyR", "Expectancy (R)", qeR(c.ER), qeCls(c.ER), c.nR ? `media del R neto de ${c.nR} operaciones con stop` : "hace falta el stop para medir en R", c.ER == null ? null : c.ER));
+    out.push(mxCard("winrate", "Win rate", mxPct(c.p), "", `p = ganadoras / total = ${c.e.ganadoras}/${N}`, c.p == null ? null : c.p));
+    const beOk = c.p != null && c.pBE != null ? c.p > c.pBE : null;
+    out.push(mxCard("breakeven", "Win rate de break-even", mxPct(c.pBE), beOk === null ? "" : beOk ? "good" : "bad",
+      c.pBE == null ? "hacen falta ganadoras y perdedoras" : `p(BE) = 1/(1+b). Tu p real ${mxPct(c.p)} está <b class="${beOk ? "mxgood" : "mxbad"}">${beOk ? "por encima" : "por debajo"}</b>`, c.pBE == null ? null : c.pBE));
+    out.push(mxCard("b", "b = W / L (neto)", c.b == null ? "—" : c.b.toFixed(2) + " : 1", "", `W ${money(c.W || 0)} · L ${money(c.L || 0)}`, c.b == null ? null : c.b));
+    out.push(mxCard("rr", "Reward-to-Risk planeado", c.rrMedio == null ? "—" : c.rrMedio.toFixed(2) + " : 1", "", c.nRR ? `media de ${c.nRR} operaciones con entrada, stop y target · neto de comisión` : "hace falta el target en el journal", c.rrMedio == null ? null : c.rrMedio));
+    out.push(mxCard("pf", "Profit factor", c.pf == null ? "—" : c.pf.toFixed(2), c.pf == null ? "" : c.pf > 1 ? "good" : "bad", c.pf == null ? esc(c.pfRazon || "") : c.pf > 1 ? "PF > 1: rentable en el periodo" : "PF ≤ 1: no rentable en el periodo", c.pf == null ? null : c.pf));
+    const mt = c.mt;
+    out.push(mxCard("sharpe", "Sharpe (diario)", mt && mt.sharpeDiario != null ? mt.sharpeDiario.toFixed(3) : "—", mt && mt.fiable ? "" : "dim",
+      !mt ? "hace falta un capital de referencia" : `anualizado ×√252: ${mt.sharpe == null ? "—" : mt.sharpe.toFixed(2)} · tasa libre ${P.rf || 0}% anual · ${mt.n} días${mt.fiable ? "" : " — con menos de 60 días no es fiable"}`, mt && mt.sharpeDiario != null ? mt.sharpeDiario : null));
+    out.push(mxCard("mdd", "Max drawdown", c.capital > 0 ? mxPct(c.curva.mddPct) : "—", c.curva.mdd > 0 ? "bad" : "", c.capital > 0 ? `${qeM(-roundMD(c.curva.mdd))} · sobre capital ${money(c.capital)}, operación a operación` : `${qeM(-roundMD(c.curva.mdd))} · sin capital no hay %`, c.curva.mddPct));
+    out.push(mxCard("kelly", "Kelly simplificado · sólo referencia", mxPct(c.kelly), "", `f* = p − (1−p)/b. <b>En prop el tamaño lo limita la cuenta, no Kelly.</b> No se usa para sugerir tamaño.`, c.kelly == null ? null : c.kelly, "ref"));
+    $("mxEdge").innerHTML = out.join("");
+    $("mxEdgeMeta").textContent = mx.setup || mx.acct || mx.desde || mx.hasta ? "con filtros" : "todo el historial de futuros";
+    $("mxEdgeNotas").innerHTML = c.nR < N && N ? `<div class="qnote">${N - c.nR} de ${N} operaciones no tienen stop: cuentan en $, pero no en R ni en la simulación.</div>` : "";
+
+    /* ---------- curva + drawdown por cuenta ---------- */
+    mxDibuja(c);
+    const cuentas = mx.acct && mx.acct !== "__none" ? [acctById(mx.acct)].filter(Boolean)
+      : accts.filter(a => c.filas.some(f => f.t.accountId === a.id));
+    $("mxDD").innerHTML = cuentas.length ? `<table class="t" style="margin-top:12px"><thead><tr><th>Cuenta</th><th class="r">Max drawdown</th><th class="r">Permitido</th><th class="r">Usado</th></tr></thead><tbody>${cuentas.map(a => {
+      const cv = mxCurvaOps(c.filas.filter(f => f.t.accountId === a.id), Number(a.size) || 0);
+      const perm = Number(a.dd) || 0, uso = perm ? cv.mdd / perm : null;
+      return `<tr data-cuenta="${esc(a.id)}"><td class="ui">${esc(a.name || a.firm || "cuenta")}</td><td class="r neg">${money(-cv.mdd)}</td><td class="r">${perm ? money(perm) : "sin escribir"}</td><td class="r ${uso == null ? "" : uso >= 0.8 ? "neg" : uso >= 0.5 ? "" : "pos"}">${uso == null ? "—" : mxPct(uso)}</td></tr>`;
+    }).join("")}</tbody></table>` : "";
+
+    /* ---------- tamaño ---------- */
+    const tz = mxTamano(P);
+    const fs = mxRiesgoFuente(Object.assign({}, P, { fuente: "cuenta" })), fr = mxRiesgoFuente(Object.assign({}, P, { fuente: "regla" }));
+    $("mxFuente").options[1].textContent = "pérdida diaria máx. de la cuenta" + (fs.v ? ` (${money(fs.v)})` : "");
+    $("mxFuente").options[2].textContent = "mi regla de pérdida máx. diaria" + (fr.v ? ` (${money(fr.v)})` : "");
+    const avisoSlip = `<div class="qnote warn" id="mxSlip">El stop puede tener slippage: en un movimiento rápido la pérdida real puede pasar de este riesgo.</div>`;
+    $("mxSizeRes").innerHTML = tz.error ? `<div class="qnote">${esc(tz.error)}</div>${avisoSlip}` :
+      `<div class="qeg">${mxCard("contratos", "Contratos", String(tz.contratos), tz.contratos ? "" : "bad", `floor(${money(tz.riesgo)} ÷ (${tz.stop} pts × ${money(tz.pv)} + ${money(P.com)})) = floor(${money(tz.riesgo)} ÷ ${money(tz.porContrato)})`, tz.contratos)}
+      ${mxCard("usado", "Riesgo real", money(tz.usado), "", `${tz.contratos} × ${money(tz.porContrato)} · sobran ${money(tz.riesgo - tz.usado)}`, tz.usado.toFixed(2))}</div>
+      ${tz.contratos ? "" : `<div class="qnote bad">Con este stop ni un contrato cabe en ${money(tz.riesgo)}: o el stop es más corto o no se opera.</div>`}
+      ${tz.fueraRejilla ? `<div class="qnote warn">${tz.stop} puntos no es múltiplo del tick de ${esc(P.instr)} (${tz.tick}): ese stop no existe en el libro.</div>` : ""}${avisoSlip}`;
+
+    /* ---------- ruina ---------- */
+    mxRuina(c, P, tz);
+
+    /* ---------- tabla ---------- */
+    const filas = c.filas.slice().reverse().slice(0, 300);
+    const pb = id => { const q = id ? coll("playbooks").get(id) : null; return q ? q.name : ""; };
+    const num = (v, d) => v == null || v === "" ? "—" : Number(v).toFixed(d == null ? 2 : d);
+    $("mxTablaMeta").textContent = N > 300 ? `las 300 más recientes de ${N}` : plu(N, "operación", "operaciones");
+    $("mxTabla").innerHTML = filas.length ? `<table class="t"><thead><tr><th>Fecha</th><th>Setup</th><th>Cuenta</th><th>Contrato</th><th class="r">Cts</th><th class="r">Entrada</th><th class="r">Stop</th><th class="r">Target</th><th class="r">R:R plan</th><th class="r">Comisión</th><th class="r">P&amp;L neto</th><th class="r">R neto</th></tr></thead><tbody>${filas.map(f => {
+      const t = f.t;
+      return `<tr data-mx="${esc(t.id)}" title="Abrir en el journal"><td>${esc(t.date || "")}</td><td class="ui">${esc(pb(t.setupId))}</td><td class="ui">${esc(acctLabel(t.accountId))}</td><td>${esc(t.instrument || "")} ${t.direction === "short" ? "S" : "L"}</td><td class="r">${f.qty}</td><td class="r">${num(t.entry)}</td><td class="r">${num(t.stop)}</td><td class="r">${num(t.target)}</td><td class="r">${f.rr == null ? "—" : f.rr.toFixed(2)}</td><td class="r dim">${f.como === "descontada" ? money(-f.desc) : f.como === "journal" ? "en journal" : "—"}</td><td class="r ${f.neto > 0 ? "pos" : f.neto < 0 ? "neg" : ""}">${money(f.neto)}</td><td class="r">${f.r == null ? "—" : qeR(f.r)}</td></tr>`;
+    }).join("")}</tbody></table>` : `<p class="empty">Sin operaciones de futuros en este filtro.</p>`;
+  }
+
+  function mxDibuja(c) {
+    const wrap = $("mxCurva"), pts = c.curva.pts;
+    if (pts.length < 3) { wrap.innerHTML = `<p class="empty">La curva aparece con 2 operaciones cerradas.</p>`; $("mxCurvaMeta").textContent = ""; return; }
+    const W = chartW(wrap), H = 280, pl = 64, pr = 16, pt = 14, sep = 26, hTop = 170, hDD = H - pt - hTop - sep - 22;
+    const vals = pts.map(p => p.v), dds = pts.map(p => p.dd);
+    const tk = niceTicks(Math.min(...vals), Math.max(...vals), 4), y0 = tk[0], y1 = tk[tk.length - 1];
+    const tkd = niceTicks(Math.min(...dds, -1), 0, 2), d0 = tkd[0];
+    const x = i => pl + i / (pts.length - 1) * (W - pl - pr);
+    const y = v => pt + (1 - (v - y0) / (y1 - y0 || 1)) * hTop;
+    const yb = pt + hTop + sep, yd = v => yb + (v / (d0 || -1)) * hDD;
+    const fmtK = v => Math.abs(v) >= 1e3 ? (v < 0 ? "-$" : "$") + (Math.abs(v) / 1e3).toFixed(1) + "k" : money(v);
+    const linea = pts.map((p, k) => (k ? "L" : "M") + x(k).toFixed(1) + " " + y(p.v).toFixed(1)).join(" ");
+    const area = pts.map((p, k) => (k ? "L" : "M") + x(k).toFixed(1) + " " + yd(p.dd).toFixed(1)).join(" ") + ` L${x(pts.length - 1).toFixed(1)} ${yb.toFixed(1)} L${x(0).toFixed(1)} ${yb.toFixed(1)} Z`;
+    $("mxCurvaMeta").innerHTML = `máx. drawdown <span class="neg">${money(-c.curva.mdd)}</span>${c.capital > 0 ? " · " + mxPct(c.curva.mddPct) : ""}`;
+    wrap.innerHTML = `<svg class="chart" id="mxChart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Curva de equity neta y drawdown">
+      <g class="grid">${tk.map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line><text x="${pl - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${fmtK(v)}</text>`).join("")}
+      ${tkd.map(v => `<line x1="${pl}" x2="${W - pr}" y1="${yd(v).toFixed(1)}" y2="${yd(v).toFixed(1)}"></line><text x="${pl - 6}" y="${(yd(v) + 4).toFixed(1)}" text-anchor="end">${fmtK(v)}</text>`).join("")}</g>
+      <text x="${pl}" y="${(yb - 8).toFixed(1)}" style="fill:var(--muted)">drawdown desde el pico</text>
+      <path class="s1" id="mxEq" d="${linea}"></path><path class="mxdd" id="mxDdArea" d="${area}"></path>
+      <text x="${pl}" y="${H - 6}">inicio</text><text x="${W - pr}" y="${H - 6}" text-anchor="end">op. ${pts.length - 1}</text></svg>`;
+  }
+
+  function mxRuina(c, P, tz) {
+    const res = $("mxRuinaRes"), btn = $("mxSimular");
+    const ac = mx.acct && mx.acct !== "__none" ? acctById(mx.acct) : null;
+    const falta = !ac ? "Elige una cuenta prop en el filtro de arriba: la simulación necesita su drawdown y su objetivo."
+      : !(Number(ac.dd) > 0) ? "Esa cuenta no tiene escrito su drawdown máximo."
+      : c.nR < 5 ? `Hacen falta al menos 5 operaciones con stop para remuestrear tus R; hay ${c.nR}.` : null;
+    const unR = P.unR === "calc" ? (tz && !tz.error && tz.contratos ? tz.usado : null) : c.riesgoMedio;
+    if (!falta && !unR) { btn.disabled = true; res.innerHTML = `<div class="qnote">${P.unR === "calc" ? "El cálculo de tamaño no da ningún contrato: no hay riesgo que simular." : "Sin riesgo medio medible."}</div>`; return; }
+    btn.disabled = !!falta;
+    if (falta) { res.innerHTML = `<div class="qnote">${esc(falta)}</div>`; return; }
+    const dias = new Set(c.filas.filter(f => f.r != null).map(f => f.t.date)).size || 1;
+    const ddTipo = ac.ddKind === "estatico" ? "estatico" : ac.ddKind === "trailing" ? "trailing" : "trailing_lock";
+    const base = { rMultiples: c.rs, riesgoPorOperacion: unR, operacionesPorDia: Math.max(1, c.nR / dias),
+      saldoInicial: Number(ac.size) || 0, ddTipo, ddMaximo: Number(ac.dd), baseTrailing: ac.trailBase === "cierre" ? "cierre" : "intradia",
+      objetivoGanancia: Number(ac.target) || null, perdidaDiariaMax: ac.rules && ac.rules.maxLoss ? Number(ac.rules.maxLoss) : null,
+      diasMax: 120, caminos: 10000, semilla: 20260917 };
+    const clave = JSON.stringify(base);
+    mx.base = base; mx.clave = clave;
+    const tipo = { estatico: "estático", trailing: "trailing", trailing_lock: "trailing que se bloquea" }[ddTipo];
+    const sup = `${c.nR} R netos remuestreados · 1R = ${money(unR)} · drawdown ${tipo} de ${money(base.ddMaximo)} · ${base.objetivoGanancia ? "objetivo " + money(base.objetivoGanancia) : "sin objetivo"} · ${base.operacionesPorDia.toFixed(1)} ops/día · 120 días`;
+    if (!mx.mc || mx.mc.clave !== clave) {
+      res.innerHTML = `<div class="qnote">${mx.mc ? "Los datos cambiaron desde la última simulación. " : ""}${esc(sup)}</div>`;
+      return;
+    }
+    const s = mx.mc.res;
+    if (!s.ok) { res.innerHTML = `<div class="qnote bad">${esc(s.error.message)}</div>`; return; }
+    const v = s.value;
+    res.innerHTML = `<div class="qeg">
+      ${mxCard("quemar", "Probabilidad de quemar la cuenta", mxPmc(v.pQuemar, v.errorEstandar.quemar), v.pQuemar <= .05 ? "good" : v.pQuemar <= .15 ? "warn" : "bad", "tocar el drawdown máximo antes que el objetivo", v.pQuemar)}
+      ${mxCard("objetivo", "Probabilidad de llegar al objetivo primero", base.objetivoGanancia ? mxPmc(v.pPasar, v.errorEstandar.pasar) : "—", v.pPasar >= .6 ? "good" : v.pPasar >= .35 ? "warn" : "bad", base.objetivoGanancia ? "antes de quemarla" : "la cuenta no tiene objetivo escrito", base.objetivoGanancia ? v.pPasar : null)}
+      ${mxCard("abierta", "Sin resolver a los 120 días", mxPmc(v.pSinResolver), "dim", "ni quemada ni en el objetivo", v.pSinResolver)}</div>
+      <div class="qnote${c.N < 30 ? " warn" : ""}">${c.N < 30 ? "<b>Con menos de 30 operaciones esta simulación remuestrea ruido.</b> " : ""}${esc(sup)}. 10.000 caminos, semilla fija. ${esc(v.nota)}</div>`;
+  }
+
+  $("mxAcct").addEventListener("change", e => { mx.acct = e.target.value; renderEdge(); });
+  $("mxSetup").addEventListener("change", e => { mx.setup = e.target.value; renderEdge(); });
+  $("mxDesde").addEventListener("change", e => { mx.desde = e.target.value; renderEdge(); });
+  $("mxHasta").addEventListener("change", e => { mx.hasta = e.target.value; renderEdge(); });
+  [["mxCom", "com"], ["mxRf", "rf"], ["mxCap", "cap"], ["mxRiesgo", "riesgo"], ["mxStop", "stop"]].forEach(([id, k]) =>
+    $(id).addEventListener("input", e => { const v = mxNum(e.target.value); mxGuarda({ [k]: k === "cap" ? (v > 0 ? v : null) : (v == null ? 0 : Math.max(k === "rf" ? -100 : 0, v)) }); renderEdge(); }));
+  $("mxManualNeto").addEventListener("change", e => { mxGuarda({ manualNeto: e.target.checked }); renderEdge(); });
+  $("mxFuente").addEventListener("change", e => { mxGuarda({ fuente: e.target.value }); renderEdge(); });
+  $("mxInstr").addEventListener("change", e => { mxGuarda({ instr: e.target.value }); renderEdge(); });
+  $("mxUnR").addEventListener("change", e => { mxGuarda({ unR: e.target.value }); renderEdge(); });
+  $("mxSimular").addEventListener("click", () => {
+    const btn = $("mxSimular"); if (!mx.base) return;
+    btn.disabled = true; btn.textContent = "simulando 10.000 caminos…";
+    const base = mx.base, clave = mx.clave;
+    setTimeout(() => {
+      try { mx.mc = { clave, res: QE.simularCuenta(base) }; } finally { btn.textContent = "Simular 10.000 caminos"; btn.disabled = false; renderEdge(); }
+    }, 30);
+  });
+  $("mxTabla").addEventListener("click", e => { const tr = e.target.closest("tr[data-mx]"); if (!tr) return; const t = coll("trades").get(tr.dataset.mx); if (t) openTrade(t); });
+
   const Z = {
+    edge:       ["métricas / edge", () => renderEdge()],
     futuros:    ["operaciones", () => renderFutures()],
     invOps:     ["inversión", () => renderInvestOps()],
     playbook:   ["playbook", () => renderPlaybook()],
@@ -11256,9 +11655,9 @@
   };
   /* Al cambiar la CUENTA SELECCIONADA no cambian los datos, cambia el punto de
      vista: se repinta lo que depende de qué cuenta se está mirando. */
-  const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia];
+  const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia, Z.edge];
   const FANOUT_TRADES = [Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
-                         Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion];
+                         Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion, Z.edge];
   function pinta(lista) {
     const rotos = [];
     for (const [nombre, fn] of lista) {
@@ -11307,7 +11706,7 @@
      De paso desaparece el último try{}catch{} mudo de la app: el de los destinos
      de la calculadora. Si falla, se dice cuál falló en vez de tragárselo. */
   coll("trades").subscribe(() => fanout(FANOUT_TRADES));
-  coll("playbooks").subscribe(() => fanout([Z.futuros, Z.invOps, Z.playbook, Z.contadores]));
+  coll("playbooks").subscribe(() => fanout([Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.edge]));
   coll("ideas").subscribe(() => fanout([Z.ideas, Z.contadores]));
   coll("markets").subscribe(() => fanout([Z.invest, Z.destinos]));
   coll("positions").subscribe(() => fanout([Z.invest, Z.contadores]));
@@ -11346,6 +11745,7 @@
       { g: "Ir a", i: "▤", t: "Futuros · análisis", s: "", f: ir("futuros", "analisis") },
       { g: "Ir a", i: "▤", t: "Futuros · diario", s: "J", f: ir("futuros", "diario") },
       { g: "Ir a", i: "▤", t: "Futuros · pre-sesión", s: "P", f: ir("futuros", "presesion") },
+      { g: "Ir a", i: "▥", t: "Métricas / Edge", s: "", f: ir("edge") },
       { g: "Ir a", i: "◫", t: "Inversiones", s: "", f: ir("invest") },
       { g: "Ir a", i: "◱", t: "Playbook", s: "", f: ir("playbook") },
       { g: "Ir a", i: "◰", t: "Formas de hacer dinero", s: "", f: ir("ideas") },
