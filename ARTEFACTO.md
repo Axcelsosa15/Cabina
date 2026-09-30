@@ -11,7 +11,7 @@ ni por qué el mismo archivo se comporta distinto según dónde se abra.
 | | |
 |---|---|
 | Enlace | https://claude.ai/artifact/2Nkv7mgKa7xtxZY9yvxeAb |
-| Versión viva | **74** · `1790783175-4a25` · 2026-09-30 |
+| Versión viva | **75** · `1790784884-ef08` · 2026-09-30 |
 | Contrato en ejecución | `0.2.46` (el más nuevo disponible es `0.2.66`; no se mueve sin motivo) |
 | Compartición | enlace público — *ver la advertencia al final* |
 
@@ -93,6 +93,19 @@ La diferencia con el archivo del repositorio es sólo ese envoltorio, que añade
 - delante: `<!DOCTYPE html>`, `<head>` con los metas, el reset mínimo,
   `</head><body>` — las fuentes ya no: las pide el script al cargar
 - detrás: `</body></html>`
+
+### Coinciden — publicado el 2026-09-30 (versión 75) · la pestaña Métricas / Edge
+
+La versión viva es la **75** (`1790784884-ef08`). Contrato `0.2.46` y capacidades
+arrastradas intactas. Publicada tras la compuerta de `fa5171b` (23 PASS · 0 FAIL) y
+tras comprobar que la viva seguía siendo la 74 publicada desde aquí.
+
+**6 líneas fuera, 406 dentro**: la pestaña, su CSS, el motor regenerado con la tasa
+libre de riesgo en `metricasCurva`, y la línea de la paleta. Las 6 que salen son las
+tres de `metricasCurva` que cambian y tres del cableado de repintado. No se
+leyó de vuelta esta vez: el mismo camino dio byte a byte lo enviado en la 74.
+
+Fórmulas y decisiones: `docs/METRICAS.md`.
 
 ### Coinciden — republicado el 2026-09-30 (versión 74) · cuentas inertes, y el borrado en lote
 
