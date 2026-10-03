@@ -58,7 +58,7 @@ npm run compuerta    # todas las pruebas + la tabla de la cadena (lo que corre C
 
 | | |
 |---|---|
-| suites | **31**, 941 aserciones de navegador y guardianes + 316 del motor |
+| suites | **31**, 952 aserciones de navegador y guardianes + 316 del motor |
 | compuerta | **19 PASS · 0 FAIL · 3 UNKNOWN** de 22 filas (las 3 son fronteras de plataforma) |
 | despliegue | GitHub Pages, sólo tras `pruebas` en verde, con comparación byte a byte |
 

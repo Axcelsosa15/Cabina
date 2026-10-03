@@ -96,6 +96,3 @@ rama y la PR abierta. Es posible, pero es una decisión tuya y no se hace sin pe
   autor.
 - **Imagen para compartir** (`og:image`). El nombre ya está; falta la imagen, y tiene
   que ir dentro del repositorio, no en un servidor ajeno.
-- **Política de seguridad de contenido (CSP).** Endurecería la página. Ya no hay
-  artefacto que la rompa; tiene que permitir `connect-src` al proyecto Supabase,
-  `img-src` `data:` y `blob:` (capturas) y las fuentes de Google, y probarse en Pages.

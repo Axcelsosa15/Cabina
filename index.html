@@ -2,6 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<!-- CSP. Va en <meta> porque Pages no deja poner cabeceras. El script de la app es
+     inline, así que no impide que corra código inyectado; impide que ese código
+     hable con alguien que no sea el proyecto Supabase o se chive pidiendo una
+     imagen. Las fuentes de Google son el único recurso externo. test/seguridad.mjs. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src https://lazniuuedlhqomfyykvf.supabase.co; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cabina · cockpit de sesión</title>
 <meta name="robots" content="noindex, nofollow">

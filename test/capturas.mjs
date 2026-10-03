@@ -25,9 +25,13 @@ const D = nubeDoble(html);
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
 const nav = await chromium.launch();
-const errs = [];
+const errs = [], csp = [];
 async function abre(email) {
   const ctx = await nav.newContext();
+  /* La CSP de la página tiene que dejar pasar justo esto: fetch al proyecto,
+     imágenes blob:. Cualquier violación aquí es la política rompiendo la app. */
+  await ctx.exposeBinding('__violacion', (_, v) => csp.push(v));
+  await ctx.addInitScript(() => document.addEventListener('securitypolicyviolation', e => window.__violacion(e.violatedDirective + ' ← ' + (e.blockedURI || 'inline'))));
   const uid = email ? await D.conSesion(ctx, email) : null;
   const p = await ctx.newPage();
   p.on('pageerror', e => errs.push(e.message));
@@ -118,6 +122,7 @@ await editorNuevo(local.p);
 ok(!(await local.p.isVisible('#edShots button[data-act="add"]')), 'sin cuenta no hay botón de añadir');
 ok(/entra con ella para adjuntarlas/.test(await local.p.textContent('#edShots')), 'y el editor dice dónde se guardan las capturas', (await local.p.textContent('#edShots')).trim().slice(0, 90));
 
+ok(csp.length === 0, 'ninguna violación de CSP subiendo, viendo, borrando y respaldando', csp.join(' | ') || 'ninguna');
 ok(errs.length === 0, 'ningún error de página', errs.length ? errs.join(' | ') : 'sin pageerror');
 await nav.close();
 console.log(`\n  fallos: ${fallos.length}${fallos.length ? ' → ' + fallos.join(' · ') : ''}`);

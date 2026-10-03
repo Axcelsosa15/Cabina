@@ -80,6 +80,12 @@ No hay un `if (nube) … else …` en las puertas de escritura: `coll().set`,
   Cualquier otra URL que traiga un respaldo se pinta como caja rechazada y no se
   pide nunca.
 - Todo lo que escribe el usuario acaba en `textContent` o pasa por `esc()`.
+- CSP en un `<meta>`: `default-src 'none'`, `connect-src` sólo el proyecto Supabase,
+  `img-src` sólo `data:` y `blob:`, fuentes de Google como único recurso externo. El
+  script de la app es inline, así que la CSP **no** impide que corra código inyectado;
+  impide que ese código saque datos a otro sitio. `seguridad.mjs` afirma la política,
+  recorre las siete pestañas sin una violación y comprueba que un `fetch` ajeno lo
+  para la CSP; `capturas.mjs` hace lo mismo con cuenta e imágenes.
 
 ## Publicación
 
