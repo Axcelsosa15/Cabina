@@ -21,6 +21,38 @@ de +$9.999. Todo **neto de comisiones**.
 | Break-even | p(BE) = 1/(1 + b) | verde si p real > p(BE) |
 | Riesgo de ruina | Monte Carlo, 10.000 caminos, remuestreando R netos | `QE.simularCuenta` |
 
+## La R sale del dinero, no de los precios apuntados
+
+`QE.calcularTradeApp` publica dos R, y son dos preguntas distintas:
+
+| | qué contesta | de dónde sale |
+|---|---|---|
+| `rReal` | cuánto ganaste por cada unidad arriesgada | el **P&L que ves**: el escrito a mano si existe, ya neto de comisiones si las hay |
+| `QE.rRealApp(t)` | hasta dónde llegó el precio frente a la distancia al stop | sólo los **precios** |
+
+La primera alimenta la ventaja, la esperanza y el Monte Carlo. La segunda contesta
+«¿dejé correr la pérdida más allá del stop?», que no la mueve una comisión.
+
+Las dos salían del mismo número —la R de los precios— así que la de dinero estaba
+mal siempre que el P&L y los precios no coincidieran. Medido:
+
+| | P&L que ves | R que publicaba | R correcta |
+|---|---|---|---|
+| P&L escrito a mano (el fill fue peor) | −$7 | **+10R** | −0,35R |
+| «Comisiones $» 25 en el journal | −$5 | **+1,0R** | −0,25R |
+| comisiones automáticas del contrato | −$0,50 | **+0,05R** | −0,025R |
+
+Siempre en la misma dirección: inflaba la ventaja justo cuando la ejecución había
+sido peor de lo planeado. La Radiografía llegaba a publicar una esperanza de
+**+4,5R** sobre un sistema perdedor, y Métricas decía −0,675R sobre las mismas
+operaciones. Sin comisiones y sin P&L a mano las dos R son el mismo número, que es
+el caso normal. `quant.test.js`, `radiografia.mjs` y `aviso.mjs` lo vigilan.
+
+**Una cantidad de cero no es una operación.** El motor hace `toNum(qty) || 1`, así
+que 0 contratos contaban como 1: medido, 10 puntos a favor metían $20 de ganancia
+inventada en la cuenta. El editor ya no lo guarda. La cantidad **vacía** sigue
+valiendo 1, que está documentado más arriba.
+
 **Riesgo inicial** = \|entrada − stop\| × $/punto × contratos + comisión × contratos. Es el
 mismo denominador que el cálculo de tamaño, así que 1R significa lo mismo en toda la
 pestaña.

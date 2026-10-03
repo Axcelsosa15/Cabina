@@ -364,6 +364,56 @@ grupo("adaptador Cabina");
   const r = Q.calcularTradeApp({ instrument: "MNQ", direction: "long", entry: 20000, exit: 20042.5, qty: 2, pnl: 999 });
   eq(r.pnlEff, 999, "un P&L escrito a mano gana sobre el calculado");
 }
+{
+  /* Y LA R TIENE QUE SEGUIRLO. Un P&L a mano es lo que de verdad liquido el
+     broker: se escribe justo cuando el fill fue peor que el precio apuntado.
+     Si la R sigue saliendo de los precios, la app esconde el slippage y
+     presume de una ventaja que no tuvo. Medido antes de arreglarlo: la misma
+     operacion valia -7 USD y +10 R a la vez. */
+  const r = Q.calcularTradeApp({ instrument: "MNQ", direction: "long", entry: 21000, stop: 20990, exit: 21100, qty: 1, pnl: -7 });
+  eq(r.riskUsd, 20, "riesgo 10 puntos x 2 USD = 20");
+  eq(r.rReal, -0.35, "la R sale del P&L reportado (-7/20), no de los precios (+10)");
+  ok(r.pnlEff < 0 && r.rReal < 0, "el P&L y la R de una operacion nunca tienen signos opuestos");
+}
+{
+  /* Sin P&L a mano nada cambia: la R sigue siendo la de los precios. */
+  const r = Q.calcularTradeApp({ instrument: "MNQ", direction: "long", entry: 21000, stop: 20990, exit: 21020, qty: 1 });
+  eq(r.rReal, 2, "sin P&L a mano la R es la de los precios");
+}
+{
+  /* Un P&L a mano sin stop no tiene riesgo con el que dividir: R null, no cero. */
+  const r = Q.calcularTradeApp({ instrument: "MNQ", direction: "long", entry: 21000, exit: 21100, qty: 1, pnl: -7 });
+  eq(r.rReal, null, "sin stop no hay R que calcular, ni siquiera con P&L a mano");
+}
+{
+  /* Simbolo desconocido + P&L a mano: sin multiplicador no hay forma de pasar
+     ese dolar a R, y la de los precios saldria +2 sobre una perdida. */
+  const r = Q.calcularTradeApp({ instrument: "FOO", direction: "long", entry: 100, stop: 90, exit: 120, qty: 1, pnl: -7 });
+  eq(r.pnlEff, -7, "el P&L a mano sobrevive sin contrato");
+  eq(r.rReal, null, "y la R no se inventa a partir de los precios");
+}
+{
+  /* Las comisiones del journal mueven el P&L: la R tiene que moverse con el.
+     Medido antes de arreglarlo: 25 USD de comisiones dejaban la operacion en
+     -5 USD y la app seguia publicando +1,0 R. */
+  const r = Q.calcularTradeApp({ instrument: "MNQ", direction: "long", entry: 21000, stop: 20990, exit: 21010, qty: 1, fees: 25 });
+  eq(r.pnlEff, -5, "20 USD de recorrido menos 25 de comisiones son -5");
+  eq(r.rReal, -0.25, "y la R es -0,25, no la bruta +1");
+  ok(r.pnlEff < 0 && r.rReal < 0, "el P&L y la R no tienen signos opuestos por una comision");
+}
+{
+  /* Comisiones automaticas del contrato: mismo caso, mismo arreglo. */
+  const r = Q.calcularTradeApp({ instrument: "MNQ", direction: "long", entry: 21000, stop: 20990, exit: 21000.5, qty: 1 }, { incluirComisiones: true });
+  eq(r.pnlEff, -0.5, "1 USD de recorrido menos 1,50 de comision son -0,50");
+  ok(r.rReal < 0, "y la R acompana: antes publicaba +0,05");
+}
+{
+  /* Sin comisiones, rNeto y rBruto son el mismo numero: nada de lo que ya
+     estaba bien se mueve. */
+  const r = Q.calcularTradeApp({ instrument: "MNQ", direction: "long", entry: 21000, stop: 20990, exit: 21010, qty: 3 });
+  eq(r.pnlEff, 60, "3 contratos, 10 puntos, sin comisiones");
+  eq(r.rReal, 1, "y la R sigue siendo 1");
+}
 
 /* ═══ pureza ═══ */
 grupo("pureza");

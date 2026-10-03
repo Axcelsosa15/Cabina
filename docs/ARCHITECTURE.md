@@ -21,7 +21,9 @@ test/                          pruebas de navegador (Playwright) y guardianes
 
 | qué | dónde vive | quién lo vigila |
 |---|---|---|
-| P&L, R, riesgo de una operación | `QE.calcularTradeApp` (motor) | `quant.test.js`, `capa2` |
+| P&L y R de dinero de una operación | `QE.calcularTradeApp` (motor) · la R **sigue al P&L** | `quant.test.js`, `radiografia` |
+| R de precio («¿pasé el stop?») | `QE.rRealApp` (motor) · sólo precios | `quant.test.js` |
+| riesgo en $ de una operación | `QE.calcularTradeApp` (motor) | `quant.test.js`, `capa2` |
 | curva, pico, suelo, colchón de una cuenta | `QE.construirCurva`, llamado desde `acctAgg` | `equivalencia` |
 | drawdown, pérdida diaria, tope de ganancia | `QE.margenDeDrawdown` · `margenDePerdida` · `topeDeGanancia` | `equivalencia` (dorados) |
 | consistencia | `QE.evaluarConsistencia` | `equivalencia` |

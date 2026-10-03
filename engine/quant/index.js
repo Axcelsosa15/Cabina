@@ -65,10 +65,15 @@ export function calcularTradeApp(t, opciones) {
   if (!isOk(r)) {
     /* Sin contrato no hay P&L en dolares, pero R SI existe: es un cociente de
        precios y el multiplicador se cancela. Perderlo aqui seria tirar la
-       unica medida util que queda de una operacion con simbolo desconocido. */
+       unica medida util que queda de una operacion con simbolo desconocido.
+
+       SALVO si hay un P&L a mano: sin multiplicador no se puede pasar ese dolar
+       a R, y la R de los precios contradiria el hecho reportado (podria salir
+       positiva sobre una operacion que el broker liquido en perdida). Entre
+       inventarla y no darla, no se da. */
     return {
       pnlEff: toNum(t.pnl),
-      rReal: rRealApp(t),
+      rReal: toNum(t.pnl) !== null ? null : rRealApp(t),
       rPlanned: rPlanApp(t),
       riskUsd: null,
       multUnknown: r.error.code === "CONTRATO_DESCONOCIDO" && !!sym(t.instrument),
@@ -82,7 +87,22 @@ export function calcularTradeApp(t, opciones) {
   const manual = toNum(t.pnl);
   return {
     pnlEff: manual !== null ? manual : v.pnlNeto,
-    rReal: v.rBruto,
+    /* Y LA R LO SIGUE. La regla de arriba se aplicaba solo al P&L y se olvidaba
+       aqui, dos lineas mas abajo: la misma operacion valia -7 USD y +10 R a la
+       vez, porque la R salia de los precios apuntados. Un P&L a mano se escribe
+       JUSTO cuando el fill fue peor que el precio apuntado, asi que esa R
+       escondia el slippage y presumia de una ventaja que no existio -- en la
+       Radiografia, en el Monte Carlo y en los doce sitios que leen rReal.
+       Dividir por riesgoUSD es la MISMA formula que rBruto (el multiplicador y
+       los contratos se cancelan), solo alimentada por el hecho reportado.
+
+       Y sin P&L a mano se publica rNeto, no rBruto, por el mismo motivo: pnlEff
+       YA viene neto de comisiones, asi que una R bruta describe otra operacion.
+       Medido: con 25 USD en «Comisiones $» una operacion que pierde 5 USD
+       publicaba +1,0 R; con comisiones automaticas, una que pierde 0,50 USD
+       publicaba +0,05 R. Sin comisiones rNeto y rBruto son el MISMO numero, que
+       es el caso normal: esto no mueve nada de lo que ya estaba bien. */
+    rReal: manual !== null ? (v.riesgoUSD ? roundTo(manual / v.riesgoUSD, 4) : null) : v.rNeto,
     rPlanned: v.rPlaneado,
     riskUsd: v.riesgoUSD,
     ticks: v.ticks,

@@ -6589,10 +6589,15 @@
     if (!isOk(r)) {
       /* Sin contrato no hay P&L en dolares, pero R SI existe: es un cociente de
          precios y el multiplicador se cancela. Perderlo aqui seria tirar la
-         unica medida util que queda de una operacion con simbolo desconocido. */
+         unica medida util que queda de una operacion con simbolo desconocido.
+
+         SALVO si hay un P&L a mano: sin multiplicador no se puede pasar ese dolar
+         a R, y la R de los precios contradiria el hecho reportado (podria salir
+         positiva sobre una operacion que el broker liquido en perdida). Entre
+         inventarla y no darla, no se da. */
       return {
         pnlEff: toNum(t.pnl),
-        rReal: rRealApp(t),
+        rReal: toNum(t.pnl) !== null ? null : rRealApp(t),
         rPlanned: rPlanApp(t),
         riskUsd: null,
         multUnknown: r.error.code === "CONTRATO_DESCONOCIDO" && !!sym(t.instrument),
@@ -6606,7 +6611,22 @@
     const manual = toNum(t.pnl);
     return {
       pnlEff: manual !== null ? manual : v.pnlNeto,
-      rReal: v.rBruto,
+      /* Y LA R LO SIGUE. La regla de arriba se aplicaba solo al P&L y se olvidaba
+         aqui, dos lineas mas abajo: la misma operacion valia -7 USD y +10 R a la
+         vez, porque la R salia de los precios apuntados. Un P&L a mano se escribe
+         JUSTO cuando el fill fue peor que el precio apuntado, asi que esa R
+         escondia el slippage y presumia de una ventaja que no existio -- en la
+         Radiografia, en el Monte Carlo y en los doce sitios que leen rReal.
+         Dividir por riesgoUSD es la MISMA formula que rBruto (el multiplicador y
+         los contratos se cancelan), solo alimentada por el hecho reportado.
+
+         Y sin P&L a mano se publica rNeto, no rBruto, por el mismo motivo: pnlEff
+         YA viene neto de comisiones, asi que una R bruta describe otra operacion.
+         Medido: con 25 USD en «Comisiones $» una operacion que pierde 5 USD
+         publicaba +1,0 R; con comisiones automaticas, una que pierde 0,50 USD
+         publicaba +0,05 R. Sin comisiones rNeto y rBruto son el MISMO numero, que
+         es el caso normal: esto no mueve nada de lo que ya estaba bien. */
+      rReal: manual !== null ? (v.riesgoUSD ? roundTo(manual / v.riesgoUSD, 4) : null) : v.rNeto,
       rPlanned: v.rPlaneado,
       riskUsd: v.riesgoUSD,
       ticks: v.ticks,
@@ -7356,7 +7376,14 @@
         const boxes = fieldsEl.querySelectorAll("#setupConds input[data-sc]"); if (boxes.length) { out.setupChecks = {}; boxes.forEach(b => { out.setupChecks[b.dataset.sc] = b.checked; }); } else out.setupChecks = null;
         out.images = shots ? shots.imgs : (values.images || []);
       },
-      validate: v => { if (!v.date) return "Falta la fecha"; if (type === "futuros" && !v.instrument) return "Falta el instrumento"; if (type !== "futuros" && !v.asset) return "Falta el activo"; return null; },
+      /* La cantidad VACÍA se toma como 1 y está documentado; un CERO escrito a
+         propósito no. El motor hace `toNum(qty) || 1`, así que una operación de 0
+         contratos se guardaba y contaba como uno: medido, 0 contratos con 10
+         puntos a favor metían $20 de ganancia inventada en la cuenta. Se para
+         aquí, en la puerta, y no se reescribe el cero del usuario por un 1. */
+      validate: v => { if (!v.date) return "Falta la fecha"; if (type === "futuros" && !v.instrument) return "Falta el instrumento"; if (type !== "futuros" && !v.asset) return "Falta el activo";
+        if (v.qty != null && v.qty !== "" && !(Number(v.qty) > 0)) return type === "futuros" ? "Los contratos tienen que ser más de cero" : "La cantidad tiene que ser más de cero";
+        return null; },
       onSave: v => {
         const rec = Object.assign({}, values, v, { type, id: isNew ? uid("t") : t.id });
         if (type === "futuros") rec.instrument = rec.instrument.toUpperCase();
@@ -7618,7 +7645,14 @@
        `invalida` es anterior a él y no se castiga; una con el campo vacío, sí. */
   const MUESTRA_MIN = 20;      // suelo para el SIGNO de la esperanza, no una prueba de significación
   const REVANCHA_MIN = 15;     // minutos entre salir perdiendo y volver a entrar
-  const PASO_STOP_R = -1.15;   // el mismo umbral que «pasaron del stop» en la distribución de R
+  /* Se mide sobre la R del PRECIO (`QE.rRealApp`), no sobre la del dinero:
+     «pasarse del stop» es haber dejado correr la pérdida más allá del precio que
+     la cortaba, y una comisión no es eso. Las dos preguntas se contestaban con
+     `rReal`; ahora que `rReal` sigue al P&L, un stop limpio de 2 puntos con
+     $1,50 de comisión saldría a −1,375 y se marcaría como pasado sin haberlo
+     pasado. Mismo umbral, distinta pregunta. */
+  const PASO_STOP_R = -1.15;
+  const rPrecioDe = t => QE.rRealApp(t);
   const ETIQUETAS_3 = /\b(fomo|revenge|revancha|venganza|tilt|ego)\b/i;
   const SENAL = {
     sin_stop:         { cat: 2, t: "sin stop escrito" },
@@ -7662,7 +7696,7 @@
     const cs = [t.cStruct, t.cPull, t.cWindow, t.cSize];
     if (cs.every(v => typeof v === "boolean") && !cs.every(Boolean)) s.push("condiciones");
     if (t.quality === "C") s.push("calidad_c"); else if (t.quality === "B") s.push("calidad_b");
-    if (t.rReal != null && t.rReal < PASO_STOP_R) s.push("paso_stop");
+    const rp = rPrecioDe(t); if (rp != null && rp < PASO_STOP_R) s.push("paso_stop");
     const gate = Array.isArray(t.offProtocol) ? t.offProtocol.map(String) : [];
     if (gate.some(r => /pre-?sesi/i.test(r))) s.push("gate_proceso");
     if (gate.some(r => !/pre-?sesi/i.test(r))) s.push("gate_disciplina");
@@ -8519,7 +8553,7 @@
     const rs = list.filter(t => t.rReal != null).map(t => t.rReal);
     if (!rs.length) { wrap.innerHTML = `<p class="empty">Necesita operaciones con entrada, stop y salida registrados.</p>`; $("rdMeta").textContent = ""; return; }
     const items = R_BUCKETS.map(([lo, hi, label]) => { const n = rs.filter(v => v > lo && v <= hi).length; return { label, value: n, cls: hi <= 0 ? "neg" : "pos", title: `${label} · ${plu(n, "operación", "operaciones")}` }; });
-    const blown = rs.filter(v => v < -1.15).length;
+    const blown = list.filter(t => { const rp = rPrecioDe(t); return rp != null && rp < PASO_STOP_R; }).length;
     $("rdMeta").innerHTML = `peor ${Math.min(...rs).toFixed(2)}R · mejor ${Math.max(...rs).toFixed(2)}R${blown ? ` · <span class="neg">${blown} pasaron del stop</span>` : ""}`;
     wrap.innerHTML = chartBars(items, { W: chartW(wrap), H: 170, pl: 32, fmt: v => String(Math.round(v)), aria: "Distribución de R", maxLabels: 11 });
   }

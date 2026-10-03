@@ -34,5 +34,27 @@ await p.click('#ftNew'); await p.waitForTimeout(250);
 await p.fill('#ef_instrument','MNQ'); await p.fill('#ef_entry','21000.13'); await p.waitForTimeout(400);
 const n = await p.evaluate(()=>document.querySelectorAll('#edAvisos .eav').length);
 console.log('  bloques de aviso mostrados: ' + n + (n===1?'  ✅ uno solo':'  ❌ acumulados'));
+console.log('\n══ 7 · «Contratos: 0» no es una operación ══');
+/* Medido antes de ponerle puerta: 0 contratos se guardaban y el motor los
+   contaba como 1 (`toNum(qty) || 1`), así que 10 puntos a favor metían $20 de
+   ganancia inventada en la cuenta. La cantidad VACÍA sí vale 1, y eso se
+   conserva: está documentado. */
+await p.click('#edCancel'); await p.waitForTimeout(250);
+await p.click('#ftNew'); await p.waitForTimeout(300);
+await p.fill('#ef_date','2026-09-17'); await p.fill('#ef_instrument','MNQ');
+await p.fill('#ef_entry','21000'); await p.fill('#ef_stop','20990'); await p.fill('#ef_exit','21010');
+for (const q of ['0','-2']) {
+  await p.fill('#ef_qty', q); await p.click('#edSave'); await p.waitForTimeout(350);
+  const r = await p.evaluate(()=>({ abierto: !!(document.getElementById('edTitle')||{}).offsetParent,
+    titulo: (document.getElementById('edTitle')||{}).textContent||'', ops: FUT.trades().length }));
+  const bien = r.ops === 0 && r.abierto && /contratos tienen que ser/i.test(r.titulo);
+  console.log(`  contratos=${q} → ${bien?'✅':'❌'} operaciones ${r.ops} · editor abierto ${r.abierto} · «${r.titulo.trim()}»`);
+}
+await p.fill('#ef_qty',''); await p.click('#edSave'); await p.waitForTimeout(500);
+{
+  const r = await p.evaluate(()=>{ const t = FUT.trades()[0]; return { ops: FUT.trades().length, qty: t&&t.qty, pnl: t&&t.pnlEff }; });
+  console.log(`  contratos vacíos → ${r.ops===1 && r.pnl===20 ? '✅' : '❌'} se guarda y vale 1 contrato: qty ${JSON.stringify(r.qty)} · P&L ${r.pnl}`);
+}
+
 console.log('\nerrores JS: '+(errs.length?errs.join('\n'):'0'));
 await b.close();
