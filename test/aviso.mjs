@@ -56,5 +56,27 @@ await p.fill('#ef_qty',''); await p.click('#edSave'); await p.waitForTimeout(500
   console.log(`  contratos vacíos → ${r.ops===1 && r.pnl===20 ? '✅' : '❌'} se guarda y vale 1 contrato: qty ${JSON.stringify(r.qty)} · P&L ${r.pnl}`);
 }
 
+console.log('\n══ 8 · un COBRO no tiene cantidad ══');
+/* La guarda de arriba se aplicó primero a todo y bloqueó un caso legítimo: un
+   dividendo, cupón, prima o alquiler no tiene cantidad —su importe va en
+   «Resultado $»— y salía «la cantidad tiene que ser más de cero», que ahí no
+   quiere decir nada. Sólo se exige donde la cantidad MUEVE UNIDADES. */
+await p.click('.tabbtn[data-tab="invest"]'); await p.waitForTimeout(400);
+for (const [q, op, etiqueta, debeGuardar] of [
+  ['0', 'dividendo', 'un cobro con cantidad 0',      true],
+  ['',  'dividendo', 'un cobro sin cantidad',        true],
+  ['0', 'compra',    'una COMPRA de 0 unidades',     false],
+  ['2.5', 'compra',  'una compra de 2,5 unidades',   true]]) {
+  await p.click('#ivNew'); await p.waitForTimeout(350);
+  await p.selectOption('#ef_op', op);
+  await p.fill('#ef_asset', 'AAPL'); await p.fill('#ef_qty', q); await p.fill('#ef_pnl', '2.40');
+  await p.click('#edSave'); await p.waitForTimeout(400);
+  const abierto = await p.evaluate(() => !!(document.getElementById('edTitle') || {}).offsetParent);
+  const guardo = !abierto;
+  console.log(`  ${guardo === debeGuardar ? '✅' : '❌'} ${etiqueta} → ${guardo ? 'guardada' : 'rechazada'}`);
+  if (abierto) await p.click('#edCancel');
+  await p.waitForTimeout(200);
+}
+
 console.log('\nerrores JS: '+(errs.length?errs.join('\n'):'0'));
 await b.close();

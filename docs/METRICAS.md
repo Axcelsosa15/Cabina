@@ -53,6 +53,11 @@ que 0 contratos contaban como 1: medido, 10 puntos a favor metían $20 de gananc
 inventada en la cuenta. El editor ya no lo guarda. La cantidad **vacía** sigue
 valiendo 1, que está documentado más arriba.
 
+Sólo se exige donde la cantidad **mueve unidades**: futuros, y en inversión las
+compras, ventas y aportes. Un **cobro** —dividendo, cupón, prima, alquiler— no
+tiene cantidad y su importe va en «Resultado $»; exigírsela fue el primer intento
+de esta guarda y bloqueaba un caso legítimo. `aviso.mjs` vigila los dos lados.
+
 **Riesgo inicial** = \|entrada − stop\| × $/punto × contratos + comisión × contratos. Es el
 mismo denominador que el cálculo de tamaño, así que 1R significa lo mismo en toda la
 pestaña.

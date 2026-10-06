@@ -7298,9 +7298,13 @@
       { key: "fees", label: "Comisiones $", type: "number", step: "0.01" },
       { key: "pnl", label: "Resultado $ (si cierra)", type: "number", step: "0.01", help: "solo en ventas o cobros" },
       { key: "horizon", label: "Horizonte", type: "select", options: [["corto", "corto (< 3 meses)"], ["medio", "medio (3–18 meses)"], ["largo", "largo (> 18 meses)"]] },
-      /* En futuros el gate bloquea ENTRAR fuera de protocolo. En inversión el
-         error caro es el contrario —vender por miedo— así que aquí no se bloquea
-         nada: se marca, y se calcula lo que costó. */
+      /* En futuros la puerta AVISA antes de entrar y SELLA la operación con el
+         motivo (`offProtocol`); nunca impide guardarla, porque una operación ya
+         tomada que el diario no registra es un agujero en el dato, y justo la
+         más informativa. Lo dice el propio panel: «regístrala igual si ya la
+         tomaste». Aquí ni eso: en inversión el error caro es el contrario
+         —vender por miedo—, así que no hay aviso previo, sólo esta casilla, y
+         después se calcula lo que costó desviarse. */
       { key: "offPlan", label: "¿Fue según tu plan?", type: "select",
         options: [["", "sí, seguí el plan"], ["1", "no · me desvié del plan"]],
         help: "marcar una desviación no es castigo: es lo único que permite medir después cuánto te cuesta tocar" },
@@ -7380,9 +7384,15 @@
          propósito no. El motor hace `toNum(qty) || 1`, así que una operación de 0
          contratos se guardaba y contaba como uno: medido, 0 contratos con 10
          puntos a favor metían $20 de ganancia inventada en la cuenta. Se para
-         aquí, en la puerta, y no se reescribe el cero del usuario por un 1. */
+         aquí, en la puerta, y no se reescribe el cero del usuario por un 1.
+
+         Sólo donde la cantidad MUEVE UNIDADES. Un cobro —dividendo, cupón, prima,
+         alquiler— no tiene cantidad: su importe va en «Resultado $». La primera
+         versión de esta guarda lo bloqueaba con «la cantidad tiene que ser más de
+         cero», que para un dividendo no quiere decir nada. */
       validate: v => { if (!v.date) return "Falta la fecha"; if (type === "futuros" && !v.instrument) return "Falta el instrumento"; if (type !== "futuros" && !v.asset) return "Falta el activo";
-        if (v.qty != null && v.qty !== "" && !(Number(v.qty) > 0)) return type === "futuros" ? "Los contratos tienen que ser más de cero" : "La cantidad tiene que ser más de cero";
+        const mueveUnidades = type === "futuros" || ["compra", "venta", "aporte"].includes(String(v.op || "compra"));
+        if (mueveUnidades && v.qty != null && v.qty !== "" && !(Number(v.qty) > 0)) return type === "futuros" ? "Los contratos tienen que ser más de cero" : "La cantidad tiene que ser más de cero";
         return null; },
       onSave: v => {
         const rec = Object.assign({}, values, v, { type, id: isNew ? uid("t") : t.id });
