@@ -12188,6 +12188,93 @@
   const baseDe = () => (state.nube ? "tu cuenta" : "este navegador");
   const BK_FORMAT = "cabina-backup";
   const BK_VERSION = 1;
+  /* ═══════════════ LA INTEGRIDAD DE UN RESPALDO ═══════════════
+
+     Un respaldo que llega a medias y se importa como si estuviera entero es la
+     peor forma de perder datos: el archivo existe, se confía en él, y lo que
+     falta no se descubre hasta que hace falta. Dos sellos, que contestan dos
+     preguntas distintas:
+
+       `counts`    CUÁNTOS registros había al exportar, por sección. Es el que
+                   caza una copia TRUNCADA: si el fichero declara 1.500
+                   operaciones y se leen 900, faltan 600 y se dice el número.
+       `checksum`  una huella del contenido. Caza el byte cambiado que no mueve
+                   ningún recuento.
+
+     LO QUE ESTA HUELLA NO ES: una firma. No hay secreto, así que quien edite el
+     fichero puede recalcularla; detecta DAÑO ACCIDENTAL —truncamiento,
+     codificación, un editor que reescribe— no manipulación. Se dice aquí porque
+     un sello que promete más de lo que da es peor que ninguno.
+
+     Y NO BLOQUEA. Este fichero acepta a propósito una copia editada a mano
+     («así una copia editada a mano sigue entrando», unas líneas más abajo), y un
+     respaldo viejo no trae sellos. Un sello que no cuadra sale en la VISTA PREVIA,
+     antes de teclear IMPORTAR, con el número de lo que falta. Bloquear convertiría
+     la única vía de recuperación en una puerta cerrada.
+
+     `schemaVersion` es la generación del MODELO DE DATOS, que no es lo mismo que
+     `version`, la del FORMATO del fichero. Hoy las migraciones de Cabina son
+     INFERENCIALES —`normalize()`, `migrateDay()`, `migraEstado()` miran la forma
+     del documento, no una etiqueta— y funcionan, están probadas y cubren todo lo
+     que hay guardado. Poner una etiqueta en cada documento no las quitaría: los
+     documentos que ya existen no la llevan, así que habría que inferir igual y se
+     mantendrían DOS mecanismos para siempre. Lo que sí faltaba es que una copia
+     dijera de qué generación viene, para que un lector futuro sepa qué infirió
+     quien la escribió. Eso es esto, y es todo lo que esto es.
+     Ver docs/DATA_MODEL.md. */
+  const BK_SCHEMA = 1;
+  /* FNV-1a de 32 bits sobre el JSON canónico, en hexadecimal. Sin dependencias y
+     sin `crypto.subtle`, que es asíncrono y pide contexto seguro — y esta página
+     también se abre como archivo suelto. */
+  function bkHash(txt) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < txt.length; i++) { h ^= txt.charCodeAt(i) & 0xff; h = Math.imul(h, 0x01000193) >>> 0; if (txt.charCodeAt(i) > 0xff) { h ^= txt.charCodeAt(i) >>> 8; h = Math.imul(h, 0x01000193) >>> 0; } }
+    return (h >>> 0).toString(16).padStart(8, "0");
+  }
+  /* JSON con las claves ORDENADAS, en todo el árbol. Sin esto la huella
+     dependería del orden en que el navegador recorrió un objeto, que no es una
+     propiedad del contenido. Los sellos se excluyen: una huella no puede
+     incluirse a sí misma. */
+  const BK_SELLOS = ["checksum", "counts"];
+  function bkCanon(v) {
+    if (Array.isArray(v)) return "[" + v.map(bkCanon).join(",") + "]";
+    if (v && typeof v === "object") {
+      return "{" + Object.keys(v).sort().filter(k => v[k] !== undefined)
+        .map(k => JSON.stringify(k) + ":" + bkCanon(v[k])).join(",") + "}";
+    }
+    return JSON.stringify(v === undefined ? null : v);
+  }
+  function bkSellos(b) {
+    const counts = {};
+    BK_PARTS.forEach(([k]) => { counts[k] = Object.keys(b[k] || {}).length; });
+    counts.settings = b.settings ? 1 : 0;
+    const sinSellos = {};
+    Object.keys(b).forEach(k => { if (!BK_SELLOS.includes(k)) sinSellos[k] = b[k]; });
+    return { counts, checksum: bkHash(bkCanon(sinSellos)) };
+  }
+  /* Qué dice la comprobación de los sellos de una copia. Tres respuestas, y las
+     tres se enseñan antes de confirmar: `sin_sellos` (una copia anterior a esto,
+     que no es un error), `cuadra`, y `no_cuadra` con el detalle de qué falta. */
+  function bkVerifica(raw, b) {
+    const tiene = raw && (raw.checksum != null || raw.counts != null);
+    if (!tiene) return { estado: "sin_sellos" };
+    const faltan = [];
+    if (raw.counts && typeof raw.counts === "object") {
+      BK_PARTS.forEach(([k, one, many]) => {
+        const dicho = Number(raw.counts[k]);
+        if (!Number.isFinite(dicho)) return;
+        const hay = Object.keys(b[k] || {}).length;
+        if (hay !== dicho) faltan.push(`${k}: el archivo dice ${dicho} y se leen ${hay}`);
+      });
+    }
+    const sinSellos = {};
+    Object.keys(raw).forEach(k => { if (!BK_SELLOS.includes(k)) sinSellos[k] = raw[k]; });
+    const huella = bkHash(bkCanon(sinSellos));
+    const huellaOk = raw.checksum == null || String(raw.checksum) === huella;
+    if (!faltan.length && huellaOk) return { estado: "cuadra" };
+    return { estado: "no_cuadra", faltan, huellaOk,
+      esperada: raw.checksum == null ? null : String(raw.checksum), calculada: huella };
+  }
   // El historial en pantalla son 14 días; la copia se lleva todos los que existan.
   async function allDayDocs() {
     {
@@ -12214,7 +12301,7 @@
     (await allDayDocs()).forEach(d => { days[d.date] = clone(d); });
     if (state.day && state.day.date) days[state.day.date] = clone(state.day);
     const b = {
-      format: BK_FORMAT, version: BK_VERSION,
+      format: BK_FORMAT, version: BK_VERSION, schemaVersion: BK_SCHEMA,
       exportedAt: new Date().toISOString(),
       source: state.nube ? "cuenta" : "navegador",
       settings: clone(state.settings),
@@ -12222,6 +12309,9 @@
     };
     COLLS.forEach(n => { const m = {}; coll(n).items.forEach(x => { if (x && x.id) m[x.id] = clone(x); }); b[n] = m; });
     if (opts.images) await inlineImages(b, opts.onStep);
+    /* Los sellos SE PONEN AL FINAL, cuando el paquete ya está completo: una
+       huella calculada antes de meter las capturas describiría otro fichero. */
+    Object.assign(b, bkSellos(b));
     return b;
   }
   /* Las capturas no viven dentro del dato: están en el bucket de tu cuenta. Para que viajen hay que meterlas dentro como
@@ -12256,8 +12346,17 @@
     const avisos = [];
     if (b.reparados) avisos.push(plu(b.reparados, "registro sin identificador, reparado con su clave", "registros sin identificador, reparados con su clave"));
     if (b.descartados) avisos.push(plu(b.descartados, "registro descartado por irreparable", "registros descartados por irreparables"));
+    /* Y LO QUE NO CUADRA SE VE, con el número de lo que falta. Un respaldo que
+       llega a medias y se importa como si estuviera entero es la peor forma de
+       perder datos: el archivo existe y se confía en él. */
+    const inte = b.integridad;
+    if (inte && inte.estado === "no_cuadra") {
+      if (inte.faltan && inte.faltan.length) avisos.push("NO CUADRA con lo que el archivo declara (" + inte.faltan.join("; ") + ")");
+      else avisos.push("la huella del archivo no coincide: o se editó a mano, o se dañó al copiarlo");
+    }
     const base = parts.length ? parts.join(" · ") : "nada guardado todavía";
     return { parts, images: imgs, inlined: inl, reparados: b.reparados || 0, descartados: b.descartados || 0,
+      integridad: inte ? inte.estado : null,
       text: avisos.length ? base + " · " + avisos.join(" · ") : base };
   }
   function bkSize(txt) {
@@ -12404,6 +12503,10 @@
     if (raw.settings) b.settings = raw.settings;
     b.reparados = rep.reparados; b.descartados = rep.descartados;
     b.exportedAt = raw.exportedAt; b.source = raw.source; b.version = raw.version;
+    b.schemaVersion = Number.isFinite(Number(raw.schemaVersion)) ? Number(raw.schemaVersion) : null;
+    /* Los sellos se comprueban AQUÍ, antes de que el paquete llegue a la vista
+       previa, para que lo que falte se vea antes de teclear IMPORTAR. */
+    b.integridad = bkVerifica(raw, b);
     const st = bundleStats(b);
     if (!st.parts.length && !b.settings) return { err: "La copia está vacía: no trae nada que importar." };
     return { bundle: b, stats: st };
@@ -12440,6 +12543,15 @@
     if (r.err) { bkSay(r.err, true); return; }
     const modo = state.nube ? "merge" : bkMode();
     const cuando = r.bundle.exportedAt ? dmy(String(r.bundle.exportedAt).slice(0, 10)) : "fecha desconocida";
+    const inte = r.bundle.integridad || { estado: "sin_sellos" };
+    const sello = inte.estado === "cuadra"
+      ? "Integridad: el archivo cuadra con lo que declara (recuento y huella)."
+      : inte.estado === "sin_sellos"
+        ? "Integridad: esta copia es anterior a los sellos, así que no se puede comprobar si llegó entera."
+        : "ATENCIÓN · ESTA COPIA NO CUADRA CON LO QUE DECLARA. "
+          + ((inte.faltan && inte.faltan.length) ? inte.faltan.join("; ") + ". Puede estar truncada: lo que falte NO se importará porque no está en el archivo."
+             : "La huella no coincide: o se editó a mano, o se dañó al copiarla.")
+          + " Se puede importar igual —es tu única copia y bloquearla sería peor— pero mira el recuento de arriba antes de confirmar.";
     const aviso = state.nube
       ? "Se escribe encima por id en " + baseDe() + ". No se borra nada que no venga en la copia."
       : modo === "replace"
@@ -12451,7 +12563,9 @@
         { key: "resumen", label: "Qué trae la copia", type: "textarea", w: 6, rows: 4 },
         { key: "ok", label: `Escribe IMPORTAR para confirmar`, w: 6, ph: "IMPORTAR" },
       ],
-      values: { resumen: `Exportada el ${cuando} desde ${r.bundle.source || "una cabina"}.\n${r.stats.text}.\n${r.stats.images ? plu(r.stats.images, "captura", "capturas") + (r.stats.inlined ? `, ${r.stats.inlined} dentro del archivo` : ", ninguna dentro del archivo (se verán rotas)") + "." : "Sin capturas."}\n\n${aviso}` },
+      /* El estado de los sellos va en su propia línea y en mayúsculas cuando no
+         cuadra: dentro de la lista de avisos se lee como un detalle más. */
+      values: { resumen: `Exportada el ${cuando} desde ${r.bundle.source || "una cabina"}.\n${r.stats.text}.\n${r.stats.images ? plu(r.stats.images, "captura", "capturas") + (r.stats.inlined ? `, ${r.stats.inlined} dentro del archivo` : ", ninguna dentro del archivo (se verán rotas)") + "." : "Sin capturas."}\n${sello}\n\n${aviso}` },
       validate: v => (String(v.ok || "").trim().toUpperCase() === "IMPORTAR" ? null : "Escribe IMPORTAR para confirmar"),
       onSave: async () => {
         bkSay("Importando…");
