@@ -28,7 +28,7 @@ export * from "./portfolio.js";
 
 import { isOk, toNum, roundTo, sym } from "./kernel.js";
 import { CONTRACTS, resolveContract, rootOf } from "./contracts.js";
-import { valuarOperacion, dirOf } from "./trade.js";
+import { valuarOperacion, dirOf, contratosDe } from "./trade.js";
 import { analizarEdge } from "./edge.js";
 import { construirCurva, metricasCurva, evaluarConsistencia, DD_TIPOS } from "./curve.js";
 import { simularCuenta, barridoDeRiesgo, simularParametrico, probabilidadDeRacha } from "./survival.js";
@@ -76,6 +76,10 @@ export function calcularTradeApp(t, opciones) {
       rReal: toNum(t.pnl) !== null ? null : rRealApp(t),
       rPlanned: rPlanApp(t),
       riskUsd: null,
+      /* Sin contrato no hay dinero, pero la CANTIDAD si se sabe, y quien la
+         necesite tiene que leerla de aqui y no resolverla otra vez. */
+      contratos: contratosDe(t.qty),
+      comisiones: null,
       multUnknown: r.error.code === "CONTRATO_DESCONOCIDO" && !!sym(t.instrument),
       calcError: r.error.message,
       avisos: [],
@@ -105,6 +109,12 @@ export function calcularTradeApp(t, opciones) {
     rReal: manual !== null ? (v.riesgoUSD ? roundTo(manual / v.riesgoUSD, 4) : null) : v.rNeto,
     rPlanned: v.rPlaneado,
     riskUsd: v.riesgoUSD,
+    /* La CANTIDAD y la COMISION ya resueltas por el motor. Se publican porque
+       la pestana Metricas/Edge las derivaba por su cuenta (`Math.abs(qty) || 1`,
+       `Math.abs(fees)`) y asi la misma operacion podia dar dos R distintas.
+       Una sola respuesta, publicada, y la interfaz la lee. */
+    contratos: v.contratos,
+    comisiones: v.comisiones,
     ticks: v.ticks,
     eficiencia: v.eficiencia,
     multUnknown: false,
@@ -137,7 +147,7 @@ export function rRealApp(t) {
 
 export const QuantEngine = {
   /* contratos */ CONTRACTS, resolveContract, rootOf,
-  /* operacion */ valuarOperacion, dirOf,
+  /* operacion */ valuarOperacion, dirOf, contratosDe,
   /* ventaja   */ analizarEdge,
   /* curva     */ construirCurva, metricasCurva, evaluarConsistencia, DD_TIPOS,
   /* riesgo    */ simularCuenta, barridoDeRiesgo, simularParametrico, probabilidadDeRacha,

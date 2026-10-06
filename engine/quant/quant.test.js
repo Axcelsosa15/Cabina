@@ -116,6 +116,59 @@ grupo("operacion · P&L exacto en ticks");
 }
 ok(!Q.valuarOperacion({ simbolo: "MNQ", direccion: "long" }, {}).ok, "sin entrada devuelve Err");
 ok(!Q.valuarOperacion({ simbolo: "MNQ", direccion: "long", entrada: -5 }, {}).ok, "entrada negativa rechazada");
+grupo("operacion · cantidad y comision son MAGNITUDES, no cantidades con signo");
+/* REGRESION. Las dos escondian dinero, y las dos se medían antes de arreglarse.
+
+   Con el codigo anterior:
+     · fees -25 -> pnlEff +45 y rReal +2,25R, donde lo correcto es -5 y -0,25R.
+       Un menos tecleado en «Comisiones $» CONVERTIA un coste en un cobro.
+     · qty -3 -> el motor valuaba 1 contrato (riesgo 20) mientras Metricas/Edge
+       ya hacia Math.abs(qty) y dimensionaba el riesgo sobre 3 (riesgo 60): la
+       MISMA operacion daba R = 1,00 en el journal y R = 0,33 en Metricas. */
+{
+  const base = { simbolo: "MNQ", direccion: "long", entrada: 20000, salida: 20010, stop: 19990, contratos: 1 };
+  const sin  = Q.valuarOperacion(Object.assign({}, base), { incluirComisiones: false }).value;
+  const con  = Q.valuarOperacion(Object.assign({}, base, { comisionExtra: 25 }), { incluirComisiones: false }).value;
+  const neg  = Q.valuarOperacion(Object.assign({}, base, { comisionExtra: -25 }), { incluirComisiones: false });
+  eq(sin.pnlNeto, 20, "control: 10 pts x $2 = $20 bruto");
+  eq(con.pnlNeto, -5, "con 25 de comision: -$5");
+  eq(neg.value.pnlNeto, -5, "con -25 de comision: TAMBIEN -$5, no +$45");
+  eq(neg.value.comisiones, 25, "la comision se descuenta como magnitud");
+  near(neg.value.rNeto, -0.25, 1e-6, "y la R sigue al dinero: -0,25R, no +2,25R");
+  ok(neg.warnings.some(w => w.code === "COMISION_NEGATIVA"), "y lo avisa en vez de corregirlo en silencio");
+  ok(!con.pnlNeto || !Q.valuarOperacion(Object.assign({}, base, { comisionExtra: 25 }), { incluirComisiones: false }).warnings.some(w => w.code === "COMISION_NEGATIVA"), "una comision positiva no genera el aviso");
+}
+{
+  const base = { simbolo: "MNQ", direccion: "long", entrada: 20000, salida: 20010, stop: 19990 };
+  const tres = Q.valuarOperacion(Object.assign({}, base, { contratos: 3 }), { incluirComisiones: false }).value;
+  const neg  = Q.valuarOperacion(Object.assign({}, base, { contratos: -3 }), { incluirComisiones: false });
+  eq(neg.value.contratos, 3, "contratos -3 se leen como 3, no como 1");
+  eq(neg.value.pnlNeto, tres.pnlNeto, "mismo P&L que con +3");
+  eq(neg.value.riesgoUSD, tres.riesgoUSD, "y el MISMO riesgo: una sola R posible");
+  eq(neg.value.rNeto, tres.rNeto, "la R de -3 y la de +3 coinciden");
+  ok(neg.warnings.some(w => w.code === "CANTIDAD_NEGATIVA"), "y lo avisa");
+}
+{
+  /* `contratosDe` es la unica respuesta a «cuantos contratos son». Si Metricas/Edge
+     vuelve a resolverlo por su cuenta, esta tabla es con la que tiene que coincidir. */
+  const casos = [[null, 1], [undefined, 1], ["", 1], [0, 1], [1, 1], [2.7, 2], [-3, 3], [-0.5, 1], ["4", 4], [NaN, 1]];
+  for (const [entrada, esperado] of casos) eq(Q.contratosDe(entrada), esperado, `contratosDe(${JSON.stringify(entrada)}) = ${esperado}`);
+  eq(Q.contratosDe(-3), Math.abs(-3), "y para un negativo es exactamente su magnitud, como ya hacia Metricas");
+}
+{
+  /* La direccion NO sale del signo de los contratos: un corto con contratos -1
+     seguiria siendo corto por su campo `direccion`, no por el menos. */
+  const a = Q.valuarOperacion({ simbolo: "MNQ", direccion: "short", entrada: 20010, salida: 20000, stop: 20020, contratos: -1 }, { incluirComisiones: false }).value;
+  eq(a.direccion, "short", "la direccion la decide el campo, no el signo");
+  eq(a.pnlNeto, 20, "y el corto gana cuando el precio baja");
+}
+{
+  /* Un override no puede colar una comision negativa por la puerta del contrato. */
+  const r = Q.valuarOperacion({ simbolo: "ZZZ", direccion: "long", entrada: 100, salida: 101, stop: 99, contratos: 1 },
+    { incluirComisiones: true, overrides: { ZZZ: { tickSize: 1, multiplier: 10, commissionPerContract: -5 } } }).value;
+  eq(r.comisiones, 5, "comision del contrato tambien como magnitud");
+  eq(r.pnlNeto, 5, "10 - 5 = 5, no 10 + 5 = 15");
+}
 { /* acumulacion: 1000 operaciones de 0.1 no derivan */
   let c = 0;
   for (let i = 0; i < 1000; i++) c += Q.valuarOperacion({ simbolo: "MCL", direccion: "long", entrada: 70.00, salida: 70.01, contratos: 1 }, { incluirComisiones: false }).value.pnlNetoCents;
