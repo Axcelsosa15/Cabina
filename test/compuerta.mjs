@@ -60,6 +60,25 @@ const lineaDe = nombre => {
   const m = suite.out.split('\n').find(l => re.test(l));
   return m || null;
 };
+/* QUÉ falló, no sólo QUE falló. `correr.mjs` ya imprime las líneas rojas de cada
+   suite —o la cola de su salida si el proceso murió sin llegar a afirmar nada—,
+   pero la compuerta capturaba su salida y sólo buscaba la línea de resumen, así
+   que ese detalle no llegaba a ningún sitio.
+
+   Qué falló: una suite se cayó en CI, pasó en local, y el log del run decía
+   «suite: ❌ equivalencia 2800 ms» y NADA más. Sin una línea del error no se
+   puede ni empezar a diagnosticar, y el protocolo 6 —leer el log antes de
+   teorizar— se queda sin log que leer. */
+const detalleDe = nombre => {
+  const ls = suite.out.split('\n');
+  const i = ls.findIndex(l => new RegExp('^  \u274c ' + nombre + '\\s').test(l));
+  if (i < 0) return [];
+  const out = [];
+  for (let k = i + 1; k < ls.length && /^ {7}\S?/.test(ls[k]) && !/^  [\u2705\u274c] /.test(ls[k]); k++) out.push(ls[k]);
+  return out;
+};
+const suitesRojas = () => [...new Set((suite.out.match(/^  \u274c (\S+)/gm) || []).map(l => l.trim().split(/\s+/)[1]))];
+
 const verde = nombre => {
   const l = lineaDe(nombre);
   if (!l) return { ok: false, porque: `no aparece «${nombre}» en la salida de la suite` };
@@ -234,6 +253,12 @@ console.log(`\n  ${pass} PASS · ${fail} FAIL · ${unk} UNKNOWN   (de ${filas.le
 if (fail) {
   console.log('\n❌ COMPUERTA CERRADA. No se publica con una fila en FAIL.');
   filas.filter(f => f.estado === 'FAIL').forEach(f => console.log(`     ${f.que} — ${f.porque}`));
+  /* Y lo que de verdad hace falta para arreglarlo. */
+  for (const n of suitesRojas()) {
+    const d = detalleDe(n);
+    console.log(`\n   ── lo que dijo «${n}» ──`);
+    console.log(d.length ? d.join('\n') : '      (sin detalle: correr.mjs no imprimió nada bajo esa suite)');
+  }
   process.exit(1);
 }
 console.log('\n✅ COMPUERTA ABIERTA para lo que se puede verificar desde el repositorio.');

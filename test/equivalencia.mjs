@@ -53,7 +53,29 @@ const errs = [];
 p.on('pageerror', e => errs.push(e.message));
 await p.goto(`http://127.0.0.1:${srv.address().port}/`, { waitUntil: 'load' });
 await p.waitForFunction(() => typeof window.FUT !== 'undefined' && typeof window.QuantEngine !== 'undefined', null, { timeout: 20000 });
-await p.waitForTimeout(1200);
+/* ESPERAR A LA CONDICION, NO AL RELOJ. Esto llevaba seis sleeps fijos (1200, 900,
+   900, 600, 600, 900 ms) y test/README lo prohibe con nombre y apellido. En CI la
+   suite se cayo a los 2,8 s sin una sola asercion mientras en local pasaba
+   siempre: un sleep fijo convierte «la maquina va mas lenta» en «la prueba esta
+   roja», y el fallo sale como un TypeError en la linea siguiente en vez de decir
+   que faltaba. `hasta` recibe el nombre de lo que espera, asi que si no llega, el
+   mensaje lo nombra. */
+await p.evaluate(() => {
+  window.hasta = (que, fn, tope = 15000) => new Promise((res, rej) => {
+    const t0 = Date.now();
+    const tic = () => {
+      let v = false; try { v = fn(); } catch (e) { v = false; }
+      if (v) return res(v);
+      if (Date.now() - t0 > tope) return rej(new Error('nunca llego: ' + que));
+      setTimeout(tic, 25);
+    };
+    tic();
+  });
+});
+/* La configuracion por defecto tiene que estar en pie antes de tocar una regla:
+   sin esto, `regla('maxLoss').id` reventaba con un TypeError si la app no habia
+   acabado de arrancar. */
+await p.waitForFunction(() => FUT.rules().some(r => r.role === 'maxLoss'), null, { timeout: 20000 });
 
 /* Cuenta y operaciones con numeros elegidos a mano, no aleatorios: MNQ 1 punto =
    $2/contrato, asi que cada P&L de abajo se puede comprobar de cabeza.
@@ -84,7 +106,8 @@ const R = await p.evaluate(async () => {
     { date: iso(d),  time: '10:00', entry: 21000, exit: 20980, qty: 1, direction: 'long' }, /* -20 pts     =  -$40 */
     { date: iso(d),  time: '10:30', entry: 21000, exit: 20975, qty: 1, direction: 'long' }, /* -25 pts     =  -$50 */
   ].forEach(o => FUT.createTrade(Object.assign({ accountId: 'EQ1', instrument: 'MNQ', stop: 20990 }, o)));
-  await new Promise(r => setTimeout(r, 900));
+  await window.hasta('las 4 operaciones de EQ1 con su P&L derivado',
+    () => FUT.trades('EQ1').filter(t => t.pnlEff != null).length === 4);
 
   const QE = window.QuantEngine;
   const a = FUT.account('EQ1');
@@ -228,7 +251,8 @@ const R = await p.evaluate(async () => {
    primera, y la app necesita su vuelta de recalculo antes de que ev.risk valga. */
 const BANDAS = await p.evaluate(async (barrido) => {
   if (!barrido) return null;
-  await new Promise(r => setTimeout(r, 900));
+  await window.hasta('cada cuenta del barrido con su riesgo evaluado',
+    () => barrido.every(x => { const r = FUT.evaluateRules(x.id); return r && r.risk && r.risk.pct != null; }));
   const QE = window.QuantEngine;
   const maxLoss = (FUT.rules().find(r => r.role === 'maxLoss') || {}).value;
   return barrido.map(x => {
@@ -244,7 +268,8 @@ const BANDAS = await p.evaluate(async (barrido) => {
 /* La cuenta quemada, tambien en la segunda pasada. */
 const QUEMADA = await p.evaluate(async (id) => {
   if (!id) return null;
-  await new Promise(r => setTimeout(r, 600));
+  await window.hasta('la operacion de la cuenta quemada, con su P&L',
+    () => FUT.trades(id).filter(t => t.pnlEff != null).length === 1);
   const QE = window.QuantEngine;
   const g = FUT.calculateAccountStats(id);
   const app = FUT.calculateDrawdown(id);
@@ -258,7 +283,8 @@ const QUEMADA = await p.evaluate(async (id) => {
 /* La cuenta con fee, en la segunda pasada. */
 const FEE = await p.evaluate(async (id) => {
   if (!id) return null;
-  await new Promise(r => setTimeout(r, 600));
+  await window.hasta('la operacion de la cuenta con fee, con su P&L',
+    () => FUT.trades(id).filter(t => t.pnlEff != null).length === 1);
   const g = FUT.calculateAccountStats(id), dd = FUT.calculateDrawdown(id);
   return { balance: g.balance, fees: g.fees, colchon: dd.buffer, curva: g.curva.colchon,
            peor: g.peorMomento ? g.peorMomento.colchon : null };
@@ -267,7 +293,8 @@ const FEE = await p.evaluate(async (id) => {
 /* Las dos cuentas de consistencia, en la segunda pasada. */
 const CONS = await p.evaluate(async (ids) => {
   if (!ids || !ids.length) return null;
-  await new Promise(r => setTimeout(r, 900));
+  await window.hasta('las cuentas de consistencia con su curva construida',
+    () => ids.every(id => { const g = FUT.calculateAccountStats(id); return g && g.curva && g.curva.dias.length; }));
   const QE = window.QuantEngine;
   return ids.map(id => {
     const a = FUT.account(id);
