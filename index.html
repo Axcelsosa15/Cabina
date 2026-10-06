@@ -2572,6 +2572,78 @@
     }
     return out;
   }
+  /* ═══════════════ VERSIONES DEL CONTRATO DE UNA FIRMA ═══════════════
+
+     Las prop firms cambian sus reglas y no avisan. Hasta aquí el contrato de una
+     cuenta era UN objeto (`a.rules`): al actualizarlo, el historial entero del
+     trader quedaba juzgado con las reglas de hoy. Una operación de marzo que
+     cumplía el tope de contratos de marzo aparecía como «pasada de tamaño»
+     porque en septiembre la firma bajó el tope. Eso es reescribir el pasado.
+
+     La estructura es: FIRMA → TIPO DE CUENTA → VERSIÓN → FECHA DE VIGENCIA →
+     REGLAS. Aquí viven la VERSIÓN y la FECHA; la firma y el tipo ya son campos
+     de la cuenta (`a.firm`, `a.kind`), así que no se duplican.
+
+       a.rulesets = [{ id, version, from: "AAAA-MM-DD", rules: {...},
+                       url, notes, verifiedAt }]
+       a.rulesetId = la versión a la que ESTA cuenta está anclada
+
+     DOS REGLAS, Y LA SEGUNDA ES LA QUE IMPORTA:
+
+       1. Sin ancla, manda la versión vigente EN LA FECHA que se pregunta. Así
+          una operación de marzo se juzga con las reglas de marzo.
+       2. CON ancla, manda la anclada, siempre. Una cuenta abierta bajo la v1 NO
+          cambia cuando aparece la v2: el contrato que firmó el trader es el
+          suyo hasta que él diga otra cosa. Es lo contrario de lo que hacía el
+          modelo de un solo objeto.
+
+     COMPATIBILIDAD: una cuenta sin `rulesets` se comporta EXACTAMENTE como antes
+     —`a.rules` es el contrato— y nada hay que migrar. `a.rules` no se toca ni se
+     mueve: sigue siendo la reserva cuando ninguna versión aplica, que es el caso
+     de una cuenta anterior a esto y de una fecha anterior a la primera versión. */
+  function normRuleset(v) {
+    if (!v || typeof v !== "object") return null;
+    const id = String(v.id == null ? "" : v.id).trim();
+    /* La lista se escribe aquí y no se toma de `BK_IDS_PROHIBIDOS`, que se
+       declara mil líneas más abajo: `normalize` corre al arrancar y una
+       referencia a un `const` todavía sin inicializar tiraría la página entera.
+       `test/capa2.mjs` comprueba que las dos listas siguen diciendo lo mismo. */
+    if (!id || id === "__proto__" || id === "constructor" || id === "prototype") return null;
+    const from = String(v.from == null ? "" : v.from).trim();
+    /* Una fecha de vigencia que no es una fecha no es una fecha de vigencia: la
+       versión entra sin ella y entonces sólo sirve anclada, nunca por fecha. */
+    return { id, version: String(v.version || "").trim(), from: /^\d{4}-\d{2}-\d{2}$/.test(from) ? from : "",
+      rules: normRules(v.rules), url: String(v.url || "").trim(),
+      notes: String(v.notes || "").trim(), verifiedAt: String(v.verifiedAt || "").trim() };
+  }
+  /* Las versiones ordenadas por fecha de vigencia, de la más vieja a la más
+     nueva. Las que no traen fecha van al final y sólo se alcanzan por ancla. */
+  function rulesetsDe(a) {
+    const l = Array.isArray(a && a.rulesets) ? a.rulesets.filter(Boolean) : [];
+    return l.slice().sort((x, y) => (x.from || "9999-99-99").localeCompare(y.from || "9999-99-99") || String(x.id).localeCompare(String(y.id)));
+  }
+  /* LA ÚNICA respuesta a «¿qué reglas rigen esta cuenta en esta fecha?».
+     `origen` dice por qué, porque un límite heredado que creías propio es
+     justo el error que esto viene a quitar. */
+  function reglasDe(a, fecha) {
+    const vs = rulesetsDe(a);
+    const idAncla = a && a.rulesetId ? String(a.rulesetId) : "";
+    const ancla = idAncla ? vs.find(v => v.id === idAncla) : null;
+    if (ancla) return { rules: ancla.rules, version: ancla, origen: "anclada" };
+    /* UN ANCLA QUE NO RESUELVE NO SE CONVIERTE EN «LA QUE DIGA LA FECHA». Esa
+       caída era justo el fallo que el ancla existe para impedir: la cuenta pasaba
+       en silencio a regirse por la versión vigente hoy, que es otra vez juzgar el
+       pasado con las reglas de ahora. Se cae al contrato plano —el único dato que
+       no hay que inventar— y se DICE que el ancla se perdió, para que la tarjeta
+       pueda pedir que se arregle en vez de rellenar el hueco. */
+    if (idAncla) return { rules: (a && a.rules) || {}, version: null, origen: "ancla_perdida" };
+    const f = String(fecha || state.today || "");
+    /* La última cuya vigencia ya empezó en esa fecha. */
+    const vigentes = vs.filter(v => v.from && v.from <= f);
+    const v = vigentes.length ? vigentes[vigentes.length - 1] : null;
+    if (v) return { rules: v.rules, version: v, origen: "por_fecha" };
+    return { rules: (a && a.rules) || {}, version: null, origen: vs.length ? "sin_version_vigente" : "contrato_plano" };
+  }
   function normalize(s) {
     const out = clone(DEFAULT_SETTINGS);
     if (!s || typeof s !== "object") return out;
@@ -2583,7 +2655,13 @@
       /* El contrato de la firma. Un campo vacío NO es cero: es «no escrito», y
          se distingue con null para poder decir «sin configurar» en vez de
          «cero», que significaría «no puedes perder nada». */
-      rules: normRules(a.rules) }));
+      rules: normRules(a.rules),
+      /* Las versiones del contrato y, si la hay, la que ancla esta cuenta. Se
+         conserva el ancla aunque su versión no exista: borrarla en silencio
+         convertiría la cuenta en «la que diga la fecha», que es justo lo que el
+         ancla existe para impedir. `reglasDe` lo dice con `sin_version_vigente`. */
+      rulesets: Array.isArray(a.rulesets) ? a.rulesets.map(normRuleset).filter(Boolean) : [],
+      rulesetId: String(a.rulesetId == null ? "" : a.rulesetId).trim() }));
     if (s.customized) out.customized = true;
     /* EL SELLO DE LA ULTIMA EDICION. `days/<fecha>` y cada ficha de coleccion ya
        llevaban `updatedAt`, y `subscribeDay` ya lo usaba para no dejar que un
@@ -3802,7 +3880,7 @@
      y un porcentaje que se pinta con dos decimales, así que ninguna diferencia es
      visible; queda dicho porque es un cambio de comportamiento, no ninguno. */
   function riskEngine(a, t) {
-    const m = QE.margenDePerdida(-t.lossUsed, reglaDe(a, "maxLoss").valor);
+    const m = QE.margenDePerdida(-t.lossUsed, reglaDe(a, "maxLoss", t && t.date).valor);
     const n = NIVEL_APP[m.codigo] || { code: m.codigo, label: m.etiqueta, cls: m.clase };
     return { ok: m.aplica, max: m.max, used: m.usado, remaining: m.restante, pct: m.pct,
       code: n.code, label: n.label, cls: n.cls, locked: m.agotado };
@@ -3917,8 +3995,14 @@
      faltaba. Dos sitios para el mismo número es el bug que acabo de quitar; no
      lo voy a reintroducir con otro nombre. */
   const CUENTA_ROLES = ["maxLoss", "maxGain", "maxContracts", "maxLosses"];
-  function reglaDe(a, role) {
-    const propia = a && a.rules ? a.rules[role] : null;
+  /* El contrato que rige esta cuenta en esta fecha. Pasa por `reglasDe`, que es
+     la única que sabe de versiones y de anclas; sin versiones devuelve `a.rules`
+     y el comportamiento es el de siempre. `fecha` existe para poder preguntar
+     por un día que no es hoy: así una operación de marzo se juzga con las reglas
+     de marzo y no con las que la firma puso en septiembre. */
+  function contratoDe(a, fecha) { return reglasDe(a, fecha).rules || {}; }
+  function reglaDe(a, role, fecha) {
+    const propia = contratoDe(a, fecha)[role];
     if (propia != null && propia !== "" && Number.isFinite(Number(propia)))
       return { valor: Math.abs(Number(propia)), origen: "cuenta" };
     const r = ruleByRole(role);
@@ -3926,8 +4010,8 @@
       return { valor: Math.abs(Number(r.value)), origen: "protocolo" };
     return { valor: 0, origen: null };   // sin configurar
   }
-  function instrumentosDe(a) {
-    const propio = a && a.rules ? a.rules.instruments : null;
+  function instrumentosDe(a, fecha) {
+    const propio = contratoDe(a, fecha).instruments;
     const crudo = propio != null && String(propio).trim()
       ? { txt: String(propio), origen: "cuenta" }
       : (() => { const r = state.settings.rules.find(x => x.role === "instrument");
@@ -3936,11 +4020,16 @@
     return { lista, origen: lista.length ? crudo.origen : null };
   }
   // compatibilidad: sin cuenta, sigue siendo el protocolo del trader
-  function allowedInstruments(a) { return instrumentosDe(a).lista; }
+  function allowedInstruments(a, fecha) { return instrumentosDe(a, fecha).lista; }
   function byTimeAsc(a, b) { return String(a.time || "").localeCompare(String(b.time || "")) || (a.updatedAt || 0) - (b.updatedAt || 0); }
   /* Qué dice el día sobre las reglas. Recibe la lista ya calculada para poder
      mirarla a nivel de trader (todas las cuentas) o de una cuenta concreta. */
-  function dayRuleCheck(list, a) {
+  /* `fecha` decide QUE VERSION del contrato de la firma se aplica. Sin ella se
+     usa hoy, que es el comportamiento de siempre; con ella, un dia de marzo se
+     juzga con las reglas que regian en marzo y no con las que la firma puso en
+     septiembre. Reescribir el pasado al actualizar un contrato era la mitad del
+     problema que el versionado viene a resolver; el ancla de la cuenta es la otra. */
+  function dayRuleCheck(list, a, fecha) {
     const closed = list.filter(x => x.pnlEff != null).slice().sort(byTimeAsc);
     const pnl = closed.reduce((s, x) => s + x.pnlEff, 0);
     let streak = 0;
@@ -3948,11 +4037,11 @@
     /* Con cuenta manda su contrato; sin cuenta se mide el protocolo del trader,
        que es lo único que se puede decir con verdad. `origen` viaja con cada
        número para poder enseñar de dónde sale sin volver a buscarlo. */
-    const ins = instrumentosDe(a);
+    const ins = instrumentosDe(a, fecha);
     const allow = ins.lista;
     const off = allow.length ? [...new Set(list.map(x => String(x.instrument || "").toUpperCase()).filter(x => x && allow.indexOf(x) < 0))] : [];
-    const rC = reglaDe(a, "maxContracts"), rL = reglaDe(a, "maxLoss"),
-          rG = reglaDe(a, "maxGain"),      rS = reglaDe(a, "maxLosses");
+    const rC = reglaDe(a, "maxContracts", fecha), rL = reglaDe(a, "maxLoss", fecha),
+          rG = reglaDe(a, "maxGain", fecha),      rS = reglaDe(a, "maxLosses", fecha);
     const maxC = rC.valor, maxL = rL.valor, maxG = rG.valor, maxS = rS.valor;
     const over = maxC ? list.filter(x => (Number(x.qty) || 0) > maxC) : [];
     const lossUsed = Math.max(0, -pnl);
@@ -4025,7 +4114,7 @@
     const objetivo = Number(a.target) || 0;
     if (objetivo > 0) progreso.push({ k: "objetivo", lab: "Objetivo",
       v: Math.max(0, Math.min(1, g.total / objetivo)), txt: `${money(g.total)} de ${money(objetivo)}` });
-    const buffer = a.rules && a.rules.payoutBuffer ? Number(a.rules.payoutBuffer) : 0;
+    const buffer = Number(contratoDe(a).payoutBuffer) || 0;
     if (buffer > 0) progreso.push({ k: "payout", lab: "Colchón para cobrar",
       v: Math.max(0, Math.min(1, (g.balance - g.size) / buffer)), txt: `${money(g.balance - g.size)} de ${money(buffer)}` });
 
@@ -4062,7 +4151,9 @@
   function evaluateAccountRules(a, todayTrades) {
     const c = consistency(a), g = c.agg;
     const t = todayTrades || acctToday(a);
-    const k = dayRuleCheck(t.list, a);
+    /* La fecha que se evalua la trae el propio paquete del dia (`acctToday`),
+       asi que el contrato que se aplica es el que regia ESE dia. */
+    const k = dayRuleCheck(t.list, a, t.date);
     const dd = ddEngine(g), ce = consEngine(c), r = riskEngine(a, t);
 
     let status = "READY", why = "", canTrade = true;
@@ -4190,12 +4281,19 @@
   }
   const DIAS_CONTRATO_VIEJO = 120;
   function contratoChip(a) {
-    const r = a.rules || {};
+    /* Se pinta la versión QUE RIGE, no la última escrita: si la cuenta está
+       anclada a la v1 y ya existe una v2, lo que gobierna esta cuenta es la v1 y
+       es lo que tiene que leerse aquí. Una versión invisible no sirve de nada. */
+    const res = reglasDe(a);
+    const v = res.version;
+    const r = v || a.rules || {};
     const url = r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">contrato</a>` : "contrato";
-    if (!r.verifiedAt) return `<span class="kind cttr" title="Nadie ha anotado cuándo se leyeron las reglas de esta firma.">${url} sin verificar</span>`;
+    const nombre = v ? (v.version || v.id) : (r.version || "");
+    const sufijo = v ? ` · ${esc(nombre)}${res.origen === "anclada" ? " (anclada)" : v.from ? " desde " + esc(dmy(v.from)) : ""}` : "";
+    if (!r.verifiedAt) return `<span class="kind cttr" title="Nadie ha anotado cuándo se leyeron las reglas de esta firma.">${url} sin verificar${sufijo}</span>`;
     const dias = Math.round((new Date(state.today + "T12:00:00Z") - new Date(r.verifiedAt + "T12:00:00Z")) / 86400000);
     const viejo = dias > DIAS_CONTRATO_VIEJO;
-    return `<span class="kind cttr ${viejo ? "warn" : ""}" title="Reglas verificadas el ${esc(r.verifiedAt)}${r.version ? " · " + esc(r.version) : ""}">${url} ${dias <= 0 ? "verificado hoy" : `hace ${plu(dias, "día", "días")}`}</span>`;
+    return `<span class="kind cttr ${viejo ? "warn" : ""}" title="Reglas verificadas el ${esc(r.verifiedAt)}${nombre ? " · " + esc(nombre) : ""}${res.origen === "anclada" ? " · esta cuenta está anclada a esta versión: una versión nueva de la firma no la cambia" : ""}">${url} ${dias <= 0 ? "verificado hoy" : `hace ${plu(dias, "día", "días")}`}${sufijo}</span>`;
   }
   function acctCard(a, i, n) {
     const c = consistency(a), ev = evaluateAccountRules(a);
@@ -6920,6 +7018,37 @@
       persistSettings(); fanout(FANOUT_SEL);
       return { ok: true, nombre, huerfanas: huerfanas.length, suelto };
     },
+    /* ── versiones del contrato de la firma ──
+       FIRMA → TIPO → VERSIÓN → FECHA DE VIGENCIA → REGLAS. La firma y el tipo ya
+       son campos de la cuenta; aquí viven la versión y su vigencia. `reglasDe` es
+       la única que resuelve cuál rige, y dice por qué (`anclada`, `por_fecha`,
+       `sin_version_vigente`, `contrato_plano`). */
+    rulesets(accountId) { const a = acctById(accountId); return a ? rulesetsDe(a) : []; },
+    /* Qué reglas rigen esta cuenta en esta fecha, y por qué. Sin fecha, hoy. */
+    rulesetFor(accountId, date) {
+      const a = acctById(accountId); if (!a) return null;
+      const r = reglasDe(a, date);
+      return { rules: r.rules, origen: r.origen, pinned: !!(a.rulesetId && r.origen === "anclada"),
+               version: r.version ? { id: r.version.id, version: r.version.version, from: r.version.from } : null };
+    },
+    /* Añade una versión. NO toca ninguna cuenta ni ningún ancla: una versión
+       nueva no puede cambiar por sí sola las reglas de una cuenta ya abierta. */
+    addRuleset(accountId, v) {
+      const a = acctById(accountId); if (!a || !v) return null;
+      const n = normRuleset(Object.assign({ id: uid("rs") }, v));
+      if (!n) return null;
+      a.rulesets = (a.rulesets || []).concat([n]);
+      persistSettings(); fanout(FANOUT_SEL); return n.id;
+    },
+    /* Ancla la cuenta a una versión —el contrato que firmó el trader— o suelta el
+       ancla con `null`, y entonces manda la vigente por fecha. */
+    pinRuleset(accountId, rulesetId) {
+      const a = acctById(accountId); if (!a) return false;
+      const id = rulesetId == null ? "" : String(rulesetId);
+      if (id && !rulesetsDe(a).some(v => v.id === id)) return false;
+      a.rulesetId = id;
+      persistSettings(); fanout(FANOUT_SEL); return true;
+    },
     updateRule(id, patch) {
       const r = (state.settings.rules || []).find(x => x.id === id); if (!r) return false;
       Object.assign(r, patch); persistSettings(); fanout(FANOUT_SEL); return true;
@@ -8932,7 +9061,10 @@
       fields, values: Object.assign(
         { limit: 50, size: 50000, dd: 2000, ddKind: "trailing_lock", trailBase: "intradia", status: "activa", target: 3000, total: 0, best: 0 },
         a || {},
-        aplanaRules(a && a.rules)),
+        /* SE EDITA EL CONTRATO QUE RIGE, no el que está escrito más abajo. Si la
+           cuenta tiene versiones, `a.rules` ya no gobierna nada: enseñar aquí sus
+           números dejaría al usuario cambiando cifras que no tienen efecto. */
+        aplanaRules(reglasDe(a).rules)),
       validate: v => {
         if (!(v.name || v.firm)) return "Ponle al menos un nombre o una firma";
         /* La ganancia previa SÍ puede ir en rojo: es un resultado, no un tamaño.
@@ -8946,8 +9078,16 @@
       },
       onSave: v => {
         const arr = state.settings.accounts;
+        const contrato = pliegaRules(v);
         const rec = Object.assign({}, a || { id: uid("a"), ledger: [] }, v,
-          { limit: Math.min(99, Math.max(1, Number(v.limit) || 50)), rules: pliegaRules(v) });
+          { limit: Math.min(99, Math.max(1, Number(v.limit) || 50)) });
+        /* Y SE GUARDA DONDE SE LEYÓ. Con versiones, lo editado vuelve a la versión
+           que rige esta cuenta; sin versiones, a `a.rules`, como siempre. Guardar
+           siempre en `a.rules` habría hecho que la edición no cambiara nada. */
+        const rige = reglasDe(a).version;
+        if (rige) {
+          rec.rulesets = (rec.rulesets || []).map(x => x && x.id === rige.id ? Object.assign({}, x, { rules: contrato }) : x);
+        } else rec.rules = contrato;
         RULE_CAMPOS.forEach(k => { delete rec["r_" + k]; });
         const i = arr.findIndex(x => x.id === rec.id);
         if (i >= 0) arr[i] = rec; else arr.push(rec);
