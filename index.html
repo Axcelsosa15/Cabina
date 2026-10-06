@@ -2530,11 +2530,24 @@
          nueva del almacén: la lista trae sólo lo confirmado, y sin esto la
          operación rechazada desaparecía al guardar la siguiente — con el rótulo
          aún diciendo «SIN GUARDAR · 1» y sin forma de volver a intentarlo. */
+      /* Y UNA FICHA VIEJA DEL SERVIDOR NO PISA UNA MAS NUEVA EN MEMORIA. La
+         lista que llega trae lo confirmado, pero no venia ordenada en el tiempo:
+         con la cuenta, una lectura que llegaba tarde con la version anterior de
+         una operacion borraba de la pantalla la edicion que se acababa de
+         guardar. Es la misma regla del sello que ya usaba `subscribeDay` para
+         los dias y que ahora usa tambien `settings/main`: gana el `updatedAt`
+         mas alto, y empate o ausencia la deja ganar al servidor, que es lo que
+         hacia antes. */
       attachDb(db) {
         db.collection(name).onSnapshot(q => {
           if (state.demo) return;
           const pend = new Map(this.items.filter(x => sinGuardar.has(name + "/" + x.id)).map(x => [x.id, x]));
-          const llegan = q.docs.map(d => d.data()).filter(x => x && x.id).map(x => pend.get(x.id) || x);
+          const enMemoria = new Map(this.items.filter(x => x && x.id).map(x => [x.id, x]));
+          const llegan = q.docs.map(d => d.data()).filter(x => x && x.id).map(x => {
+            if (pend.has(x.id)) return pend.get(x.id);
+            const mio = enMemoria.get(x.id);
+            return mio && sello(mio) > sello(x) ? mio : x;
+          });
           const ids = new Set(llegan.map(x => x.id));
           pend.forEach((x, id) => { if (!ids.has(id)) llegan.push(x); });
           this.items = llegan; this.emit();
@@ -2572,13 +2585,39 @@
          «cero», que significaría «no puedes perder nada». */
       rules: normRules(a.rules) }));
     if (s.customized) out.customized = true;
+    /* EL SELLO DE LA ULTIMA EDICION. `days/<fecha>` y cada ficha de coleccion ya
+       llevaban `updatedAt`, y `subscribeDay` ya lo usaba para no dejar que un
+       documento viejo pisara uno nuevo. `settings/main` no lo llevaba, asi que
+       era el unico documento de la cabina sin esa proteccion — y es el que
+       guarda TODAS las cuentas de prop firm y TODAS las reglas. Ver el
+       comentario de `connectDb`. */
+    if (Number.isFinite(Number(s.updatedAt))) out.updatedAt = Number(s.updatedAt);
     return out;
   }
+  /* El sello de un documento y el documento SIN su sello. Lo segundo existe
+     porque comparar dos configuraciones para ver si cambio algo no puede
+     depender de la hora en que se guardaron. */
+  const sello = d => Number(d && d.updatedAt) || 0;
+  function sinSello(d) { const c = clone(d); delete c.updatedAt; return c; }
   function ruleByRole(role) { return state.settings.rules.find(r => r.role === role && r.kind === "num"); }
 
   function persistSettings(quiet) {
     if (state.demo) return;
     if (!quiet) state.settings.customized = true;
+    /* SE SELLA AQUI, NO DENTRO DEL `debounce`. Entre pedir la escritura y
+       escribirla hay 500 ms, y en ese hueco puede entrar la configuracion del
+       servidor (al volver a la pestaña se recargan todas las suscripciones).
+       Con el sello puesto solo al escribir, ese documento remoto tenia el sello
+       mas nuevo, ganaba, y la edicion del usuario desaparecia de la pantalla
+       ANTES de que se guardara: la escritura que salia 500 ms despues llevaba
+       ya los valores remotos. Sellando al pedirlo, la pantalla declara que lo
+       que tiene es mas nuevo que lo que cargo, que es la verdad.
+
+       Solo si la configuracion YA cargo: antes de eso no hay nada sobre lo que
+       esta edicion sea «mas nueva», y sellarla haria que la cabina rechazara
+       para siempre la configuracion real de la cuenta. Es la misma condicion
+       que ya guarda la escritura unas lineas mas abajo. */
+    if (state.cfgConocida) state.settings.updatedAt = Date.now();
     debounce("settings", async () => {
       /* NO SE GUARDA CONFIGURACIÓN HASTA QUE LA BASE HAYA CONTESTADO. Con cuenta la
          configuración llega por red; guardar en ese hueco escribía los valores por
@@ -2617,7 +2656,38 @@
       state.cfgRemota = !!snap.exists;
       if (!snap.exists) return;
       const incoming = normalize(snap.data());
-      if (JSON.stringify(incoming) === JSON.stringify(state.settings)) return;
+      /* UN DOCUMENTO VIEJO NO PISA UNO NUEVO ────────────────────────────────
+         Esta es la unica puerta por la que entra la configuracion, y no miraba
+         la antiguedad: cualquier `settings/main` que llegara del servidor
+         reemplazaba el que estaba en memoria. Dos casos reales de perdida
+         silenciosa, los dos sobre el documento que guarda las cuentas de prop
+         firm y las reglas duras enteras:
+
+           1. Entre una edicion y su escritura hay 500 ms de `debounce`. Volver
+              a la pestaña en ese hueco recarga las suscripciones, llega el
+              documento del servidor —el de ANTES de la edicion— y se pinta
+              encima. La edicion se habia perdido, y la escritura que salia
+              despues guardaba ya lo remoto.
+           2. Con dos dispositivos, el que escribe segundo gana en la base
+              (upsert, sin condicion), pero el que lee no distinguia un
+              documento mas nuevo de uno mas viejo: una lectura que llegaba
+              tarde con contenido antiguo borraba de la pantalla lo recien
+              cambiado aqui.
+
+         Se aplica la MISMA regla que `subscribeDay` ya aplicaba a los dias
+         —gana el sello mas alto— y se compara el contenido sin el sello, porque
+         «¿cambio algo?» no puede depender de la hora a la que se guardo.
+
+         LO QUE ESTO NO ARREGLA, y esta documentado en docs/MULTIUSUARIO.md: dos
+         dispositivos escribiendo a la vez. La base no tiene escritura
+         condicional en este adaptador, asi que el ultimo que llega gana ahi.
+         Esto protege lo que hay en ESTA pantalla; no resuelve el conflicto. */
+      if (sello(incoming) && sello(incoming) < sello(state.settings)) return;
+      if (JSON.stringify(sinSello(incoming)) === JSON.stringify(sinSello(state.settings))) {
+        /* Mismo contenido: se adopta el sello mas alto y no se repinta nada. */
+        if (sello(incoming) > sello(state.settings)) state.settings.updatedAt = sello(incoming);
+        return;
+      }
       state.settings = incoming;
       if (!state.listo) return;
       const ae = document.activeElement; const typing = ae && ae.dataset && ae.dataset.f;
