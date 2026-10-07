@@ -34,7 +34,19 @@ jobs:
 
       # Sólo Chromium: la suite no prueba otros navegadores, y bajar los tres
       # cuesta varios minutos por corrida sin comprobar nada más.
+      #
+      # CON SU PROPIO TOPE, y más corto que el del trabajo. `--with-deps` llama a
+      # `apt-get`, y un espejo que deja de contestar no falla: se queda colgado. Pasó
+      # en esta rama: el espejo de Azure dejó de responder a los 24 s y el paso siguió
+      # esperando hasta que el tope de 25 minutos del TRABAJO canceló todo, sin haber
+      # corrido una sola prueba. En la interfaz eso se lee «cancelled», que parece un
+      # fallo de la suite y no lo es, y se gastan 25 minutos para no saber nada.
+      #
+      # Con 6 minutos, un espejo caído sale en rojo pronto y diciendo dónde, y quedan
+      # 19 minutos para la compuerta, que tarda ~8. No arregla el espejo: hace que su
+      # caída sea legible y barata en vez de silenciosa y cara.
       - name: Instalar Chromium
+        timeout-minutes: 6
         run: npx playwright install --with-deps chromium
 
       # npm run compuerta, no npm test: la compuerta LANZA la suite una sola vez
