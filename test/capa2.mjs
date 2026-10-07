@@ -400,14 +400,42 @@ ok(!/window\.claude/.test(codigo), 'ninguna referencia a window.claude: una sola
    vio -- y encima excluia sync-index.mjs, que era el fichero con una ruta de
    contenedor clavada. Esta mira las raices reales. Lo relativo no la toca:
    process.cwd() + '/../index.html' y new URL('./x', import.meta.url) pasan. */
+/* UNA EXCEPCION, nombrada como la de la §9 en vez de esquivada.
+
+   `db.mjs` arranca un POSTGRES DE VERDAD para correr las migraciones y las pruebas
+   SQL del repositorio, y el servidor no es una dependencia de npm: vive donde lo
+   pone el sistema (`/usr/lib/postgresql/<ver>/bin`). No hay forma de derivar esa
+   ruta de `process.cwd()`, y no debe haberla: es una propiedad de la máquina, no
+   del repositorio.
+
+   LO QUE HACE QUE LA EXCEPCION SEA SEGURA, que es lo que esta regla protege: nada
+   de lo que `db.mjs` MIDE sale de ahí. El esquema, las migraciones y las pruebas
+   SQL se leen de `supabase/`, por ruta relativa al propio fichero, y si el
+   servidor no está, `db.mjs` SALTA la prueba y lo dice — no la da por buena. O
+   sea que una máquina sin Postgres no produce un verde falso, que es exactamente
+   el fallo que la §13 existe para impedir.
+
+   El clúster vive bajo el home de un usuario sin privilegios porque el servidor se
+   niega a correr como root y el scratchpad no es atravesable por ese usuario; se
+   borra al terminar. */
+const SIN_RAIZ = new Set(['db.mjs']);
 const sucias = [];
 for (const f of tests) {
+  if (SIN_RAIZ.has(f)) continue;
   const t = leer(join(dirTest, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   for (const m of t.matchAll(/['"](\/(?:tmp|home|opt|usr|var|Users|root|etc)\/[^'"]*)/g))
     sucias.push(`${f} → ${m[1].slice(0, 44)}`);
 }
-ok(sucias.length === 0, `ninguna de las ${tests.length} pruebas apunta a una raiz del sistema`,
+ok(sucias.length === 0, `ninguna de las ${tests.length - SIN_RAIZ.size} pruebas apunta a una raiz del sistema`,
    sucias.length ? sucias.slice(0, 4).join(' · ') : 'todo relativo al repositorio');
+/* Y la excepcion no se amplia sola: si `db.mjs` leyera un FICHERO del repositorio
+   por ruta absoluta, eso seguiria siendo el defecto de la §13 con otra cara. */
+{
+  const t = leer(join(dirTest, 'db.mjs'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const malas = [...t.matchAll(/['"](\/(?:tmp|home|opt|var|Users|root|etc)\/[^'"]*)/g)].map(m => m[1].slice(0, 44));
+  ok(malas.length === 0, 'db.mjs sólo apunta a /usr/lib/postgresql, y lo demás relativo',
+     malas.length ? malas.join(' · ') : 'sólo el servidor del sistema');
+}
 
 /* §14 — Ningun documento puede citar un guardian que no existe.
 

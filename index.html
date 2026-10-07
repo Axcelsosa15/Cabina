@@ -2486,7 +2486,44 @@
      el que se arregla aqui -- y esto solo deja de mentir. */
   const sinGuardar = new Map();
   let sinGuardarMotivo = "";
+  /* ═══════════════ LOS SEIS ESTADOS DEL GUARDADO ═══════════════
+
+     El rótulo de la barra tiene que contestar «¿están mis datos guardados?» de un
+     vistazo, y no puede decir «sincronizado» cuando no lo está. Los estados, de más
+     grave a menos, que es el orden en que se miran:
+
+       CONFLICTO       otro dispositivo cambió el documento. Lo de aquí NO está
+                       guardado y no se va a guardar solo: hay que decidir.
+       SESIÓN CADUCADA todo lo que escribas a partir de ahora se rechaza.
+       SIN CONEXIÓN    no hay red; lo que ves puede no estar al día.
+       SIN GUARDAR     una escritura falló por otra razón.
+       GUARDANDO       hay una escritura en vuelo (`enVuelo`).
+       SINCRONIZADO    la base tiene lo que hay en la pantalla.
+
+     «LOCAL_CHANGES» del encargo no es un estado de esta app y conviene decir por
+     qué en vez de inventarlo: aquí una edición se escribe en cuanto se hace (con
+     400–500 ms de `debounce`), no se acumula en una cola que el usuario sincroniza
+     a mano. El hueco del `debounce` es lo más parecido, y ya está cubierto:
+     mientras dura, el sello de la fase 1 impide que una lectura lo pise, y si la
+     escritura falla el estado pasa a SIN GUARDAR. Una cola de cambios locales sin
+     enviar sería otra arquitectura, y no la tiene. */
+  const conflictos = new Map();     // ruta -> { esperada, actual, borrado, dato }
+  let enVuelo = 0;                  // escrituras en la red ahora mismo
+  function hayConflicto(clave, info, dato) {
+    conflictos.set(clave, Object.assign({ dato }, info || {}));
+    setStoreLabel();
+    avisaConflicto(clave);
+  }
+  function resuelto(clave) { if (conflictos.delete(clave)) setStoreLabel(); }
   function noSeGuardo(clave, motivo, que) {
+    /* UN CONFLICTO NO ES UN ERROR CUALQUIERA. «No se pudo guardar (conflicto)» y un
+       destello de 2,5 s dejarían al usuario sin saber que hay DOS versiones y que
+       una se va a perder si no elige. Se separa aquí, en la única puerta por la que
+       pasan todos los fallos de escritura. */
+    if (motivo === "conflicto" || motivo === "conflicto_borrado") {
+      hayConflicto(clave, { borrado: motivo === "conflicto_borrado" });
+      return;
+    }
     sinGuardar.set(clave, motivo);
     sinGuardarMotivo = motivo;
     flash("NO se guardo " + que + " (" + motivo + ")");
@@ -2494,11 +2531,114 @@
   }
   function siSeGuardo(clave, msg) {
     if (msg) flash(msg);
+    /* Si la ruta tenía un conflicto y ahora se guardó, el conflicto se acabó. */
+    if (conflictos.delete(clave)) setStoreLabel();
     if (!sinGuardar.delete(clave)) return;
     if (!sinGuardar.size) sinGuardarMotivo = "";
     setStoreLabel();
   }
   const motivoDb = e => (e && e.code) || (e && e.name) || "error";
+
+  /* El rótulo abre el diálogo cuando hay algo que resolver. Con ratón y con teclado:
+     lleva `role="button"` y `tabindex`, así que tiene que responder a Enter y a
+     espacio o sería un botón que sólo existe para quien ve y usa ratón. */
+  (() => {
+    const el = $("saveState");
+    const abre = () => { if (conflictos.size) abreConflicto(null); };
+    el.addEventListener("click", abre);
+    el.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); abre(); }
+    });
+  })();
+
+  /* ═══════════════ EL DIÁLOGO DE CONFLICTO ═══════════════
+
+     NINGUNA DE LAS DOS VERSIONES GANA SOLA. «Remote wins» pierde lo que el usuario
+     acaba de escribir; «local wins» pierde lo que escribió en el otro dispositivo.
+     Las dos son pérdidas silenciosas de datos financieros, así que la app no elige:
+     enseña las dos y pregunta.
+
+     Y NO HAY FUSIÓN AUTOMÁTICA de documentos. Un `Object.assign` de dos versiones de
+     una operación puede producir una tercera que nunca existió —la entrada de una y
+     la salida de la otra— y eso es peor que perder una, porque nadie se da cuenta.
+     Donde una fusión fuera demostrablemente segura para una entidad concreta se
+     podría añadir; no se hace en genérico.
+
+     Las dos versiones se ENSEÑAN, no se esconden detrás de un botón «ver cambios
+     remotos»: lo que hay que comparar cabe en la pantalla, y un botón más es un paso
+     más para alguien que ya está perdiendo datos. */
+  function avisaConflicto(clave) {
+    /* No se abre encima de otro diálogo: el editor es uno solo, y robarlo a mitad de
+       una edición perdería lo que se estaba escribiendo. El rótulo ya avisa, y
+       pulsarlo lo abre cuando el usuario quiera. */
+    if (ov.classList.contains("open")) { flash("Hay un conflicto: pulsa el rótulo de guardado para resolverlo."); return; }
+    abreConflicto(clave);
+  }
+  function abreConflicto(clave) {
+    const info = clave ? conflictos.get(clave) : null;
+    const ruta = clave || [...conflictos.keys()][0];
+    const c = info || conflictos.get(ruta);
+    if (!c) return;
+    const ver = v => { try { return JSON.stringify(v, null, 1); } catch (e) { return String(v); } };
+    /* Lo de aquí sale de la memoria de la app, que es lo que el usuario está viendo;
+       lo de la cuenta se pide ahora, porque la versión de hace un momento ya no es
+       la que hay. */
+    openEditor({
+      title: c.borrado ? "Este documento se borró en otro dispositivo" : "Este documento cambió en otro dispositivo",
+      fields: [
+        { key: "nota", type: "nota", w: 6, label: c.borrado
+          ? `«${ruta}» ya no existe en tu cuenta: otro dispositivo lo borró. Lo que tienes aquí NO está guardado. Puedes volver a crearlo con tus cambios, o aceptar el borrado y perderlos.`
+          : `«${ruta}» cambió en tu cuenta después de que esta pestaña lo leyera, así que lo que escribiste aquí NO se guardó. Abajo están las dos versiones. Ninguna se guarda sola: elige.` },
+        { key: "aqui", label: "Lo que tienes en esta pestaña", type: "textarea", w: 6, rows: 7 },
+        { key: "alla", label: c.borrado ? "En tu cuenta" : "Lo que hay en tu cuenta ahora", type: "textarea", w: 6, rows: 7 },
+        { key: "elijo", label: "Con qué versión te quedas", type: "select", w: 6, options: c.borrado
+            ? [["", "— elige —"], ["mio", "Volver a crearlo con mis cambios"], ["remoto", "Aceptar el borrado y perder mis cambios"]]
+            : [["", "— elige —"], ["mio", "Mantener mis cambios (se escriben encima de la versión de la cuenta)"], ["remoto", "Usar la versión de la cuenta (pierdo lo que escribí aquí)"]] },
+      ],
+      values: { aqui: ver(conflictoLocal(ruta)), alla: "cargando…" },
+      validate: v => (v.elijo === "mio" || v.elijo === "remoto" ? null : "Elige con qué versión te quedas"),
+      onSave: async v => {
+        if (v.elijo === "remoto") {
+          /* La versión de la cuenta manda: se olvida lo de aquí y se recarga. Es la
+             única rama en la que se descarta algo del usuario, y la eligió él. */
+          resuelto(ruta);
+          if (state.db && state.db.refresca) state.db.refresca(true);
+          flash("Recargado desde tu cuenta.");
+          return;
+        }
+        /* «Mantener mis cambios»: se vuelve a escribir, ahora SOBRE la versión que
+           hay. El adaptador ya guardó la versión nueva al detectar el conflicto, así
+           que este segundo intento no vuelve a chocar — salvo que alguien escriba
+           otra vez en el hueco, y entonces vuelve a preguntar, que es lo correcto. */
+        const dato = conflictoLocal(ruta);
+        if (dato == null) { resuelto(ruta); flash("Ya no hay nada local que guardar."); return; }
+        try {
+          await state.db.doc(ruta).set(dato);
+          resuelto(ruta);
+          flash("Guardados tus cambios encima de la versión de la cuenta.");
+        } catch (e) { noSeGuardo(ruta, motivoDb(e), "tu versión"); }
+      },
+    });
+    /* La versión de la cuenta se pide después de abrir, para no dejar el diálogo
+       esperando a la red: el campo dice «cargando…» y se rellena. */
+    (async () => {
+      let txt = "(no se pudo leer)";
+      try {
+        const snap = await state.db.doc(ruta).get();
+        txt = snap.exists ? ver(snap.data()) : "(ya no existe: se borró)";
+      } catch (e) { txt = "(no se pudo leer: " + motivoDb(e) + ")"; }
+      const el = document.getElementById("ef_alla"); if (el) el.value = txt;
+    })();
+  }
+  /* El dato que esta pestaña tiene para esa ruta, que es lo que el usuario ve. */
+  function conflictoLocal(ruta) {
+    const i = ruta.lastIndexOf("/");
+    const col = ruta.slice(0, i), id = ruta.slice(i + 1);
+    if (col === "settings" && id === "main") return clone(state.settings);
+    if (col === "days") return state.day && state.day.date === id ? clone(state.day) : null;
+    const it = colls[col] && colls[col].items.find(x => x.id === id);
+    return it ? clone(it) : null;
+  }
 
   // generic collections (trades, playbooks, ideas, markets, watch, positions, scenarios)
   const colls = {};
@@ -2792,6 +2932,20 @@
     const el = $("saveState"), f = $("footerStore");
     if (state.demo) { el.textContent = "demo · sin guardar"; el.className = "save-state"; f.className = ""; f.textContent = "Modo demo: datos inventados, no se guarda nada."; return; }
     if (typeof renderBackup === "function") { try { renderBackup(); } catch (e) { } }
+    /* UN CONFLICTO VA PRIMERO. Es el único estado en el que hay dos versiones de un
+       dato del usuario y una se perderá si no decide: ni la red ni la sesión
+       caducada esconden información que sólo él puede recuperar. */
+    if (conflictos.size) {
+      el.textContent = "CONFLICTO · " + conflictos.size;
+      el.className = "save-state nosave";
+      f.className = "nosave";
+      el.setAttribute("role", "button"); el.setAttribute("tabindex", "0");
+      el.title = "Pulsa para resolver el conflicto";
+      f.textContent = plu(conflictos.size, "Un documento cambió", "Varios documentos cambiaron")
+        + " en otro dispositivo, así que lo que tienes aquí NO se guardó y no se va a guardar solo."
+        + " Pulsa el rótulo para ver qué cambió y decidir con qué versión te quedas.";
+      return;
+    }
     /* Una sesión caducada es peor que un fallo suelto: TODO lo que escribas a
        partir de ahí se rechaza. Se dice primero, y se dice qué hacer. */
     if (state.nube && nube.caducada) {
@@ -2817,7 +2971,27 @@
       return;
     }
     f.className = "";
-    if (state.nube) { el.textContent = "sincronizado"; el.className = "save-state cloud"; f.textContent = "Guardado en tu cuenta" + (nube.ses && nube.ses.email ? " (" + nube.ses.email + ")" : "") + ". Sólo tu sesión puede leer estos datos: ningún otro usuario los ve."; return; }
+    /* Sin conflicto el rótulo no es un botón, y no puede seguir diciendo que lo es:
+       un `role="button"` que no hace nada es peor que ninguno para quien navega con
+       lector de pantalla. */
+    el.removeAttribute("role"); el.removeAttribute("tabindex"); el.removeAttribute("title");
+    /* GUARDANDO: hay algo en vuelo. Corto, pero es la diferencia entre «ya está» y
+       «está yendo», y el usuario que cierra la pestaña en ese segundo necesita
+       verlo. */
+    if (state.nube && enVuelo > 0) {
+      el.textContent = "guardando…"; el.className = "save-state cloud";
+      f.textContent = "Enviando " + plu(enVuelo, "un cambio", "cambios") + " a tu cuenta. No cierres la pestaña todavía.";
+      return;
+    }
+    if (state.nube) {
+      el.textContent = "sincronizado"; el.className = "save-state cloud";
+      f.textContent = "Guardado en tu cuenta" + (nube.ses && nube.ses.email ? " (" + nube.ses.email + ")" : "")
+        + ". Sólo tu sesión puede leer estos datos: ningún otro usuario los ve."
+        /* Sin la columna `version` la base no puede detectar que dos dispositivos
+           escriben el mismo documento, y eso hay que decirlo en vez de callarlo. */
+        + (nube.occ === false ? " AVISO: esta base todavía no detecta si otro dispositivo cambió un documento, así que con dos abiertos a la vez un cambio puede perderse. Falta aplicar la migración de la versión." : "");
+      return;
+    }
     if (state.store === "local") { el.textContent = "guardado local"; el.className = "save-state"; f.textContent = "Guardado solo en este navegador. Tus operaciones no se envían a ningún servidor."; }
     else { el.textContent = "sin guardado"; el.className = "save-state"; f.textContent = "Sin almacenamiento disponible: lo que escribas se pierde al recargar."; }
   }
@@ -2844,7 +3018,10 @@
   const NUBE_URL = "https://lazniuuedlhqomfyykvf.supabase.co";
   const NUBE_CLAVE = "sb_publishable_bVnEXWKwvIAnmJ5BfIup3w_B9_7HWAf";
   const SES_KEY = "cabina-sesion:v1";
-  const nube = { ses: null, caducada: false, renovando: null };
+  /* `occ`: ¿la base tiene la columna `version`, o sea, hay control de concurrencia?
+     `true` mientras no se demuestre lo contrario; pasa a false si la base dice que
+     la columna no existe, y el pie deja de prometer lo que no hay. */
+  const nube = { ses: null, caducada: false, renovando: null, occ: true };
   function jwtDatos(t) { try { return JSON.parse(atob(String(t).split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))) || {}; } catch (e) { return {}; } }
   function sesDe(at, rt, segs, user) {
     if (!at || !rt) return null;
@@ -2992,10 +3169,81 @@
      Diferencia honesta con el local: no hay tiempo real. Lo que escribes se ve al
      instante porque lo aplica el propio almacén; lo que escribas en OTRO
      dispositivo llega al volver a esta pestaña (máximo cada 20 s). */
+  /* ═══════════════ CONTROL DE CONCURRENCIA OPTIMISTA ═══════════════
+
+     EL PROBLEMA QUE CIERRA. Hasta aquí esto escribía con un upsert SIN CONDICIÓN
+     (`POST ?on_conflict=user_id,path` + `resolution=merge-duplicates`): la base no
+     miraba nada antes de escribir, así que con dos dispositivos el último que
+     llegaba ganaba y el otro cambio desaparecía sin que nadie lo detectara. El
+     sello `updatedAt` de la fase 1 protege lo que hay en la PANTALLA —una lectura
+     vieja no pisa una edición nueva— y no protegía la BASE.
+
+     CÓMO SE CIERRA, y es una propiedad de Postgres, no de este código:
+
+       PATCH /cabina_docs?path=eq.<p>&version=eq.<la que leí>
+       Prefer: return=representation
+
+     PostgREST devuelve las FILAS AFECTADAS. Si coinciden 0 —alguien escribió entre
+     mi lectura y mi escritura— el array viene vacío y la escritura NO ocurrió. Eso
+     es el conflicto, y se levanta como tal en vez de tragárselo.
+     Verificado contra Postgres 16 real en `test/db.mjs` y
+     `supabase/pruebas/concurrencia.sql`, con dos sabotajes que lo ponen en rojo.
+
+     LA VERSIÓN LA PONE LA BASE. El cuerpo del PATCH lleva `data` y nada más; el
+     número nuevo lo decide un trigger. Si el cliente pudiera mandarlo, un cliente
+     con un fallo volvería a tener last-write-wins y la base no podría impedirlo.
+     Aquí el cliente sólo puede DECIR QUÉ VERSIÓN CREE QUE HAY, en el WHERE.
+
+     LO QUE ESTO NO ES: tiempo real, ni fusión automática. Detecta el conflicto y
+     se lo cuenta a quien está delante; no decide por él. Ver `conflictos`. */
   function nubeDb() {
     const T = "/rest/v1/cabina_docs", PAG = 1000, enc = encodeURIComponent;
+    /* La versión que se leyó de cada documento. Es lo único que el cliente guarda
+       para poder escribir condicionalmente: sin entrada aquí, la escritura tiene
+       que leer primero, y eso es correcto aunque cueste una ronda. */
+    const vers = new Map();
+    const err = (code, extra) => Object.assign(new Error(code), { code }, extra || {});
+
+    /* ── SI LA MIGRACIÓN NO ESTÁ APLICADA ──────────────────────────────────────
+       `index.html` se publica solo en cuanto la suite pasa, y la migración la
+       aplica el dueño A MANO contra el proyecto. Así que existe una ventana en la
+       que la página nueva habla con una base vieja, sin columna `version`.
+
+       Pedir `select=data,version` contra esa base da 42703 («undefined column») y,
+       sin esto, la cabina dejaría de cargar: ni leer ni escribir. Romper la app de
+       quien ya la usa para estrenar una protección es un intercambio malo.
+
+       Así que se detecta UNA vez, se vuelve al upsert de antes… y SE DICE. El pie
+       deja de prometer protección entre dispositivos, porque sin la columna no la
+       hay. Es la misma regla que el resto del rótulo: no afirmar lo que no se puede
+       sostener. Cuando el dueño aplique la migración, la siguiente lectura la
+       encuentra y `occ` vuelve a true sin tocar nada. */
+    const SIN_COLUMNA = new Set(["42703", "PGRST204"]);
+    const esSinColumna = e => !!e && (SIN_COLUMNA.has(String(e.code)) || /version/.test(String(e.msg || "")) && /column/i.test(String(e.msg || "")));
+
+    /* Un PATCH condicionado a la versión. Devuelve la fila nueva, o null si
+       coincidieron 0 filas (que es el conflicto). */
+    async function parchea(p, d, esperada) {
+      const r = await nubeFetch(`${T}?path=eq.${enc(p)}&version=eq.${esperada}&select=version`,
+        { method: "PATCH", headers: { prefer: "return=representation" }, body: { data: d } });
+      return Array.isArray(r) && r.length ? r[0] : null;
+    }
     return almacen({
-      async leeDoc(p) { const a = await nubeFetch(`${T}?select=data&path=eq.${enc(p)}`); return a && a[0] ? a[0].data : null; },
+      async leeDoc(p) {
+        let a;
+        try { a = await nubeFetch(`${T}?select=data,version&path=eq.${enc(p)}`); }
+        catch (e) {
+          if (!esSinColumna(e)) throw e;
+          nube.occ = false; setStoreLabel();
+          a = await nubeFetch(`${T}?select=data&path=eq.${enc(p)}`);
+        }
+        if (a && a[0]) { if (a[0].version != null) vers.set(p, a[0].version); return a[0].data; }
+        /* No existe: se olvida la versión que hubiera, o la próxima escritura
+           intentaría parchear una fila que ya no está y vería un conflicto donde
+           lo correcto es crearla. */
+        vers.delete(p);
+        return null;
+      },
       /* Por páginas: la API corta en 1000 filas, y una colección que se quedara
          en la fila 1000 sin decirlo haría un respaldo incompleto que parece entero. */
       async leeFilas(q) {
@@ -3003,16 +3251,86 @@
         const tope = q.lim || Infinity, out = [];
         while (out.length < tope) {
           const n = Math.min(PAG, tope - out.length);
-          const a = (await nubeFetch(`${T}?select=path,data&coll=eq.${enc(q.coll)}&order=${orden}&limit=${n}&offset=${out.length}`)) || [];
+          let a;
+          try { a = (await nubeFetch(`${T}?select=path,data,version&coll=eq.${enc(q.coll)}&order=${orden}&limit=${n}&offset=${out.length}`)) || []; }
+          catch (e) {
+            if (!esSinColumna(e)) throw e;
+            nube.occ = false; setStoreLabel();
+            a = (await nubeFetch(`${T}?select=path,data&coll=eq.${enc(q.coll)}&order=${orden}&limit=${n}&offset=${out.length}`)) || [];
+          }
+          for (const f of a) if (f.version != null) vers.set(f.path, f.version);
           out.push(...a);
           if (a.length < n) break;
         }
         return out;
       },
       async escribe(p, d) {
-        await nubeFetch(`${T}?on_conflict=user_id,path`, { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=minimal" }, body: { user_id: nube.ses ? nube.ses.uid : null, path: p, data: d } });
+        enVuelo++; setStoreLabel();
+        try { return await this.escribeOcc(p, d); } finally { enVuelo--; setStoreLabel(); }
       },
-      async borra(p) { await nubeFetch(`${T}?path=eq.${enc(p)}`, { method: "DELETE", headers: { prefer: "return=minimal" } }); },
+      async escribeOcc(p, d) {
+        /* Sin columna no hay escritura condicional posible: se vuelve al upsert de
+           siempre. Pierde la detección de conflictos —y el pie lo dice— pero no
+           pierde los datos de nadie por no poder escribir. */
+        if (nube.occ === false) {
+          await nubeFetch(`${T}?on_conflict=user_id,path`, { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=minimal" },
+            body: { user_id: nube.ses ? nube.ses.uid : null, path: p, data: d } });
+          return;
+        }
+        let esperada = vers.get(p);
+        /* Sin versión conocida no se puede escribir a ciegas: se lee para saber si
+           el documento existe. Una ronda más, sólo la primera vez que se toca un
+           documento en esta sesión, y a cambio ninguna escritura ciega. */
+        if (esperada == null) { await this.leeDoc(p); esperada = vers.get(p); }
+        if (esperada != null) {
+          const fila = await parchea(p, d, esperada);
+          if (fila) { vers.set(p, fila.version); return; }
+          /* 0 filas. Dos causas, y se distinguen porque la respuesta al usuario es
+             distinta: alguien lo cambió, o alguien lo borró. */
+          const sigue = await nubeFetch(`${T}?select=version&path=eq.${enc(p)}`);
+          if (sigue && sigue[0]) {
+            vers.set(p, sigue[0].version);
+            throw err("conflicto", { path: p, esperada, actual: sigue[0].version });
+          }
+          vers.delete(p);
+          throw err("conflicto_borrado", { path: p, esperada });
+        }
+        /* No existía: se CREA. Sin `on_conflict`, a propósito: si entre la lectura
+           y esto alguien lo creó, la clave primaria lo rechaza y eso también es un
+           conflicto. Un upsert aquí volvería a pisar en silencio. */
+        try {
+          const r = await nubeFetch(`${T}?select=version`, { method: "POST", headers: { prefer: "return=representation" },
+            body: { user_id: nube.ses ? nube.ses.uid : null, path: p, data: d } });
+          if (Array.isArray(r) && r[0]) vers.set(p, r[0].version);
+        } catch (e) {
+          /* 23505 es la violación de clave única de Postgres, y 409 su traducción
+             HTTP: el documento apareció mientras leíamos. */
+          if (e && (e.code === "23505" || e.status === 409)) throw err("conflicto", { path: p, esperada: null });
+          throw e;
+        }
+      },
+      async borra(p) {
+        if (nube.occ === false) { await nubeFetch(`${T}?path=eq.${enc(p)}`, { method: "DELETE", headers: { prefer: "return=minimal" } }); return; }
+        let esperada = vers.get(p);
+        if (esperada == null) { await this.leeDoc(p); esperada = vers.get(p); }
+        /* Ya no está: borrar lo que no existe es el resultado que se pedía. */
+        if (esperada == null) return;
+        /* UN BORRADO TAMPOCO A CIEGAS. Era `DELETE ?path=eq.<p>` y punto, así que
+           se llevaba por delante la edición que otro dispositivo acababa de
+           guardar — y un borrado no deja nada que recuperar, así que es peor que
+           un update perdido. */
+        const r = await nubeFetch(`${T}?path=eq.${enc(p)}&version=eq.${esperada}&select=version`,
+          { method: "DELETE", headers: { prefer: "return=representation" } });
+        if (Array.isArray(r) && r.length) { vers.delete(p); return; }
+        /* 0 filas. Si la fila sigue ahí, es que cambió de versión: conflicto, y el
+           borrado no se hace. Si no está, alguien se adelantó y el resultado que se
+           pedía ya se cumplió: eso no es un conflicto, es el trabajo hecho. */
+        const sigue = await nubeFetch(`${T}?select=version&path=eq.${enc(p)}`);
+        if (sigue && sigue[0]) { vers.set(p, sigue[0].version); throw err("conflicto", { path: p, esperada, actual: sigue[0].version }); }
+        vers.delete(p);
+      },
+      /* Para las pruebas y para el diálogo de conflicto: qué versión se leyó. */
+      versionDe: p => vers.get(p),
     });
   }
 
