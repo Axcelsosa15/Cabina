@@ -18,6 +18,29 @@ const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'in
    no implementaciones. Un guardián que falla siempre acaba ignorado, que es peor
    que no tenerlo. */
 const codigo = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/* EL CODIGO DE LA APP, SIN EL MOTOR INCRUSTADO. Lo que vigila §3 es «que la app no
+   vuelva a calcular lo que el motor ya calcula», y para eso hay que mirar la app
+   SIN el motor: dentro del motor esas cuentas son su trabajo, no una duplicacion.
+
+   QUE FALLÓ: §3 prohibia escribir el P&L a mano buscando `(exit - entry) *` en TODO
+   index.html. Un refactor del motor reformulo su R de precios como
+   `((exit - entry) * direction) / riesgo` —correcto, y dentro del motor— y el
+   guardian se puso rojo acusando a la app de duplicar una cuenta que la app no
+   hace. Estaba en verde solo porque el bundle anterior la escribia de otra forma:
+   dependia de como el motor FRASEA su propia formula, no de lo que la app hace. Un
+   guardian que se pone rojo con codigo correcto acaba desactivado, y eso es peor que
+   no tenerlo.
+
+   Se recorta con los MISMOS limites que usa §15, que es la unica definicion de
+   «esto es el motor» que hay en el repositorio. */
+const APP = (() => {
+  const A = 'const QE = (function () {';
+  const i0 = codigo.indexOf(A);
+  if (i0 < 0) return codigo;
+  const iRet = codigo.indexOf('return { QE_VERSION,', i0);
+  const iFin = iRet < 0 ? -1 : codigo.indexOf('})();', iRet);
+  return iFin < 0 ? codigo : codigo.slice(0, i0) + codigo.slice(iFin + 5);
+})();
 const fallos = [];
 const ok = (cond, etiqueta, detalle) => {
   console.log(`  ${cond ? '✅' : '❌'} ${etiqueta}${detalle != null ? '   ' + detalle : ''}`);
@@ -83,15 +106,22 @@ const AMANO = [
   ['dataset separado para Cabina', /cabinaTrades|cabinaAccounts|CabinaTrade/],
   ['dataset separado para Futuros', /futuresTrades|futuresAccounts|FuturesTrade/],
 ];
+/* EL RECORTE TIENE QUE HABER OCURRIDO. Si los marcadores del motor cambiaran, APP
+   seria el fichero entero y §3 volveria a medir el motor en silencio: seguiria en
+   verde midiendo otra cosa. Es el mismo fallo que se acaba de arreglar, asi que se
+   comprueba en vez de confiarse. Sabotaje: cambiando el marcador, rojo. */
+ok(codigo.includes('const QE = (function () {') && !APP.includes('const QE = (function () {'),
+   'el motor incrustado queda fuera de lo que mide la app',
+   `app ${APP.length} de ${codigo.length} bytes: ${codigo.length - APP.length} de motor`);
 for (const [nombre, re] of AMANO) {
   if (nombre.startsWith('suelo')) {
     /* acctAggCrudo lo usa como reserva cuando el motor no puede dar suelo (sin
        drawdown configurado), y riskThreshold igual. Fuera de esos dos, no. */
     const permitidos = cuerpoDe('acctAggCrudo') + cuerpoDe('riskThreshold');
-    const total = (codigo.match(re) || []).length;
+    const total = (APP.match(re) || []).length;
     const dentro = (permitidos.match(re) || []).length;
     ok(total === dentro, `sin ${nombre}`, `${total} usos, ${dentro} en los dos sitios permitidos`);
-  } else ok(!re.test(codigo), `sin ${nombre}`);
+  } else ok(!re.test(APP), `sin ${nombre}`);
 }
 
 console.log('\n═══ 5 · las memorias llevan en la clave todo lo que leen ═══');
