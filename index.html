@@ -7972,12 +7972,23 @@
     if (gate.some(r => !/pre-?sesi/i.test(r))) s.push("gate_disciplina");
     if (t.plan === "tarde") s.push("aguanto");
     if (t.exitWhy === "nervios") s.push("nervios");
-    const tope = reglaDe(acctById(t.accountId), "maxContracts").valor;
-    if (tope > 0 && Number(t.qty) > tope) s.push("tamano");
+    /* CON LA FECHA DE LA OPERACIÓN, no con hoy. Esta señal clasifica la pérdida
+       como categoría 3 —tamaño de más, que casi siempre es ego— y juzgarla contra
+       el contrato de HOY etiquetaría de indisciplinada una operación que cumplía
+       el tope que regía ese día. Es exactamente el historial reescrito que el
+       versionado del contrato viene a impedir, en el único sitio donde una regla
+       de la firma se aplica a una operación del pasado. */
+    const tope = reglaDe(acctById(t.accountId), "maxContracts", t.date).valor;
+    /* Y la cantidad ya resuelta por el motor, no `Number(t.qty)`: con una cantidad
+       negativa esa comparación es `-3 > 2` = false, o sea que una operación de 3
+       contratos sobre un tope de 2 se escapaba de la señal. */
+    const cts = t.contratos != null ? t.contratos : QE.contratosDe(t.qty);
+    if (tope > 0 && cts > tope) s.push("tamano");
     if (previa && previa.pnlEff != null && previa.pnlEff < 0) {
       const sal = minOfTime(previa.exitTime);
       if (m != null && sal != null && m >= sal && m - sal <= REVANCHA_MIN) s.push("revancha_tiempo");
-      if (Number(t.qty) > Number(previa.qty)) s.push("revancha_tamano");
+      const ctsPrevia = previa.contratos != null ? previa.contratos : QE.contratosDe(previa.qty);
+      if (cts > ctsPrevia) s.push("revancha_tamano");
     }
     if (ETIQUETAS_3.test(String(t.tags || ""))) s.push("etiqueta");
     return s;

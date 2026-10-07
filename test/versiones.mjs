@@ -131,6 +131,34 @@ const hoyEv = await reglas('conVersiones', '2026-09-18');
 ok(hoyEv.maxContracts === 2, 'hoy el tope es 2', hoyEv.maxContracts);
 ok(hoyEv.oversized === 1, 'y la de hoy sí está pasada de tamaño', hoyEv.oversized);
 
+/* Y la CLASIFICACIÓN DE ERRORES, que es el único sitio donde una regla de la
+   firma se aplica a una operación del pasado. La señal «tamaño» manda la pérdida
+   a categoría 3 —tamaño de más, que casi siempre es ego—. Juzgada con el tope de
+   hoy, la operación de marzo de 8 contratos saldría etiquetada de indisciplinada
+   cuando cumplía el tope de 10 que regía ese día. */
+const marzoPerdedora = await p.evaluate(() => FUT.createTrade({ accountId: 'conVersiones',
+  instrument: 'MNQ', direction: 'long', qty: 8, date: '2026-03-16', time: '10:00',
+  entry: 21000, stop: 20990, exit: 20990 }));
+await quieto(p, 60, 2500);
+const clas = await p.evaluate(id => {
+  const c = FUT.clasificaErrores('conVersiones');
+  const l = (c.porTrade || []).find(x => x.id === id);
+  /* Las señales son objetos, no cadenas: se aplana a texto. La primera versión de
+     esta aserción hacía `senales.includes('tamano')` sobre objetos, así que era
+     false siempre y pasaba igual con el defecto puesto. Se cazó sabotéandola. */
+  return l ? { cat: l.cat, senales: JSON.stringify(l.senales || []) } : null;
+}, marzoPerdedora);
+ok(!!clas, 'la pérdida de marzo aparece clasificada', clas && clas.cat);
+ok(clas && !/tama/i.test(clas.senales),
+   '8 contratos en marzo NO se marcan «tamaño»: regía el tope de 10',
+   clas && `cat ${clas.cat} · ${clas.senales.slice(0, 90)}`);
+/* Y la consecuencia, que es lo que el trader lee: con el tope de hoy esta pérdida
+   salía CATEGORÍA 3 —«el tamaño de más es ego»— sobre una operación que cumplía su
+   contrato. Sin la señal es «1 o 4», que es la verdad: no se puede saber de una
+   pérdida limpia suelta. */
+ok(clas && clas.cat !== 3 && clas.cat !== '3',
+   'y la pérdida NO se clasifica como psicológica (categoría 3)', clas && `cat ${clas.cat}`);
+
 console.log('\n═══ 3 · UNA CUENTA ANCLADA A LA v1 NO CAMBIA CUANDO APARECE LA v2 ═══');
 const an = await rs('anclada');
 ok(an.version && an.version.id === 'v1', 'aunque la v2 ya exista y esté vigente, rige la v1', an.version && an.version.version);
