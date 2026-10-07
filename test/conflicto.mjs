@@ -176,25 +176,31 @@ ok(!!fila(A.uid, 'trades/t3'), 'el borrado de B NO se lleva la edición de A (an
 ok(fila(A.uid, 'trades/t3').data.notes === 'A la edita', 'y el texto de A sigue intacto', fila(A.uid, 'trades/t3').data.notes);
 ok(/CONFLICTO/.test(await rotulo(B.p)), 'y B lo sabe', await rotulo(B.p));
 
-console.log('\n═══ 8 · cerrar el diálogo no borra el conflicto, y el rótulo lo recupera ═══');
+console.log('\n═══ 8 · cerrar el diálogo no borra el conflicto, y hay botón para volver ═══');
 /* Escape cierra el diálogo. El conflicto SIGUE: cerrarlo no decide nada, y si el
-   rótulo volviera a «sincronizado» la app estaría mintiendo. El rótulo es entonces
-   la vía de vuelta, y tiene que funcionar con teclado: lleva role="button" y
-   tabindex, así que si no respondiera a Enter sería un botón que sólo existe para
-   quien ve y usa ratón. */
+   rótulo volviera a «sincronizado» la app estaría mintiendo. La vía de vuelta es un
+   BOTÓN DE VERDAD, no el rótulo disfrazado: el rótulo es una región viva
+   (`role="status"`) que anuncia los cambios de estado a un lector de pantalla, y
+   ponerle `role="button"` encima se lo quita. Así que se comprueban las dos cosas
+   por separado: que el rótulo sigue siendo región viva, y que el botón existe,
+   recibe foco y abre con Enter —que un <button> trae de serie—. */
 await B.p.keyboard.press('Escape'); await quieto(B.p, 60, 1500); await B.p.waitForTimeout(200);
 ok(!(await B.p.evaluate(() => document.getElementById('ov').classList.contains('open'))), 'Escape cierra el diálogo');
 ok(/CONFLICTO/.test(await rotulo(B.p)), 'y el conflicto SIGUE: cerrar no es decidir', await rotulo(B.p));
 const acc = await B.p.evaluate(() => {
-  const el = document.getElementById('saveState');
-  return { rol: el.getAttribute('role'), tab: el.getAttribute('tabindex'), vivo: el.getAttribute('aria-live') };
+  const el = document.getElementById('saveState'), b = document.getElementById('resolveConflict');
+  return { rol: el.getAttribute('role'), vivo: el.getAttribute('aria-live'),
+           hayBoton: !!b && !b.hidden, etiqueta: b ? b.textContent : null, tag: b ? b.tagName : null };
 });
-ok(acc.rol === 'button' && acc.tab === '0', 'con conflicto el rótulo es un botón enfocable', JSON.stringify(acc));
-ok(acc.vivo === 'polite', 'y el cambio de estado se anuncia a un lector de pantalla', acc.vivo);
-await B.p.focus('#saveState');
+ok(acc.rol === 'status' && acc.vivo === 'polite',
+   'el rótulo sigue siendo región viva: el estado se anuncia sin interrumpir', JSON.stringify(acc));
+ok(acc.hayBoton && acc.tag === 'BUTTON', 'y con conflicto aparece un <button> de verdad', JSON.stringify(acc));
+ok(/[Rr]esolver/.test(acc.etiqueta || ''), 'que dice lo que hace', acc.etiqueta);
+await B.p.focus('#resolveConflict');
+ok(await B.p.evaluate(() => document.activeElement.id === 'resolveConflict'), 'recibe el foco');
 await B.p.keyboard.press('Enter'); await quieto(B.p, 60, 2500); await B.p.waitForTimeout(400);
 ok(await B.p.evaluate(() => document.getElementById('ov').classList.contains('open')),
-   'y Enter lo vuelve a abrir');
+   'y Enter lo vuelve a abrir, sin un manejador de teclado escrito a mano');
 
 console.log('\n═══ 9 · se resuelven de uno en uno, y el recuento dice cuántos quedan ═══');
 /* A estas alturas hay DOS conflictos sin resolver: el borrado de §6 y el de §7. El
@@ -204,7 +210,7 @@ ok(/CONFLICTO · 2/.test(await rotulo(B.p)), 'el rótulo cuenta los dos', await 
 let vueltas = 0;
 while (/CONFLICTO/.test(await rotulo(B.p)) && vueltas++ < 4) {
   if (!(await B.p.evaluate(() => document.getElementById('ov').classList.contains('open')))) {
-    await B.p.focus('#saveState'); await B.p.keyboard.press('Enter');
+    await B.p.focus('#resolveConflict'); await B.p.keyboard.press('Enter');
     await quieto(B.p, 60, 2000); await B.p.waitForTimeout(400);
   }
   await B.p.selectOption('#ef_elijo', 'remoto');
@@ -212,14 +218,52 @@ while (/CONFLICTO/.test(await rotulo(B.p)) && vueltas++ < 4) {
 }
 ok(vueltas === 2, 'hicieron falta dos decisiones, una por documento', `${vueltas} vueltas`);
 const sinC = await B.p.evaluate(() => {
-  const el = document.getElementById('saveState');
-  return { texto: el.textContent, rol: el.getAttribute('role'), tab: el.getAttribute('tabindex') };
+  const el = document.getElementById('saveState'), b = document.getElementById('resolveConflict');
+  return { texto: el.textContent, rol: el.getAttribute('role'), boton: !!b && !b.hidden };
 });
 ok(!/CONFLICTO/.test(sinC.texto), 'el conflicto se resolvió', sinC.texto);
-ok(sinC.rol === null && sinC.tab === null,
-   'y el rótulo ya no dice ser un botón: un role que no hace nada es peor que ninguno', JSON.stringify(sinC));
+ok(sinC.rol === 'status', 'el rótulo nunca dejó de ser región viva', sinC.rol);
+/* Y el botón se va. Un botón de «resolver conflicto» en una pantalla sin conflicto
+   es una trampa: quien lo pulsa no entiende qué resolvió. */
+ok(sinC.boton === false, 'y el botón de resolver desaparece cuando no hay nada que resolver', JSON.stringify(sinC));
 
-console.log('\n═══ 10 · ningún error de página ═══');
+console.log('\n═══ 10 · un conflicto de A no cruza a la sesión de B ═══');
+/* P0 DE AISLAMIENTO. Si un conflicto pendiente sobreviviera al cambio de cuenta, el
+   diálogo le ofrecería a B «mantener mis cambios» sobre un documento de A — y
+   «mantener» ESCRIBE. Lo que lo impide es que entrar y salir RECARGAN la página, así
+   que `conflictos` y las versiones leídas mueren con ella; aquí se afirma, porque
+   depender de eso sin comprobarlo es depender de un comentario. */
+{
+  const C = await dispositivo('otro@ejemplo.com');
+  d.siembra(C.uid, 'trades/t9', OP('t9', 'de C'));
+  await C.p.evaluate(() => window.dispatchEvent(new Event('online'))); await quieto(C.p, 60, 2500);
+  /* Otro dispositivo de C escribe: la versión que esta pestaña tiene queda vieja. */
+  d.escribeOtro(C.uid, 'trades/t9', Object.assign({}, OP('t9', 'cambiado por otro'), { id: 't9' }));
+  await C.p.evaluate(() => FUT.updateTrade('t9', { notes: 'C escribe y choca' }));
+  await quieto(C.p, 60, 2500); await C.p.waitForTimeout(900);
+  ok(/CONFLICTO/.test(await rotulo(C.p)), 'C tiene un conflicto pendiente', await rotulo(C.p));
+  await C.p.keyboard.press('Escape'); await quieto(C.p, 60, 1500);
+
+  /* Salir y entrar como otra persona en la MISMA pestaña. */
+  await C.p.click('#cuentaBtn'); await quieto(C.p, 60, 2000);
+  const recarga = C.p.waitForEvent('load', { timeout: 15000 }).catch(() => null);
+  await C.p.click('#auSalir');
+  await recarga;
+  await C.p.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
+  await quieto(C.p, 60, 3000);
+  ok(!/CONFLICTO/.test(await rotulo(C.p)),
+     'al salir, el conflicto NO sigue colgado del rótulo', await rotulo(C.p));
+  ok(await C.p.evaluate(() => !document.getElementById('ov').classList.contains('open')),
+     'y no queda ningún diálogo abierto ofreciendo escribir el dato de otro');
+  /* Y el documento de C en la base sigue siendo el que escribió el otro dispositivo:
+     nada de la sesión que se cerró llegó a escribirse. */
+  ok(fila(C.uid, 'trades/t9').data.notes === 'cambiado por otro',
+     'el documento de C queda como estaba: la sesión cerrada no escribió nada',
+     fila(C.uid, 'trades/t9').data.notes);
+  await C.ctx.close();
+}
+
+console.log('\n═══ 11 · ningún error de página ═══');
 ok(errs.length === 0, 'sin errores de JavaScript', errs.join(' | ') || 'ninguno');
 
 await nav.close(); srv.close();

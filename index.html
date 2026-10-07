@@ -155,6 +155,10 @@
   /* No es un matiz: es lo unico que distingue una cabina que guardo de una que
      no pudo. Peso y color de error, y en la barra, que se ve en las 6 pestanas. */
   .save-state.nosave { color: var(--bad); font-weight: 800; letter-spacing: .06em; }
+  /* El boton de conflicto no es un boton mas de la cabecera: mientras existe, es lo
+     unico de esta barra que hay que pulsar, y si pasa por decorado se queda sin
+     pulsar y el cambio se pierde. */
+  .conflbtn { border-color: var(--bad); color: var(--bad); font-weight: 800; }
   /* La explicacion vive en el pie, que es `--dim` porque todo lo que hay ahi es
      contexto. Esta frase no lo es. Sube a `--text`, no a rojo: el sistema de
      diseno dice que el color marca una CIFRA, no pinta un parrafo -- el rojo ya
@@ -1529,6 +1533,16 @@
     <span id="sessionPill" class="pill off"><span class="dot"></span><span id="sessionLabel">—</span></span>
     <span><span id="etTime" class="time">--:--:--</span> <span class="tz">ET · Nueva York</span></span>
     <span id="saveState" class="save-state" role="status" aria-live="polite" aria-atomic="true">guardado local</span>
+    <!-- UN BOTON DE VERDAD, NO EL ROTULO DISFRAZADO. El rotulo de al lado es una
+         region viva (`role="status"`): su trabajo es que un lector de pantalla
+         ANUNCIE los cambios de estado sin interrumpir. Al principio le puse
+         `role="button"` y `tabindex` encima cuando habia conflicto, y eso le quita
+         el `role="status"`: la region deja de anunciar nada y a cambio queda un
+         boton que aparece y desaparece. Lo cazó test/ui.mjs, que exige que el
+         estado de guardado se anuncie sin interrumpir. Lo que hay que resolver es
+         una ACCION, y una accion es un <button>: trae Enter, espacio, foco y
+         semantica sin inventar nada. -->
+    <button type="button" class="editbtn conflbtn" id="resolveConflict" hidden>Resolver conflicto</button>
     <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)">+ Rápido</button>
     <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
     <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
@@ -2539,16 +2553,12 @@
   }
   const motivoDb = e => (e && e.code) || (e && e.name) || "error";
 
-  /* El rótulo abre el diálogo cuando hay algo que resolver. Con ratón y con teclado:
-     lleva `role="button"` y `tabindex`, así que tiene que responder a Enter y a
-     espacio o sería un botón que sólo existe para quien ve y usa ratón. */
+  /* El botón abre el diálogo. No lleva manejador de teclado: un <button> ya
+     responde a Enter y a espacio, y escribirlo a mano sólo sirve para que un día
+     uno de los dos caminos se quede atrás. */
   (() => {
-    const el = $("saveState");
-    const abre = () => { if (conflictos.size) abreConflicto(null); };
-    el.addEventListener("click", abre);
-    el.addEventListener("keydown", e => {
-      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); abre(); }
-    });
+    const b = $("resolveConflict");
+    if (b) b.addEventListener("click", () => { if (conflictos.size) abreConflicto(null); });
   })();
 
   /* ═══════════════ EL DIÁLOGO DE CONFLICTO ═══════════════
@@ -2930,6 +2940,16 @@
   }
   function setStoreLabel() {
     const el = $("saveState"), f = $("footerStore");
+    /* EL BOTON, ANTES DE TODAS LAS RAMAS. Esta funcion sale por seis `return`
+       distintos; decidir el boton dentro de cada una es como se olvida uno y queda
+       un boton de resolver conflicto en una pantalla sin conflicto. */
+    const bc = $("resolveConflict");
+    if (bc) {
+      const hay = !state.demo && conflictos.size > 0;
+      bc.hidden = !hay;
+      if (hay) bc.textContent = conflictos.size > 1
+        ? "Resolver " + conflictos.size + " conflictos" : "Resolver conflicto";
+    }
     if (state.demo) { el.textContent = "demo · sin guardar"; el.className = "save-state"; f.className = ""; f.textContent = "Modo demo: datos inventados, no se guarda nada."; return; }
     if (typeof renderBackup === "function") { try { renderBackup(); } catch (e) { } }
     /* UN CONFLICTO VA PRIMERO. Es el único estado en el que hay dos versiones de un
@@ -2939,11 +2959,9 @@
       el.textContent = "CONFLICTO · " + conflictos.size;
       el.className = "save-state nosave";
       f.className = "nosave";
-      el.setAttribute("role", "button"); el.setAttribute("tabindex", "0");
-      el.title = "Pulsa para resolver el conflicto";
       f.textContent = plu(conflictos.size, "Un documento cambió", "Varios documentos cambiaron")
         + " en otro dispositivo, así que lo que tienes aquí NO se guardó y no se va a guardar solo."
-        + " Pulsa el rótulo para ver qué cambió y decidir con qué versión te quedas.";
+        + " Pulsa «Resolver conflicto» para ver qué cambió y decidir con qué versión te quedas.";
       return;
     }
     /* Una sesión caducada es peor que un fallo suelto: TODO lo que escribas a
@@ -2971,10 +2989,6 @@
       return;
     }
     f.className = "";
-    /* Sin conflicto el rótulo no es un botón, y no puede seguir diciendo que lo es:
-       un `role="button"` que no hace nada es peor que ninguno para quien navega con
-       lector de pantalla. */
-    el.removeAttribute("role"); el.removeAttribute("tabindex"); el.removeAttribute("title");
     /* GUARDANDO: hay algo en vuelo. Corto, pero es la diferencia entre «ya está» y
        «está yendo», y el usuario que cierra la pestaña en ese segundo necesita
        verlo. */
