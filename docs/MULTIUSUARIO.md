@@ -232,6 +232,27 @@ lectura. En la app lo cubre `test/capturas.mjs` contra el doble.
 | Proyecto real, SQL | el upsert que hace el adaptador, bajo RLS: una fila por ruta, la segunda escritura reemplaza, el orden por fecha es el que espera la app, y B no puede escribir sobre la fila de A. En una transacción que se deshace |
 | **No verificado** | la app contra el proyecto real. El proxy del entorno de desarrollo devuelve **403** a `supabase.co`: desde aquí no hay túnel. La primera prueba real es la tuya (abajo) |
 
+### Fase 3 — romper a propósito, para saber si la prueba sirve
+
+Una prueba que pasa igual con la protección quitada no prueba nada. Cada protección
+nueva se desarmó, se corrió la suite que la cubre, y se deshizo el sabotaje. Las seis
+veces la suite se puso roja; el árbol quedó limpio después de cada una.
+
+| qué se rompió | quién lo cazó | qué se vio |
+|---|---|---|
+| el cliente escribe sin decir qué versión leyó (`parchea` sin `version=eq.`) | `test/conflicto.mjs` | **10 rojos**: la base acepta la escritura tardía, el texto de A desaparece y el rótulo sigue diciendo «sincronizado» |
+| el borrado no mira la versión (`borra` sin `version=eq.`) | `test/conflicto.mjs` | 1 rojo: el borrado de B se lleva la edición que A acababa de guardar |
+| la política de lectura deja de mirar `user_id` (`using (true)`) | `test/db.mjs` → `aislamiento.sql` | `B_lee_de_A=2` donde debe ser 0 |
+| la propiedad de las capturas deja de mirar la carpeta (`with check` sin la carpeta) | `test/db.mjs` → `capturas.sql` | `A_fuera_de_su_carpeta_bloqueado=false` y `B_sube_en_carpeta_de_A_bloqueado=false` |
+| la base deja que el cliente fije la versión (`coalesce(new.version, …)` en el trigger) | `test/db.mjs` → `concurrencia.sql` | `B_no_piso_a_A=false` y `cliente_no_decide_version=false`: last-write-wins otra vez, exactamente |
+| la versión de reglas anclada se ignora y manda la vigente hoy | `test/versiones.mjs` | 21 rojos: el pasado vuelve a juzgarse con las reglas de ahora |
+
+**Dos de los sabotajes del encargo no tienen dónde aplicarse**, y eso no se disimula:
+una fila mala de CSV y una operación duplicada. No hay importador de CSV ni huella de
+deduplicación en esta fase (ver «Lo que no está hecho»), así que no hay protección que
+desarmar. Inventar un sabotaje contra un código que no existe sería el peor resultado
+posible: un informe en verde sobre nada.
+
 ## Lo que tiene que hacer el dueño — y nunca por el chat
 
 Para abrir las cuentas, en este orden:
