@@ -48,6 +48,23 @@ sido peor de lo planeado. La Radiografía llegaba a publicar una esperanza de
 operaciones. Sin comisiones y sin P&L a mano las dos R son el mismo número, que es
 el caso normal. `quant.test.js`, `radiografia.mjs` y `aviso.mjs` lo vigilan.
 
+**El signo de «Comisiones $» y de «Contratos» no significa nada: son magnitudes.**
+La dirección la dice el campo de dirección, no el signo de la cantidad; y una
+comisión es un coste, nunca un cobro. Lo resuelve el motor, en un solo sitio
+(`QE.contratosDe`, y `Math.abs` sobre la comisión), y publica `contratos` y
+`comisiones` ya resueltos para que esta pestaña los lea en vez de volver a
+resolverlos. Medido con el código anterior, MNQ, 10 puntos a favor, 1 contrato:
+
+| | lo que publicaba | lo correcto |
+|---|---|---|
+| «Comisiones $» = −25 | **+$45** y **+2,25R** | −$5 y −0,25R |
+| Contratos = −3 | journal **R = 1,00** / Métricas **R = 0,33** | la misma R en las dos |
+
+El segundo caso es el que importa más de los dos: el P&L se valuaba sobre 1 contrato
+y el riesgo de esta pestaña sobre 3, así que la misma operación tenía dos R. Un valor
+que ha habido que interpretar deja su aviso (`CANTIDAD_NEGATIVA`,
+`COMISION_NEGATIVA`), que la interfaz pinta. `quant.test.js` y `test/signos.mjs`.
+
 **Una cantidad de cero no es una operación.** El motor hace `toNum(qty) || 1`, así
 que 0 contratos contaban como 1: medido, 10 puntos a favor metían $20 de ganancia
 inventada en la cuenta. El editor ya no lo guarda. La cantidad **vacía** sigue

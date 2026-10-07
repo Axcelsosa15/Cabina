@@ -28,6 +28,10 @@ test/                          pruebas de navegador (Playwright) y guardianes
 | drawdown, pérdida diaria, tope de ganancia | `QE.margenDeDrawdown` · `margenDePerdida` · `topeDeGanancia` | `equivalencia` (dorados) |
 | consistencia | `QE.evaluarConsistencia` | `equivalencia` |
 | veredicto de la cuenta (lista / aviso / bloqueada / quemada) | `evaluateAccountRules` (app) | `cuentas`, `vista` |
+| cuántos contratos es una cantidad, y cuánto es una comisión | `QE.contratosDe` y el `Math.abs` de `valuarOperacion` (motor) · las dos son **magnitudes** | `quant.test.js`, `signos` |
+| qué reglas de la firma rigen una cuenta en una fecha | `reglasDe` (app) · una sola resolución de versión y ancla | `versiones` |
+| si un documento que llega es más nuevo que el que hay | el sello `updatedAt` · `connectDb`, `attachDb`, `subscribeDay` | `sello` |
+| si un respaldo llegó entero | `bkSellos` al exportar · `bkVerifica` al importar | `integridad` |
 | edge, Sharpe, drawdown, Monte Carlo | `QE.analizarEdge` · `metricasCurva` · `simularCuenta` | `edge`, `radiografia` |
 | dónde se guarda un dato | `almacen()` con `nubeDb()` o `localDb()` | `guardado`, `primer`, `cuentas` |
 | las imágenes | bucket privado `capturas` | `capturas`, `supabase/pruebas/capturas.sql` |
@@ -82,6 +86,11 @@ No hay un `if (nube) … else …` en las puertas de escritura: `coll().set`,
   Cualquier otra URL que traiga un respaldo se pinta como caja rechazada y no se
   pide nunca.
 - Todo lo que escribe el usuario acaba en `textContent` o pasa por `esc()`.
+- Un respaldo lleva un **recuento por sección** y una **huella** del contenido
+  (FNV-1a sobre el JSON con las claves ordenadas). Detectan daño accidental
+  —truncamiento, un byte cambiado— **no manipulación**: no hay secreto, así que quien
+  edite el fichero puede recalcular la huella. No bloquean la importación; lo que no
+  cuadra sale en la vista previa con el número de lo que falta.
 - CSP en un `<meta>`: `default-src 'none'`, `connect-src` sólo el proyecto Supabase,
   `img-src` sólo `data:` y `blob:`, fuentes de Google como único recurso externo. El
   script de la app es inline, así que la CSP **no** impide que corra código inyectado;

@@ -41,7 +41,7 @@ const HOY = '2026-09-18';
 const F = new Date(HOY + 'T14:00:00Z').getTime();
 
 const CUENTA = (id, extra) => Object.assign({
-  id, firm: 'Apex', name: 'Cuenta 25K', kind: 'Evaluación',
+  id, firm: 'Firma P', name: 'Cuenta 25K', kind: 'Evaluación',
   size: 25000, dd: 1000, ddKind: 'trailing_lock', trailBase: 'intradia',
   limit: 50, total: 0, best: 0, target: 1500, status: 'activa', ledger: [],
 }, extra || {});

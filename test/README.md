@@ -22,6 +22,8 @@ npm run compuerta      # todas + la tabla de la cadena (CI)
 | `edge.mjs` | cada fórmula de Métricas / Edge contra la cuenta hecha a mano |
 | `radiografia.mjs` | la Radiografía no repite Sharpe ni caída máxima, y mide sobre el capital real |
 | `prop.mjs` | el contrato de la firma por cuenta |
+| `versiones.mjs` | el contrato de la firma **versionado**: la vigencia por fecha, y que una cuenta anclada a la v1 no cambie cuando aparece la v2 |
+| `signos.mjs` | la cantidad y la comisión son magnitudes: un menos en «Comisiones $» no suma dinero, y el journal y Métricas dan el mismo número |
 | `errores.mjs` | las cuatro categorías de error |
 | `tesis.mjs` · `inv2.mjs` | tesis por jugada · rendimiento de una inversión |
 | `rapido.mjs` | el registro rápido acaba en el mismo registro que el editor |
@@ -35,6 +37,8 @@ npm run compuerta      # todas + la tabla de la cadena (CI)
 | `cuentas.mjs` | login, sesión, token caducado, escritura con el `user_id` correcto |
 | `capturas.mjs` | subir, ver, aislar, borrar y respaldar capturas del bucket privado |
 | `importar.mjs` | la frontera de importación: nada de basura dentro, nada legítimo perdido |
+| `integridad.mjs` | los sellos del respaldo: una copia truncada o dañada no pasa por entera |
+| `sello.mjs` | un documento viejo no pisa uno nuevo, ni en la configuración ni en una ficha |
 | `seguridad.mjs` | un solo `fetch`, a la nube; clave publicable; imágenes filtradas |
 | `servida.mjs` · `humo.mjs` | la página servida por HTTP, como en Pages |
 | `lanzamiento.mjs` | lo mínimo para que alguien que no es el autor pueda usarla |
