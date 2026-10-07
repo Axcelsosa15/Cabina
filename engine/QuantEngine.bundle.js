@@ -1874,22 +1874,19 @@ function cagr(valorInicial, valorFinal, anios) {
 }
 
 /* ─── index.js ─────────────────────────────────────────────── */
-/* =========================================================================
-   QuantEngine · fachada publica
-   -------------------------------------------------------------------------
-   Capas, de abajo a arriba. Cada una solo depende de las anteriores:
-
-     kernel      Result, guardas, dinero entero, PRNG, normal inversa
-     contracts   rejilla de ticks y especificacion de cada futuro
-     trade       valuacion exacta de una operacion y dimensionamiento
-     stats       momentos, cuantiles, intervalos, bootstrap, muestra minima
-     edge        esperanza, profit factor, Kelly, SQN, rachas
-     curve       curva de capital, drawdown como maquina de estados
-     survival    Monte Carlo de supervivencia de cuenta
-     compliance  margenes de perdida diaria, drawdown y tope de ganancia
-
-   Nada de esto toca el DOM, ni el reloj, ni el azar sin semilla.
-   ========================================================================= */
+/**
+ * QuantEngine · fachada pública
+ *
+ * Esta versión añade JSDoc para tipos y funciones, documentación clara y pequeñas
+ * mejoras en patrones (constantes inmutables, validación mínima) sin cambiar
+ * la lógica de negocio ni la API pública.
+ *
+ * Notas de diseño:
+ * - Mantengo los nombres públicos en español para compatibilidad con la app.
+ * - Añadí typedefs para facilitar autocompletado en editores y generación de docs.
+ * - Las funciones auxiliares separan responsabilidades: normalizar, construir
+ *   resultado de error y de éxito.
+ */
 
 
 
@@ -1900,114 +1897,204 @@ function cagr(valorInicial, valorFinal, anios) {
 
 
 
-/* =========================================================================
-   Adaptador para Cabina
-   -------------------------------------------------------------------------
-   La app guarda las operaciones con sus propios nombres de campo. En lugar de
-   renombrar 5.000 lineas de render, la traduccion vive aqui, en un solo sitio,
-   y es lo unico que hay que revisar si el modelo de datos cambia.
-   ========================================================================= */
+/** Default options used by calcularTradeApp */
+const APP_DEFAULT_OPTIONS = Object.freeze({
+  incluirComisiones: false,
+  overrides: null,
+});
 
-function desdeTradeApp(t) {
+/**
+ * @typedef {Object} TradeAppRaw
+ * @property {string} [instrument]
+ * @property {string|number} [entry]
+ * @property {string|number} [exit]
+ * @property {string|number} [stop]
+ * @property {string|number} [target]
+ * @property {string} [direction]
+ * @property {string|number} [qty]
+ * @property {string|number} [fees]
+ * @property {string|number} [pnl]
+ */
+
+/**
+ * @typedef {Object} TradeInput
+ * @property {string|null} simbolo
+ * @property {string|null} direccion
+ * @property {number|null} entrada
+ * @property {number|null} salida
+ * @property {number|null} stop
+ * @property {number|null} objetivo
+ * @property {number} contratos
+ * @property {number} comisionExtra
+ */
+
+/**
+ * @typedef {Object} AppResult
+ * @property {number|null} pnlEff
+ * @property {number|null} rReal
+ * @property {number|null} rPlanned
+ * @property {number|null} riskUsd
+ * @property {number|undefined} ticks
+ * @property {number|undefined} eficiencia
+ * @property {boolean} multUnknown
+ * @property {string|null} calcError
+ * @property {Array<Object>} avisos
+ */
+
+/**
+ * Normaliza la entrada de la app a la forma que espera valuarOperacion.
+ *
+ * @param {TradeAppRaw} trade
+ * @returns {TradeInput}
+ */
+function asTradeInput(trade = {}) {
   return {
-    simbolo: t.instrument,
-    direccion: t.direction,
-    entrada: toNum(t.entry),
-    salida: toNum(t.exit),
-    stop: toNum(t.stop),
-    objetivo: toNum(t.target),
-    contratos: toNum(t.qty) || 1,
-    comisionExtra: toNum(t.fees) || 0,
+    simbolo: trade.instrument ?? null,
+    direccion: trade.direction ?? null,
+    entrada: toNum(trade.entry),
+    salida: toNum(trade.exit),
+    stop: toNum(trade.stop),
+    objetivo: toNum(trade.target),
+    contratos: toNum(trade.qty) || 1,
+    comisionExtra: toNum(trade.fees) || 0,
   };
 }
 
-/* Drop-in de tradeCalc: devuelve exactamente los campos derivados que los
-   renders de la app ya leen, ni uno mas. */
-function calcularTradeApp(t, opciones) {
-  const cfg = Object.assign({ incluirComisiones: false, overrides: null }, opciones || {});
-  const r = valuarOperacion(desdeTradeApp(t), cfg);
-
-  if (!isOk(r)) {
-    /* Sin contrato no hay P&L en dolares, pero R SI existe: es un cociente de
-       precios y el multiplicador se cancela. Perderlo aqui seria tirar la
-       unica medida util que queda de una operacion con simbolo desconocido.
-
-       SALVO si hay un P&L a mano: sin multiplicador no se puede pasar ese dolar
-       a R, y la R de los precios contradiria el hecho reportado (podria salir
-       positiva sobre una operacion que el broker liquido en perdida). Entre
-       inventarla y no darla, no se da. */
-    return {
-      pnlEff: toNum(t.pnl),
-      rReal: toNum(t.pnl) !== null ? null : rRealApp(t),
-      rPlanned: rPlanApp(t),
-      riskUsd: null,
-      /* Sin contrato no hay dinero, pero la CANTIDAD si se sabe, y quien la
-         necesite tiene que leerla de aqui y no resolverla otra vez. */
-      contratos: contratosDe(t.qty),
-      comisiones: null,
-      multUnknown: r.error.code === "CONTRATO_DESCONOCIDO" && !!sym(t.instrument),
-      calcError: r.error.message,
-      avisos: [],
-    };
-  }
-  const v = r.value;
-  /* Un P&L escrito a mano siempre gana sobre el calculado: es un hecho
-     reportado, no una estimacion. */
-  const manual = toNum(t.pnl);
+/**
+ * Construye el objeto que se devuelve cuando la evaluación de la operación falla.
+ * No se altera la política: si hay un P&L manual, éste se preserva como pnlEff.
+ *
+ * SIN CONTRATO NO HAY P&L EN DOLARES, PERO R SI EXISTE: es un cociente de precios
+ * y el multiplicador se cancela. Perderla aqui seria tirar la unica medida util que
+ * queda de una operacion con simbolo desconocido. SALVO si hay un P&L a mano: sin
+ * multiplicador no se puede pasar ese dolar a R, y la R de los precios
+ * contradiria el hecho reportado —podria salir positiva sobre una operacion que el
+ * broker liquido en perdida—. Entre inventarla y no darla, no se da.
+ *
+ * @param {TradeAppRaw} trade
+ * @param {Object} evaluation
+ * @returns {AppResult}
+ */
+function buildAppErrorResult(trade = {}, evaluation = {}) {
+  const errorCode = evaluation?.error?.code ?? "ERROR_DESCONOCIDO";
   return {
-    pnlEff: manual !== null ? manual : v.pnlNeto,
-    /* Y LA R LO SIGUE. La regla de arriba se aplicaba solo al P&L y se olvidaba
-       aqui, dos lineas mas abajo: la misma operacion valia -7 USD y +10 R a la
-       vez, porque la R salia de los precios apuntados. Un P&L a mano se escribe
-       JUSTO cuando el fill fue peor que el precio apuntado, asi que esa R
-       escondia el slippage y presumia de una ventaja que no existio -- en la
-       Radiografia, en el Monte Carlo y en los doce sitios que leen rReal.
-       Dividir por riesgoUSD es la MISMA formula que rBruto (el multiplicador y
-       los contratos se cancelan), solo alimentada por el hecho reportado.
+    pnlEff: toNum(trade.pnl),
+    rReal: toNum(trade.pnl) !== null ? null : rRealApp(trade),
+    rPlanned: rPlanApp(trade),
+    riskUsd: null,
+    /* Sin contrato no hay dinero, pero la CANTIDAD si se sabe, y quien la necesite
+       tiene que leerla de aqui y no resolverla otra vez. */
+    contratos: contratosDe(trade.qty),
+    comisiones: null,
+    multUnknown: errorCode === "CONTRATO_DESCONOCIDO" && !!sym(trade.instrument),
+    calcError: evaluation?.error?.message ?? "No se pudo calcular la operación.",
+    avisos: [],
+  };
+}
 
-       Y sin P&L a mano se publica rNeto, no rBruto, por el mismo motivo: pnlEff
-       YA viene neto de comisiones, asi que una R bruta describe otra operacion.
-       Medido: con 25 USD en «Comisiones $» una operacion que pierde 5 USD
-       publicaba +1,0 R; con comisiones automaticas, una que pierde 0,50 USD
-       publicaba +0,05 R. Sin comisiones rNeto y rBruto son el MISMO numero, que
-       es el caso normal: esto no mueve nada de lo que ya estaba bien. */
-    rReal: manual !== null ? (v.riesgoUSD ? roundTo(manual / v.riesgoUSD, 4) : null) : v.rNeto,
-    rPlanned: v.rPlaneado,
-    riskUsd: v.riesgoUSD,
-    /* La CANTIDAD y la COMISION ya resueltas por el motor. Se publican porque
-       la pestana Metricas/Edge las derivaba por su cuenta (`Math.abs(qty) || 1`,
-       `Math.abs(fees)`) y asi la misma operacion podia dar dos R distintas.
-       Una sola respuesta, publicada, y la interfaz la lee. */
-    contratos: v.contratos,
-    comisiones: v.comisiones,
-    ticks: v.ticks,
-    eficiencia: v.eficiencia,
+/**
+ * Construye el objeto de resultado cuando la evaluación tuvo éxito.
+ *
+ * SIN P&L A MANO SE PUBLICA rNeto, NO rBruto. `pnlEff` ya viene neto de
+ * comisiones, asi que una R bruta describe otra operacion. Medido: con 25 USD en
+ * «Comisiones $» una operacion que pierde 5 USD publicaba +1,0 R; con comisiones
+ * automaticas, una que pierde 0,50 USD publicaba +0,05 R. Sin comisiones rNeto y
+ * rBruto son el MISMO numero, que es el caso normal.
+ *
+ * @param {TradeAppRaw} trade
+ * @param {Object} evaluation
+ * @param {Object} value
+ * @param {number|null} manualPnl
+ * @returns {AppResult}
+ */
+function buildAppSuccessResult(trade = {}, evaluation = {}, value = {}, manualPnl = null) {
+  const riesgoUsd = value?.riesgoUSD ?? null;
+
+  return {
+    pnlEff: manualPnl !== null ? manualPnl : value.pnlNeto,
+    rReal: manualPnl !== null ? (riesgoUsd ? roundTo(manualPnl / riesgoUsd, 4) : null) : value.rNeto,
+    rPlanned: value.rPlaneado,
+    riskUsd: riesgoUsd,
+    /* LA CANTIDAD Y LA COMISION YA RESUELTAS POR EL MOTOR. Se publican porque la
+       pestana Metricas/Edge las derivaba por su cuenta (`Math.abs(qty) || 1`,
+       `Math.abs(fees)`) y asi la misma operacion podia dar dos R distintas. Una
+       sola respuesta, publicada, y la interfaz la lee. */
+    contratos: value.contratos,
+    comisiones: value.comisiones,
+    ticks: value.ticks,
+    eficiencia: value.eficiencia,
     multUnknown: false,
     calcError: null,
-    /* Los avisos viajan enteros, no solo su codigo: la interfaz necesita poder
-       decir QUE precio esta mal y a que valor cae en la rejilla del contrato. */
-    avisos: r.warnings.map(w => ({ code: w.code, mensaje: w.message, detalle: w.detail })),
+    avisos: (evaluation.warnings || []).map(w => ({ code: w.code, mensaje: w.message, detalle: w.detail })),
   };
 }
 
-/* R planeado sin contrato: tambien es un cociente de precios. */
-function rPlanApp(t) {
-  const e = toNum(t.entry), s = toNum(t.stop), o = toNum(t.target);
-  if (e === null || s === null || o === null) return null;
-  const riesgo = Math.abs(e - s);
-  if (!riesgo) return null;
-  return roundTo(Math.abs(o - e) / riesgo, 4);
+/**
+ * Drop-in de tradeCalc: devuelve exactamente los campos derivados que los
+ * renders de la app ya leen, ni uno más.
+ *
+ * @param {TradeAppRaw} trade
+ * @param {Object} [opciones]
+ * @returns {AppResult}
+ */
+function calcularTradeApp(trade = {}, opciones = {}) {
+  const cfg = { ...APP_DEFAULT_OPTIONS, ...(opciones ?? {}) };
+  const normalized = asTradeInput(trade);
+  const evaluation = valuarOperacion(normalized, cfg);
+
+  if (!isOk(evaluation)) {
+    return buildAppErrorResult(trade, evaluation);
+  }
+
+  const value = evaluation.value;
+  const manual = toNum(trade.pnl);
+  return buildAppSuccessResult(trade, evaluation, value, manual);
 }
 
-/* R real de una operacion aunque el simbolo sea desconocido: es un cociente
-   de precios, el multiplicador se cancela. */
-function rRealApp(t) {
-  const dir = dirOf(t.direction);
-  const e = toNum(t.entry), s = toNum(t.stop), x = toNum(t.exit);
-  if (e === null || s === null || x === null) return null;
-  const riesgo = Math.abs(e - s);
+/**
+ * R planeado sin contrato: tambien es un cociente de precios.
+ *
+ * @param {TradeAppRaw} trade
+ * @returns {number|null}
+ */
+function rPlanApp(trade = {}) {
+  const entry = toNum(trade.entry);
+  const stop = toNum(trade.stop);
+  const target = toNum(trade.target);
+
+  if (entry === null || stop === null || target === null) return null;
+  const riesgo = Math.abs(entry - stop);
   if (!riesgo) return null;
-  return roundTo(((x - e) * dir) / riesgo, 4);
+  return roundTo(Math.abs(target - entry) / riesgo, 4);
+}
+
+/**
+ * R real de una operacion aunque el simbolo sea desconocido: es un cociente
+ * de precios, el multiplicador se cancela.
+ *
+ * @param {TradeAppRaw} trade
+ * @returns {number|null}
+ */
+function rRealApp(trade = {}) {
+  const direction = dirOf(trade.direction);
+  const entry = toNum(trade.entry);
+  const stop = toNum(trade.stop);
+  const exit = toNum(trade.exit);
+
+  if (entry === null || stop === null || exit === null) return null;
+  const riesgo = Math.abs(entry - stop);
+  if (!riesgo) return null;
+  return roundTo(((exit - entry) * direction) / riesgo, 4);
+}
+
+/**
+ * Exposición pública: permite obtener la versión adaptada sin calcular nada.
+ *
+ * @param {TradeAppRaw} trade
+ * @returns {TradeInput}
+ */
+function desdeTradeApp(trade = {}) {
+  return asTradeInput(trade);
 }
 
 const QuantEngine = {
