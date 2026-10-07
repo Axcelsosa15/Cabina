@@ -4252,6 +4252,18 @@
      la tarjeta se repinta entera cada vez que entra una operación: sin esto,
      abrir el detalle de «riesgo de hoy» y registrar un trade lo cerraría. */
   const metricaAbierta = {};
+  /* Y LO MISMO PARA EL MENÚ «•••» DE LA TARJETA, por la misma razón y con el mismo
+     patrón. Su estado de abierto/cerrado vivía SÓLO en el DOM (`m.hidden`), así que
+     cualquier repintado de la lista de cuentas lo cerraba: abrías el menú, entraba
+     una operación —o cualquier cosa que repinte— y el menú se cerraba debajo del
+     dedo. Medido con un MutationObserver: el menú se abría y un repintado lo cerraba
+     unos 50 ms después, en la rama vieja y en la nueva.
+     Lo que lo hizo visible fue una prueba: `borrar` pulsa «•••» y luego «Borrar», y
+     pasaba por los pelos —ganaba la carrera al repintado por unas decenas de
+     milisegundos—. Al añadir trabajo al render (la resolución de la versión del
+     contrato), la carrera se perdió y la prueba empezó a fallar SIEMPRE. El defecto
+     no era nuevo; la prueba lo estaba tapando por suerte de reloj. */
+  let menuAbierto = null;   // id de la cuenta cuyo menú está desplegado, o null
 
   /* ═══════════════ CENTRO DE MANDO DE LA CUENTA ═══════════════
      El orden responde a las preguntas en el orden en que se hacen:
@@ -4310,8 +4322,8 @@
         ${contratoChip(a)}
       </div>
       <div class="acc-menu">
-        <button type="button" class="icon" data-act="menu" aria-haspopup="true" aria-expanded="false" title="Acciones de la cuenta">•••</button>
-        <div class="menu" hidden>
+        <button type="button" class="icon" data-act="menu" aria-haspopup="true" aria-expanded="${menuAbierto === a.id ? "true" : "false"}" title="Acciones de la cuenta">•••</button>
+        <div class="menu"${menuAbierto === a.id ? "" : " hidden"}>
           <button type="button" data-act="cfg">Editar</button>
           <button type="button" data-act="dup">Duplicar</button>
           <button type="button" data-act="arch">${estadoDe(a) === "pausada" ? "Reactivar" : "Archivar"}</button>
@@ -4540,10 +4552,20 @@
     }
     // Todo esto entra por puertas que ya existen: nada de flujos paralelos.
     if (act === "menu") {
+      /* El estado va a `menuAbierto` ADEMÁS de al DOM: el DOM es lo que se ve
+         ahora, `menuAbierto` es lo que sobrevive al siguiente repintado. Sólo uno
+         abierto a la vez, que es lo que ya hacía. */
       const m = btn.nextElementSibling, abierto = !m.hidden;
-      acctsEl.querySelectorAll(".acc-menu .menu").forEach(x => { x.hidden = true; x.previousElementSibling.setAttribute("aria-expanded", "false"); });
-      m.hidden = abierto; btn.setAttribute("aria-expanded", String(!abierto)); return;
+      cierraMenus();
+      if (!abierto) { m.hidden = false; btn.setAttribute("aria-expanded", "true"); menuAbierto = a.id; }
+      return;
     }
+    /* Una acción que SE COMPLETA cierra el menú. Sin esto, preservar el estado lo
+       dejaría abierto sobre una lista recién reconstruida —y en el caso de borrar,
+       abierto sobre una tarjeta que ya no existe—. `del` NO entra aquí: necesita
+       dos clics (armar y confirmar) y cerrarlo en el primero haría imposible el
+       segundo. */
+    if (["dup", "arch", "cfg", "journal", "playbook", "risk", "newtrade", "up", "down"].includes(act)) menuAbierto = null;
     if (act === "dup") {
       const copia = Object.assign(clone(a), { id: uid("a"), name: (a.name || "Cuenta") + " (copia)", total: 0, best: 0, ledger: [], status: "evaluacion" });
       arr.splice(i + 1, 0, copia); persistSettings(); renderAccounts();
@@ -4558,7 +4580,7 @@
     /* Antes esto hacía su propio `arr.splice`, sin limpiar el filtro ni avisar
        de las huérfanas: una segunda implementación del borrado más destructivo
        de la app. Ahora pasa por la puerta, como todo lo demás. */
-    if (act === "del") { if (!armed(btn)) return; avisaHuerfanas(FUT.deleteAccount(a.id)); return; }
+    if (act === "del") { if (!armed(btn)) return; menuAbierto = null; avisaHuerfanas(FUT.deleteAccount(a.id)); return; }
     else if (!move(arr, i, act === "up" ? -1 : 1)) return;
     persistSettings(); renderAccounts();
   });
@@ -4615,7 +4637,20 @@
   }
   $("addAcct").addEventListener("click", () => openAccountEditor(null));
   // el menú ··· se cierra al tocar fuera o con Escape
-  document.addEventListener("click", e => { if (!e.target.closest(".acc-menu")) acctsEl.querySelectorAll(".acc-menu .menu").forEach(m => { m.hidden = true; m.previousElementSibling.setAttribute("aria-expanded", "false"); }); });
+  /* Cerrar un menú toca DOS cosas —el DOM, que es lo que se ve ahora, y
+     `menuAbierto`, que es lo que sobrevive al siguiente repintado— así que pasa por
+     una sola puerta. Tenerlas separadas dejaba el estado y la pantalla diciendo
+     cosas distintas: el menú cerrado y `menuAbierto` todavía apuntando a la cuenta,
+     de modo que el repintado siguiente lo volvía a abrir solo. */
+  function cierraMenus() {
+    menuAbierto = null;
+    acctsEl.querySelectorAll(".acc-menu .menu").forEach(m => {
+      m.hidden = true; m.previousElementSibling.setAttribute("aria-expanded", "false");
+    });
+  }
+  /* Un clic del usuario fuera del menú lo cierra. Y sólo del usuario: un clic
+     sintético —el del ancla de una descarga— no es una intención de nadie. */
+  document.addEventListener("click", e => { if (e.isTrusted && !e.target.closest(".acc-menu")) cierraMenus(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape") acctsEl.querySelectorAll(".acc-menu .menu").forEach(m => { m.hidden = true; m.previousElementSibling.setAttribute("aria-expanded", "false"); }); });
 
   /* ---------- day journal ---------- */
@@ -12383,6 +12418,19 @@
   async function bkDownload(text, name) {
     const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
     const a = document.createElement("a"); a.href = url; a.download = name;
+    /* EL CLIC SINTÉTICO NO SALE DE AQUÍ. `a.click()` dispara un clic que burbujea
+       hasta `document` como cualquier otro, y allí hay manejadores que reaccionan a
+       «un clic en cualquier sitio» — el que cierra el menú «•••» de una cuenta lo
+       hace con una condición NEGATIVA (`if (!e.target.closest(".acc-menu"))`), así
+       que este ancla, que no está dentro de ningún menú, lo cerraba.
+       Medido: la migración al motor nuevo descarga un respaldo ~1,6 s después de
+       arrancar, y su descarga cerraba el menú que el usuario acababa de abrir. En
+       la suite eso era una carrera —la prueba `borrar` pulsaba «•••» y «Borrar», y
+       ganaba o perdía por decenas de milisegundos— y pasó a perderla siempre al
+       añadir trabajo al render. Una descarga no es un clic del usuario y no puede
+       parecerlo. Se corta en el ancla, así que ningún manejador de arriba lo ve,
+       ni los que existen hoy ni los que vengan. */
+    a.addEventListener("click", e => e.stopPropagation());
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
     return "descargado";

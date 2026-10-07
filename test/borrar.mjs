@@ -184,6 +184,55 @@ console.log('\n═══ borrar una cuenta arrastra sus operaciones, y se dice �
   await p.context().close();
 }
 
+console.log('\n═══ el menú «•••» sobrevive a un repintado ═══');
+{
+  /* EL DEFECTO, y por qué hacía falta una prueba explícita. El estado de abierto
+     del menú vivía SÓLO en el DOM, así que cualquier repintado de la lista de
+     cuentas lo cerraba: abrías el menú, entraba una operación, y el menú se
+     cerraba debajo del dedo.
+
+     El bloque de abajo —pulsar «•••» y luego «Borrar»— lo tocaba sin afirmarlo:
+     ganaba la carrera al repintado por unas decenas de milisegundos y pasaba. Al
+     añadir trabajo al render en la fase 1, la perdió y empezó a fallar SIEMPRE,
+     con el botón «Borrar» presente en el DOM y no visible. Medido con un
+     MutationObserver: el menú se abría y un repintado lo cerraba ~50 ms después,
+     también en la rama anterior. La suerte de reloj tapaba el defecto.
+
+     Así que aquí se afirma la propiedad, en vez de depender de llegar antes. */
+  const p = await pagina(base({}));
+  await p.click('#accts article.acct[data-id="a1"] [data-act="menu"]'); await quieto(p);
+  const abierto = () => p.evaluate(() => {
+    const c = document.querySelector('#accts article.acct[data-id="a1"]');
+    const m = c && c.querySelector('.acc-menu .menu');
+    return !!m && !m.hidden && getComputedStyle(m).display !== 'none';
+  });
+  ok(await abierto(), 'el menú se abre');
+  /* Un repintado de verdad, por la puerta de siempre: entra una operación. */
+  await p.evaluate(() => FUT.createTrade({ id: 'rp1', type: 'futuros', accountId: 'a1', date: '2026-09-17',
+    instrument: 'MNQ', direction: 'long', qty: 1, entry: 21000, stop: 20990, exit: 21010 }));
+  await quieto(p); await new Promise(r => setTimeout(r, 700));
+  ok(await abierto(), 'y sigue abierto tras repintar la tarjeta (se cerraba solo)');
+  /* Y EL DISPARADOR REAL, que es el que costó encontrar: una DESCARGA. `bkDownload`
+     crea un `<a download>` y le hace `click()`; ese clic sintético burbujeaba hasta
+     `document`, donde el cierre del menú reacciona a «un clic en cualquier sitio»
+     con una condición negativa. La migración al motor descarga un respaldo al
+     arrancar, así que cerraba el menú que el usuario acababa de abrir — y en la
+     suite decidía esta prueba por decenas de milisegundos. Una descarga no es un
+     clic del usuario. */
+  await p.evaluate(() => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['{}'], { type: 'application/json' }));
+    a.download = 'x.json'; document.body.appendChild(a); a.click(); a.remove();
+  });
+  await quieto(p); await new Promise(r => setTimeout(r, 120));
+  ok(await abierto(), 'y sobrevive a una descarga programática (la cerraba)');
+  /* Y una acción que se completa SÍ lo cierra: dejarlo abierto sobre una lista
+     reconstruida sería un menú apuntando a otra tarjeta. */
+  await p.click('#accts article.acct[data-id="a1"] [data-act="arch"]'); await quieto(p);
+  ok(!(await abierto()), 'una acción que se completa lo cierra');
+  await p.context().close();
+}
+
 console.log('\n═══ un solo borrado de cuenta, no tres ═══');
 {
   /* Había tres implementaciones: la fachada, el menú de la tarjeta y el editor.
