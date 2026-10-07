@@ -106,8 +106,17 @@ end $$;
 
 alter table storage.objects enable row level security;
 alter table storage.objects force row level security;
-revoke all on storage.objects from anon, public;
-grant select, insert, update, delete on storage.objects to authenticated;
+
+/* LOS PERMISOS DE TABLA, COMO EN EL SUPABASE REAL: allí `storage.objects` está
+   concedida a `anon` Y a `authenticated`, y lo único que separa a un usuario de
+   otro —y al anónimo de todos— son las POLÍTICAS. Es importante copiar eso y no
+   «apretar» el arnés quitándole el permiso a `anon`: con el permiso quitado, un
+   `select` como anónimo revienta con «permission denied for table objects» en vez
+   de devolver 0 filas, así que la prueba dejaría de medir la política —que es lo
+   único que protege en producción— y pasaría a medir un GRANT que en el proyecto
+   de verdad no existe. Primero lo tenía revocado y `capturas.sql` no llegaba a dar
+   veredicto: la excepción salía en la línea del conteo anónimo. */
+grant select, insert, update, delete on storage.objects to anon, authenticated;
 grant select on storage.buckets to anon, authenticated;
 /* Y el USO del esquema, que es aparte de los permisos sobre la tabla: sin esto
    `insert into storage.objects` falla con «permission denied for schema storage»
