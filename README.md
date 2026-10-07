@@ -63,6 +63,12 @@ npm run compuerta    # todas las pruebas + la tabla de la cadena (lo que corre C
 | compuerta | **19 PASS · 0 FAIL · 3 UNKNOWN** de 22 filas (las 3 son fronteras de plataforma) |
 | despliegue | GitHub Pages, sólo tras `pruebas` en verde, con comparación byte a byte |
 
+## Darle Cabina a otra persona
+
+Para que alguien entre con su cuenta y no vea tus datos (ni tú los suyos):
+[docs/COMPARTIR.md](docs/COMPARTIR.md). El aislamiento ya está hecho y probado; lo que
+queda es configuración en GitHub y en Supabase, y sólo el dueño puede hacerla.
+
 ## Lo que no está hecho
 
 - sincronización en vivo entre dispositivos (llega al volver a la pestaña). Lo que sí

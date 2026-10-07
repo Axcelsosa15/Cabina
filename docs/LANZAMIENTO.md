@@ -85,6 +85,10 @@ rama y la PR abierta. Es posible, pero es una decisión tuya y no se hace sin pe
    proxy devuelve 403. La compuerta lo marca `UNKNOWN`, y así se queda hasta que alguien
    la abra.
 3. **Cerrar o fusionar la PR #1.**
+4. **Si vas a dárselo a alguien para que entre con su cuenta**, el orden exacto de
+   pasos —fusionar, migración, URL de Supabase, política de contraseñas— está en
+   [`COMPARTIR.md`](COMPARTIR.md), con la comprobación de dos minutos para verificar
+   tú mismo que no os veis los datos.
 
 ---
 
