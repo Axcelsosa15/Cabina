@@ -104,15 +104,28 @@ convierte en `{ data: "data:image/…;base64,…" }`, que se enseña tal cual.
 ## Supabase
 
 ```
-cabina_docs (user_id uuid, path text, coll text generada, data jsonb, updated_at)
+cabina_docs (user_id uuid, path text, coll text generada, data jsonb,
+             updated_at timestamptz, version integer)
   primary key (user_id, path) · RLS forzada: cada fila sólo para su user_id
   path ~ '^[A-Za-z0-9_.~:@+-]+(/[A-Za-z0-9_.~:@+-]+)+$' · data ≤ 256 KB
+  version ≥ 1 · la pone el trigger, NUNCA el cliente
 
 storage bucket «capturas»: privado · 20 MB · png/jpeg/webp/gif
   leer / subir / borrar sólo bajo (storage.foldername(name))[1] = auth.uid()
 ```
 
-Esquema completo en `supabase/migrations/`.
+`version` sube en cada UPDATE y es lo que hace posible la escritura condicional:
+`PATCH ?path=eq.<p>&version=eq.<la que leí>` toca 1 fila o ninguna, y ninguna
+significa que otro dispositivo escribió primero. El cliente sólo puede **decir qué
+versión cree que hay**; el número lo decide `cabina_docs_sello`, así que un cliente no
+puede volver a last-write-wins ni queriendo. Ver
+[MULTIUSUARIO.md](MULTIUSUARIO.md).
+
+Esquema completo en `supabase/migrations/`. Las migraciones se pueden correr contra un
+Postgres local con `node test/db.mjs`, que usa `supabase/pruebas/arnes-local.sql` para
+crear lo mínimo que Supabase aporta (`auth.users`, `auth.uid()`, `storage.objects`) y
+aplica las migraciones **tal cual** — editarlas para que corrieran allí haría que la
+prueba dejara de probar lo que se publica.
 
 ## Respaldo
 

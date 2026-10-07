@@ -39,6 +39,8 @@ npm run compuerta      # todas + la tabla de la cadena (CI)
 | `importar.mjs` | la frontera de importación: nada de basura dentro, nada legítimo perdido |
 | `integridad.mjs` | los sellos del respaldo: una copia truncada o dañada no pasa por entera |
 | `sello.mjs` | un documento viejo no pisa uno nuevo, ni en la configuración ni en una ficha |
+| `conflicto.mjs` | dos dispositivos sobre el mismo documento: el que llega tarde no pisa y ve conflicto; el diálogo enseña las dos versiones y no elige |
+| `db.mjs` | **arranca un Postgres de verdad**, aplica las migraciones del repositorio y corre las pruebas SQL (concurrencia, aislamiento, capturas). Salta y lo dice si la máquina no tiene servidor |
 | `seguridad.mjs` | un solo `fetch`, a la nube; clave publicable; imágenes filtradas |
 | `servida.mjs` · `humo.mjs` | la página servida por HTTP, como en Pages |
 | `lanzamiento.mjs` | lo mínimo para que alguien que no es el autor pueda usarla |

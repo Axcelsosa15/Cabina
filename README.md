@@ -32,6 +32,7 @@ forzada en la tabla y en el bucket, probada contra el proyecto real. Ver
 | **Playbook, tesis, ideas** | setups con condiciones y capturas, una tesis por jugada |
 | **Registro rápido** | `NQ L +185` y guardar; lo que no se sabe se queda vacío, no se inventa |
 | **Respaldo** | JSON descargable con recuento y huella, con las capturas dentro si se quiere; importación con vista previa que dice si la copia llegó entera |
+| **Dos dispositivos** | cada documento lleva versión: el que escribe tarde ve un conflicto con las dos versiones delante, y elige. Nunca se pisa en silencio |
 
 ## Documentación
 
@@ -64,11 +65,10 @@ npm run compuerta    # todas las pruebas + la tabla de la cadena (lo que corre C
 
 ## Lo que no está hecho
 
-- sincronización en vivo entre dispositivos (llega al volver a la pestaña)
-- **resolución de conflictos entre dos dispositivos que escriben a la vez.** La base
-  recibe un upsert sin condición, así que allí gana el último que llega. Lo que sí
-  está hecho es que un documento viejo no pise uno nuevo en la pantalla
-  ([docs/MULTIUSUARIO.md](docs/MULTIUSUARIO.md))
+- sincronización en vivo entre dispositivos (llega al volver a la pestaña). Lo que sí
+  está hecho es que dos dispositivos **no se pisen**: cada documento lleva versión y
+  toda escritura va condicionada, así que el que llega tarde ve un conflicto en vez de
+  destruir el cambio del otro ([docs/MULTIUSUARIO.md](docs/MULTIUSUARIO.md))
 - capturas sin cuenta
 - importación desde bróker o CSV
 - interfaz para crear y anclar versiones del contrato de una firma: la arquitectura

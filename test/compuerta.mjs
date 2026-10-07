@@ -220,8 +220,23 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      demuestra contra el proyecto real: CI no tiene con qué, así que esa fila es
      UNKNOWN y nunca PASS. */
   dice('cuentas', 'suite', 'Con cuenta: cada uno lo suyo, y el navegador no guarda lo ajeno', 'persistencia');
+  /* DOS DISPOSITIVOS. `conflicto.mjs` conduce la app contra el doble: A escribe, B
+     intenta escribir con la versión vieja, y lo que se exige es que la base
+     CONSERVE lo de A y que B vea CONFLICTO — no que aparezca la palabra. Contra el
+     upsert sin condición de la fase 1 se pone roja. */
+  dice('conflicto', 'suite', 'Dos dispositivos: el que llega tarde no pisa, y se entera', 'persistencia');
+  /* EL ESQUEMA Y LAS POLÍTICAS, EN UN POSTGRES DE VERDAD. Esto es nuevo y conviene
+     decir exactamente qué añade y qué no. `db.mjs` arranca un Postgres local, aplica
+     LAS MIGRACIONES DEL REPOSITORIO tal cual sobre un arnés con lo mínimo de `auth`
+     y `storage`, y corre las pruebas SQL: concurrencia, aislamiento y capturas.
+     Demuestra el DDL, el trigger de la versión, el UPDATE condicional y la RLS entre
+     dos usuarios — todo eso es Postgres, y aquí es el mismo Postgres.
+     NO demuestra el proyecto real, y por eso la fila de abajo sigue siendo UNKNOWN.
+     Si la máquina no tiene servidor, `db.mjs` SALTA y sale 0: una máquina sin
+     Postgres no produce un verde falso. */
+  dice('db', 'suite', 'El esquema y las políticas, en un Postgres real local', 'base de datos');
   fila('persistencia', 'La base real aísla a los usuarios (RLS)', 'UNKNOWN',
-    'supabase/pruebas/aislamiento.sql corre contra el proyecto real, no desde CI: sin credenciales ni salida al proyecto. Última corrida y su sabotaje en docs/MULTIUSUARIO.md');
+    'supabase/pruebas/aislamiento.sql y concurrencia.sql corren contra el proyecto real, no desde CI: la política de red deniega supabase.co (403 al CONNECT, medido con curl). test/db.mjs las corre contra un Postgres LOCAL, que no es el proyecto: no demuestra que el proyecto tenga las migraciones aplicadas, ni que el auth.uid() de GoTrue se comporte como el sustituto, ni que PostgREST devuelva [] con 0 filas. Última corrida real y su sabotaje en docs/MULTIUSUARIO.md');
   /* Métricas / Edge: cada fórmula contra una cuenta hecha a mano, netas de
      comisión, y sin que una operación de inversión entre en ninguna. */
   dice('edge', 'suite', 'Las métricas de edge dan lo que da la cuenta a mano', 'index.html');

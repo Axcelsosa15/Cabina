@@ -98,31 +98,103 @@ regla real intacta. El revisor de seguridad de Supabase: **sin avisos**.
 
 ---
 
-## La frontera: dos dispositivos escribiendo a la vez
+## Dos dispositivos escribiendo a la vez: resuelto, y cómo
 
-Esto **no** está resuelto, y conviene decir exactamente dónde está el límite.
+**Antes** el adaptador escribía con un upsert **sin condición**
+(`POST … on_conflict=user_id,path` + `resolution=merge-duplicates`) y borraba con un
+`DELETE ?path=eq.<p>` a secas. La base no miraba nada antes de escribir: el último
+que llegaba ganaba, el otro cambio desaparecía, y nadie lo detectaba. Medido: A
+guarda «Setup validado», B guarda «Setup rechazado» desde la misma versión, la base
+queda con la de B y el rótulo dice **«sincronizado»**.
 
-El adaptador escribe con un `POST … on_conflict=user_id,path` y
-`resolution=merge-duplicates`: un upsert **sin condición**. No hay
-`If-Unmodified-Since` ni comprobación de `updated_at`, así que si dos dispositivos
-escriben el mismo documento sin haberse leído el uno al otro, **el último que llega
-gana en la base y el otro cambio se pierde**. Ni se detecta ni se avisa.
+**Ahora** cada documento lleva una columna `version` y toda escritura va condicionada:
 
-El sello de arriba protege **la pantalla**: lo que tienes delante no lo borra una
-lectura más vieja. No protege **la base**.
+```
+PATCH /cabina_docs?path=eq.<p>&version=eq.<la que leí>
+Prefer: return=representation
+```
 
-Hacerlo de verdad pide escritura condicional —un `PATCH` filtrado por `updated_at`
-con el conteo de filas afectadas para distinguir «no estaba» de «alguien se me
-adelantó»— y eso cambia el único camino por el que pasa todo el dinero del usuario.
-Desde este entorno el proyecto real **no es alcanzable** (el proxy devuelve 403 a
-`supabase.co`), así que ese protocolo sólo se podría probar contra el doble. Un
-camino de escritura sin verificar contra la plataforma real, para los datos de
-quien confía en ellos, es peor que la frontera documentada. Está en la lista de
-[LANZAMIENTO.md](LANZAMIENTO.md).
+PostgREST devuelve **las filas afectadas**. Cero filas significa que alguien escribió
+entre mi lectura y mi escritura, y entonces mi escritura **no ocurrió**: se levanta
+como conflicto. El borrado va igual condicionado, porque un borrado ciego es peor que
+un update perdido: no deja nada que recuperar.
 
-Lo que sí valdría la pena antes: que el doble lleve `updated_at` y que la
-importación y el guardado del día usen el mismo sello. Ninguna de las dos cosas
-requiere tocar la base.
+**La versión la pone la base**, con el trigger `cabina_docs_sello`. El cuerpo del
+PATCH lleva `data` y nada más; si el cliente pudiera mandar el número, un cliente con
+un fallo volvería a tener last-write-wins y la base no podría impedirlo. El cliente
+sólo puede **decir qué versión cree que hay**, en el WHERE.
+
+**No se usó una RPC.** Una función `security definer` salta la RLS, así que el
+aislamiento entre usuarios pasaría a depender de que la función esté bien escrita en
+vez de de la política. Un UPDATE condicional ya es atómico y no cambia quién ve qué.
+
+### Los seis estados del rótulo, de más grave a menos
+
+| | qué significa |
+|---|---|
+| **CONFLICTO · n** | otro dispositivo cambió el documento; lo de aquí NO se guardó y no se guardará solo |
+| sesión caducada | todo lo que escribas a partir de ahora se rechaza |
+| sin conexión | no hay red; lo que ves puede no estar al día |
+| SIN GUARDAR · n | una escritura falló por otra razón |
+| guardando… | hay algo en vuelo |
+| sincronizado | la base tiene lo que hay en la pantalla |
+
+CONFLICTO va primero porque es el único estado en el que existen dos versiones de un
+dato del usuario y una se pierde si no decide.
+
+**`LOCAL_CHANGES` no existe en esta app, y no se inventa.** Aquí una edición se
+escribe en cuanto se hace (con 400–500 ms de `debounce`), no se acumula en una cola
+que el usuario sincroniza a mano. El hueco del `debounce` es lo más parecido y ya
+está cubierto: el sello `updatedAt` impide que una lectura lo pise, y si la escritura
+falla el estado pasa a SIN GUARDAR.
+
+### El diálogo no elige
+
+Enseña **las dos versiones a la vez** —no detrás de un botón «ver cambios remotos»—
+y ofrece *mantener las mías* o *usar la de la cuenta*, **sin ninguna preseleccionada**.
+Se abre solo al detectar el conflicto, salvo que ya haya otro diálogo abierto (no se
+roba una edición a medias); entonces la vía de entrada es un **botón de verdad**
+(«Resolver conflicto», junto al rótulo), que sólo existe mientras haya algo que
+resolver. No es el rótulo disfrazado de botón: el rótulo es una región viva
+(`role="status"` + `aria-live="polite"`) cuyo trabajo es que un lector de pantalla
+anuncie los cambios de estado sin interrumpir, y ponerle `role="button"` encima se lo
+quita —eso se intentó primero y lo cazó `test/ui.mjs`—. Un `<button>` trae foco,
+Enter y espacio sin escribir un manejador de teclado. Cerrar el diálogo con Escape
+**no resuelve nada**: el rótulo sigue diciendo CONFLICTO y el botón sigue ahí, porque
+cerrar no es decidir.
+
+**No hay fusión automática.** Un `Object.assign` de dos versiones de una operación
+puede producir una tercera que nunca existió —la entrada de una y la salida de la
+otra— y eso es peor que perder una, porque nadie se da cuenta. Donde una fusión fuera
+demostrablemente segura para una entidad concreta se podría añadir; no en genérico.
+
+### Si la migración no está aplicada
+
+`index.html` se publica solo en cuanto la suite pasa; la migración la aplica el dueño
+**a mano**. En esa ventana la página nueva habla con una base sin columna `version`, y
+`select=data,version` daría 42703: la cabina no cargaría. Así que se detecta una vez,
+se vuelve al upsert anterior, **y el pie lo dice**: deja de prometer protección entre
+dispositivos, porque sin la columna no la hay. Al aplicar la migración vuelve solo.
+
+### Cómo se verifica, en dos niveles que no se confunden
+
+| | qué demuestra | estado |
+|---|---|---|
+| `test/db.mjs` | **Postgres 16 real, local.** Aplica las migraciones del repositorio tal cual sobre un arnés con lo mínimo de `auth` y `storage` y corre `concurrencia.sql`, `aislamiento.sql` y `capturas.sql`. Demuestra el DDL, el trigger, el UPDATE condicional y la RLS entre dos usuarios | **PASS** |
+| `test/conflicto.mjs` | la app real contra el doble: A gana, B ve conflicto, la base conserva lo de A. Contra el upsert anterior se pone roja | **PASS** |
+| el proyecto Supabase real | que el proyecto **tenga** la migración aplicada, que el `auth.uid()` de GoTrue se comporte como el sustituto, que PostgREST devuelva `[]` con 0 filas, y que el Storage aplique las políticas igual | **UNKNOWN** |
+
+El UNKNOWN no es un hueco por rellenar: desde este entorno la política de red deniega
+`supabase.co` (403 al CONNECT, medido con `curl`). Lo corre el dueño:
+`supabase/pruebas/concurrencia.sql` en el editor SQL del proyecto, con el sabotaje que
+el propio fichero describe.
+
+### Lo que sigue sin resolverse
+
+Esto detecta el conflicto; **no** hace la cabina en tiempo real. Lo que escribes se ve
+al instante y lo de otro dispositivo llega al volver a la pestaña. Y la primera
+escritura de una sesión sobre un documento que esa pestaña no ha leído cuesta **una
+ronda más** (lee para saber la versión); es el precio de no escribir a ciegas.
 
 Un arreglo que salió de aquí: borrar varias sesiones a la vez leía y borraba de
 `localStorage`. Con base, la confirmación decía
