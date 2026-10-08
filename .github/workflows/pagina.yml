@@ -32,7 +32,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           # workflow_run puede terminar después de que main ya haya avanzado.
           # Publicamos EXACTAMENTE el commit que produjo el verde de pruebas.
@@ -41,7 +41,7 @@ jobs:
       # Pages está activado (Settings → Pages → Source: GitHub Actions). Si alguien
       # lo desactivara, este paso falla en rojo: es una regresión de producción,
       # no un aviso.
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
 
       # Sólo lo que la página necesita. index.html es autosuficiente: no
       # referencia ningún archivo del repositorio, así que test/ y engine/ no
@@ -53,12 +53,12 @@ jobs:
           cp .nojekyll sitio/.nojekyll
           ls -la sitio
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: sitio
 
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
 
       # LO PUBLICADO ES LO PROBADO. El checkout anterior está fijado al head_sha
       # de la ejecución de pruebas que disparó este workflow, no al main actual.
