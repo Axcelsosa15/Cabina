@@ -87,8 +87,18 @@ Tres cosas, y la primera es la que rompe el alta si falta.
 
 ## 5 · Dale el enlace
 
-Él abre la URL → **Entrar** → **Crear cuenta** → confirma el correo → ya está dentro,
-con su cabina vacía.
+Él abre la URL y lo primero que ve es la ventana **«Entra o crea tu cuenta»** →
+**Crear cuenta** → confirma el correo → ya está dentro, con su cabina vacía.
+
+Esa ventana sale sola, una sola vez, y sólo en un navegador que no tenga nada
+guardado todavía. Antes no existía: la cabina abría en local con un botón
+«Entrar» discreto arriba, y quien recibía el enlace se ponía a apuntar
+operaciones sin crear cuenta nunca —sus datos no vivían en ninguna cuenta y
+borrar los datos del navegador los borraba—. La ventana **no es un muro**: tiene
+«Seguir sin cuenta», y es a propósito. Un muro de login sobre el paso 4 todavía
+sin hacer dejaría fuera a todo el mundo, tú incluido.
+
+Lo vigila `test/bienvenida.mjs`.
 
 La página lleva `<meta name="robots" content="noindex, nofollow">`, así que no sale en
 buscadores: sólo entra quien tenga el enlace. Para dárselo a un amigo es justo lo que

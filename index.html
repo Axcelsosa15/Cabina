@@ -1494,6 +1494,7 @@
   .au .body input { width: 100%; }
   .au .aubox { display: grid; gap: 12px; }  .au .body p { margin: 0; font-size: 13px; line-height: 1.5; }
   .au .aunota { font-family: var(--font-mono); font-size: 11px; color: var(--dim); }
+  .au .aubienv { border-left: 3px solid var(--accent); padding-left: 10px; }
   .au .aumsg { font-family: var(--font-mono); font-size: 12px; min-height: 1.3em; color: var(--muted); }
   .au .aumsg.bad { color: var(--negative); }
   .au .aumsg.good { color: var(--positive); }
@@ -2149,6 +2150,7 @@
     <header><h3 id="auTitle">Tu cuenta</h3><button type="button" class="icon" id="auClose" aria-label="Cerrar">×</button></header>
     <div class="body">
       <div id="auFuera" class="aubox">
+        <p id="auBienv" class="aubienv" hidden><b>Esta cabina es tuya.</b> Crea tu cuenta y tus operaciones serán sólo tuyas: nadie más las ve, ni quien te dio el enlace. Si prefieres probar antes, puedes seguir sin cuenta.</p>
         <p>Con cuenta, tu cabina se guarda en la nube y la abres desde cualquier dispositivo. Sólo tú la ves: ni otros usuarios ni quien tenga el enlace.</p>
         <p class="aunota">Sin cuenta, Cabina sigue funcionando como hasta ahora: todo se queda en este navegador y no se envía nada.</p>
         <div><label class="lab" for="auEmail">Email</label><input id="auEmail" type="email" autocomplete="email" spellcheck="false"></div>
@@ -2166,6 +2168,7 @@
     </div>
     <footer>
       <button type="button" class="btn ghost sm" id="auOlvide">Olvidé mi contraseña</button>
+      <button type="button" class="btn ghost sm" id="auSinCuenta" hidden>Seguir sin cuenta</button>
       <button type="button" class="btn ghost sm" id="auSubir" hidden>Subir lo de este navegador</button>
       <span class="sp"></span>
       <button type="button" class="btn" id="auCrear">Crear cuenta</button>
@@ -3032,6 +3035,14 @@
   const NUBE_URL = "https://lazniuuedlhqomfyykvf.supabase.co";
   const NUBE_CLAVE = "sb_publishable_bVnEXWKwvIAnmJ5BfIup3w_B9_7HWAf";
   const SES_KEY = "cabina-sesion:v1";
+  /* LA BIENVENIDA SE ENSEÑA UNA VEZ. Sin esta marca, quien decide seguir sin
+     cuenta vuelve a encontrarse la misma ventana en cada recarga, y eso enseña
+     a cerrarla sin leerla. Vive en el navegador porque la pregunta es «¿ya le
+     hemos preguntado a ESTA persona en ESTE dispositivo?», y eso no es un dato
+     de la cuenta: sin cuenta todavía no hay ninguna. */
+  const BIENV_KEY = "cabina:bienvenida:v1";
+  function bienvVista() { try { return !!localStorage.getItem(BIENV_KEY); } catch (e) { return true; } }
+  function bienvMarca() { try { localStorage.setItem(BIENV_KEY, "1"); } catch (e) { } }
   /* `occ`: ¿la base tiene la columna `version`, o sea, hay control de concurrencia?
      `true` mientras no se demuestre lo contrario; pasa a false si la base dice que
      la columna no existe, y el pie deja de prometer lo que no hay. */
@@ -3415,8 +3426,11 @@
     b.textContent = nube.ses ? "Cuenta" : "Entrar";
     b.title = nube.ses ? "Sesión iniciada como " + nube.ses.email : "Entra o crea una cuenta para tener tu cabina en todos tus dispositivos";
   }
-  function abreCuenta(modo, msg, tono) {
+  function abreCuenta(modo, msg, tono, bienvenida) {
     auModo = modo || (nube.ses ? "dentro" : "fuera");
+    /* Se marca al ABRIR, no al cerrar: así da igual por dónde salga —la ×, la
+       tecla Escape, el fondo, «Seguir sin cuenta»— la ventana no vuelve. */
+    bienvMarca();
     $("auFuera").hidden = auModo !== "fuera";
     $("auDentro").hidden = auModo !== "dentro";
     $("auNueva").hidden = auModo !== "nueva";
@@ -3424,7 +3438,11 @@
     $("auSalir").hidden = auModo !== "dentro";
     $("auGuardarNueva").hidden = auModo !== "nueva";
     $("auSubir").hidden = true; $("auSubir").dataset.armed = "";
-    $("auTitle").textContent = auModo === "fuera" ? "Entrar o crear cuenta" : auModo === "nueva" ? "Contraseña nueva" : "Tu cuenta";
+    const bienv = !!bienvenida && auModo === "fuera";
+    $("auBienv").hidden = !bienv;
+    $("auSinCuenta").hidden = !bienv;
+    $("auTitle").textContent = bienv ? "Entra o crea tu cuenta"
+      : auModo === "fuera" ? "Entrar o crear cuenta" : auModo === "nueva" ? "Contraseña nueva" : "Tu cuenta";
     if (auModo === "dentro") {
       $("auQuien").textContent = nube.ses ? nube.ses.email : "";
       const lc = localCuenta(), nota = $("auLocal");
@@ -3457,6 +3475,7 @@
 
   $("cuentaBtn").addEventListener("click", () => abreCuenta());
   $("auClose").addEventListener("click", cierraCuenta);
+  $("auSinCuenta").addEventListener("click", cierraCuenta);
   auOv.addEventListener("click", e => { if (e.target === auOv) cierraCuenta(); });
   auOv.addEventListener("keydown", e => {
     if (e.key === "Escape") { e.preventDefault(); cierraCuenta(); return; }
@@ -12597,6 +12616,26 @@
   if (enlace && enlace.error) abreCuenta("fuera", "El enlace no sirvió (" + enlace.error + "). Si caducó, pide otro.", "bad");
   else if (enlace && enlace.tipo === "recovery") abreCuenta("nueva");
   else if (enlace) flash("email confirmado · sesión iniciada");
+  /* PRIMER ARRANQUE: AQUÍ SE PIDE LA CUENTA. Sin esto la cabina abría en local
+     con un botón «Entrar» discreto en la cabecera, y quien recibía el enlace se
+     ponía a apuntar operaciones en el localStorage de su navegador sin crear
+     cuenta nunca: sus datos no estaban en ninguna cuenta, borrar los datos del
+     navegador los borraba, y dos personas en el mismo navegador compartían
+     montón. Se pide UNA vez y sólo cuando la pregunta tiene sentido:
+       · sin sesión — con sesión ya hay cuenta y no hay nada que preguntar;
+       · sin NADA guardado en este navegador — a quien ya tiene su cabina llena
+         no se le recibe con una ventana, se le respeta lo que ya eligió;
+       · sin haber preguntado antes (`BIENV_KEY`) — y si el navegador no deja
+         guardar, `bienvVista()` devuelve `true`: preferimos no preguntar a
+         preguntar en cada recarga sin poder recordar la respuesta;
+       · fuera del demo y fuera de los enlaces de email, que ya abren su ventana.
+     NO es un muro: «Seguir sin cuenta» deja la app exactamente como estaba, y
+     eso es a propósito — un muro de login sobre una configuración de Auth que
+     todavía no se ha verificado deja a TODO el mundo fuera, al dueño incluido. */
+  else if (!nube.ses && !state.demo && !bienvVista()) {
+    const lc = localCuenta();
+    if (!lc.n && !lc.cuentas) abreCuenta("fuera", null, null, true);
+  }
   $("riskForm").innerHTML = riskFormHtml();
   setRiskForm(riskDefaults());
   /* Si escribes tú mismo uno de los campos que vienen de la cuenta, mandas tú:
