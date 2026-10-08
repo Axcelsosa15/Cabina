@@ -22,6 +22,17 @@ function gridTicks(price, tickSize) {
   return { ticks: r, onGrid: Math.abs(t - r) <= Math.max(TOL, Math.abs(t) * TOL) };
 }
 
+/* Cuantos contratos representa el campo `cantidad`, y es la UNICA respuesta a esa
+   pregunta en todo el sistema. Vacio o cero -> 1 (documentado en METRICAS.md);
+   negativo -> su magnitud; fraccionario -> truncado, porque no existen 2,7
+   contratos. La pestana Metricas/Edge tenia su propia version de esto
+   (`Math.abs(qty) || 1`) que no coincidia con la del motor: ver el comentario
+   largo dentro de valuarOperacion. */
+export function contratosDe(cantidad) {
+  const n = toNum(cantidad);
+  return toPosInt(Math.abs(n ?? 0)) ?? 1;
+}
+
 export function dirOf(direction) {
   const d = String(direction === null || direction === undefined ? "" : direction).trim().toLowerCase();
   if (["short", "sell", "venta", "corto", "s", "-1"].includes(d)) return -1;
@@ -44,7 +55,32 @@ export function valuarOperacion(op, opciones) {
   if (!isOk(rc)) return rc;
   const c = rc.value;
 
-  const qty = toPosInt(o.contratos) ?? 1;
+  /* ── CANTIDAD Y COMISION SON MAGNITUDES, NO CANTIDADES CON SIGNO ──────────
+     La direccion la dice `direccion`, no el signo de los contratos; y una
+     comision es un COSTE, no un cobro. Sin esto el signo de esos dos campos
+     decidia dinero:
+
+       · `comisionExtra: -25` -- un menos tecleado en «Comisiones $», que es el
+         habito de cualquiera que apunte costes en negativo -- se SUMABA al P&L.
+         Medido con MNQ, 10 puntos a favor, 1 contrato: bruto 20 USD, deberia
+         quedar -5 USD con 25 de comision, y publicaba **+45 USD**. La R pasaba
+         de -0,25R a **+2,25R**: cambio de SIGNO en el unico numero del que
+         cuelgan la esperanza, el profit factor, el Monte Carlo y el colchon de
+         la cuenta. Nada lo avisaba, y el editor no valida ese campo.
+       · `contratos: -3` valia 1 contrato aqui (`toPosInt(-3)` es null) mientras
+         la pestana Metricas/Edge ya hacia `Math.abs(qty)` para el riesgo. La
+         MISMA operacion daba R = 1,00 en el journal y R = 0,33 en Metricas,
+         porque el P&L se valuaba sobre 1 contrato y el riesgo sobre 3. El
+         editor bloquea qty <= 0 desde el guardado, pero un respaldo importado y
+         cualquier operacion anterior a esa guarda entran sin pasar por ahi.
+
+     Es el mismo fallo que ya se habia corregido un campo mas alla, en el ledger
+     de la cuenta: «el importe se lee SIEMPRE como magnitud; un retiro guardado
+     como -500 sumaba 500 al balance». La definicion vive aqui, en el motor, asi
+     que la app y las dos pestanas no pueden volver a discrepar. Y no se corrige
+     en silencio: cada caso deja su aviso, que la interfaz ya pinta. */
+  const contratosCrudos = toNum(o.contratos);
+  const qty = contratosDe(o.contratos);
   const dir = dirOf(o.direccion);
   const entrada = toNum(o.entrada);
   const salida = toNum(o.salida);
@@ -56,6 +92,16 @@ export function valuarOperacion(op, opciones) {
 
   const res = Ok(null);
   const warn = (code, msg, det) => addWarn(res, code, msg, det);
+
+  /* --- signo de los campos que son magnitudes (ver arriba) --- */
+  if (contratosCrudos !== null && contratosCrudos < 0) {
+    warn("CANTIDAD_NEGATIVA", `Los contratos venian en negativo (${contratosCrudos}); se leen como ${qty}. La direccion la decide el campo de direccion, no el signo.`, { campo: "contratos", valor: contratosCrudos, usado: qty });
+  }
+  const extraCrudo = toNum(o.comisionExtra) ?? 0;
+  const extra = Math.abs(extraCrudo);
+  if (extraCrudo < 0) {
+    warn("COMISION_NEGATIVA", `La comision venia en negativo (${extraCrudo}); se descuenta ${extra}. Una comision es un coste, nunca un cobro.`, { campo: "comisionExtra", valor: extraCrudo, usado: extra });
+  }
 
   /* --- rejilla --- */
   const gE = gridTicks(entrada, c.tickSize);
@@ -97,8 +143,8 @@ export function valuarOperacion(op, opciones) {
   if (ticksRiesgo === 0) warn("RIESGO_CERO", "Entrada y stop son el mismo precio: el riesgo es cero y R no esta definido.", { entrada, stop });
 
   const brutoCents = abierta ? null : ticksResultado * tickCents * qty;
-  const comisionUnit = cfg.incluirComisiones ? (toNum(c.commissionPerContract) ?? 0) : 0;
-  const extra = toNum(o.comisionExtra) ?? 0;
+  /* La del contrato tambien como magnitud: un `overrides` puede traerla negativa. */
+  const comisionUnit = cfg.incluirComisiones ? Math.abs(toNum(c.commissionPerContract) ?? 0) : 0;
   const comisionCents = abierta ? 0 : ((toCents(comisionUnit) ?? 0) * qty + (toCents(extra) ?? 0));
   const netoCents = abierta ? null : brutoCents - comisionCents;
   const riesgoCents = ticksRiesgo === null || ticksRiesgo === 0 ? null : ticksRiesgo * tickCents * qty;

@@ -18,6 +18,29 @@ const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'in
    no implementaciones. Un guardián que falla siempre acaba ignorado, que es peor
    que no tenerlo. */
 const codigo = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/* EL CODIGO DE LA APP, SIN EL MOTOR INCRUSTADO. Lo que vigila §3 es «que la app no
+   vuelva a calcular lo que el motor ya calcula», y para eso hay que mirar la app
+   SIN el motor: dentro del motor esas cuentas son su trabajo, no una duplicacion.
+
+   QUE FALLÓ: §3 prohibia escribir el P&L a mano buscando `(exit - entry) *` en TODO
+   index.html. Un refactor del motor reformulo su R de precios como
+   `((exit - entry) * direction) / riesgo` —correcto, y dentro del motor— y el
+   guardian se puso rojo acusando a la app de duplicar una cuenta que la app no
+   hace. Estaba en verde solo porque el bundle anterior la escribia de otra forma:
+   dependia de como el motor FRASEA su propia formula, no de lo que la app hace. Un
+   guardian que se pone rojo con codigo correcto acaba desactivado, y eso es peor que
+   no tenerlo.
+
+   Se recorta con los MISMOS limites que usa §15, que es la unica definicion de
+   «esto es el motor» que hay en el repositorio. */
+const APP = (() => {
+  const A = 'const QE = (function () {';
+  const i0 = codigo.indexOf(A);
+  if (i0 < 0) return codigo;
+  const iRet = codigo.indexOf('return { QE_VERSION,', i0);
+  const iFin = iRet < 0 ? -1 : codigo.indexOf('})();', iRet);
+  return iFin < 0 ? codigo : codigo.slice(0, i0) + codigo.slice(iFin + 5);
+})();
 const fallos = [];
 const ok = (cond, etiqueta, detalle) => {
   console.log(`  ${cond ? '✅' : '❌'} ${etiqueta}${detalle != null ? '   ' + detalle : ''}`);
@@ -83,15 +106,22 @@ const AMANO = [
   ['dataset separado para Cabina', /cabinaTrades|cabinaAccounts|CabinaTrade/],
   ['dataset separado para Futuros', /futuresTrades|futuresAccounts|FuturesTrade/],
 ];
+/* EL RECORTE TIENE QUE HABER OCURRIDO. Si los marcadores del motor cambiaran, APP
+   seria el fichero entero y §3 volveria a medir el motor en silencio: seguiria en
+   verde midiendo otra cosa. Es el mismo fallo que se acaba de arreglar, asi que se
+   comprueba en vez de confiarse. Sabotaje: cambiando el marcador, rojo. */
+ok(codigo.includes('const QE = (function () {') && !APP.includes('const QE = (function () {'),
+   'el motor incrustado queda fuera de lo que mide la app',
+   `app ${APP.length} de ${codigo.length} bytes: ${codigo.length - APP.length} de motor`);
 for (const [nombre, re] of AMANO) {
   if (nombre.startsWith('suelo')) {
     /* acctAggCrudo lo usa como reserva cuando el motor no puede dar suelo (sin
        drawdown configurado), y riskThreshold igual. Fuera de esos dos, no. */
     const permitidos = cuerpoDe('acctAggCrudo') + cuerpoDe('riskThreshold');
-    const total = (codigo.match(re) || []).length;
+    const total = (APP.match(re) || []).length;
     const dentro = (permitidos.match(re) || []).length;
     ok(total === dentro, `sin ${nombre}`, `${total} usos, ${dentro} en los dos sitios permitidos`);
-  } else ok(!re.test(codigo), `sin ${nombre}`);
+  } else ok(!re.test(APP), `sin ${nombre}`);
 }
 
 console.log('\n═══ 5 · las memorias llevan en la clave todo lo que leen ═══');
@@ -318,6 +348,30 @@ for (const f of tests) {
 ok(flojos.length === 0, 'ninguna recarga ni lectura de disco con <600 ms detrás',
    flojos.length ? flojos.slice(0, 4).join(' · ') + ' — usa enDisco()' : `hay dos debounces: el día 400 ms, los ajustes 500 ms`);
 
+/* Y `quieto()` NO CUENTA COMO ESPERA PARA ESTO. Espera a que el DOM se calme, que
+   puede ser en 60 ms, mientras el debounce de los ajustes es de 500: parece una
+   espera y no lo es. La regla de arriba sólo miraba `waitForTimeout(N)` literales,
+   así que una espera escrita como `quieto(...)` se le colaba — el MISMO agujero que
+   la propia §10 documenta en su origen («busqué diferidos como `setTimeout(…,N)`
+   literales y este pasa el 400 como argumento»), una capa más arriba.
+
+   Pasó escribiendo `sello.mjs`: §8 daba `[]` sobre una cuenta que sí se había
+   guardado, y la aserción decía «lo creado no sigue ahí» sobre código correcto. */
+const quietoFlojos = [];
+for (const f of tests) {
+  const ls = lineas(f);
+  let q = -99, w = -99, wv = 0;
+  ls.forEach((l, i) => {
+    if (/\bquieto\(/.test(l)) q = i;
+    const m = [...l.matchAll(/waitForTimeout\((\d+)\)/g)];
+    if (m.length) { wv = Number(m[m.length - 1][1]); w = i; }
+    if ((/\.reload\(/.test(l) || /localStorage\.getItem/.test(l)) && i - q <= 2 && (i - w > 2 || wv < 600))
+      quietoFlojos.push(`${f}:${i + 1}`);
+  });
+}
+ok(quietoFlojos.length === 0, 'ningún `quieto()` hace de espera antes de recargar o leer disco',
+   quietoFlojos.length ? quietoFlojos.slice(0, 4).join(' · ') + ' — quieto mira el DOM, no el debounce' : 'quieto no se usa como espera de disco');
+
 console.log('\n═══ 11 · el borrado en masa pasa por una sola puerta ═══');
 /* §11 — Nadie saca una cuenta fuera de la fachada.
 
@@ -455,6 +509,37 @@ const bloques = prot.split(/\n## /).slice(1).filter(b => /^\d+ ·/.test(b));
 const sinFallo = bloques.filter(b => !/Qué falló/.test(b)).map(b => b.split('\n')[0].slice(0, 40));
 ok(sinFallo.length === 0, `los ${bloques.length} protocolos dicen qué fallo evitan`,
    sinFallo.length ? sinFallo.join(' · ') : 'todos con su fallo documentado');
+
+/* §17 — Una prueba no puede medir su propia semilla.
+
+   `addInitScript` corre en CADA navegación, también en una recarga. Una semilla
+   escrita sin condición vuelve a pisar lo que la prueba acababa de guardar, y lo
+   que se afirma después es la semilla, no el comportamiento.
+
+   Pasó escribiendo `versiones.mjs`: «las tres versiones siguen ahí» daba 2 tras
+   recargar, y la causa pareció estar en la app durante tres intentos —`normalize()`,
+   el sello, un caso aislado que pasaba en verde— cuando lo que medía era la
+   semilla. Una prueba que afirma algo falso sin fallar nunca es peor que no
+   tenerla. */
+/* SÓLO donde el peligro existe: la prueba siembra sin guarda Y RECARGA. Sembrar sin
+   condición en una prueba que nunca recarga es inocuo, y marcarlo pondría diez
+   ficheros en rojo sin un solo defecto detrás — que es la forma más rápida de que un
+   guardián se ignore. Diez pruebas lo hacen hoy y ninguna recarga; se comprobó una
+   por una antes de escribir la regla así. */
+const siembraFloja = [];
+for (const f of tests) {
+  const t = leer(join(dirTest, f), 'utf8');
+  const sinComentarios = t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  if (!/\.reload\(/.test(sinComentarios)) continue;
+  for (const m of t.matchAll(/addInitScript\(([\s\S]{0,400}?)\n?\s*\}?,?\s*(?:SEMILLA|SEM|semilla|s)\s*\)/g)) {
+    const cuerpo = m[1];
+    if (/localStorage\.setItem\(\s*['"]cabina-mnq:v1['"]/.test(cuerpo) && !/getItem\(\s*['"]cabina-mnq:v1['"]/.test(cuerpo))
+      siembraFloja.push(f);
+  }
+}
+ok(siembraFloja.length === 0, 'ninguna prueba que recargue siembra el almacén sin comprobar si ya hay algo',
+   siembraFloja.length ? [...new Set(siembraFloja)].join(' · ') + ' — addInitScript corre también en la recarga'
+     : 'las que recargan siembran con `if (!localStorage.getItem(...))`');
 
 console.log('\n──────────────────────────────────────────');
 console.log('  fallos:', fallos.length, fallos.length ? '→ ' + fallos.join(' · ') : '');

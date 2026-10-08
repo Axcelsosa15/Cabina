@@ -15,7 +15,7 @@ const PUBLICOS = [
   "roundHalfAway", "roundTo", "toCents", "fromCents", "sumCents",
   "rng", "randInt", "randNormal", "normalQuantile", "zFor", "normalCDF",
   "CONTRACTS", "rootOf", "resolveContract", "listContracts",
-  "valuarOperacion", "dimensionar", "dirOf",
+  "valuarOperacion", "dimensionar", "dirOf", "contratosDe",
   "limpiar", "momentos", "cuantil", "mediana", "forma", "ciProporcion",
   "ciMedia", "bootstrapCI", "muestraMinima", "significanciaMedia", "veredicto", "UMBRALES",
   "analizarEdge",

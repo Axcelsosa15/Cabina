@@ -2530,11 +2530,24 @@
          nueva del almacén: la lista trae sólo lo confirmado, y sin esto la
          operación rechazada desaparecía al guardar la siguiente — con el rótulo
          aún diciendo «SIN GUARDAR · 1» y sin forma de volver a intentarlo. */
+      /* Y UNA FICHA VIEJA DEL SERVIDOR NO PISA UNA MAS NUEVA EN MEMORIA. La
+         lista que llega trae lo confirmado, pero no venia ordenada en el tiempo:
+         con la cuenta, una lectura que llegaba tarde con la version anterior de
+         una operacion borraba de la pantalla la edicion que se acababa de
+         guardar. Es la misma regla del sello que ya usaba `subscribeDay` para
+         los dias y que ahora usa tambien `settings/main`: gana el `updatedAt`
+         mas alto, y empate o ausencia la deja ganar al servidor, que es lo que
+         hacia antes. */
       attachDb(db) {
         db.collection(name).onSnapshot(q => {
           if (state.demo) return;
           const pend = new Map(this.items.filter(x => sinGuardar.has(name + "/" + x.id)).map(x => [x.id, x]));
-          const llegan = q.docs.map(d => d.data()).filter(x => x && x.id).map(x => pend.get(x.id) || x);
+          const enMemoria = new Map(this.items.filter(x => x && x.id).map(x => [x.id, x]));
+          const llegan = q.docs.map(d => d.data()).filter(x => x && x.id).map(x => {
+            if (pend.has(x.id)) return pend.get(x.id);
+            const mio = enMemoria.get(x.id);
+            return mio && sello(mio) > sello(x) ? mio : x;
+          });
           const ids = new Set(llegan.map(x => x.id));
           pend.forEach((x, id) => { if (!ids.has(id)) llegan.push(x); });
           this.items = llegan; this.emit();
@@ -2559,6 +2572,78 @@
     }
     return out;
   }
+  /* ═══════════════ VERSIONES DEL CONTRATO DE UNA FIRMA ═══════════════
+
+     Las prop firms cambian sus reglas y no avisan. Hasta aquí el contrato de una
+     cuenta era UN objeto (`a.rules`): al actualizarlo, el historial entero del
+     trader quedaba juzgado con las reglas de hoy. Una operación de marzo que
+     cumplía el tope de contratos de marzo aparecía como «pasada de tamaño»
+     porque en septiembre la firma bajó el tope. Eso es reescribir el pasado.
+
+     La estructura es: FIRMA → TIPO DE CUENTA → VERSIÓN → FECHA DE VIGENCIA →
+     REGLAS. Aquí viven la VERSIÓN y la FECHA; la firma y el tipo ya son campos
+     de la cuenta (`a.firm`, `a.kind`), así que no se duplican.
+
+       a.rulesets = [{ id, version, from: "AAAA-MM-DD", rules: {...},
+                       url, notes, verifiedAt }]
+       a.rulesetId = la versión a la que ESTA cuenta está anclada
+
+     DOS REGLAS, Y LA SEGUNDA ES LA QUE IMPORTA:
+
+       1. Sin ancla, manda la versión vigente EN LA FECHA que se pregunta. Así
+          una operación de marzo se juzga con las reglas de marzo.
+       2. CON ancla, manda la anclada, siempre. Una cuenta abierta bajo la v1 NO
+          cambia cuando aparece la v2: el contrato que firmó el trader es el
+          suyo hasta que él diga otra cosa. Es lo contrario de lo que hacía el
+          modelo de un solo objeto.
+
+     COMPATIBILIDAD: una cuenta sin `rulesets` se comporta EXACTAMENTE como antes
+     —`a.rules` es el contrato— y nada hay que migrar. `a.rules` no se toca ni se
+     mueve: sigue siendo la reserva cuando ninguna versión aplica, que es el caso
+     de una cuenta anterior a esto y de una fecha anterior a la primera versión. */
+  function normRuleset(v) {
+    if (!v || typeof v !== "object") return null;
+    const id = String(v.id == null ? "" : v.id).trim();
+    /* La lista se escribe aquí y no se toma de `BK_IDS_PROHIBIDOS`, que se
+       declara mil líneas más abajo: `normalize` corre al arrancar y una
+       referencia a un `const` todavía sin inicializar tiraría la página entera.
+       `test/capa2.mjs` comprueba que las dos listas siguen diciendo lo mismo. */
+    if (!id || id === "__proto__" || id === "constructor" || id === "prototype") return null;
+    const from = String(v.from == null ? "" : v.from).trim();
+    /* Una fecha de vigencia que no es una fecha no es una fecha de vigencia: la
+       versión entra sin ella y entonces sólo sirve anclada, nunca por fecha. */
+    return { id, version: String(v.version || "").trim(), from: /^\d{4}-\d{2}-\d{2}$/.test(from) ? from : "",
+      rules: normRules(v.rules), url: String(v.url || "").trim(),
+      notes: String(v.notes || "").trim(), verifiedAt: String(v.verifiedAt || "").trim() };
+  }
+  /* Las versiones ordenadas por fecha de vigencia, de la más vieja a la más
+     nueva. Las que no traen fecha van al final y sólo se alcanzan por ancla. */
+  function rulesetsDe(a) {
+    const l = Array.isArray(a && a.rulesets) ? a.rulesets.filter(Boolean) : [];
+    return l.slice().sort((x, y) => (x.from || "9999-99-99").localeCompare(y.from || "9999-99-99") || String(x.id).localeCompare(String(y.id)));
+  }
+  /* LA ÚNICA respuesta a «¿qué reglas rigen esta cuenta en esta fecha?».
+     `origen` dice por qué, porque un límite heredado que creías propio es
+     justo el error que esto viene a quitar. */
+  function reglasDe(a, fecha) {
+    const vs = rulesetsDe(a);
+    const idAncla = a && a.rulesetId ? String(a.rulesetId) : "";
+    const ancla = idAncla ? vs.find(v => v.id === idAncla) : null;
+    if (ancla) return { rules: ancla.rules, version: ancla, origen: "anclada" };
+    /* UN ANCLA QUE NO RESUELVE NO SE CONVIERTE EN «LA QUE DIGA LA FECHA». Esa
+       caída era justo el fallo que el ancla existe para impedir: la cuenta pasaba
+       en silencio a regirse por la versión vigente hoy, que es otra vez juzgar el
+       pasado con las reglas de ahora. Se cae al contrato plano —el único dato que
+       no hay que inventar— y se DICE que el ancla se perdió, para que la tarjeta
+       pueda pedir que se arregle en vez de rellenar el hueco. */
+    if (idAncla) return { rules: (a && a.rules) || {}, version: null, origen: "ancla_perdida" };
+    const f = String(fecha || state.today || "");
+    /* La última cuya vigencia ya empezó en esa fecha. */
+    const vigentes = vs.filter(v => v.from && v.from <= f);
+    const v = vigentes.length ? vigentes[vigentes.length - 1] : null;
+    if (v) return { rules: v.rules, version: v, origen: "por_fecha" };
+    return { rules: (a && a.rules) || {}, version: null, origen: vs.length ? "sin_version_vigente" : "contrato_plano" };
+  }
   function normalize(s) {
     const out = clone(DEFAULT_SETTINGS);
     if (!s || typeof s !== "object") return out;
@@ -2570,15 +2655,47 @@
       /* El contrato de la firma. Un campo vacío NO es cero: es «no escrito», y
          se distingue con null para poder decir «sin configurar» en vez de
          «cero», que significaría «no puedes perder nada». */
-      rules: normRules(a.rules) }));
+      rules: normRules(a.rules),
+      /* Las versiones del contrato y, si la hay, la que ancla esta cuenta. Se
+         conserva el ancla aunque su versión no exista: borrarla en silencio
+         convertiría la cuenta en «la que diga la fecha», que es justo lo que el
+         ancla existe para impedir. `reglasDe` lo dice con `sin_version_vigente`. */
+      rulesets: Array.isArray(a.rulesets) ? a.rulesets.map(normRuleset).filter(Boolean) : [],
+      rulesetId: String(a.rulesetId == null ? "" : a.rulesetId).trim() }));
     if (s.customized) out.customized = true;
+    /* EL SELLO DE LA ULTIMA EDICION. `days/<fecha>` y cada ficha de coleccion ya
+       llevaban `updatedAt`, y `subscribeDay` ya lo usaba para no dejar que un
+       documento viejo pisara uno nuevo. `settings/main` no lo llevaba, asi que
+       era el unico documento de la cabina sin esa proteccion — y es el que
+       guarda TODAS las cuentas de prop firm y TODAS las reglas. Ver el
+       comentario de `connectDb`. */
+    if (Number.isFinite(Number(s.updatedAt))) out.updatedAt = Number(s.updatedAt);
     return out;
   }
+  /* El sello de un documento y el documento SIN su sello. Lo segundo existe
+     porque comparar dos configuraciones para ver si cambio algo no puede
+     depender de la hora en que se guardaron. */
+  const sello = d => Number(d && d.updatedAt) || 0;
+  function sinSello(d) { const c = clone(d); delete c.updatedAt; return c; }
   function ruleByRole(role) { return state.settings.rules.find(r => r.role === role && r.kind === "num"); }
 
   function persistSettings(quiet) {
     if (state.demo) return;
     if (!quiet) state.settings.customized = true;
+    /* SE SELLA AQUI, NO DENTRO DEL `debounce`. Entre pedir la escritura y
+       escribirla hay 500 ms, y en ese hueco puede entrar la configuracion del
+       servidor (al volver a la pestaña se recargan todas las suscripciones).
+       Con el sello puesto solo al escribir, ese documento remoto tenia el sello
+       mas nuevo, ganaba, y la edicion del usuario desaparecia de la pantalla
+       ANTES de que se guardara: la escritura que salia 500 ms despues llevaba
+       ya los valores remotos. Sellando al pedirlo, la pantalla declara que lo
+       que tiene es mas nuevo que lo que cargo, que es la verdad.
+
+       Solo si la configuracion YA cargo: antes de eso no hay nada sobre lo que
+       esta edicion sea «mas nueva», y sellarla haria que la cabina rechazara
+       para siempre la configuracion real de la cuenta. Es la misma condicion
+       que ya guarda la escritura unas lineas mas abajo. */
+    if (state.cfgConocida) state.settings.updatedAt = Date.now();
     debounce("settings", async () => {
       /* NO SE GUARDA CONFIGURACIÓN HASTA QUE LA BASE HAYA CONTESTADO. Con cuenta la
          configuración llega por red; guardar en ese hueco escribía los valores por
@@ -2617,7 +2734,38 @@
       state.cfgRemota = !!snap.exists;
       if (!snap.exists) return;
       const incoming = normalize(snap.data());
-      if (JSON.stringify(incoming) === JSON.stringify(state.settings)) return;
+      /* UN DOCUMENTO VIEJO NO PISA UNO NUEVO ────────────────────────────────
+         Esta es la unica puerta por la que entra la configuracion, y no miraba
+         la antiguedad: cualquier `settings/main` que llegara del servidor
+         reemplazaba el que estaba en memoria. Dos casos reales de perdida
+         silenciosa, los dos sobre el documento que guarda las cuentas de prop
+         firm y las reglas duras enteras:
+
+           1. Entre una edicion y su escritura hay 500 ms de `debounce`. Volver
+              a la pestaña en ese hueco recarga las suscripciones, llega el
+              documento del servidor —el de ANTES de la edicion— y se pinta
+              encima. La edicion se habia perdido, y la escritura que salia
+              despues guardaba ya lo remoto.
+           2. Con dos dispositivos, el que escribe segundo gana en la base
+              (upsert, sin condicion), pero el que lee no distinguia un
+              documento mas nuevo de uno mas viejo: una lectura que llegaba
+              tarde con contenido antiguo borraba de la pantalla lo recien
+              cambiado aqui.
+
+         Se aplica la MISMA regla que `subscribeDay` ya aplicaba a los dias
+         —gana el sello mas alto— y se compara el contenido sin el sello, porque
+         «¿cambio algo?» no puede depender de la hora a la que se guardo.
+
+         LO QUE ESTO NO ARREGLA, y esta documentado en docs/MULTIUSUARIO.md: dos
+         dispositivos escribiendo a la vez. La base no tiene escritura
+         condicional en este adaptador, asi que el ultimo que llega gana ahi.
+         Esto protege lo que hay en ESTA pantalla; no resuelve el conflicto. */
+      if (sello(incoming) && sello(incoming) < sello(state.settings)) return;
+      if (JSON.stringify(sinSello(incoming)) === JSON.stringify(sinSello(state.settings))) {
+        /* Mismo contenido: se adopta el sello mas alto y no se repinta nada. */
+        if (sello(incoming) > sello(state.settings)) state.settings.updatedAt = sello(incoming);
+        return;
+      }
       state.settings = incoming;
       if (!state.listo) return;
       const ae = document.activeElement; const typing = ae && ae.dataset && ae.dataset.f;
@@ -3732,7 +3880,7 @@
      y un porcentaje que se pinta con dos decimales, así que ninguna diferencia es
      visible; queda dicho porque es un cambio de comportamiento, no ninguno. */
   function riskEngine(a, t) {
-    const m = QE.margenDePerdida(-t.lossUsed, reglaDe(a, "maxLoss").valor);
+    const m = QE.margenDePerdida(-t.lossUsed, reglaDe(a, "maxLoss", t && t.date).valor);
     const n = NIVEL_APP[m.codigo] || { code: m.codigo, label: m.etiqueta, cls: m.clase };
     return { ok: m.aplica, max: m.max, used: m.usado, remaining: m.restante, pct: m.pct,
       code: n.code, label: n.label, cls: n.cls, locked: m.agotado };
@@ -3847,8 +3995,14 @@
      faltaba. Dos sitios para el mismo número es el bug que acabo de quitar; no
      lo voy a reintroducir con otro nombre. */
   const CUENTA_ROLES = ["maxLoss", "maxGain", "maxContracts", "maxLosses"];
-  function reglaDe(a, role) {
-    const propia = a && a.rules ? a.rules[role] : null;
+  /* El contrato que rige esta cuenta en esta fecha. Pasa por `reglasDe`, que es
+     la única que sabe de versiones y de anclas; sin versiones devuelve `a.rules`
+     y el comportamiento es el de siempre. `fecha` existe para poder preguntar
+     por un día que no es hoy: así una operación de marzo se juzga con las reglas
+     de marzo y no con las que la firma puso en septiembre. */
+  function contratoDe(a, fecha) { return reglasDe(a, fecha).rules || {}; }
+  function reglaDe(a, role, fecha) {
+    const propia = contratoDe(a, fecha)[role];
     if (propia != null && propia !== "" && Number.isFinite(Number(propia)))
       return { valor: Math.abs(Number(propia)), origen: "cuenta" };
     const r = ruleByRole(role);
@@ -3856,8 +4010,8 @@
       return { valor: Math.abs(Number(r.value)), origen: "protocolo" };
     return { valor: 0, origen: null };   // sin configurar
   }
-  function instrumentosDe(a) {
-    const propio = a && a.rules ? a.rules.instruments : null;
+  function instrumentosDe(a, fecha) {
+    const propio = contratoDe(a, fecha).instruments;
     const crudo = propio != null && String(propio).trim()
       ? { txt: String(propio), origen: "cuenta" }
       : (() => { const r = state.settings.rules.find(x => x.role === "instrument");
@@ -3866,11 +4020,16 @@
     return { lista, origen: lista.length ? crudo.origen : null };
   }
   // compatibilidad: sin cuenta, sigue siendo el protocolo del trader
-  function allowedInstruments(a) { return instrumentosDe(a).lista; }
+  function allowedInstruments(a, fecha) { return instrumentosDe(a, fecha).lista; }
   function byTimeAsc(a, b) { return String(a.time || "").localeCompare(String(b.time || "")) || (a.updatedAt || 0) - (b.updatedAt || 0); }
   /* Qué dice el día sobre las reglas. Recibe la lista ya calculada para poder
      mirarla a nivel de trader (todas las cuentas) o de una cuenta concreta. */
-  function dayRuleCheck(list, a) {
+  /* `fecha` decide QUE VERSION del contrato de la firma se aplica. Sin ella se
+     usa hoy, que es el comportamiento de siempre; con ella, un dia de marzo se
+     juzga con las reglas que regian en marzo y no con las que la firma puso en
+     septiembre. Reescribir el pasado al actualizar un contrato era la mitad del
+     problema que el versionado viene a resolver; el ancla de la cuenta es la otra. */
+  function dayRuleCheck(list, a, fecha) {
     const closed = list.filter(x => x.pnlEff != null).slice().sort(byTimeAsc);
     const pnl = closed.reduce((s, x) => s + x.pnlEff, 0);
     let streak = 0;
@@ -3878,11 +4037,11 @@
     /* Con cuenta manda su contrato; sin cuenta se mide el protocolo del trader,
        que es lo único que se puede decir con verdad. `origen` viaja con cada
        número para poder enseñar de dónde sale sin volver a buscarlo. */
-    const ins = instrumentosDe(a);
+    const ins = instrumentosDe(a, fecha);
     const allow = ins.lista;
     const off = allow.length ? [...new Set(list.map(x => String(x.instrument || "").toUpperCase()).filter(x => x && allow.indexOf(x) < 0))] : [];
-    const rC = reglaDe(a, "maxContracts"), rL = reglaDe(a, "maxLoss"),
-          rG = reglaDe(a, "maxGain"),      rS = reglaDe(a, "maxLosses");
+    const rC = reglaDe(a, "maxContracts", fecha), rL = reglaDe(a, "maxLoss", fecha),
+          rG = reglaDe(a, "maxGain", fecha),      rS = reglaDe(a, "maxLosses", fecha);
     const maxC = rC.valor, maxL = rL.valor, maxG = rG.valor, maxS = rS.valor;
     const over = maxC ? list.filter(x => (Number(x.qty) || 0) > maxC) : [];
     const lossUsed = Math.max(0, -pnl);
@@ -3955,7 +4114,7 @@
     const objetivo = Number(a.target) || 0;
     if (objetivo > 0) progreso.push({ k: "objetivo", lab: "Objetivo",
       v: Math.max(0, Math.min(1, g.total / objetivo)), txt: `${money(g.total)} de ${money(objetivo)}` });
-    const buffer = a.rules && a.rules.payoutBuffer ? Number(a.rules.payoutBuffer) : 0;
+    const buffer = Number(contratoDe(a).payoutBuffer) || 0;
     if (buffer > 0) progreso.push({ k: "payout", lab: "Colchón para cobrar",
       v: Math.max(0, Math.min(1, (g.balance - g.size) / buffer)), txt: `${money(g.balance - g.size)} de ${money(buffer)}` });
 
@@ -3992,7 +4151,9 @@
   function evaluateAccountRules(a, todayTrades) {
     const c = consistency(a), g = c.agg;
     const t = todayTrades || acctToday(a);
-    const k = dayRuleCheck(t.list, a);
+    /* La fecha que se evalua la trae el propio paquete del dia (`acctToday`),
+       asi que el contrato que se aplica es el que regia ESE dia. */
+    const k = dayRuleCheck(t.list, a, t.date);
     const dd = ddEngine(g), ce = consEngine(c), r = riskEngine(a, t);
 
     let status = "READY", why = "", canTrade = true;
@@ -4120,12 +4281,19 @@
   }
   const DIAS_CONTRATO_VIEJO = 120;
   function contratoChip(a) {
-    const r = a.rules || {};
+    /* Se pinta la versión QUE RIGE, no la última escrita: si la cuenta está
+       anclada a la v1 y ya existe una v2, lo que gobierna esta cuenta es la v1 y
+       es lo que tiene que leerse aquí. Una versión invisible no sirve de nada. */
+    const res = reglasDe(a);
+    const v = res.version;
+    const r = v || a.rules || {};
     const url = r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">contrato</a>` : "contrato";
-    if (!r.verifiedAt) return `<span class="kind cttr" title="Nadie ha anotado cuándo se leyeron las reglas de esta firma.">${url} sin verificar</span>`;
+    const nombre = v ? (v.version || v.id) : (r.version || "");
+    const sufijo = v ? ` · ${esc(nombre)}${res.origen === "anclada" ? " (anclada)" : v.from ? " desde " + esc(dmy(v.from)) : ""}` : "";
+    if (!r.verifiedAt) return `<span class="kind cttr" title="Nadie ha anotado cuándo se leyeron las reglas de esta firma.">${url} sin verificar${sufijo}</span>`;
     const dias = Math.round((new Date(state.today + "T12:00:00Z") - new Date(r.verifiedAt + "T12:00:00Z")) / 86400000);
     const viejo = dias > DIAS_CONTRATO_VIEJO;
-    return `<span class="kind cttr ${viejo ? "warn" : ""}" title="Reglas verificadas el ${esc(r.verifiedAt)}${r.version ? " · " + esc(r.version) : ""}">${url} ${dias <= 0 ? "verificado hoy" : `hace ${plu(dias, "día", "días")}`}</span>`;
+    return `<span class="kind cttr ${viejo ? "warn" : ""}" title="Reglas verificadas el ${esc(r.verifiedAt)}${nombre ? " · " + esc(nombre) : ""}${res.origen === "anclada" ? " · esta cuenta está anclada a esta versión: una versión nueva de la firma no la cambia" : ""}">${url} ${dias <= 0 ? "verificado hoy" : `hace ${plu(dias, "día", "días")}`}${sufijo}</span>`;
   }
   function acctCard(a, i, n) {
     const c = consistency(a), ev = evaluateAccountRules(a);
@@ -5018,6 +5186,17 @@
     return { ticks: r, onGrid: Math.abs(t - r) <= Math.max(TOL, Math.abs(t) * TOL) };
   }
 
+  /* Cuantos contratos representa el campo `cantidad`, y es la UNICA respuesta a esa
+     pregunta en todo el sistema. Vacio o cero -> 1 (documentado en METRICAS.md);
+     negativo -> su magnitud; fraccionario -> truncado, porque no existen 2,7
+     contratos. La pestana Metricas/Edge tenia su propia version de esto
+     (`Math.abs(qty) || 1`) que no coincidia con la del motor: ver el comentario
+     largo dentro de valuarOperacion. */
+  function contratosDe(cantidad) {
+    const n = toNum(cantidad);
+    return toPosInt(Math.abs(n ?? 0)) ?? 1;
+  }
+
   function dirOf(direction) {
     const d = String(direction === null || direction === undefined ? "" : direction).trim().toLowerCase();
     if (["short", "sell", "venta", "corto", "s", "-1"].includes(d)) return -1;
@@ -5040,7 +5219,32 @@
     if (!isOk(rc)) return rc;
     const c = rc.value;
 
-    const qty = toPosInt(o.contratos) ?? 1;
+    /* ── CANTIDAD Y COMISION SON MAGNITUDES, NO CANTIDADES CON SIGNO ──────────
+       La direccion la dice `direccion`, no el signo de los contratos; y una
+       comision es un COSTE, no un cobro. Sin esto el signo de esos dos campos
+       decidia dinero:
+
+         · `comisionExtra: -25` -- un menos tecleado en «Comisiones $», que es el
+           habito de cualquiera que apunte costes en negativo -- se SUMABA al P&L.
+           Medido con MNQ, 10 puntos a favor, 1 contrato: bruto 20 USD, deberia
+           quedar -5 USD con 25 de comision, y publicaba **+45 USD**. La R pasaba
+           de -0,25R a **+2,25R**: cambio de SIGNO en el unico numero del que
+           cuelgan la esperanza, el profit factor, el Monte Carlo y el colchon de
+           la cuenta. Nada lo avisaba, y el editor no valida ese campo.
+         · `contratos: -3` valia 1 contrato aqui (`toPosInt(-3)` es null) mientras
+           la pestana Metricas/Edge ya hacia `Math.abs(qty)` para el riesgo. La
+           MISMA operacion daba R = 1,00 en el journal y R = 0,33 en Metricas,
+           porque el P&L se valuaba sobre 1 contrato y el riesgo sobre 3. El
+           editor bloquea qty <= 0 desde el guardado, pero un respaldo importado y
+           cualquier operacion anterior a esa guarda entran sin pasar por ahi.
+
+       Es el mismo fallo que ya se habia corregido un campo mas alla, en el ledger
+       de la cuenta: «el importe se lee SIEMPRE como magnitud; un retiro guardado
+       como -500 sumaba 500 al balance». La definicion vive aqui, en el motor, asi
+       que la app y las dos pestanas no pueden volver a discrepar. Y no se corrige
+       en silencio: cada caso deja su aviso, que la interfaz ya pinta. */
+    const contratosCrudos = toNum(o.contratos);
+    const qty = contratosDe(o.contratos);
     const dir = dirOf(o.direccion);
     const entrada = toNum(o.entrada);
     const salida = toNum(o.salida);
@@ -5052,6 +5256,16 @@
 
     const res = Ok(null);
     const warn = (code, msg, det) => addWarn(res, code, msg, det);
+
+    /* --- signo de los campos que son magnitudes (ver arriba) --- */
+    if (contratosCrudos !== null && contratosCrudos < 0) {
+      warn("CANTIDAD_NEGATIVA", `Los contratos venian en negativo (${contratosCrudos}); se leen como ${qty}. La direccion la decide el campo de direccion, no el signo.`, { campo: "contratos", valor: contratosCrudos, usado: qty });
+    }
+    const extraCrudo = toNum(o.comisionExtra) ?? 0;
+    const extra = Math.abs(extraCrudo);
+    if (extraCrudo < 0) {
+      warn("COMISION_NEGATIVA", `La comision venia en negativo (${extraCrudo}); se descuenta ${extra}. Una comision es un coste, nunca un cobro.`, { campo: "comisionExtra", valor: extraCrudo, usado: extra });
+    }
 
     /* --- rejilla --- */
     const gE = gridTicks(entrada, c.tickSize);
@@ -5093,8 +5307,8 @@
     if (ticksRiesgo === 0) warn("RIESGO_CERO", "Entrada y stop son el mismo precio: el riesgo es cero y R no esta definido.", { entrada, stop });
 
     const brutoCents = abierta ? null : ticksResultado * tickCents * qty;
-    const comisionUnit = cfg.incluirComisiones ? (toNum(c.commissionPerContract) ?? 0) : 0;
-    const extra = toNum(o.comisionExtra) ?? 0;
+    /* La del contrato tambien como magnitud: un `overrides` puede traerla negativa. */
+    const comisionUnit = cfg.incluirComisiones ? Math.abs(toNum(c.commissionPerContract) ?? 0) : 0;
     const comisionCents = abierta ? 0 : ((toCents(comisionUnit) ?? 0) * qty + (toCents(extra) ?? 0));
     const netoCents = abierta ? null : brutoCents - comisionCents;
     const riesgoCents = ticksRiesgo === null || ticksRiesgo === 0 ? null : ticksRiesgo * tickCents * qty;
@@ -6533,22 +6747,19 @@
   }
 
   /* ─── index.js ─────────────────────────────────────────────── */
-  /* =========================================================================
-     QuantEngine · fachada publica
-     -------------------------------------------------------------------------
-     Capas, de abajo a arriba. Cada una solo depende de las anteriores:
-
-       kernel      Result, guardas, dinero entero, PRNG, normal inversa
-       contracts   rejilla de ticks y especificacion de cada futuro
-       trade       valuacion exacta de una operacion y dimensionamiento
-       stats       momentos, cuantiles, intervalos, bootstrap, muestra minima
-       edge        esperanza, profit factor, Kelly, SQN, rachas
-       curve       curva de capital, drawdown como maquina de estados
-       survival    Monte Carlo de supervivencia de cuenta
-       compliance  margenes de perdida diaria, drawdown y tope de ganancia
-
-     Nada de esto toca el DOM, ni el reloj, ni el azar sin semilla.
-     ========================================================================= */
+  /**
+   * QuantEngine · fachada pública
+   *
+   * Esta versión añade JSDoc para tipos y funciones, documentación clara y pequeñas
+   * mejoras en patrones (constantes inmutables, validación mínima) sin cambiar
+   * la lógica de negocio ni la API pública.
+   *
+   * Notas de diseño:
+   * - Mantengo los nombres públicos en español para compatibilidad con la app.
+   * - Añadí typedefs para facilitar autocompletado en editores y generación de docs.
+   * - Las funciones auxiliares separan responsabilidades: normalizar, construir
+   *   resultado de error y de éxito.
+   */
 
 
 
@@ -6559,109 +6770,209 @@
 
 
 
-  /* =========================================================================
-     Adaptador para Cabina
-     -------------------------------------------------------------------------
-     La app guarda las operaciones con sus propios nombres de campo. En lugar de
-     renombrar 5.000 lineas de render, la traduccion vive aqui, en un solo sitio,
-     y es lo unico que hay que revisar si el modelo de datos cambia.
-     ========================================================================= */
+  /** Default options used by calcularTradeApp */
+  const APP_DEFAULT_OPTIONS = Object.freeze({
+    incluirComisiones: false,
+    overrides: null,
+  });
 
-  function desdeTradeApp(t) {
+  /**
+   * @typedef {Object} TradeAppRaw
+   * @property {string} [instrument]
+   * @property {string|number} [entry]
+   * @property {string|number} [exit]
+   * @property {string|number} [stop]
+   * @property {string|number} [target]
+   * @property {string} [direction]
+   * @property {string|number} [qty]
+   * @property {string|number} [fees]
+   * @property {string|number} [pnl]
+   */
+
+  /**
+   * @typedef {Object} TradeInput
+   * @property {string|null} simbolo
+   * @property {string|null} direccion
+   * @property {number|null} entrada
+   * @property {number|null} salida
+   * @property {number|null} stop
+   * @property {number|null} objetivo
+   * @property {number} contratos
+   * @property {number} comisionExtra
+   */
+
+  /**
+   * @typedef {Object} AppResult
+   * @property {number|null} pnlEff
+   * @property {number|null} rReal
+   * @property {number|null} rPlanned
+   * @property {number|null} riskUsd
+   * @property {number|undefined} ticks
+   * @property {number|undefined} eficiencia
+   * @property {boolean} multUnknown
+   * @property {string|null} calcError
+   * @property {Array<Object>} avisos
+   */
+
+  /**
+   * Normaliza la entrada de la app a la forma que espera valuarOperacion.
+   *
+   * @param {TradeAppRaw} trade
+   * @returns {TradeInput}
+   */
+  function asTradeInput(trade = {}) {
     return {
-      simbolo: t.instrument,
-      direccion: t.direction,
-      entrada: toNum(t.entry),
-      salida: toNum(t.exit),
-      stop: toNum(t.stop),
-      objetivo: toNum(t.target),
-      contratos: toNum(t.qty) || 1,
-      comisionExtra: toNum(t.fees) || 0,
+      simbolo: trade.instrument ?? null,
+      direccion: trade.direction ?? null,
+      entrada: toNum(trade.entry),
+      salida: toNum(trade.exit),
+      stop: toNum(trade.stop),
+      objetivo: toNum(trade.target),
+      contratos: toNum(trade.qty) || 1,
+      comisionExtra: toNum(trade.fees) || 0,
     };
   }
 
-  /* Drop-in de tradeCalc: devuelve exactamente los campos derivados que los
-     renders de la app ya leen, ni uno mas. */
-  function calcularTradeApp(t, opciones) {
-    const cfg = Object.assign({ incluirComisiones: false, overrides: null }, opciones || {});
-    const r = valuarOperacion(desdeTradeApp(t), cfg);
-
-    if (!isOk(r)) {
-      /* Sin contrato no hay P&L en dolares, pero R SI existe: es un cociente de
-         precios y el multiplicador se cancela. Perderlo aqui seria tirar la
-         unica medida util que queda de una operacion con simbolo desconocido.
-
-         SALVO si hay un P&L a mano: sin multiplicador no se puede pasar ese dolar
-         a R, y la R de los precios contradiria el hecho reportado (podria salir
-         positiva sobre una operacion que el broker liquido en perdida). Entre
-         inventarla y no darla, no se da. */
-      return {
-        pnlEff: toNum(t.pnl),
-        rReal: toNum(t.pnl) !== null ? null : rRealApp(t),
-        rPlanned: rPlanApp(t),
-        riskUsd: null,
-        multUnknown: r.error.code === "CONTRATO_DESCONOCIDO" && !!sym(t.instrument),
-        calcError: r.error.message,
-        avisos: [],
-      };
-    }
-    const v = r.value;
-    /* Un P&L escrito a mano siempre gana sobre el calculado: es un hecho
-       reportado, no una estimacion. */
-    const manual = toNum(t.pnl);
+  /**
+   * Construye el objeto que se devuelve cuando la evaluación de la operación falla.
+   * No se altera la política: si hay un P&L manual, éste se preserva como pnlEff.
+   *
+   * SIN CONTRATO NO HAY P&L EN DOLARES, PERO R SI EXISTE: es un cociente de precios
+   * y el multiplicador se cancela. Perderla aqui seria tirar la unica medida util que
+   * queda de una operacion con simbolo desconocido. SALVO si hay un P&L a mano: sin
+   * multiplicador no se puede pasar ese dolar a R, y la R de los precios
+   * contradiria el hecho reportado —podria salir positiva sobre una operacion que el
+   * broker liquido en perdida—. Entre inventarla y no darla, no se da.
+   *
+   * @param {TradeAppRaw} trade
+   * @param {Object} evaluation
+   * @returns {AppResult}
+   */
+  function buildAppErrorResult(trade = {}, evaluation = {}) {
+    const errorCode = evaluation?.error?.code ?? "ERROR_DESCONOCIDO";
     return {
-      pnlEff: manual !== null ? manual : v.pnlNeto,
-      /* Y LA R LO SIGUE. La regla de arriba se aplicaba solo al P&L y se olvidaba
-         aqui, dos lineas mas abajo: la misma operacion valia -7 USD y +10 R a la
-         vez, porque la R salia de los precios apuntados. Un P&L a mano se escribe
-         JUSTO cuando el fill fue peor que el precio apuntado, asi que esa R
-         escondia el slippage y presumia de una ventaja que no existio -- en la
-         Radiografia, en el Monte Carlo y en los doce sitios que leen rReal.
-         Dividir por riesgoUSD es la MISMA formula que rBruto (el multiplicador y
-         los contratos se cancelan), solo alimentada por el hecho reportado.
+      pnlEff: toNum(trade.pnl),
+      rReal: toNum(trade.pnl) !== null ? null : rRealApp(trade),
+      rPlanned: rPlanApp(trade),
+      riskUsd: null,
+      /* Sin contrato no hay dinero, pero la CANTIDAD si se sabe, y quien la necesite
+         tiene que leerla de aqui y no resolverla otra vez. */
+      contratos: contratosDe(trade.qty),
+      comisiones: null,
+      multUnknown: errorCode === "CONTRATO_DESCONOCIDO" && !!sym(trade.instrument),
+      calcError: evaluation?.error?.message ?? "No se pudo calcular la operación.",
+      avisos: [],
+    };
+  }
 
-         Y sin P&L a mano se publica rNeto, no rBruto, por el mismo motivo: pnlEff
-         YA viene neto de comisiones, asi que una R bruta describe otra operacion.
-         Medido: con 25 USD en «Comisiones $» una operacion que pierde 5 USD
-         publicaba +1,0 R; con comisiones automaticas, una que pierde 0,50 USD
-         publicaba +0,05 R. Sin comisiones rNeto y rBruto son el MISMO numero, que
-         es el caso normal: esto no mueve nada de lo que ya estaba bien. */
-      rReal: manual !== null ? (v.riesgoUSD ? roundTo(manual / v.riesgoUSD, 4) : null) : v.rNeto,
-      rPlanned: v.rPlaneado,
-      riskUsd: v.riesgoUSD,
-      ticks: v.ticks,
-      eficiencia: v.eficiencia,
+  /**
+   * Construye el objeto de resultado cuando la evaluación tuvo éxito.
+   *
+   * SIN P&L A MANO SE PUBLICA rNeto, NO rBruto. `pnlEff` ya viene neto de
+   * comisiones, asi que una R bruta describe otra operacion. Medido: con 25 USD en
+   * «Comisiones $» una operacion que pierde 5 USD publicaba +1,0 R; con comisiones
+   * automaticas, una que pierde 0,50 USD publicaba +0,05 R. Sin comisiones rNeto y
+   * rBruto son el MISMO numero, que es el caso normal.
+   *
+   * @param {TradeAppRaw} trade
+   * @param {Object} evaluation
+   * @param {Object} value
+   * @param {number|null} manualPnl
+   * @returns {AppResult}
+   */
+  function buildAppSuccessResult(trade = {}, evaluation = {}, value = {}, manualPnl = null) {
+    const riesgoUsd = value?.riesgoUSD ?? null;
+
+    return {
+      pnlEff: manualPnl !== null ? manualPnl : value.pnlNeto,
+      rReal: manualPnl !== null ? (riesgoUsd ? roundTo(manualPnl / riesgoUsd, 4) : null) : value.rNeto,
+      rPlanned: value.rPlaneado,
+      riskUsd: riesgoUsd,
+      /* LA CANTIDAD Y LA COMISION YA RESUELTAS POR EL MOTOR. Se publican porque la
+         pestana Metricas/Edge las derivaba por su cuenta (`Math.abs(qty) || 1`,
+         `Math.abs(fees)`) y asi la misma operacion podia dar dos R distintas. Una
+         sola respuesta, publicada, y la interfaz la lee. */
+      contratos: value.contratos,
+      comisiones: value.comisiones,
+      ticks: value.ticks,
+      eficiencia: value.eficiencia,
       multUnknown: false,
       calcError: null,
-      /* Los avisos viajan enteros, no solo su codigo: la interfaz necesita poder
-         decir QUE precio esta mal y a que valor cae en la rejilla del contrato. */
-      avisos: r.warnings.map(w => ({ code: w.code, mensaje: w.message, detalle: w.detail })),
+      avisos: (evaluation.warnings || []).map(w => ({ code: w.code, mensaje: w.message, detalle: w.detail })),
     };
   }
 
-  /* R planeado sin contrato: tambien es un cociente de precios. */
-  function rPlanApp(t) {
-    const e = toNum(t.entry), s = toNum(t.stop), o = toNum(t.target);
-    if (e === null || s === null || o === null) return null;
-    const riesgo = Math.abs(e - s);
-    if (!riesgo) return null;
-    return roundTo(Math.abs(o - e) / riesgo, 4);
+  /**
+   * Drop-in de tradeCalc: devuelve exactamente los campos derivados que los
+   * renders de la app ya leen, ni uno más.
+   *
+   * @param {TradeAppRaw} trade
+   * @param {Object} [opciones]
+   * @returns {AppResult}
+   */
+  function calcularTradeApp(trade = {}, opciones = {}) {
+    const cfg = { ...APP_DEFAULT_OPTIONS, ...(opciones ?? {}) };
+    const normalized = asTradeInput(trade);
+    const evaluation = valuarOperacion(normalized, cfg);
+
+    if (!isOk(evaluation)) {
+      return buildAppErrorResult(trade, evaluation);
+    }
+
+    const value = evaluation.value;
+    const manual = toNum(trade.pnl);
+    return buildAppSuccessResult(trade, evaluation, value, manual);
   }
 
-  /* R real de una operacion aunque el simbolo sea desconocido: es un cociente
-     de precios, el multiplicador se cancela. */
-  function rRealApp(t) {
-    const dir = dirOf(t.direction);
-    const e = toNum(t.entry), s = toNum(t.stop), x = toNum(t.exit);
-    if (e === null || s === null || x === null) return null;
-    const riesgo = Math.abs(e - s);
+  /**
+   * R planeado sin contrato: tambien es un cociente de precios.
+   *
+   * @param {TradeAppRaw} trade
+   * @returns {number|null}
+   */
+  function rPlanApp(trade = {}) {
+    const entry = toNum(trade.entry);
+    const stop = toNum(trade.stop);
+    const target = toNum(trade.target);
+
+    if (entry === null || stop === null || target === null) return null;
+    const riesgo = Math.abs(entry - stop);
     if (!riesgo) return null;
-    return roundTo(((x - e) * dir) / riesgo, 4);
+    return roundTo(Math.abs(target - entry) / riesgo, 4);
+  }
+
+  /**
+   * R real de una operacion aunque el simbolo sea desconocido: es un cociente
+   * de precios, el multiplicador se cancela.
+   *
+   * @param {TradeAppRaw} trade
+   * @returns {number|null}
+   */
+  function rRealApp(trade = {}) {
+    const direction = dirOf(trade.direction);
+    const entry = toNum(trade.entry);
+    const stop = toNum(trade.stop);
+    const exit = toNum(trade.exit);
+
+    if (entry === null || stop === null || exit === null) return null;
+    const riesgo = Math.abs(entry - stop);
+    if (!riesgo) return null;
+    return roundTo(((exit - entry) * direction) / riesgo, 4);
+  }
+
+  /**
+   * Exposición pública: permite obtener la versión adaptada sin calcular nada.
+   *
+   * @param {TradeAppRaw} trade
+   * @returns {TradeInput}
+   */
+  function desdeTradeApp(trade = {}) {
+    return asTradeInput(trade);
   }
 
   const QuantEngine = {
     /* contratos */ CONTRACTS, resolveContract, rootOf,
-    /* operacion */ valuarOperacion, dirOf,
+    /* operacion */ valuarOperacion, dirOf, contratosDe,
     /* ventaja   */ analizarEdge,
     /* curva     */ construirCurva, metricasCurva, evaluarConsistencia, DD_TIPOS,
     /* riesgo    */ simularCuenta, barridoDeRiesgo, simularParametrico, probabilidadDeRacha,
@@ -6670,7 +6981,7 @@
     /* app       */ calcularTradeApp, rRealApp, rPlanApp, desdeTradeApp,
   };
 
-  return { QE_VERSION, Ok, Err, isOk, addWarn, unwrapOr, allOk, isFiniteNum, toNum, toInt, toPosInt, clamp, sym, roundHalfAway, roundTo, toCents, fromCents, sumCents, rng, randInt, randNormal, normalQuantile, zFor, normalCDF, CONTRACTS, rootOf, resolveContract, listContracts, valuarOperacion, dimensionar, dirOf, limpiar, momentos, cuantil, mediana, forma, ciProporcion, ciMedia, bootstrapCI, muestraMinima, significanciaMedia, veredicto, UMBRALES, analizarEdge, DD_TIPOS, sueloPara, construirCurva, metricasCurva, evaluarConsistencia, RESULTADO, simularCuenta, barridoDeRiesgo, simularParametrico, probabilidadDeRacha, margenDePerdida, topeDeGanancia, margenDeDrawdown, desdeTradeApp, calcularTradeApp, rRealApp, rPlanApp, excursionDeOperacion, analizarExcursion, analizarCartera, irr, vpn, valorCapitalizado, cagr, fechaMs, aniosEntre };
+  return { QE_VERSION, Ok, Err, isOk, addWarn, unwrapOr, allOk, isFiniteNum, toNum, toInt, toPosInt, clamp, sym, roundHalfAway, roundTo, toCents, fromCents, sumCents, rng, randInt, randNormal, normalQuantile, zFor, normalCDF, CONTRACTS, rootOf, resolveContract, listContracts, valuarOperacion, dimensionar, dirOf, contratosDe, limpiar, momentos, cuantil, mediana, forma, ciProporcion, ciMedia, bootstrapCI, muestraMinima, significanciaMedia, veredicto, UMBRALES, analizarEdge, DD_TIPOS, sueloPara, construirCurva, metricasCurva, evaluarConsistencia, RESULTADO, simularCuenta, barridoDeRiesgo, simularParametrico, probabilidadDeRacha, margenDePerdida, topeDeGanancia, margenDeDrawdown, desdeTradeApp, calcularTradeApp, rRealApp, rPlanApp, excursionDeOperacion, analizarExcursion, analizarCartera, irr, vpn, valorCapitalizado, cagr, fechaMs, aniosEntre };
   })();
 
 
@@ -6793,6 +7104,37 @@
       if (state.settings.meta && state.settings.meta.acct === id) state.settings.meta.acct = "";
       persistSettings(); fanout(FANOUT_SEL);
       return { ok: true, nombre, huerfanas: huerfanas.length, suelto };
+    },
+    /* ── versiones del contrato de la firma ──
+       FIRMA → TIPO → VERSIÓN → FECHA DE VIGENCIA → REGLAS. La firma y el tipo ya
+       son campos de la cuenta; aquí viven la versión y su vigencia. `reglasDe` es
+       la única que resuelve cuál rige, y dice por qué (`anclada`, `por_fecha`,
+       `sin_version_vigente`, `contrato_plano`). */
+    rulesets(accountId) { const a = acctById(accountId); return a ? rulesetsDe(a) : []; },
+    /* Qué reglas rigen esta cuenta en esta fecha, y por qué. Sin fecha, hoy. */
+    rulesetFor(accountId, date) {
+      const a = acctById(accountId); if (!a) return null;
+      const r = reglasDe(a, date);
+      return { rules: r.rules, origen: r.origen, pinned: !!(a.rulesetId && r.origen === "anclada"),
+               version: r.version ? { id: r.version.id, version: r.version.version, from: r.version.from } : null };
+    },
+    /* Añade una versión. NO toca ninguna cuenta ni ningún ancla: una versión
+       nueva no puede cambiar por sí sola las reglas de una cuenta ya abierta. */
+    addRuleset(accountId, v) {
+      const a = acctById(accountId); if (!a || !v) return null;
+      const n = normRuleset(Object.assign({ id: uid("rs") }, v));
+      if (!n) return null;
+      a.rulesets = (a.rulesets || []).concat([n]);
+      persistSettings(); fanout(FANOUT_SEL); return n.id;
+    },
+    /* Ancla la cuenta a una versión —el contrato que firmó el trader— o suelta el
+       ancla con `null`, y entonces manda la vigente por fecha. */
+    pinRuleset(accountId, rulesetId) {
+      const a = acctById(accountId); if (!a) return false;
+      const id = rulesetId == null ? "" : String(rulesetId);
+      if (id && !rulesetsDe(a).some(v => v.id === id)) return false;
+      a.rulesetId = id;
+      persistSettings(); fanout(FANOUT_SEL); return true;
     },
     updateRule(id, patch) {
       const r = (state.settings.rules || []).find(x => x.id === id); if (!r) return false;
@@ -7085,6 +7427,11 @@
     t.multUnknown = r.multUnknown;
     t.calcError = r.calcError;
     t.ticks = r.ticks;
+    /* La cantidad y la comisión YA RESUELTAS por el motor (magnitudes, no
+       cantidades con signo). Se cuelgan aquí para que ninguna pestaña vuelva a
+       resolverlas por su cuenta: Métricas/Edge lo hacía y no coincidía. */
+    t.contratos = r.contratos;
+    t.comisiones = r.comisiones;
     /* El motor detecta precios que el contrato no puede producir (un 21000.13 en
        MNQ, que cotiza de 0,25 en 0,25) y stops del lado equivocado. Antes se
        tiraban aquí: un dedazo en el precio de entrada corrompía P&L, R, riesgo y
@@ -7712,12 +8059,23 @@
     if (gate.some(r => !/pre-?sesi/i.test(r))) s.push("gate_disciplina");
     if (t.plan === "tarde") s.push("aguanto");
     if (t.exitWhy === "nervios") s.push("nervios");
-    const tope = reglaDe(acctById(t.accountId), "maxContracts").valor;
-    if (tope > 0 && Number(t.qty) > tope) s.push("tamano");
+    /* CON LA FECHA DE LA OPERACIÓN, no con hoy. Esta señal clasifica la pérdida
+       como categoría 3 —tamaño de más, que casi siempre es ego— y juzgarla contra
+       el contrato de HOY etiquetaría de indisciplinada una operación que cumplía
+       el tope que regía ese día. Es exactamente el historial reescrito que el
+       versionado del contrato viene a impedir, en el único sitio donde una regla
+       de la firma se aplica a una operación del pasado. */
+    const tope = reglaDe(acctById(t.accountId), "maxContracts", t.date).valor;
+    /* Y la cantidad ya resuelta por el motor, no `Number(t.qty)`: con una cantidad
+       negativa esa comparación es `-3 > 2` = false, o sea que una operación de 3
+       contratos sobre un tope de 2 se escapaba de la señal. */
+    const cts = t.contratos != null ? t.contratos : QE.contratosDe(t.qty);
+    if (tope > 0 && cts > tope) s.push("tamano");
     if (previa && previa.pnlEff != null && previa.pnlEff < 0) {
       const sal = minOfTime(previa.exitTime);
       if (m != null && sal != null && m >= sal && m - sal <= REVANCHA_MIN) s.push("revancha_tiempo");
-      if (Number(t.qty) > Number(previa.qty)) s.push("revancha_tamano");
+      const ctsPrevia = previa.contratos != null ? previa.contratos : QE.contratosDe(previa.qty);
+      if (cts > ctsPrevia) s.push("revancha_tamano");
     }
     if (ETIQUETAS_3.test(String(t.tags || ""))) s.push("etiqueta");
     return s;
@@ -8801,7 +9159,10 @@
       fields, values: Object.assign(
         { limit: 50, size: 50000, dd: 2000, ddKind: "trailing_lock", trailBase: "intradia", status: "activa", target: 3000, total: 0, best: 0 },
         a || {},
-        aplanaRules(a && a.rules)),
+        /* SE EDITA EL CONTRATO QUE RIGE, no el que está escrito más abajo. Si la
+           cuenta tiene versiones, `a.rules` ya no gobierna nada: enseñar aquí sus
+           números dejaría al usuario cambiando cifras que no tienen efecto. */
+        aplanaRules(reglasDe(a).rules)),
       validate: v => {
         if (!(v.name || v.firm)) return "Ponle al menos un nombre o una firma";
         /* La ganancia previa SÍ puede ir en rojo: es un resultado, no un tamaño.
@@ -8815,8 +9176,16 @@
       },
       onSave: v => {
         const arr = state.settings.accounts;
+        const contrato = pliegaRules(v);
         const rec = Object.assign({}, a || { id: uid("a"), ledger: [] }, v,
-          { limit: Math.min(99, Math.max(1, Number(v.limit) || 50)), rules: pliegaRules(v) });
+          { limit: Math.min(99, Math.max(1, Number(v.limit) || 50)) });
+        /* Y SE GUARDA DONDE SE LEYÓ. Con versiones, lo editado vuelve a la versión
+           que rige esta cuenta; sin versiones, a `a.rules`, como siempre. Guardar
+           siempre en `a.rules` habría hecho que la edición no cambiara nada. */
+        const rige = reglasDe(a).version;
+        if (rige) {
+          rec.rulesets = (rec.rulesets || []).map(x => x && x.id === rige.id ? Object.assign({}, x, { rules: contrato }) : x);
+        } else rec.rules = contrato;
         RULE_CAMPOS.forEach(k => { delete rec["r_" + k]; });
         const i = arr.findIndex(x => x.id === rec.id);
         if (i >= 0) arr[i] = rec; else arr.push(rec);
@@ -11343,7 +11712,21 @@
      digas que ya es neto: el motor lo usa tal cual y no le resta nada. */
   function mxNeto(t, P) {
     const bruto = mxNum(t.pnlEff); if (bruto === null) return null;
-    const qty = Math.abs(mxNum(t.qty) || 0) || 1, fees = Math.abs(mxNum(t.fees) || 0);
+    /* LA CANTIDAD LA RESUELVE EL MOTOR, no esta pestaña. Aquí había
+       `Math.abs(mxNum(t.qty) || 0) || 1`, que para una cantidad NEGATIVA no daba
+       lo mismo que el motor: con `qty: -3` el motor valuaba 1 contrato (su
+       `toPosInt(-3)` era null) y esta línea dimensionaba el riesgo sobre 3. La
+       MISMA operación salía con R = 1,00 en el journal y R = 0,33 aquí. Ahora el
+       motor lee la cantidad como magnitud y la publica ya resuelta en
+       `contratos`; esto la lee. Dos implementaciones de la misma pregunta es
+       exactamente el defecto que este repositorio persigue en los números.
+       `contratosDe` es la reserva para una operación que no pasó por tradeCalc. */
+    const qty = mxNum(t.contratos) || QE.contratosDe(t.qty);
+    /* Las comisiones también: el motor ya las descuenta como magnitud (una
+       comisión es un coste, nunca un cobro) y publica la cifra efectiva. Lo que
+       se mira aquí es sólo SI el journal ya traía una, para no descontarla dos
+       veces. */
+    const fees = Math.abs(mxNum(t.fees) || 0);
     const manual = mxNum(t.pnl) !== null;
     let desc = 0, como;
     if (manual && P.manualNeto) como = "manual";
@@ -11903,6 +12286,93 @@
   const baseDe = () => (state.nube ? "tu cuenta" : "este navegador");
   const BK_FORMAT = "cabina-backup";
   const BK_VERSION = 1;
+  /* ═══════════════ LA INTEGRIDAD DE UN RESPALDO ═══════════════
+
+     Un respaldo que llega a medias y se importa como si estuviera entero es la
+     peor forma de perder datos: el archivo existe, se confía en él, y lo que
+     falta no se descubre hasta que hace falta. Dos sellos, que contestan dos
+     preguntas distintas:
+
+       `counts`    CUÁNTOS registros había al exportar, por sección. Es el que
+                   caza una copia TRUNCADA: si el fichero declara 1.500
+                   operaciones y se leen 900, faltan 600 y se dice el número.
+       `checksum`  una huella del contenido. Caza el byte cambiado que no mueve
+                   ningún recuento.
+
+     LO QUE ESTA HUELLA NO ES: una firma. No hay secreto, así que quien edite el
+     fichero puede recalcularla; detecta DAÑO ACCIDENTAL —truncamiento,
+     codificación, un editor que reescribe— no manipulación. Se dice aquí porque
+     un sello que promete más de lo que da es peor que ninguno.
+
+     Y NO BLOQUEA. Este fichero acepta a propósito una copia editada a mano
+     («así una copia editada a mano sigue entrando», unas líneas más abajo), y un
+     respaldo viejo no trae sellos. Un sello que no cuadra sale en la VISTA PREVIA,
+     antes de teclear IMPORTAR, con el número de lo que falta. Bloquear convertiría
+     la única vía de recuperación en una puerta cerrada.
+
+     `schemaVersion` es la generación del MODELO DE DATOS, que no es lo mismo que
+     `version`, la del FORMATO del fichero. Hoy las migraciones de Cabina son
+     INFERENCIALES —`normalize()`, `migrateDay()`, `migraEstado()` miran la forma
+     del documento, no una etiqueta— y funcionan, están probadas y cubren todo lo
+     que hay guardado. Poner una etiqueta en cada documento no las quitaría: los
+     documentos que ya existen no la llevan, así que habría que inferir igual y se
+     mantendrían DOS mecanismos para siempre. Lo que sí faltaba es que una copia
+     dijera de qué generación viene, para que un lector futuro sepa qué infirió
+     quien la escribió. Eso es esto, y es todo lo que esto es.
+     Ver docs/DATA_MODEL.md. */
+  const BK_SCHEMA = 1;
+  /* FNV-1a de 32 bits sobre el JSON canónico, en hexadecimal. Sin dependencias y
+     sin `crypto.subtle`, que es asíncrono y pide contexto seguro — y esta página
+     también se abre como archivo suelto. */
+  function bkHash(txt) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < txt.length; i++) { h ^= txt.charCodeAt(i) & 0xff; h = Math.imul(h, 0x01000193) >>> 0; if (txt.charCodeAt(i) > 0xff) { h ^= txt.charCodeAt(i) >>> 8; h = Math.imul(h, 0x01000193) >>> 0; } }
+    return (h >>> 0).toString(16).padStart(8, "0");
+  }
+  /* JSON con las claves ORDENADAS, en todo el árbol. Sin esto la huella
+     dependería del orden en que el navegador recorrió un objeto, que no es una
+     propiedad del contenido. Los sellos se excluyen: una huella no puede
+     incluirse a sí misma. */
+  const BK_SELLOS = ["checksum", "counts"];
+  function bkCanon(v) {
+    if (Array.isArray(v)) return "[" + v.map(bkCanon).join(",") + "]";
+    if (v && typeof v === "object") {
+      return "{" + Object.keys(v).sort().filter(k => v[k] !== undefined)
+        .map(k => JSON.stringify(k) + ":" + bkCanon(v[k])).join(",") + "}";
+    }
+    return JSON.stringify(v === undefined ? null : v);
+  }
+  function bkSellos(b) {
+    const counts = {};
+    BK_PARTS.forEach(([k]) => { counts[k] = Object.keys(b[k] || {}).length; });
+    counts.settings = b.settings ? 1 : 0;
+    const sinSellos = {};
+    Object.keys(b).forEach(k => { if (!BK_SELLOS.includes(k)) sinSellos[k] = b[k]; });
+    return { counts, checksum: bkHash(bkCanon(sinSellos)) };
+  }
+  /* Qué dice la comprobación de los sellos de una copia. Tres respuestas, y las
+     tres se enseñan antes de confirmar: `sin_sellos` (una copia anterior a esto,
+     que no es un error), `cuadra`, y `no_cuadra` con el detalle de qué falta. */
+  function bkVerifica(raw, b) {
+    const tiene = raw && (raw.checksum != null || raw.counts != null);
+    if (!tiene) return { estado: "sin_sellos" };
+    const faltan = [];
+    if (raw.counts && typeof raw.counts === "object") {
+      BK_PARTS.forEach(([k, one, many]) => {
+        const dicho = Number(raw.counts[k]);
+        if (!Number.isFinite(dicho)) return;
+        const hay = Object.keys(b[k] || {}).length;
+        if (hay !== dicho) faltan.push(`${k}: el archivo dice ${dicho} y se leen ${hay}`);
+      });
+    }
+    const sinSellos = {};
+    Object.keys(raw).forEach(k => { if (!BK_SELLOS.includes(k)) sinSellos[k] = raw[k]; });
+    const huella = bkHash(bkCanon(sinSellos));
+    const huellaOk = raw.checksum == null || String(raw.checksum) === huella;
+    if (!faltan.length && huellaOk) return { estado: "cuadra" };
+    return { estado: "no_cuadra", faltan, huellaOk,
+      esperada: raw.checksum == null ? null : String(raw.checksum), calculada: huella };
+  }
   // El historial en pantalla son 14 días; la copia se lleva todos los que existan.
   async function allDayDocs() {
     {
@@ -11929,7 +12399,7 @@
     (await allDayDocs()).forEach(d => { days[d.date] = clone(d); });
     if (state.day && state.day.date) days[state.day.date] = clone(state.day);
     const b = {
-      format: BK_FORMAT, version: BK_VERSION,
+      format: BK_FORMAT, version: BK_VERSION, schemaVersion: BK_SCHEMA,
       exportedAt: new Date().toISOString(),
       source: state.nube ? "cuenta" : "navegador",
       settings: clone(state.settings),
@@ -11937,6 +12407,9 @@
     };
     COLLS.forEach(n => { const m = {}; coll(n).items.forEach(x => { if (x && x.id) m[x.id] = clone(x); }); b[n] = m; });
     if (opts.images) await inlineImages(b, opts.onStep);
+    /* Los sellos SE PONEN AL FINAL, cuando el paquete ya está completo: una
+       huella calculada antes de meter las capturas describiría otro fichero. */
+    Object.assign(b, bkSellos(b));
     return b;
   }
   /* Las capturas no viven dentro del dato: están en el bucket de tu cuenta. Para que viajen hay que meterlas dentro como
@@ -11971,8 +12444,17 @@
     const avisos = [];
     if (b.reparados) avisos.push(plu(b.reparados, "registro sin identificador, reparado con su clave", "registros sin identificador, reparados con su clave"));
     if (b.descartados) avisos.push(plu(b.descartados, "registro descartado por irreparable", "registros descartados por irreparables"));
+    /* Y LO QUE NO CUADRA SE VE, con el número de lo que falta. Un respaldo que
+       llega a medias y se importa como si estuviera entero es la peor forma de
+       perder datos: el archivo existe y se confía en él. */
+    const inte = b.integridad;
+    if (inte && inte.estado === "no_cuadra") {
+      if (inte.faltan && inte.faltan.length) avisos.push("NO CUADRA con lo que el archivo declara (" + inte.faltan.join("; ") + ")");
+      else avisos.push("la huella del archivo no coincide: o se editó a mano, o se dañó al copiarlo");
+    }
     const base = parts.length ? parts.join(" · ") : "nada guardado todavía";
     return { parts, images: imgs, inlined: inl, reparados: b.reparados || 0, descartados: b.descartados || 0,
+      integridad: inte ? inte.estado : null,
       text: avisos.length ? base + " · " + avisos.join(" · ") : base };
   }
   function bkSize(txt) {
@@ -12119,6 +12601,10 @@
     if (raw.settings) b.settings = raw.settings;
     b.reparados = rep.reparados; b.descartados = rep.descartados;
     b.exportedAt = raw.exportedAt; b.source = raw.source; b.version = raw.version;
+    b.schemaVersion = Number.isFinite(Number(raw.schemaVersion)) ? Number(raw.schemaVersion) : null;
+    /* Los sellos se comprueban AQUÍ, antes de que el paquete llegue a la vista
+       previa, para que lo que falte se vea antes de teclear IMPORTAR. */
+    b.integridad = bkVerifica(raw, b);
     const st = bundleStats(b);
     if (!st.parts.length && !b.settings) return { err: "La copia está vacía: no trae nada que importar." };
     return { bundle: b, stats: st };
@@ -12155,6 +12641,15 @@
     if (r.err) { bkSay(r.err, true); return; }
     const modo = state.nube ? "merge" : bkMode();
     const cuando = r.bundle.exportedAt ? dmy(String(r.bundle.exportedAt).slice(0, 10)) : "fecha desconocida";
+    const inte = r.bundle.integridad || { estado: "sin_sellos" };
+    const sello = inte.estado === "cuadra"
+      ? "Integridad: el archivo cuadra con lo que declara (recuento y huella)."
+      : inte.estado === "sin_sellos"
+        ? "Integridad: esta copia es anterior a los sellos, así que no se puede comprobar si llegó entera."
+        : "ATENCIÓN · ESTA COPIA NO CUADRA CON LO QUE DECLARA. "
+          + ((inte.faltan && inte.faltan.length) ? inte.faltan.join("; ") + ". Puede estar truncada: lo que falte NO se importará porque no está en el archivo."
+             : "La huella no coincide: o se editó a mano, o se dañó al copiarla.")
+          + " Se puede importar igual —es tu única copia y bloquearla sería peor— pero mira el recuento de arriba antes de confirmar.";
     const aviso = state.nube
       ? "Se escribe encima por id en " + baseDe() + ". No se borra nada que no venga en la copia."
       : modo === "replace"
@@ -12166,7 +12661,9 @@
         { key: "resumen", label: "Qué trae la copia", type: "textarea", w: 6, rows: 4 },
         { key: "ok", label: `Escribe IMPORTAR para confirmar`, w: 6, ph: "IMPORTAR" },
       ],
-      values: { resumen: `Exportada el ${cuando} desde ${r.bundle.source || "una cabina"}.\n${r.stats.text}.\n${r.stats.images ? plu(r.stats.images, "captura", "capturas") + (r.stats.inlined ? `, ${r.stats.inlined} dentro del archivo` : ", ninguna dentro del archivo (se verán rotas)") + "." : "Sin capturas."}\n\n${aviso}` },
+      /* El estado de los sellos va en su propia línea y en mayúsculas cuando no
+         cuadra: dentro de la lista de avisos se lee como un detalle más. */
+      values: { resumen: `Exportada el ${cuando} desde ${r.bundle.source || "una cabina"}.\n${r.stats.text}.\n${r.stats.images ? plu(r.stats.images, "captura", "capturas") + (r.stats.inlined ? `, ${r.stats.inlined} dentro del archivo` : ", ninguna dentro del archivo (se verán rotas)") + "." : "Sin capturas."}\n${sello}\n\n${aviso}` },
       validate: v => (String(v.ok || "").trim().toUpperCase() === "IMPORTAR" ? null : "Escribe IMPORTAR para confirmar"),
       onSave: async () => {
         bkSay("Importando…");

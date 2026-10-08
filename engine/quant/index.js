@@ -25,7 +25,7 @@ export * from "./portfolio.js";
 
 import { isOk, toNum, roundTo, sym } from "./kernel.js";
 import { CONTRACTS, resolveContract, rootOf } from "./contracts.js";
-import { valuarOperacion, dirOf } from "./trade.js";
+import { valuarOperacion, dirOf, contratosDe } from "./trade.js";
 import { analizarEdge } from "./edge.js";
 import { construirCurva, metricasCurva, evaluarConsistencia, DD_TIPOS } from "./curve.js";
 import { simularCuenta, barridoDeRiesgo, simularParametrico, probabilidadDeRacha } from "./survival.js";
@@ -99,6 +99,13 @@ function asTradeInput(trade = {}) {
  * Construye el objeto que se devuelve cuando la evaluación de la operación falla.
  * No se altera la política: si hay un P&L manual, éste se preserva como pnlEff.
  *
+ * SIN CONTRATO NO HAY P&L EN DOLARES, PERO R SI EXISTE: es un cociente de precios
+ * y el multiplicador se cancela. Perderla aqui seria tirar la unica medida util que
+ * queda de una operacion con simbolo desconocido. SALVO si hay un P&L a mano: sin
+ * multiplicador no se puede pasar ese dolar a R, y la R de los precios
+ * contradiria el hecho reportado —podria salir positiva sobre una operacion que el
+ * broker liquido en perdida—. Entre inventarla y no darla, no se da.
+ *
  * @param {TradeAppRaw} trade
  * @param {Object} evaluation
  * @returns {AppResult}
@@ -110,6 +117,10 @@ function buildAppErrorResult(trade = {}, evaluation = {}) {
     rReal: toNum(trade.pnl) !== null ? null : rRealApp(trade),
     rPlanned: rPlanApp(trade),
     riskUsd: null,
+    /* Sin contrato no hay dinero, pero la CANTIDAD si se sabe, y quien la necesite
+       tiene que leerla de aqui y no resolverla otra vez. */
+    contratos: contratosDe(trade.qty),
+    comisiones: null,
     multUnknown: errorCode === "CONTRATO_DESCONOCIDO" && !!sym(trade.instrument),
     calcError: evaluation?.error?.message ?? "No se pudo calcular la operación.",
     avisos: [],
@@ -118,6 +129,12 @@ function buildAppErrorResult(trade = {}, evaluation = {}) {
 
 /**
  * Construye el objeto de resultado cuando la evaluación tuvo éxito.
+ *
+ * SIN P&L A MANO SE PUBLICA rNeto, NO rBruto. `pnlEff` ya viene neto de
+ * comisiones, asi que una R bruta describe otra operacion. Medido: con 25 USD en
+ * «Comisiones $» una operacion que pierde 5 USD publicaba +1,0 R; con comisiones
+ * automaticas, una que pierde 0,50 USD publicaba +0,05 R. Sin comisiones rNeto y
+ * rBruto son el MISMO numero, que es el caso normal.
  *
  * @param {TradeAppRaw} trade
  * @param {Object} evaluation
@@ -133,6 +150,12 @@ function buildAppSuccessResult(trade = {}, evaluation = {}, value = {}, manualPn
     rReal: manualPnl !== null ? (riesgoUsd ? roundTo(manualPnl / riesgoUsd, 4) : null) : value.rNeto,
     rPlanned: value.rPlaneado,
     riskUsd: riesgoUsd,
+    /* LA CANTIDAD Y LA COMISION YA RESUELTAS POR EL MOTOR. Se publican porque la
+       pestana Metricas/Edge las derivaba por su cuenta (`Math.abs(qty) || 1`,
+       `Math.abs(fees)`) y asi la misma operacion podia dar dos R distintas. Una
+       sola respuesta, publicada, y la interfaz la lee. */
+    contratos: value.contratos,
+    comisiones: value.comisiones,
     ticks: value.ticks,
     eficiencia: value.eficiencia,
     multUnknown: false,
@@ -211,7 +234,7 @@ export function desdeTradeApp(trade = {}) {
 
 export const QuantEngine = {
   /* contratos */ CONTRACTS, resolveContract, rootOf,
-  /* operacion */ valuarOperacion, dirOf,
+  /* operacion */ valuarOperacion, dirOf, contratosDe,
   /* ventaja   */ analizarEdge,
   /* curva     */ construirCurva, metricasCurva, evaluarConsistencia, DD_TIPOS,
   /* riesgo    */ simularCuenta, barridoDeRiesgo, simularParametrico, probabilidadDeRacha,

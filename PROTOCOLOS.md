@@ -37,6 +37,9 @@ cabeza de quien escribía — en el fichero únicamente estaban etiquetadas §12
 | 19 | Un respaldo a medias es peor que ninguno | `importar` |
 | 20 | Un cambio que no se guardó no puede parecer guardado | `guardado` |
 | 21 | Una medición no se hace compartiendo la máquina | *(método)* |
+| 22 | Un campo que es una magnitud no se lee con su signo | `signos` + `quant.test.js` |
+| 23 | Un documento viejo no pisa uno nuevo | `sello` |
+| 24 | Una prueba no mide su propia semilla ni se adelanta a un `debounce` | `capa2` §10, §17 |
 | — | *Que esta tabla no mienta* | `capa2` §14 |
 
 ---
@@ -903,6 +906,102 @@ Las reglas:
 >
 > En el mismo mensaje en el que escribí «no se toca `index.html` mientras la compuerta
 > corre» estaba compitiendo por la CPU con ella. La regla estaba entendida a medias.
+
+---
+
+## 22 · Un campo que es una magnitud no se lee con su signo
+
+Hay campos cuyo **signo no significa nada**, porque la dirección la dice otro campo
+o porque el concepto no admite signo: una cantidad de contratos, una comisión, el
+importe de un retiro. Esos campos se leen como **magnitud**, en el motor, una sola
+vez, y la corrección deja un aviso.
+
+Las reglas:
+
+- **La definición vive en el motor, no en la pestaña.** Si dos sitios resuelven el
+  mismo campo, un día no coinciden, y entonces el mismo dato produce dos números.
+- **Corregir no es callar.** Un valor que ha habido que interpretar lleva su aviso
+  (`CANTIDAD_NEGATIVA`, `COMISION_NEGATIVA`), que la interfaz ya pinta.
+- **No se arregla en el formulario.** Validar en el editor no cubre lo que entra por
+  un respaldo importado ni lo que ya está guardado de antes de la validación.
+
+> **Qué falló:** tres veces el mismo error en tres campos.
+>
+> 1. `ledger[].amount`. Un retiro guardado como `-500` **sumaba** 500 al balance: un
+>    retiro que te hacía más rico. Se arregló leyendo el importe como magnitud y
+>    dejando que el tipo del movimiento decidiera el signo.
+> 2. `trades[].fees`. Con «Comisiones $» = `-25` sobre MNQ, 10 puntos a favor y 1
+>    contrato —bruto $20, correcto −$5— el journal publicaba **+$45**, y la R pasaba
+>    de −0,25R a **+2,25R**. Cambio de signo en el único número del que cuelgan la
+>    esperanza, el profit factor, el Monte Carlo y el colchón de la cuenta. El campo
+>    no tiene validación en el editor y nada lo avisaba.
+> 3. `trades[].qty`. Con `-3`, el motor valuaba **1** contrato (`toPosInt(-3)` es
+>    null) mientras Métricas/Edge ya hacía `Math.abs(qty)` para dimensionar el
+>    riesgo: la MISMA operación daba **R = 1,00** en el journal y **R = 0,33** en
+>    Métricas.
+>
+> El 1 se arregló meses antes que el 2 y el 3, un campo más allá, sin que nadie
+> buscara los otros dos. Por eso esto es un protocolo y no un arreglo.
+
+---
+
+## 23 · Un documento viejo no pisa uno nuevo
+
+Todo documento que la app lee del almacén puede llegar **más viejo** que el que ya
+está en memoria: una respuesta retrasada, otro dispositivo con el reloj atrasado, o
+una relectura que entra entre una edición y su escritura. Gana el sello `updatedAt`
+más alto. Empate o ausencia la deja ganar al servidor.
+
+Y el sello se pone **al pedir la escritura**, no dentro del `debounce`: si se pone al
+escribir, el hueco entre las dos sigue abierto.
+
+> **Qué falló:** `settings/main` era el único documento sin sello, y es el que guarda
+> todas las cuentas de prop firm y todas las reglas duras. Medido con el doble de la
+> nube: crear una cuenta y volver a la pestaña dentro de los 500 ms del `debounce`
+> dejaba la pantalla con `["Cuenta de la base"]` —la cuenta recién creada ya no
+> estaba— y la escritura que salía después guardaba los valores remotos, así que no
+> quedaba en ningún sitio desde el que recuperarla. Con el rótulo diciendo
+> «sincronizado». Las fichas de colección llevaban el sello escrito desde siempre y
+> nadie lo miraba al leer: una lectura tardía devolvía una operación a su versión
+> anterior y borraba la nota que se acababa de escribir.
+>
+> Lo que esto **no** arregla, y está dicho en `docs/MULTIUSUARIO.md`: dos
+> dispositivos escribiendo a la vez. El upsert no lleva condición, así que en la base
+> gana el último que llega. Esto protege la pantalla, no la base.
+
+---
+
+## 24 · Una prueba no mide su propia semilla ni se adelanta a un `debounce`
+
+Dos formas de escribir una prueba que afirma algo falso sin fallar nunca:
+
+- **`addInitScript` corre en CADA navegación**, también en una recarga. Una semilla
+  escrita sin condición vuelve a pisar lo que la prueba acababa de guardar, y lo que
+  se mide después es la semilla. Se siembra siempre con
+  `if (!localStorage.getItem(...))`.
+- **`quieto()` espera a que el DOM se calme, no a que el disco tenga el dato.** Puede
+  volver en 60 ms, y el `debounce` de los ajustes es de 500. Antes de recargar o de
+  leer `localStorage`, se espera al dato —o de sobra, nunca por debajo de 600 ms.
+
+> **Qué falló:** escribiendo `versiones.mjs`. La aserción «las tres versiones siguen
+> ahí» daba **2** después de recargar, y la causa parecía estar en el código de la
+> app: se persiguió primero por `normalize()`, luego por el sello del protocolo 23, y
+> luego con un caso aislado que pasaba en verde. Lo que medía era la semilla, que la
+> recarga volvía a escribir. El mismo día, `sello.mjs` §8 daba `[]` sobre una cuenta
+> que sí se había guardado: ahí la causa era la otra mitad, `quieto()` devolviendo el
+> control antes de los 500 ms del `debounce`.
+>
+> La §10 de `capa2` ya vigilaba la segunda mitad, pero sólo mirando
+> `waitForTimeout(N)` literales: una espera escrita como `quieto(...)` se le colaba.
+> Es el mismo agujero que la propia §10 documenta en su origen —«busqué diferidos
+> como `setTimeout(…,N)` literales y este pasa el 400 como argumento»— una capa más
+> arriba. Ahora cubre las dos.
+>
+> La §17 vigila la semilla, y vigila **sólo donde el peligro existe**: siembra sin
+> guarda **y** recarga. Diez pruebas siembran sin guarda hoy y ninguna recarga; la
+> primera versión de la regla las marcaba todas, o sea diez ficheros en rojo sin un
+> defecto detrás, que es la forma más rápida de que un guardián se ignore. Las dos
+> reglas se comprobaron con sabotaje en los dos sentidos.
 
 ---
 

@@ -85,6 +85,44 @@ regla real intacta. El revisor de seguridad de Supabase: **sin avisos**.
 - **Sin tope de 1000** por colección: el adaptador pagina.
 - **No es tiempo real.** Lo que escribes se ve al instante; lo de otro dispositivo,
   al volver a la pestaña (como mucho cada 20 s).
+- **Un documento viejo no pisa uno nuevo.** Cada documento lleva un sello
+  `updatedAt` y gana el más alto; empate o ausencia la deja ganar al servidor.
+  `days/<fecha>` ya lo hacía; `settings/main` —el documento que guarda TODAS las
+  cuentas de prop firm y TODAS las reglas— no, y las fichas de colección lo llevaban
+  escrito pero nadie lo miraba al leer. Dos pérdidas silenciosas, medidas:
+  (1) crear una cuenta y volver a la pestaña dentro de los 500 ms del `debounce`
+  dejaba la pantalla sin la cuenta recién creada **y** guardaba los valores remotos,
+  así que no quedaba en ningún sitio desde el que recuperarla, con el rótulo diciendo
+  «sincronizado»; (2) una lectura que llegaba tarde con la versión anterior de una
+  operación borraba la edición que se acababa de guardar. `test/sello.mjs`.
+
+---
+
+## La frontera: dos dispositivos escribiendo a la vez
+
+Esto **no** está resuelto, y conviene decir exactamente dónde está el límite.
+
+El adaptador escribe con un `POST … on_conflict=user_id,path` y
+`resolution=merge-duplicates`: un upsert **sin condición**. No hay
+`If-Unmodified-Since` ni comprobación de `updated_at`, así que si dos dispositivos
+escriben el mismo documento sin haberse leído el uno al otro, **el último que llega
+gana en la base y el otro cambio se pierde**. Ni se detecta ni se avisa.
+
+El sello de arriba protege **la pantalla**: lo que tienes delante no lo borra una
+lectura más vieja. No protege **la base**.
+
+Hacerlo de verdad pide escritura condicional —un `PATCH` filtrado por `updated_at`
+con el conteo de filas afectadas para distinguir «no estaba» de «alguien se me
+adelantó»— y eso cambia el único camino por el que pasa todo el dinero del usuario.
+Desde este entorno el proyecto real **no es alcanzable** (el proxy devuelve 403 a
+`supabase.co`), así que ese protocolo sólo se podría probar contra el doble. Un
+camino de escritura sin verificar contra la plataforma real, para los datos de
+quien confía en ellos, es peor que la frontera documentada. Está en la lista de
+[LANZAMIENTO.md](LANZAMIENTO.md).
+
+Lo que sí valdría la pena antes: que el doble lleve `updated_at` y que la
+importación y el guardado del día usen el mismo sello. Ninguna de las dos cosas
+requiere tocar la base.
 
 Un arreglo que salió de aquí: borrar varias sesiones a la vez leía y borraba de
 `localStorage`. Con base, la confirmación decía
