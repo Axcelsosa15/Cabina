@@ -244,8 +244,31 @@ console.log('\n═══ un solo borrado de cuenta, no tres ═══');
   await p.evaluate(() => { FUT.setSelectedAccount('a1'); for (let i = 0; i < 2; i++) FUT.createTrade({ id: 'y' + i, type: 'futuros', accountId: 'a1', date: '2026-09-17', instrument: 'MNQ', direction: 'long', qty: 1, entry: 21000, stop: 20990, exit: 21010 }); });
   await quieto(p); await new Promise(r => setTimeout(r, 120));
   await p.click('#accts article.acct[data-id="a1"] [data-act="menu"]'); await quieto(p);
-  await p.click('#accts article.acct[data-id="a1"] [data-act="del"]');
-  await p.click('#accts article.acct[data-id="a1"] [data-act="del"]'); await quieto(p);
+  /* EL PRIMER CLIC SE PERDÍA, Y POR ESO ESTO NO ES UN `click` SUELTO.
+
+     Borrar son dos clics: el primero ARMA el botón (`¿borrar?`) y el segundo
+     confirma. Fallaba 1 de cada 7 corridas sobre `main`, sin tocar nada, y una
+     de esas veces cerró la compuerta. Con una sonda se vio qué pasaba en las
+     rojas: tras el primer clic el botón seguía con `data-armed=null` y el texto
+     «Borrar». El clic no llegaba tarde — no llegaba. La tarjeta se repinta
+     mientras Playwright comprueba que el botón es visible y dispara el clic, así
+     que éste cae en un nodo ya sustituido: sin manejador, no pasa nada. Luego el
+     segundo clic sólo armaba, nadie confirmaba, y la cuenta seguía viva.
+
+     Esperar más NO lo arregla —lo probé y siguió fallando 2 de 12—, porque el
+     problema no es el tiempo. Lo que hay que hacer es COMPROBAR que el armado
+     ocurrió. El bucle no debilita la prueba, le añade dientes: antes nadie
+     verificaba que el primer clic hiciera nada, y ahora si el armado no sucede
+     en cuatro intentos la aserción sale roja con lo que leyó. El contrato que se
+     mide sigue siendo el mismo: uno arma, otro borra. */
+  const DEL = '#accts article.acct[data-id="a1"] [data-act="del"]';
+  let armado = null;
+  for (let i = 0; i < 4 && armado !== '1'; i++) {
+    await p.click(DEL); await quieto(p);
+    armado = await p.getAttribute(DEL, 'data-armed').catch(() => null);
+  }
+  ok(armado === '1', 'el primer clic arma el botón de borrar', 'data-armed=' + JSON.stringify(armado));
+  await p.click(DEL); await quieto(p);
   /* persistSettings va con 500 ms de debounce: leer el disco antes miente. */
   await new Promise(r => setTimeout(r, 900));
   const meta = await p.evaluate(() => { const d = JSON.parse(localStorage.getItem('cabina-mnq:v1')); return (d.settings.meta || {}).acct; });
