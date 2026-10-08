@@ -31,6 +31,8 @@ test/                          pruebas de navegador (Playwright) y guardianes
 | cuántos contratos es una cantidad, y cuánto es una comisión | `QE.contratosDe` y el `Math.abs` de `valuarOperacion` (motor) · las dos son **magnitudes** | `quant.test.js`, `signos` |
 | qué reglas de la firma rigen una cuenta en una fecha | `reglasDe` (app) · una sola resolución de versión y ancla | `versiones` |
 | si un documento que llega es más nuevo que el que hay | el sello `updatedAt` · `connectDb`, `attachDb`, `subscribeDay` | `sello` |
+| si otro dispositivo escribió antes que yo | la columna `version` y el `PATCH` condicionado · `nubeDb().escribe` / `.borra` | `conflicto`, `db`, `concurrencia.sql` |
+| con qué versión se queda el usuario en un conflicto | `abreConflicto` · enseña las dos y no elige | `conflicto` |
 | si un respaldo llegó entero | `bkSellos` al exportar · `bkVerifica` al importar | `integridad` |
 | edge, Sharpe, drawdown, Monte Carlo | `QE.analizarEdge` · `metricasCurva` · `simularCuenta` | `edge`, `radiografia` |
 | dónde se guarda un dato | `almacen()` con `nubeDb()` o `localDb()` | `guardado`, `primer`, `cuentas` |
@@ -65,7 +67,7 @@ Debajo hay uno de dos backends, elegido al arrancar:
 
 | | sin cuenta | con cuenta |
 |---|---|---|
-| backend | `localDb()` | `nubeDb()` |
+| backend | `localDb()` | `nubeDb()` (escritura condicional por `version`) |
 | dónde | `localStorage["cabina-mnq:v1"]` (o memoria si no hay) | Supabase, tabla `cabina_docs` |
 | contesta | en el acto (síncrono) | por red; los render esperan a `state.listo` |
 | entre dispositivos | no | sí, al volver a la pestaña (no en vivo) |

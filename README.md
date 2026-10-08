@@ -32,6 +32,7 @@ forzada en la tabla y en el bucket, probada contra el proyecto real. Ver
 | **Playbook, tesis, ideas** | setups con condiciones y capturas, una tesis por jugada |
 | **Registro rápido** | `NQ L +185` y guardar; lo que no se sabe se queda vacío, no se inventa |
 | **Respaldo** | JSON descargable con recuento y huella, con las capturas dentro si se quiere; importación con vista previa que dice si la copia llegó entera |
+| **Dos dispositivos** | cada documento lleva versión: el que escribe tarde ve un conflicto con las dos versiones delante, y elige. Nunca se pisa en silencio |
 
 ## Documentación
 
@@ -62,17 +63,26 @@ npm run compuerta    # todas las pruebas + la tabla de la cadena (lo que corre C
 | compuerta | **19 PASS · 0 FAIL · 3 UNKNOWN** de 22 filas (las 3 son fronteras de plataforma) |
 | despliegue | GitHub Pages, sólo tras `pruebas` en verde, con comparación byte a byte |
 
+## Darle Cabina a otra persona
+
+Para que alguien entre con su cuenta y no vea tus datos (ni tú los suyos):
+[docs/COMPARTIR.md](docs/COMPARTIR.md). El aislamiento ya está hecho y probado; lo que
+queda es configuración en GitHub y en Supabase, y sólo el dueño puede hacerla.
+
 ## Lo que no está hecho
 
-- sincronización en vivo entre dispositivos (llega al volver a la pestaña)
-- **resolución de conflictos entre dos dispositivos que escriben a la vez.** La base
-  recibe un upsert sin condición, así que allí gana el último que llega. Lo que sí
-  está hecho es que un documento viejo no pise uno nuevo en la pantalla
-  ([docs/MULTIUSUARIO.md](docs/MULTIUSUARIO.md))
+- sincronización en vivo entre dispositivos (llega al volver a la pestaña). Lo que sí
+  está hecho es que dos dispositivos **no se pisen**: cada documento lleva versión y
+  toda escritura va condicionada, así que el que llega tarde ve un conflicto en vez de
+  destruir el cambio del otro ([docs/MULTIUSUARIO.md](docs/MULTIUSUARIO.md))
 - capturas sin cuenta
-- importación desde bróker o CSV
+- importación desde bróker o CSV: no hay esquema canónico de operación importada, ni
+  mapeos por bróker, ni el camino SUBIR → DETECTAR → MAPEAR → PREVISUALIZAR →
+  VALIDAR → IMPORTAR, ni huella de deduplicación. Nada de eso está a medias: no está
 - interfaz para crear y anclar versiones del contrato de una firma: la arquitectura
   y la fachada están ([docs/DATA_MODEL.md](docs/DATA_MODEL.md)), el formulario no
+- medición de rendimiento con cifras (hoy sólo hay el tope de 1005 operaciones que
+  corre `test/cuentas.mjs`, sin perfilar)
 
 ## Licencia
 

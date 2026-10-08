@@ -41,7 +41,22 @@ export function nubeDoble(html) {
   }
   const porId = id => [...e.usuarios.values()].find(u => u.id === id);
   const filasDe = uid => [...e.filas.values()].filter(f => f.user_id === uid);
-  const siembra = (uid, path, data) => { e.filas.set(uid + '|' + path, { user_id: uid, path, data }); };
+  /* La fila del doble lleva `version` y `updated_at` como la tabla real, y la
+     VERSIÓN LA PONE EL DOBLE, nunca el cuerpo de la petición: es la propiedad que
+     hace que el control de concurrencia no se pueda saltar desde el cliente, y un
+     doble que dejara al cliente decidirla probaría lo contrario de lo que importa.
+     En la base lo hace el trigger `cabina_docs_sello` (migración de 2026-10-07),
+     comprobado contra Postgres real en test/db.mjs. */
+  const siembra = (uid, path, data, version) => {
+    e.filas.set(uid + '|' + path, { user_id: uid, path, data, version: version || 1, updated_at: new Date().toISOString() });
+  };
+  /* Para que una prueba pueda simular «otro dispositivo escribió»: sube la versión
+     igual que lo haría la base. */
+  const escribeOtro = (uid, path, data) => {
+    const k = uid + '|' + path, prev = e.filas.get(k);
+    e.filas.set(k, { user_id: uid, path, data, version: (prev ? prev.version : 0) + 1, updated_at: new Date().toISOString() });
+    return e.filas.get(k).version;
+  };
   const escriturasA = path => e.pedidas.filter(x => x.m === 'POST' && x.ruta.startsWith('/rest/') && (() => { try { return JSON.parse(x.body).path === path; } catch { return false; } })()).length;
 
   async function ruta(route) {
@@ -116,7 +131,11 @@ export function nubeDoble(html) {
     if (u.pathname !== '/rest/v1/cabina_docs') return json(404, { message: 'no existe en el doble' });
 
     /* RLS del doble: todo lo que se lee, cambia o borra es SOLO del dueño del token. */
+    /* Una fila sembrada sin `version` vale 1, igual que el `default 1` de la
+       columna real: así una prueba que siembra a mano no tiene que saber de
+       versiones, y el comportamiento es el de una fila anterior a la migración. */
     const mias = filasDe(uid);
+    for (const f of mias) if (f.version == null) f.version = 1;
     const eq = k => { const v = u.searchParams.get(k); return v && v.startsWith('eq.') ? v.slice(3) : null; };
     if (req.method() === 'GET') {
       if (e.lecturasRotas && eq('coll') === e.lecturasRotas) return json(503, { code: 'unavailable', message: 'base caída' });
@@ -133,19 +152,65 @@ export function nubeDoble(html) {
       const sel = (u.searchParams.get('select') || 'data').split(',');
       return json(200, a.map(f => Object.fromEntries(sel.map(c => [c, f[c]]))));
     }
+    /* `Prefer: return=representation` hace que PostgREST devuelva LAS FILAS
+       AFECTADAS en insert, update y delete. De eso depende todo el control de
+       concurrencia del cliente: array vacío = 0 filas = conflicto. */
+    const quiereFilas = /return=representation/.test(h.prefer || '');
+    const devuelve = filas => quiereFilas
+      ? json(200, filas.map(f => ({ path: f.path, version: f.version, updated_at: f.updated_at, data: f.data })))
+      : route.fulfill({ status: filas.length ? 200 : 204, body: '' });
+
     if (req.method() === 'POST') {
       const b = cuerpo();
       if (e.roto) return json(403, { code: 'permission-denied', message: 'sin permiso' });
       if (b && e.rutaRota && b.path === e.rutaRota) return json(500, { code: 'doc-roto', message: 'solo ese documento' });
       if (!b || b.user_id !== uid) return json(403, { code: '42501', message: 'new row violates row-level security policy for table "cabina_docs"' });
       if (!PATH_OK.test(b.path)) return json(400, { code: '23514', message: 'violates check constraint "cabina_docs_path_forma"' });
-      e.filas.set(uid + '|' + b.path, { user_id: uid, path: b.path, data: b.data });
+      const upsert = /resolution=merge-duplicates/.test(h.prefer || '') || /on_conflict=/.test(u.search);
+      const ya = e.filas.get(uid + '|' + b.path);
+      /* SIN `on_conflict`, un POST sobre una fila que existe es una violación de
+         clave primaria: 23505, que PostgREST traduce a 409. El cliente lo trata
+         como conflicto, que es lo que es: el documento apareció mientras leía. */
+      if (ya && !upsert) return json(409, { code: '23505', message: 'duplicate key value violates unique constraint "cabina_docs_pkey"' });
+      /* La versión la decide el doble: +1 si existía (upsert), 1 si es nueva. */
+      const version = ya ? ya.version + 1 : 1;
+      const fila = { user_id: uid, path: b.path, data: b.data, version, updated_at: new Date().toISOString() };
+      e.filas.set(uid + '|' + b.path, fila);
+      if (quiereFilas) return json(201, [{ path: fila.path, version: fila.version, updated_at: fila.updated_at, data: fila.data }]);
       return route.fulfill({ status: 201, body: '' });
+    }
+
+    /* PATCH con filtros: es el UPDATE condicional. `?path=eq.X&version=eq.N` sólo
+       toca la fila si de verdad está en N, y la deja en N+1. Si no coincide ninguna,
+       se devuelve una lista VACÍA — no un error: para PostgREST «0 filas» es un
+       resultado normal, y es el cliente quien decide que eso significa conflicto. */
+    if (req.method() === 'PATCH') {
+      const b = cuerpo();
+      if (e.roto) return json(403, { code: 'permission-denied', message: 'sin permiso' });
+      const p = eq('path');
+      if (p != null && e.rutaRota && p === e.rutaRota) return json(500, { code: 'doc-roto', message: 'solo ese documento' });
+      const vEsperada = eq('version');
+      const tocadas = mias.filter(f => (p == null || f.path === p) && (vEsperada == null || String(f.version) === String(vEsperada)));
+      for (const f of tocadas) {
+        /* El cuerpo NO puede fijar la versión: aunque venga, se ignora y se suma 1.
+           Es lo que hace el trigger de la base. */
+        if (b && Object.prototype.hasOwnProperty.call(b, 'data')) f.data = b.data;
+        f.version = f.version + 1;
+        f.updated_at = new Date().toISOString();
+      }
+      return devuelve(tocadas);
     }
     if (req.method() === 'DELETE') {
       if (e.roto) return json(403, { code: 'permission-denied', message: 'sin permiso' });
-      const p = eq('path'); if (p != null) e.filas.delete(uid + '|' + p);
-      return route.fulfill({ status: 204, body: '' });
+      const p = eq('path'), vEsperada = eq('version');
+      /* UN BORRADO TAMBIÉN CONDICIONAL: con `version=eq.N` sólo borra si la fila
+         sigue en N. Antes esto borraba por ruta y punto, así que se llevaba por
+         delante la edición que otro dispositivo acababa de guardar — y un borrado no
+         deja nada que recuperar. */
+      const tocadas = mias.filter(f => (p == null || f.path === p) && (vEsperada == null || String(f.version) === String(vEsperada)));
+      for (const f of tocadas) e.filas.delete(uid + '|' + f.path);
+      if (quiereFilas) return json(200, tocadas.map(f => ({ path: f.path, version: f.version, updated_at: f.updated_at, data: f.data })));
+      return route.fulfill({ status: tocadas.length ? 200 : 204, body: '' });
     }
     return json(405, { message: 'metodo' });
   }
@@ -160,5 +225,5 @@ export function nubeDoble(html) {
     return u.id;
   }
 
-  return { NUBE, CLAVE, e, nuevoUsuario, sesion, filasDe, siembra, escriturasA, ruta, conSesion };
+  return { NUBE, CLAVE, e, nuevoUsuario, sesion, filasDe, siembra, escribeOtro, escriturasA, ruta, conSesion };
 }

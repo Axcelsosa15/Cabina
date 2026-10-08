@@ -40,6 +40,8 @@ cabeza de quien escribía — en el fichero únicamente estaban etiquetadas §12
 | 22 | Un campo que es una magnitud no se lee con su signo | `signos` + `quant.test.js` |
 | 23 | Un documento viejo no pisa uno nuevo | `sello` |
 | 24 | Una prueba no mide su propia semilla ni se adelanta a un `debounce` | `capa2` §10, §17 |
+| 25 | Una escritura que no mira lo que había es una pérdida de datos esperando | `conflicto` + `db` |
+| 26 | Un clic que no dio nadie no puede mover la interfaz | `borrar` |
 | — | *Que esta tabla no mienta* | `capa2` §14 |
 
 ---
@@ -1002,6 +1004,75 @@ Dos formas de escribir una prueba que afirma algo falso sin fallar nunca:
 > primera versión de la regla las marcaba todas, o sea diez ficheros en rojo sin un
 > defecto detrás, que es la forma más rápida de que un guardián se ignore. Las dos
 > reglas se comprobaron con sabotaje en los dos sentidos.
+
+---
+
+## 25 · Una escritura que no mira lo que había es una pérdida de datos esperando
+
+Toda escritura a una base compartida por varios dispositivos va **condicionada a la
+versión que se leyó**. Si la condición no coincide, la escritura **no ocurre** y se
+dice; nunca se escribe encima «porque es lo último que pidió el usuario».
+
+Las reglas:
+
+- **La versión la pone la base, no el cliente.** Si el cliente la manda, un cliente
+  con un fallo vuelve a last-write-wins y la base no puede impedirlo.
+- **Un borrado también va condicionado.** Es peor que un update perdido: no deja nada
+  que recuperar.
+- **Un conflicto no es un error cualquiera.** Existen dos versiones de un dato del
+  usuario y una se pierde si no decide: se le enseñan las dos y elige. Ni «remote
+  wins» ni «local wins» automáticos, y **ninguna fusión genérica** de objetos
+  financieros.
+- **No se verifica contra un doble solamente.** Un doble prueba el contrato que la app
+  espera; lo que la base hace se prueba contra la base.
+
+> **Qué falló:** el adaptador escribía con `POST ?on_conflict=user_id,path` +
+> `resolution=merge-duplicates` —un upsert sin condición— y borraba con
+> `DELETE ?path=eq.<p>`. Medido con dos pestañas contra el doble: A guarda «Setup
+> validado», B guarda «Setup rechazado» desde la misma versión, la base queda con
+> «Setup rechazado» y el rótulo de B dice **«sincronizado»**. Pérdida de datos con
+> falsa tranquilidad encima.
+>
+> La fase 1 había puesto un sello `updatedAt` que protege **la pantalla** —una lectura
+> vieja no pisa una edición nueva— y se documentó como frontera abierta que no
+> protegía **la base**. Lo que la cerró fue descubrir que el servidor de Postgres está
+> en la imagen: las migraciones y las pruebas SQL del repositorio se pueden correr de
+> verdad (`test/db.mjs`), así que la propiedad dejó de depender de un doble. Los dos
+> sabotajes que la ponen en rojo: quitar la condición de versión del UPDATE
+> (`B_no_piso_a_A=false`) y hacer que el trigger obedezca al cliente
+> (`cliente_no_decide_version=false`, y entonces el borrado se lleva la edición ajena).
+
+---
+
+## 26 · Un clic que no dio nadie no puede mover la interfaz
+
+Un `elemento.click()` desde el código dispara un evento que **burbujea como cualquier
+otro**. Si arriba hay un manejador que reacciona a «un clic en cualquier sitio», ese
+clic sintético lo activa. Así que: o se corta en el origen (`stopPropagation` en el
+elemento), o el manejador global distingue al usuario (`e.isTrusted`).
+
+Y el estado transitorio de la interfaz —un menú abierto, un botón armado— **no vive
+sólo en el DOM** si la lista que lo contiene se repinta: vive fuera del render, como
+`metricaAbierta` y `menuAbierto`. Con una sola fuente de verdad: dos (el DOM y la
+variable) y un cierre que toca una sola producen un menú que se reabre solo.
+
+> **Qué falló:** `bkDownload` crea un `<a download>` y le hace `click()` para bajar un
+> fichero. Ese clic llegaba a `document`, donde el cierre del menú «•••» de una cuenta
+> usa una condición NEGATIVA (`if (!e.target.closest(".acc-menu"))`), y lo cerraba. La
+> migración al motor descarga un respaldo ~1,6 s después de arrancar: abrías el menú y
+> una descarga que no pediste lo cerraba.
+>
+> Cómo se encontró, y por qué tardó: la prueba `borrar` pulsaba «•••» y luego «Borrar»
+> y **ganaba la carrera** a esa descarga por decenas de milisegundos. Al añadir trabajo
+> al render en la fase 1 la perdió y la prueba empezó a fallar siempre, con el botón
+> presente en el DOM y no visible. Pareció una regresión de la fase 1 durante tres
+> intentos; `main` pasaba y la rama no, en la misma máquina, 3 de 3. Lo nombró una
+> traza de pila: migRespaldo → bkDownload → el manejador. El defecto era anterior y la
+> suerte de reloj lo tapaba.
+>
+> Y al arreglarlo me salió el segundo fallo de la pareja: preservar el estado del menú
+> creó DOS fuentes de verdad, y el cierre global tocaba una sola, así que el menú se
+> cerraba y el repintado siguiente lo reabría. Ahora cerrar pasa por `cierraMenus()`.
 
 ---
 
