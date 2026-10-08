@@ -999,7 +999,7 @@ Dos formas de escribir una prueba que afirma algo falso sin fallar nunca:
 > como `setTimeout(…,N)` literales y este pasa el 400 como argumento»— una capa más
 > arriba. Ahora cubre las dos.
 >
-> La §17 vigila la semilla, y vigila **sólo donde el peligro existe**: siembra sin
+> La protección de la semilla vigila **sólo donde el peligro existe**: siembra sin
 > guarda **y** recarga. Diez pruebas siembran sin guarda hoy y ninguna recarga; la
 > primera versión de la regla las marcaba todas, o sea diez ficheros en rojo sin un
 > defecto detrás, que es la forma más rápida de que un guardián se ignore. Las dos
