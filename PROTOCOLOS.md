@@ -39,7 +39,7 @@ cabeza de quien escribía — en el fichero únicamente estaban etiquetadas §12
 | 21 | Una medición no se hace compartiendo la máquina | *(método)* |
 | 22 | Un campo que es una magnitud no se lee con su signo | `signos` + `quant.test.js` |
 | 23 | Un documento viejo no pisa uno nuevo | `sello` |
-| 24 | Una prueba no mide su propia semilla ni se adelanta a un `debounce` | `capa2` §10, §17 |
+| 24 | Una prueba no se adelanta a un `debounce` | `capa2` §10 |
 | 25 | Una escritura que no mira lo que había es una pérdida de datos esperando | `conflicto` + `db` |
 | 26 | Un clic que no dio nadie no puede mover la interfaz | `borrar` |
 | — | *Que esta tabla no mienta* | `capa2` §14 |
