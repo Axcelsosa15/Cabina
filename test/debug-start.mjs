@@ -1,0 +1,14 @@
+import { chromium } from "playwright";
+import { createServer } from "node:http";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+const root=join(dirname(fileURLToPath(import.meta.url)),"..");
+const html=readFileSync(join(root,"index.html"),"utf8");
+const srv=createServer((q,r)=>{r.writeHead(200,{"content-type":"text/html; charset=utf-8"});r.end(html);});
+await new Promise(r=>srv.listen(0,"127.0.0.1",r));
+const b=await chromium.launch(); const p=await b.newPage(); const out=[];
+p.on("pageerror",e=>out.push("PAGEERROR "+e.stack)); p.on("console",m=>{if(m.type()==="error")out.push("CONSOLE "+m.text());});
+await p.goto("http://127.0.0.1:"+srv.address().port+"/",{waitUntil:"load"}); await p.waitForTimeout(3000);
+out.push("FUT="+await p.evaluate(()=>typeof window.FUT)); out.push("INV="+await p.evaluate(()=>typeof window.INV)); out.push("QE="+await p.evaluate(()=>typeof window.QuantEngine));
+console.log(out.join("\n")); await b.close();srv.close(); process.exit(out.some(x=>x.startsWith("PAGEERROR"))?1:0);
