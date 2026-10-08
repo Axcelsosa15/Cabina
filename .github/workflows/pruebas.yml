@@ -50,6 +50,9 @@ jobs:
         timeout-minutes: 6
         run: npx playwright install --with-deps chromium
 
+      - name: Diagnostico de arranque
+        run: node test/debug-start.mjs
+
       # npm run compuerta, no npm test: la compuerta LANZA la suite una sola vez
       # (correr.mjs como proceso hijo) y todas sus filas dependientes de pruebas
       # derivan de ESA salida. No cuesta una corrida extra. Lo que suma es la
