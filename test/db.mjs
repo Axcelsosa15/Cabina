@@ -42,8 +42,19 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 const salta = (t, por) => console.log(`  — SALTADA ${t}   ${por}`);
 
 /* ── ¿hay servidor? ──────────────────────────────────────────────────────── */
-const BIN = ['/usr/lib/postgresql/16/bin', '/usr/lib/postgresql/15/bin', '/usr/lib/postgresql/14/bin']
-  .find(d => existsSync(join(d, 'initdb')) && existsSync(join(d, 'pg_ctl')));
+const BIN = (() => {
+  const env = process.env.PG_BINDIR;
+  if (env && existsSync(join(env, 'initdb')) && existsSync(join(env, 'pg_ctl'))) return env;
+  try {
+    const d = execFileSync('pg_config', ['--bindir'], { encoding: 'utf8' }).trim();
+    if (d && existsSync(join(d, 'initdb')) && existsSync(join(d, 'pg_ctl'))) return d;
+  } catch (e) {}
+  try {
+    const d = dirname(execFileSync('bash', ['-lc', 'command -v initdb'], { encoding: 'utf8' }).trim());
+    if (d && existsSync(join(d, 'initdb')) && existsSync(join(d, 'pg_ctl'))) return d;
+  } catch (e) {}
+  return null;
+})();
 if (!BIN) {
   console.log('\n  — SALTADA  pruebas de base: no hay servidor Postgres en esta máquina');
   console.log('     (el cliente psql no basta: hace falta initdb y pg_ctl)');
