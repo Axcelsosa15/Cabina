@@ -442,6 +442,23 @@ for (const d of docs)
 ok(fantasmas.length === 0, `los ${docs.length} documentos citan solo secciones que existen`,
    fantasmas.length ? [...new Set(fantasmas)].join(' · ') : `§1–§${Math.max(...[...secciones].map(Number))} etiquetadas`);
 
+/* §17 — Un campo nuevo no inventa datos para registros viejos.
+
+   El campo `source` distingue entradas rápidas de nuevas entradas manuales.
+   Para una operación antigua, su ausencia significa «procedencia desconocida» y
+   debe sobrevivir a cualquier edición posterior. El test de comportamiento vive
+   en rapido.mjs; aquí se vigila que la puerta de escritura conserve exactamente
+   esa regla y que la prueba la cubra en ambos sentidos. */
+const rapido = leer(join(dirTest, 'rapido.mjs'), 'utf8');
+ok(/source:\s*"quick_add"/.test(src), 'las entradas rápidas persisten source=quick_add');
+ok(/if \(isNew && !rec\.source\) rec\.source = "manual"/.test(src),
+   'una entrada nueva del editor recibe source=manual, no una vieja');
+ok(/una operacion VIEJA[\s\S]{0,1200}sin `source`/.test(rapido) &&
+   /sinFuente >= 1/.test(rapido),
+   'rapido comprueba que una operación vieja conserva la ausencia de source');
+ok(/editado\.source === 'quick_add'/.test(rapido),
+   'rapido comprueba que completar una entrada rápida conserva su procedencia');
+
 /* §15 — Lo que corre en la app es el bundle del motor, sin una coma de mas.
 
    La cadena es engine/quant/*.js -> engine/QuantEngine.bundle.js -> incrustado
