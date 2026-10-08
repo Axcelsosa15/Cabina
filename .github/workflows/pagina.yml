@@ -33,6 +33,10 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          # workflow_run puede terminar después de que main ya haya avanzado.
+          # Publicamos EXACTAMENTE el commit que produjo el verde de pruebas.
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
 
       # Pages está activado (Settings → Pages → Source: GitHub Actions). Si alguien
       # lo desactivara, este paso falla en rojo: es una regresión de producción,
@@ -56,7 +60,9 @@ jobs:
       - id: deploy
         uses: actions/deploy-pages@v4
 
-      # LO PUBLICADO ES LO PROBADO. Se pide la URL real y se compara byte a byte
+      # LO PUBLICADO ES LO PROBADO. El checkout anterior está fijado al head_sha
+      # de la ejecución de pruebas que disparó este workflow, no al main actual.
+      # Se pide la URL real y se compara byte a byte
       # con el index.html que acaba de pasar la suite. El CDN tarda unos segundos
       # en servir la versión nueva: hasta un minuto de reintentos.
       - name: La página publicada es exactamente index.html

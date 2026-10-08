@@ -18,8 +18,9 @@ No es asesoramiento financiero: operar futuros conlleva un riesgo alto de pérdi
 | sale algo del navegador | nada | sólo a tu cuenta, con tu token |
 
 Lo que separa los datos de dos usuarios no está en la página, está en la base: RLS
-forzada en la tabla y en el bucket, probada contra el proyecto real. Ver
-[docs/MULTIUSUARIO.md](docs/MULTIUSUARIO.md).
+forzada en la tabla y en el bucket. El esquema y las políticas están comprobados en
+Postgres local; el estado actual del proyecto Supabase real queda explícitamente como
+**UNKNOWN** desde este entorno. Ver [docs/MULTIUSUARIO.md](docs/MULTIUSUARIO.md).
 
 ## Qué hace
 
