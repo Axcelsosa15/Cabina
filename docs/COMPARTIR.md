@@ -33,19 +33,21 @@ página sigue sirviendo la versión anterior y nada de lo que hagas abajo se ve.
 
 Compruébalo en **Actions → pruebas**, en la última corrida de `main`.
 
-## 2 · Fusionar las PR, en este orden
+## 2 · Fusionar lo que quede abierto
 
-Son borradores: hay que quitarles el borrador («Ready for review») y fusionarlas.
+Antes aquí ponía «fusiona las PR #5, #3 y #4, en este orden». **Ya no hay que
+hacer nada de eso: las tres están dentro de `main`.** Comprobado en el código,
+no en la memoria — la migración `…_version_occ.sql`, el código de conflictos de
+la app y `QE.contratosDe` (el arreglo de la comisión y la cantidad en negativo)
+están los tres en el repositorio.
 
-1. **#5** — reincrusta el motor refactorizado. Sin esto `main` sigue rojo.
-2. **#3** — los arreglos de dinero. **Esta es la importante**: sin ella, una comisión
-   escrita en negativo *suma* dinero y una cantidad negativa da dos R distintas en dos
-   pestañas. No le des a nadie una versión sin esto.
-3. **#4** — la concurrencia entre dispositivos (abajo, paso 3).
+Lo único que puede quedar abierto es la **PR #13**, que hace que el primer
+arranque pida la cuenta. Sin ella la cabina funciona igual y el aislamiento es
+el mismo, pero tu amigo abrirá el enlace y no habrá nada que le invite a crear
+cuenta: se pondrá a apuntar operaciones en el `localStorage` de su navegador. Es
+exactamente el problema que quieres evitar, así que fusiónala.
 
-Entre #3 y #4 puede salir conflicto en `index.html`: se resuelve, se corre
-`npm run bundle`, se reincrusta (paso 2–3 de «Cambiar el motor» en
-[`DEVELOPMENT.md`](DEVELOPMENT.md)) y se vuelve a pasar la compuerta.
+Es un borrador: quítale el borrador («Ready for review») y fusiónala.
 
 ## 3 · Aplicar la migración de la versión
 
@@ -87,8 +89,30 @@ Tres cosas, y la primera es la que rompe el alta si falta.
 
 ## 5 · Dale el enlace
 
-Él abre la URL → **Entrar** → **Crear cuenta** → confirma el correo → ya está dentro,
-con su cabina vacía.
+Él abre la URL y lo primero que ve, arriba del todo, es esta barra:
+
+> **SIN CUENTA** — Lo que apuntes se queda sólo en este navegador y se pierde si
+> borras sus datos. Con cuenta, tu cabina es tuya: nadie más la ve, ni quien te
+> dio el enlace.  ·  **[Crear cuenta]**  **[Ahora no]**
+
+**Crear cuenta** → confirma el correo → ya está dentro, con su cabina vacía.
+
+La barra sale sola y sólo en un navegador que no tenga nada guardado todavía.
+Antes no existía: la cabina abría en local con un botón «Entrar» discreto arriba
+y nada que invitara a usarlo, así que quien recibía el enlace se ponía a apuntar
+operaciones sin crear cuenta nunca —sus datos no vivían en ninguna cuenta y
+borrar los datos del navegador los borraba—.
+
+Es una **barra y no una ventana** por dos razones. Una ventana al arrancar
+intercepta los clics de toda la app: la cabina deja de responder hasta que
+alguien cierre algo, y eso se midió —tumbó doce filas de la compuerta—. Y una
+ventana se cierra una vez y no vuelve, mientras que la barra se queda hasta que
+haya cuenta o hasta que él diga «Ahora no».
+
+**No es un muro**, y es a propósito: un login obligatorio encima del paso 4 de
+aquí abajo, todavía sin hacer, dejaría fuera a todo el mundo, tú incluido.
+
+Lo vigila `test/bienvenida.mjs`.
 
 La página lleva `<meta name="robots" content="noindex, nofollow">`, así que no sale en
 buscadores: sólo entra quien tenga el enlace. Para dárselo a un amigo es justo lo que

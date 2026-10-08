@@ -1158,6 +1158,12 @@
   /* ---------- modo demo ---------- */
   .demobar { display: flex; align-items: center; gap:12px; flex-wrap: wrap; padding:8px 16px; margin: 0 0 16px; border: 1px dashed var(--warn); border-radius: var(--r-sm); background: var(--warn-soft); color: var(--warn); font-family: var(--font-mono); font-size: 12.5px; }
   .demobar b { font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  /* La barra de cuenta: el MISMO patrón que la del demo —una tira que informa y
+     no tapa—. A propósito NO es un diálogo: un modal al arrancar intercepta los
+     clics de toda la app, y eso no es una molestia de las pruebas, es que la
+     cabina deja de responder hasta que alguien cierre algo. */
+  .cuentabar { display: flex; align-items: center; gap:12px; flex-wrap: wrap; padding:8px 16px; margin: 0 0 16px; border: 1px solid var(--accent); border-radius: var(--r-sm); background: var(--surface-2); color: var(--text); font-family: var(--font-mono); font-size: 12.5px; }
+  .cuentabar b { font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
   body.demo .save-state { color: var(--warn); }
 
   /* ---------- niveles del día ---------- */
@@ -1494,6 +1500,7 @@
   .au .body input { width: 100%; }
   .au .aubox { display: grid; gap: 12px; }  .au .body p { margin: 0; font-size: 13px; line-height: 1.5; }
   .au .aunota { font-family: var(--font-mono); font-size: 11px; color: var(--dim); }
+  .au .aubienv { border-left: 3px solid var(--accent); padding-left: 10px; }
   .au .aumsg { font-family: var(--font-mono); font-size: 12px; min-height: 1.3em; color: var(--muted); }
   .au .aumsg.bad { color: var(--negative); }
   .au .aumsg.good { color: var(--positive); }
@@ -1562,6 +1569,12 @@
   <b>Modo demo</b>
   <span>Todo lo que ves está inventado para revisar el diseño: operaciones, setups, cuentas, niveles y cartera. <b>No se guarda nada</b>: al salir vuelven tus datos reales intactos.</span>
   <button type="button" class="editbtn" id="demoExit" style="margin-left:auto">Salir y volver a mis datos</button>
+</div>
+<div class="cuentabar" id="cuentaBar" hidden>
+  <b>Sin cuenta</b>
+  <span>Lo que apuntes se queda sólo en este navegador y se pierde si borras sus datos. Con cuenta, tu cabina es tuya: nadie más la ve, ni quien te dio el enlace.</span>
+  <button type="button" class="editbtn" id="cuentaBarCrear" style="margin-left:auto">Crear cuenta</button>
+  <button type="button" class="editbtn" id="cuentaBarNo">Ahora no</button>
 </div>
 <div class="editbar">
   <span>Modo edición: añade, borra y reescribe cuentas, reglas y pasos. Los cambios se guardan solos.</span>
@@ -2149,6 +2162,7 @@
     <header><h3 id="auTitle">Tu cuenta</h3><button type="button" class="icon" id="auClose" aria-label="Cerrar">×</button></header>
     <div class="body">
       <div id="auFuera" class="aubox">
+        <p id="auBienv" class="aubienv" hidden><b>Esta cabina es tuya.</b> Crea tu cuenta y tus operaciones serán sólo tuyas: nadie más las ve, ni quien te dio el enlace. Si prefieres probar antes, puedes seguir sin cuenta.</p>
         <p>Con cuenta, tu cabina se guarda en la nube y la abres desde cualquier dispositivo. Sólo tú la ves: ni otros usuarios ni quien tenga el enlace.</p>
         <p class="aunota">Sin cuenta, Cabina sigue funcionando como hasta ahora: todo se queda en este navegador y no se envía nada.</p>
         <div><label class="lab" for="auEmail">Email</label><input id="auEmail" type="email" autocomplete="email" spellcheck="false"></div>
@@ -2166,6 +2180,7 @@
     </div>
     <footer>
       <button type="button" class="btn ghost sm" id="auOlvide">Olvidé mi contraseña</button>
+      <button type="button" class="btn ghost sm" id="auSinCuenta" hidden>Seguir sin cuenta</button>
       <button type="button" class="btn ghost sm" id="auSubir" hidden>Subir lo de este navegador</button>
       <span class="sp"></span>
       <button type="button" class="btn" id="auCrear">Crear cuenta</button>
@@ -3032,6 +3047,19 @@
   const NUBE_URL = "https://lazniuuedlhqomfyykvf.supabase.co";
   const NUBE_CLAVE = "sb_publishable_bVnEXWKwvIAnmJ5BfIup3w_B9_7HWAf";
   const SES_KEY = "cabina-sesion:v1";
+  /* ESTA MARCA SIGNIFICA «DIJO QUE AHORA NO», y nada más. La pone un solo sitio:
+     el botón «Ahora no» de la barra. Primero la ponía también `abreCuenta`, y
+     eso era un error que cazó `bienvenida.mjs`: al pulsar «Crear cuenta» la
+     barra desaparecía ANTES de que hubiera cuenta ninguna, así que cerrar el
+     diálogo sin crearla dejaba a la persona igual que al principio pero sin
+     nada que se lo recordara. Abrir un diálogo no es haber respondido.
+
+     Vive en el navegador porque la pregunta es «¿ya le hemos preguntado a ESTA
+     persona en ESTE dispositivo?», y eso no es un dato de la cuenta: sin cuenta
+     todavía no hay ninguna. */
+  const BIENV_KEY = "cabina:bienvenida:v1";
+  function bienvVista() { try { return !!localStorage.getItem(BIENV_KEY); } catch (e) { return true; } }
+  function bienvMarca() { try { localStorage.setItem(BIENV_KEY, "1"); } catch (e) { } }
   /* `occ`: ¿la base tiene la columna `version`, o sea, hay control de concurrencia?
      `true` mientras no se demuestre lo contrario; pasa a false si la base dice que
      la columna no existe, y el pie deja de prometer lo que no hay. */
@@ -3415,7 +3443,45 @@
     b.textContent = nube.ses ? "Cuenta" : "Entrar";
     b.title = nube.ses ? "Sesión iniciada como " + nube.ses.email : "Entra o crea una cuenta para tener tu cabina en todos tus dispositivos";
   }
-  function abreCuenta(modo, msg, tono) {
+  /* AQUÍ SE PIDE LA CUENTA, Y POR ESO ES UNA BARRA Y NO UN DIÁLOGO.
+
+     Qué falló: la cabina abría en local con un botón «Entrar» discreto en la
+     cabecera y nada que invitara a usarlo. Quien recibía el enlace se ponía a
+     apuntar operaciones en el localStorage de su navegador y no creaba cuenta
+     nunca: sus datos no vivían en ninguna cuenta, borrar los datos del navegador
+     los borraba, y dos personas en el mismo navegador compartían montón. Todo el
+     aislamiento por RLS —probado contra un Postgres de verdad— no servía de
+     nada, porque nadie llegaba a tener una cuenta que aislar.
+
+     Lo intenté primero como un diálogo que se abría solo al arrancar. La
+     compuerta lo tumbó: 12 filas en rojo y once suites muriendo a los 32 s, que
+     es el timeout de Playwright cuando un clic choca contra un overlay. No era
+     un problema de las pruebas — era la medición diciendo que la cabina deja de
+     responder hasta que alguien cierre algo, y que cualquier prueba futura que
+     arrancara en vacío caería en la misma trampa. Una barra pide lo mismo sin
+     tocar el contrato de interacción, y además NO se rinde al primer clic: se
+     queda hasta que haya cuenta o hasta que digan que no.
+
+     Se enseña sólo cuando la pregunta tiene sentido:
+       · sin sesión — con sesión ya hay cuenta y no hay nada que preguntar;
+       · sin NADA guardado en este navegador — a quien ya tiene su cabina llena
+         no se le interrumpe: ya eligió;
+       · sin haber dicho «ahora no» (`BIENV_KEY`) — y si el navegador no deja
+         guardar, `bienvVista()` devuelve `true`: preferimos no preguntar a
+         preguntar en cada recarga sin poder recordar la respuesta;
+       · fuera del demo, cuyos datos son inventados.
+
+     NO es un muro, y es a propósito: un login obligatorio sobre una
+     configuración de Auth que todavía no se ha verificado (docs/COMPARTIR.md §4)
+     deja fuera a TODO el mundo, al dueño incluido. */
+  function pintaCuentaBar() {
+    const bar = $("cuentaBar");
+    if (!bar) return;
+    const lc = localCuenta();
+    bar.hidden = !!nube.ses || !!state.demo || bienvVista() || !!lc.n || !!lc.cuentas;
+  }
+
+  function abreCuenta(modo, msg, tono, bienvenida) {
     auModo = modo || (nube.ses ? "dentro" : "fuera");
     $("auFuera").hidden = auModo !== "fuera";
     $("auDentro").hidden = auModo !== "dentro";
@@ -3424,7 +3490,11 @@
     $("auSalir").hidden = auModo !== "dentro";
     $("auGuardarNueva").hidden = auModo !== "nueva";
     $("auSubir").hidden = true; $("auSubir").dataset.armed = "";
-    $("auTitle").textContent = auModo === "fuera" ? "Entrar o crear cuenta" : auModo === "nueva" ? "Contraseña nueva" : "Tu cuenta";
+    const bienv = !!bienvenida && auModo === "fuera";
+    $("auBienv").hidden = !bienv;
+    $("auSinCuenta").hidden = !bienv;
+    $("auTitle").textContent = bienv ? "Entra o crea tu cuenta"
+      : auModo === "fuera" ? "Entrar o crear cuenta" : auModo === "nueva" ? "Contraseña nueva" : "Tu cuenta";
     if (auModo === "dentro") {
       $("auQuien").textContent = nube.ses ? nube.ses.email : "";
       const lc = localCuenta(), nota = $("auLocal");
@@ -3457,6 +3527,13 @@
 
   $("cuentaBtn").addEventListener("click", () => abreCuenta());
   $("auClose").addEventListener("click", cierraCuenta);
+  $("auSinCuenta").addEventListener("click", cierraCuenta);
+  /* «Crear cuenta» abre el mismo diálogo de siempre, en modo bienvenida. «Ahora
+     no» anota la respuesta para no volver a preguntar: una barra que reaparece
+     en cada recarga enseña a ignorarla. El botón «Entrar» de la cabecera sigue
+     ahí para quien cambie de idea. */
+  $("cuentaBarCrear").addEventListener("click", () => abreCuenta("fuera", null, null, true));
+  $("cuentaBarNo").addEventListener("click", () => { bienvMarca(); pintaCuentaBar(); });
   auOv.addEventListener("click", e => { if (e.target === auOv) cierraCuenta(); });
   auOv.addEventListener("keydown", e => {
     if (e.key === "Escape") { e.preventDefault(); cierraCuenta(); return; }
@@ -12597,6 +12674,7 @@
   if (enlace && enlace.error) abreCuenta("fuera", "El enlace no sirvió (" + enlace.error + "). Si caducó, pide otro.", "bad");
   else if (enlace && enlace.tipo === "recovery") abreCuenta("nueva");
   else if (enlace) flash("email confirmado · sesión iniciada");
+  pintaCuentaBar();
   $("riskForm").innerHTML = riskFormHtml();
   setRiskForm(riskDefaults());
   /* Si escribes tú mismo uno de los campos que vienen de la cuenta, mandas tú:

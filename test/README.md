@@ -32,6 +32,7 @@ npm run compuerta      # todas + la tabla de la cadena (CI)
 | `borrar.mjs` | borrado en masa y deshacer |
 | `cmd.mjs` · `ui.mjs` · `vista.mjs` | paleta de comandos · estados vacíos · nada se sale de la pantalla |
 | `primer.mjs` | el primer arranque: una cabina neutral, sin datos de nadie |
+| `bienvenida.mjs` | el primer arranque **pide la cuenta**: invita una vez, deja seguir sin cuenta y no vuelve a preguntar |
 | `guardado.mjs` | lo que la cabina dice cuando **no** pudo guardar |
 | `sync.mjs` | diez escenarios: tras cada escritura, Cabina y Futuros dan el mismo número sin recargar |
 | `cuentas.mjs` | login, sesión, token caducado, escritura con el `user_id` correcto |

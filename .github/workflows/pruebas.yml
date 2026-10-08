@@ -20,7 +20,12 @@ permissions:
 jobs:
   suite:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # 32 y no 25: con los reintentos de apt el peor caso de la instalación son 12
+    # minutos, y la compuerta tarda ~13. Con 25 el trabajo moría por su propio tope
+    # justo cuando los reintentos funcionaban, que es la forma más tonta de perder
+    # una corrida. Cada paso tiene además el suyo, más corto, para que un cuelgue
+    # salga en rojo diciendo DÓNDE y no como un «cancelled» sin causa.
+    timeout-minutes: 32
     # La compuerta es la fuente de verdad del release.
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -36,19 +41,39 @@ jobs:
       # Sólo Chromium: la suite no prueba otros navegadores, y bajar los tres
       # cuesta varios minutos por corrida sin comprobar nada más.
       #
-      # CON SU PROPIO TOPE, y más corto que el del trabajo. `--with-deps` llama a
-      # `apt-get`, y un espejo que deja de contestar no falla: se queda colgado. Pasó
-      # en esta rama: el espejo de Azure dejó de responder a los 24 s y el paso siguió
-      # esperando hasta que el tope de 25 minutos del TRABAJO canceló todo, sin haber
-      # corrido una sola prueba. En la interfaz eso se lee «cancelled», que parece un
-      # fallo de la suite y no lo es, y se gastan 25 minutos para no saber nada.
+      # EL PASO VA PARTIDO EN DOS A PROPÓSITO, porque sus dos mitades fallan de
+      # formas distintas y sólo una se cae:
       #
-      # Con 6 minutos, un espejo caído sale en rojo pronto y diciendo dónde, y quedan
-      # 19 minutos para la compuerta, que tarda ~8. No arregla el espejo: hace que su
-      # caída sea legible y barata en vez de silenciosa y cara.
-      - name: Instalar Chromium
-        timeout-minutes: 6
-        run: npx playwright install --with-deps chromium
+      #   · bajar el navegador habla con el CDN de Playwright y nunca ha fallado;
+      #   · `--with-deps` llama a `apt-get`, y un espejo que deja de contestar no
+      #     falla: se queda colgado.
+      #
+      # Juntas, una caída del espejo se llevaba por delante el navegador también.
+      # Pasó dos veces medidas en este repositorio: en la PR #5 el espejo de Azure
+      # dejó de responder y el paso esperó hasta que el tope de 25 minutos del
+      # TRABAJO canceló todo —en la interfaz eso se lee «cancelled», que parece un
+      # fallo de la suite y no lo es—; y en la PR #13, ya con tope propio, murió a
+      # los 6 minutos con `Ign: ... azure.archive.ubuntu.com` repetido seis veces.
+      # Las dos veces sin haber corrido una sola prueba.
+      #
+      # Partido, el navegador se baja siempre, y el espejo tiene tres intentos con
+      # espera creciente antes de darse por vencido. No arregla el espejo —no es
+      # nuestro—: hace que una caída pasajera no cueste una corrida entera.
+      - name: Bajar Chromium
+        timeout-minutes: 4
+        run: npx playwright install chromium
+
+      - name: Dependencias del sistema para Chromium
+        timeout-minutes: 8
+        run: |
+          for i in 1 2 3; do
+            if timeout 120 npx playwright install-deps chromium; then exit 0; fi
+            echo "::warning::intento $i de apt fallado o colgado; reintento en $((i * 20)) s"
+            sleep $((i * 20))
+          done
+          echo "::error::apt no respondió en tres intentos. No se desactiva nada:"
+          echo "::error::si a Chromium le falta una biblioteca, la suite lo dirá al arrancar."
+          exit 1
 
       # npm run compuerta, no npm test: la compuerta LANZA la suite una sola vez
       # (correr.mjs como proceso hijo) y todas sus filas dependientes de pruebas
