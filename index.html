@@ -5553,6 +5553,17 @@
     return { ticks: r, onGrid: Math.abs(t - r) <= Math.max(TOL, Math.abs(t) * TOL) };
   }
 
+  /* Cuantos contratos representa el campo `cantidad`, y es la UNICA respuesta a esa
+     pregunta en todo el sistema. Vacio o cero -> 1 (documentado en METRICAS.md);
+     negativo -> su magnitud; fraccionario -> truncado, porque no existen 2,7
+     contratos. La pestana Metricas/Edge tenia su propia version de esto
+     (`Math.abs(qty) || 1`) que no coincidia con la del motor: ver el comentario
+     largo dentro de valuarOperacion. */
+  function contratosDe(cantidad) {
+    const n = toNum(cantidad);
+    return toPosInt(Math.abs(n ?? 0)) ?? 1;
+  }
+
   function dirOf(direction) {
     const d = String(direction === null || direction === undefined ? "" : direction).trim().toLowerCase();
     if (["short", "sell", "venta", "corto", "s", "-1"].includes(d)) return -1;
@@ -5575,7 +5586,32 @@
     if (!isOk(rc)) return rc;
     const c = rc.value;
 
-    const qty = toPosInt(o.contratos) ?? 1;
+    /* ── CANTIDAD Y COMISION SON MAGNITUDES, NO CANTIDADES CON SIGNO ──────────
+       La direccion la dice `direccion`, no el signo de los contratos; y una
+       comision es un COSTE, no un cobro. Sin esto el signo de esos dos campos
+       decidia dinero:
+
+         · `comisionExtra: -25` -- un menos tecleado en «Comisiones $», que es el
+           habito de cualquiera que apunte costes en negativo -- se SUMABA al P&L.
+           Medido con MNQ, 10 puntos a favor, 1 contrato: bruto 20 USD, deberia
+           quedar -5 USD con 25 de comision, y publicaba **+45 USD**. La R pasaba
+           de -0,25R a **+2,25R**: cambio de SIGNO en el unico numero del que
+           cuelgan la esperanza, el profit factor, el Monte Carlo y el colchon de
+           la cuenta. Nada lo avisaba, y el editor no valida ese campo.
+         · `contratos: -3` valia 1 contrato aqui (`toPosInt(-3)` es null) mientras
+           la pestana Metricas/Edge ya hacia `Math.abs(qty)` para el riesgo. La
+           MISMA operacion daba R = 1,00 en el journal y R = 0,33 en Metricas,
+           porque el P&L se valuaba sobre 1 contrato y el riesgo sobre 3. El
+           editor bloquea qty <= 0 desde el guardado, pero un respaldo importado y
+           cualquier operacion anterior a esa guarda entran sin pasar por ahi.
+
+       Es el mismo fallo que ya se habia corregido un campo mas alla, en el ledger
+       de la cuenta: «el importe se lee SIEMPRE como magnitud; un retiro guardado
+       como -500 sumaba 500 al balance». La definicion vive aqui, en el motor, asi
+       que la app y las dos pestanas no pueden volver a discrepar. Y no se corrige
+       en silencio: cada caso deja su aviso, que la interfaz ya pinta. */
+    const contratosCrudos = toNum(o.contratos);
+    const qty = contratosDe(o.contratos);
     const dir = dirOf(o.direccion);
     const entrada = toNum(o.entrada);
     const salida = toNum(o.salida);
@@ -5587,6 +5623,16 @@
 
     const res = Ok(null);
     const warn = (code, msg, det) => addWarn(res, code, msg, det);
+
+    /* --- signo de los campos que son magnitudes (ver arriba) --- */
+    if (contratosCrudos !== null && contratosCrudos < 0) {
+      warn("CANTIDAD_NEGATIVA", `Los contratos venian en negativo (${contratosCrudos}); se leen como ${qty}. La direccion la decide el campo de direccion, no el signo.`, { campo: "contratos", valor: contratosCrudos, usado: qty });
+    }
+    const extraCrudo = toNum(o.comisionExtra) ?? 0;
+    const extra = Math.abs(extraCrudo);
+    if (extraCrudo < 0) {
+      warn("COMISION_NEGATIVA", `La comision venia en negativo (${extraCrudo}); se descuenta ${extra}. Una comision es un coste, nunca un cobro.`, { campo: "comisionExtra", valor: extraCrudo, usado: extra });
+    }
 
     /* --- rejilla --- */
     const gE = gridTicks(entrada, c.tickSize);
@@ -5628,8 +5674,8 @@
     if (ticksRiesgo === 0) warn("RIESGO_CERO", "Entrada y stop son el mismo precio: el riesgo es cero y R no esta definido.", { entrada, stop });
 
     const brutoCents = abierta ? null : ticksResultado * tickCents * qty;
-    const comisionUnit = cfg.incluirComisiones ? (toNum(c.commissionPerContract) ?? 0) : 0;
-    const extra = toNum(o.comisionExtra) ?? 0;
+    /* La del contrato tambien como magnitud: un `overrides` puede traerla negativa. */
+    const comisionUnit = cfg.incluirComisiones ? Math.abs(toNum(c.commissionPerContract) ?? 0) : 0;
     const comisionCents = abierta ? 0 : ((toCents(comisionUnit) ?? 0) * qty + (toCents(extra) ?? 0));
     const netoCents = abierta ? null : brutoCents - comisionCents;
     const riesgoCents = ticksRiesgo === null || ticksRiesgo === 0 ? null : ticksRiesgo * tickCents * qty;
@@ -7158,6 +7204,13 @@
    * Construye el objeto que se devuelve cuando la evaluación de la operación falla.
    * No se altera la política: si hay un P&L manual, éste se preserva como pnlEff.
    *
+   * SIN CONTRATO NO HAY P&L EN DOLARES, PERO R SI EXISTE: es un cociente de precios
+   * y el multiplicador se cancela. Perderla aqui seria tirar la unica medida util que
+   * queda de una operacion con simbolo desconocido. SALVO si hay un P&L a mano: sin
+   * multiplicador no se puede pasar ese dolar a R, y la R de los precios
+   * contradiria el hecho reportado —podria salir positiva sobre una operacion que el
+   * broker liquido en perdida—. Entre inventarla y no darla, no se da.
+   *
    * @param {TradeAppRaw} trade
    * @param {Object} evaluation
    * @returns {AppResult}
@@ -7169,6 +7222,10 @@
       rReal: toNum(trade.pnl) !== null ? null : rRealApp(trade),
       rPlanned: rPlanApp(trade),
       riskUsd: null,
+      /* Sin contrato no hay dinero, pero la CANTIDAD si se sabe, y quien la necesite
+         tiene que leerla de aqui y no resolverla otra vez. */
+      contratos: contratosDe(trade.qty),
+      comisiones: null,
       multUnknown: errorCode === "CONTRATO_DESCONOCIDO" && !!sym(trade.instrument),
       calcError: evaluation?.error?.message ?? "No se pudo calcular la operación.",
       avisos: [],
@@ -7177,6 +7234,12 @@
 
   /**
    * Construye el objeto de resultado cuando la evaluación tuvo éxito.
+   *
+   * SIN P&L A MANO SE PUBLICA rNeto, NO rBruto. `pnlEff` ya viene neto de
+   * comisiones, asi que una R bruta describe otra operacion. Medido: con 25 USD en
+   * «Comisiones $» una operacion que pierde 5 USD publicaba +1,0 R; con comisiones
+   * automaticas, una que pierde 0,50 USD publicaba +0,05 R. Sin comisiones rNeto y
+   * rBruto son el MISMO numero, que es el caso normal.
    *
    * @param {TradeAppRaw} trade
    * @param {Object} evaluation
@@ -7192,6 +7255,12 @@
       rReal: manualPnl !== null ? (riesgoUsd ? roundTo(manualPnl / riesgoUsd, 4) : null) : value.rNeto,
       rPlanned: value.rPlaneado,
       riskUsd: riesgoUsd,
+      /* LA CANTIDAD Y LA COMISION YA RESUELTAS POR EL MOTOR. Se publican porque la
+         pestana Metricas/Edge las derivaba por su cuenta (`Math.abs(qty) || 1`,
+         `Math.abs(fees)`) y asi la misma operacion podia dar dos R distintas. Una
+         sola respuesta, publicada, y la interfaz la lee. */
+      contratos: value.contratos,
+      comisiones: value.comisiones,
       ticks: value.ticks,
       eficiencia: value.eficiencia,
       multUnknown: false,
@@ -7270,7 +7339,7 @@
 
   const QuantEngine = {
     /* contratos */ CONTRACTS, resolveContract, rootOf,
-    /* operacion */ valuarOperacion, dirOf,
+    /* operacion */ valuarOperacion, dirOf, contratosDe,
     /* ventaja   */ analizarEdge,
     /* curva     */ construirCurva, metricasCurva, evaluarConsistencia, DD_TIPOS,
     /* riesgo    */ simularCuenta, barridoDeRiesgo, simularParametrico, probabilidadDeRacha,
@@ -7279,7 +7348,7 @@
     /* app       */ calcularTradeApp, rRealApp, rPlanApp, desdeTradeApp,
   };
 
-  return { QE_VERSION, Ok, Err, isOk, addWarn, unwrapOr, allOk, isFiniteNum, toNum, toInt, toPosInt, clamp, sym, roundHalfAway, roundTo, toCents, fromCents, sumCents, rng, randInt, randNormal, normalQuantile, zFor, normalCDF, CONTRACTS, rootOf, resolveContract, listContracts, valuarOperacion, dimensionar, dirOf, limpiar, momentos, cuantil, mediana, forma, ciProporcion, ciMedia, bootstrapCI, muestraMinima, significanciaMedia, veredicto, UMBRALES, analizarEdge, DD_TIPOS, sueloPara, construirCurva, metricasCurva, evaluarConsistencia, RESULTADO, simularCuenta, barridoDeRiesgo, simularParametrico, probabilidadDeRacha, margenDePerdida, topeDeGanancia, margenDeDrawdown, desdeTradeApp, calcularTradeApp, rRealApp, rPlanApp, excursionDeOperacion, analizarExcursion, analizarCartera, irr, vpn, valorCapitalizado, cagr, fechaMs, aniosEntre };
+  return { QE_VERSION, Ok, Err, isOk, addWarn, unwrapOr, allOk, isFiniteNum, toNum, toInt, toPosInt, clamp, sym, roundHalfAway, roundTo, toCents, fromCents, sumCents, rng, randInt, randNormal, normalQuantile, zFor, normalCDF, CONTRACTS, rootOf, resolveContract, listContracts, valuarOperacion, dimensionar, dirOf, contratosDe, limpiar, momentos, cuantil, mediana, forma, ciProporcion, ciMedia, bootstrapCI, muestraMinima, significanciaMedia, veredicto, UMBRALES, analizarEdge, DD_TIPOS, sueloPara, construirCurva, metricasCurva, evaluarConsistencia, RESULTADO, simularCuenta, barridoDeRiesgo, simularParametrico, probabilidadDeRacha, margenDePerdida, topeDeGanancia, margenDeDrawdown, desdeTradeApp, calcularTradeApp, rRealApp, rPlanApp, excursionDeOperacion, analizarExcursion, analizarCartera, irr, vpn, valorCapitalizado, cagr, fechaMs, aniosEntre };
   })();
 
 

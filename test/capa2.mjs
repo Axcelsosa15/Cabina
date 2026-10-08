@@ -348,6 +348,30 @@ for (const f of tests) {
 ok(flojos.length === 0, 'ninguna recarga ni lectura de disco con <600 ms detrás',
    flojos.length ? flojos.slice(0, 4).join(' · ') + ' — usa enDisco()' : `hay dos debounces: el día 400 ms, los ajustes 500 ms`);
 
+/* Y `quieto()` NO CUENTA COMO ESPERA PARA ESTO. Espera a que el DOM se calme, que
+   puede ser en 60 ms, mientras el debounce de los ajustes es de 500: parece una
+   espera y no lo es. La regla de arriba sólo miraba `waitForTimeout(N)` literales,
+   así que una espera escrita como `quieto(...)` se le colaba — el MISMO agujero que
+   la propia §10 documenta en su origen («busqué diferidos como `setTimeout(…,N)`
+   literales y este pasa el 400 como argumento»), una capa más arriba.
+
+   Pasó escribiendo `sello.mjs`: §8 daba `[]` sobre una cuenta que sí se había
+   guardado, y la aserción decía «lo creado no sigue ahí» sobre código correcto. */
+const quietoFlojos = [];
+for (const f of tests) {
+  const ls = lineas(f);
+  let q = -99, w = -99, wv = 0;
+  ls.forEach((l, i) => {
+    if (/\bquieto\(/.test(l)) q = i;
+    const m = [...l.matchAll(/waitForTimeout\((\d+)\)/g)];
+    if (m.length) { wv = Number(m[m.length - 1][1]); w = i; }
+    if ((/\.reload\(/.test(l) || /localStorage\.getItem/.test(l)) && i - q <= 2 && (i - w > 2 || wv < 600))
+      quietoFlojos.push(`${f}:${i + 1}`);
+  });
+}
+ok(quietoFlojos.length === 0, 'ningún `quieto()` hace de espera antes de recargar o leer disco',
+   quietoFlojos.length ? quietoFlojos.slice(0, 4).join(' · ') + ' — quieto mira el DOM, no el debounce' : 'quieto no se usa como espera de disco');
+
 console.log('\n═══ 11 · el borrado en masa pasa por una sola puerta ═══');
 /* §11 — Nadie saca una cuenta fuera de la fachada.
 
@@ -406,14 +430,42 @@ ok(!/window\.claude/.test(codigo), 'ninguna referencia a window.claude: una sola
    vio -- y encima excluia sync-index.mjs, que era el fichero con una ruta de
    contenedor clavada. Esta mira las raices reales. Lo relativo no la toca:
    process.cwd() + '/../index.html' y new URL('./x', import.meta.url) pasan. */
+/* UNA EXCEPCION, nombrada como la de la §9 en vez de esquivada.
+
+   `db.mjs` arranca un POSTGRES DE VERDAD para correr las migraciones y las pruebas
+   SQL del repositorio, y el servidor no es una dependencia de npm: vive donde lo
+   pone el sistema (`/usr/lib/postgresql/<ver>/bin`). No hay forma de derivar esa
+   ruta de `process.cwd()`, y no debe haberla: es una propiedad de la máquina, no
+   del repositorio.
+
+   LO QUE HACE QUE LA EXCEPCION SEA SEGURA, que es lo que esta regla protege: nada
+   de lo que `db.mjs` MIDE sale de ahí. El esquema, las migraciones y las pruebas
+   SQL se leen de `supabase/`, por ruta relativa al propio fichero, y si el
+   servidor no está, `db.mjs` SALTA la prueba y lo dice — no la da por buena. O
+   sea que una máquina sin Postgres no produce un verde falso, que es exactamente
+   el fallo que la §13 existe para impedir.
+
+   El clúster vive bajo el home de un usuario sin privilegios porque el servidor se
+   niega a correr como root y el scratchpad no es atravesable por ese usuario; se
+   borra al terminar. */
+const SIN_RAIZ = new Set(['db.mjs']);
 const sucias = [];
 for (const f of tests) {
+  if (SIN_RAIZ.has(f)) continue;
   const t = leer(join(dirTest, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   for (const m of t.matchAll(/['"](\/(?:tmp|home|opt|usr|var|Users|root|etc)\/[^'"]*)/g))
     sucias.push(`${f} → ${m[1].slice(0, 44)}`);
 }
-ok(sucias.length === 0, `ninguna de las ${tests.length} pruebas apunta a una raiz del sistema`,
+ok(sucias.length === 0, `ninguna de las ${tests.length - SIN_RAIZ.size} pruebas apunta a una raiz del sistema`,
    sucias.length ? sucias.slice(0, 4).join(' · ') : 'todo relativo al repositorio');
+/* Y la excepcion no se amplia sola: si `db.mjs` leyera un FICHERO del repositorio
+   por ruta absoluta, eso seguiria siendo el defecto de la §13 con otra cara. */
+{
+  const t = leer(join(dirTest, 'db.mjs'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const malas = [...t.matchAll(/['"](\/(?:tmp|home|opt|var|Users|root|etc)\/[^'"]*)/g)].map(m => m[1].slice(0, 44));
+  ok(malas.length === 0, 'db.mjs sólo apunta a /usr/lib/postgresql, y lo demás relativo',
+     malas.length ? malas.join(' · ') : 'sólo el servidor del sistema');
+}
 
 /* §14 — Ningun documento puede citar un guardian que no existe.
 
@@ -485,6 +537,37 @@ const bloques = prot.split(/\n## /).slice(1).filter(b => /^\d+ ·/.test(b));
 const sinFallo = bloques.filter(b => !/Qué falló/.test(b)).map(b => b.split('\n')[0].slice(0, 40));
 ok(sinFallo.length === 0, `los ${bloques.length} protocolos dicen qué fallo evitan`,
    sinFallo.length ? sinFallo.join(' · ') : 'todos con su fallo documentado');
+
+/* §17 — Una prueba no puede medir su propia semilla.
+
+   `addInitScript` corre en CADA navegación, también en una recarga. Una semilla
+   escrita sin condición vuelve a pisar lo que la prueba acababa de guardar, y lo
+   que se afirma después es la semilla, no el comportamiento.
+
+   Pasó escribiendo `versiones.mjs`: «las tres versiones siguen ahí» daba 2 tras
+   recargar, y la causa pareció estar en la app durante tres intentos —`normalize()`,
+   el sello, un caso aislado que pasaba en verde— cuando lo que medía era la
+   semilla. Una prueba que afirma algo falso sin fallar nunca es peor que no
+   tenerla. */
+/* SÓLO donde el peligro existe: la prueba siembra sin guarda Y RECARGA. Sembrar sin
+   condición en una prueba que nunca recarga es inocuo, y marcarlo pondría diez
+   ficheros en rojo sin un solo defecto detrás — que es la forma más rápida de que un
+   guardián se ignore. Diez pruebas lo hacen hoy y ninguna recarga; se comprobó una
+   por una antes de escribir la regla así. */
+const siembraFloja = [];
+for (const f of tests) {
+  const t = leer(join(dirTest, f), 'utf8');
+  const sinComentarios = t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  if (!/\.reload\(/.test(sinComentarios)) continue;
+  for (const m of t.matchAll(/addInitScript\(([\s\S]{0,400}?)\n?\s*\}?,?\s*(?:SEMILLA|SEM|semilla|s)\s*\)/g)) {
+    const cuerpo = m[1];
+    if (/localStorage\.setItem\(\s*['"]cabina-mnq:v1['"]/.test(cuerpo) && !/getItem\(\s*['"]cabina-mnq:v1['"]/.test(cuerpo))
+      siembraFloja.push(f);
+  }
+}
+ok(siembraFloja.length === 0, 'ninguna prueba que recargue siembra el almacén sin comprobar si ya hay algo',
+   siembraFloja.length ? [...new Set(siembraFloja)].join(' · ') + ' — addInitScript corre también en la recarga'
+     : 'las que recargan siembran con `if (!localStorage.getItem(...))`');
 
 console.log('\n──────────────────────────────────────────');
 console.log('  fallos:', fallos.length, fallos.length ? '→ ' + fallos.join(' · ') : '');
