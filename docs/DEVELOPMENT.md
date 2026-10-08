@@ -60,3 +60,6 @@ Una función nueva del motor sólo es pública si está en `PUBLICOS` de `bundle
 
 Los procedimientos, y el fallo que produjo cada uno, están en
 [../PROTOCOLOS.md](../PROTOCOLOS.md).
+
+
+<!-- CI validation checkpoint: backend-final-validation -->
