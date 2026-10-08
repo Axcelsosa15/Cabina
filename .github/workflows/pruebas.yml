@@ -21,6 +21,7 @@ jobs:
   suite:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # La compuerta es la fuente de verdad del release.
     steps:
       - uses: actions/checkout@v5
 
