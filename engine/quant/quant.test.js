@@ -434,6 +434,25 @@ ok(!Q.simularCuenta({ rMultiples: [1, -1, 1, -1, 1, -1], riesgoPorOperacion: 0 }
   const b = Q.barridoDeRiesgo({ rMultiples: [2, -1, -1, 2, -1, 3, -1, -1, 1, -1, 2, -1], riesgoPorOperacion: 100, saldoInicial: 25000, ddMaximo: 1000, objetivoGanancia: 1500, caminos: 400, semilla: 9 }, [0.5, 1, 2]);
   ok(b.ok && b.value.filas.length === 3 && b.value.optimo, "el barrido devuelve la curva y su optimo");
 }
+{ /* EL OPTIMO NO SE ELIGE SOBRE RUIDO.
+     pPasar es una estimacion de Monte Carlo. Entre tamanos cuyo pPasar no se
+     distingue (dentro de un error estandar) hay que elegir el que menos quema,
+     no el que saca una decima mas por azar. Con esta semilla el criterio viejo
+     —maximo pPasar— marcaba 2x: ganaba por 0,38 puntos, la quinta parte del
+     error estandar, y quemaba cuatro puntos mas a menudo que 1,5x. */
+  const rs = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, -0.5];
+  const b = Q.barridoDeRiesgo({ rMultiples: rs, riesgoPorOperacion: 250, operacionesPorDia: 3,
+    saldoInicial: 25000, ddTipo: "trailing_lock", ddMaximo: 1500,
+    objetivoGanancia: 7000, diasMax: 30, caminos: 800, semilla: 34 }, [0.25, 0.5, 0.75, 1, 1.5, 2, 3]);
+  ok(b.ok, "el barrido corre");
+  const v = b.value;
+  ok(v.bandaPPasar > 0, "el barrido publica la banda de ruido que uso");
+  const mejorP = Math.max(...v.filas.map(f => f.pPasar));
+  const empatados = v.filas.filter(f => f.pPasar >= mejorP - v.bandaPPasar);
+  ok(empatados.length >= 2, "con esta semilla hay dos tamanos estadisticamente empatados");
+  for (const f of empatados) ok(v.optimo.pQuemar <= f.pQuemar, `el optimo no quema mas que ${f.multiplicador}x, que empata con el`);
+  eq(v.optimo.multiplicador, 1.5, "elige 1,5x y no 2x, que ganaba por ruido y quemaba mas");
+}
 
 /* ═══ cumplimiento ═══ */
 grupo("cumplimiento");
@@ -779,6 +798,27 @@ grupo("excursión · conclusiones agregadas");
   eq(a.devueltas.acabaronEnPerdida, 20, "y 20 acabaron en pérdida");
   near(a.devueltas.tasa, 20 / 30, 1e-4, "dos de cada tres ganancias se devolvieron");
   near(a.devueltas.rMedioDevuelto, 4, 1e-6, "devolviendo 4R de media (de +3R a -1R)");
+}
+{ /* EL VEREDICTO DEL STOP, SOBRE LAS GANADORAS Y NO SOBRE TODAS.
+     El cuantil p95 del uso del stop se mide SOLO sobre ganadoras (a proposito:
+     en una perdedora el MAE acaba siendo el stop por definicion). El veredicto
+     tiene que hablar de esa muestra, no del total con MAE. */
+  const ops = [];
+  for (let i = 0; i < 6; i++) ops.push({ simbolo: "MNQ", direccion: "long", entrada: 100, stop: 90, salida: 120, mae: 98, mfe: 125 });
+  for (let i = 0; i < 24; i++) ops.push({ simbolo: "MNQ", direccion: "long", entrada: 100, stop: 90, salida: 90, mae: 90, mfe: 101 });
+  const a = Q.analizarExcursion(ops).value;
+  eq(a.conMAE, 30, "hay 30 operaciones con MAE");
+  eq(a.stop.n, 6, "pero el stop se concluye de SEIS ganadoras");
+  ok(!a.stop.fiable, "asi que no se marca fiable");
+  ok(/n=6/.test(a.stop.veredicto.razon), "y la razon habla de 6, no de 30");
+  eq(a.stop.fiable, a.salida.fiable, "stop y salida no se contradicen sobre la misma muestra");
+}
+{ /* CONTROL: con ganadoras de sobra, si es fiable. */
+  const ops = [];
+  for (let i = 0; i < 35; i++) ops.push({ simbolo: "MNQ", direccion: "long", entrada: 100, stop: 90, salida: 120, mae: 98, mfe: 125 });
+  const a = Q.analizarExcursion(ops).value;
+  eq(a.stop.n, 35, "35 ganadoras");
+  ok(a.stop.fiable, "con 35 el veredicto del stop si es fiable");
 }
 eq(Q.analizarExcursion([]).value.n, 0, "lista vacía no revienta");
 {

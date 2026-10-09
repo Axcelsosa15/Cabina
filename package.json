@@ -7,7 +7,7 @@
   "scripts": {
     "bundle": "node engine/quant/bundle.mjs",
     "check:bundle": "node engine/quant/bundle.mjs --check",
-    "audit:security": "node security/guardrails.mjs",
+    "audit:security": "node test/seguridad.mjs",
     "test": "node test/correr.mjs",
     "serve": "python3 -m http.server 8000",
     "compuerta": "node test/compuerta.mjs",
