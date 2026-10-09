@@ -332,6 +332,32 @@ eq(Q.sueloPara("trailing", 25000, 25000, 0), null, "drawdown cero devuelve null,
   const c = Q.construirCurva([{ fecha: "2026-09-01", pnl: 100 }], { saldoInicial: 25000, ddMaximo: 1000, movimientos: [{ fecha: "2026-09-01", tipo: "retiro", monto: 500 }] }).value;
   eq(c.equity, 24600, "los retiros bajan el equity");
 }
+{ /* UN RETIRO CUENTA CONTRA EL SUELO EN LOS DOS MODOS.
+     `base` elige cuando se muestrea el pico, no si el dinero que sacas puede
+     quemarte la cuenta. En intradia el riesgo se medía SOLO dentro del bucle de
+     operaciones, asi que un dia de solo retiro —el caso normal: se cobra los
+     dias que no se opera— no se medía ni una vez. */
+  const ops = [{ fecha: "2026-01-05", orden: 0, pnl: 100 }];
+  const retiro = [{ fecha: "2026-01-06", tipo: "retiro", monto: 1600 }];
+  const cfg = b => ({ saldoInicial: 25000, ddTipo: "trailing_lock", ddMaximo: 1500, base: b, movimientos: retiro });
+  const intra = Q.construirCurva(ops, cfg("intradia")).value;
+  const cierre = Q.construirCurva(ops, cfg("cierre")).value;
+  /* Gana 100 -> pico 25.100 -> suelo 23.600. Retira 1.600 -> equity 23.500.
+     Cien dolares por debajo del suelo: la firma ya cerro la cuenta. */
+  eq(intra.equity, 23500, "el retiro deja el capital en 23.500");
+  ok(intra.quemadaEn, "intradia ve que el retiro rompio el suelo");
+  ok(cierre.quemadaEn, "y cierre tambien");
+  ok(intra.peorMomento.colchon < 0, "el peor colchon en intradia es negativo, no el maximo");
+  eq(intra.peorMomento.colchon, cierre.peorMomento.colchon, "los dos modos dicen lo mismo del retiro");
+}
+{ /* CONTROL: un retiro que NO rompe el suelo no enciende nada. */
+  const c = Q.construirCurva([{ fecha: "2026-01-05", pnl: 100 }],
+    { saldoInicial: 25000, ddTipo: "trailing_lock", ddMaximo: 1500, base: "intradia",
+      movimientos: [{ fecha: "2026-01-06", tipo: "retiro", monto: 200 }] }).value;
+  eq(c.equity, 24900, "retiro pequeno: el capital baja a 24.900");
+  ok(!c.quemadaEn, "un retiro que deja colchon no quema la cuenta");
+  ok(c.peorMomento.colchon > 0, "y el peor colchon sigue siendo positivo");
+}
 eq(Q.construirCurva([], { saldoInicial: 25000, ddMaximo: 1000 }).value.nDias, 0, "curva vacia no revienta");
 {
   const c = Q.construirCurva(Array.from({ length: 80 }, (_, i) => ({ fecha: `2026-${String(Math.floor(i / 28) + 1).padStart(2, "0")}-${String((i % 28) + 1).padStart(2, "0")}`, pnl: (i % 4 === 0 ? -150 : 80) })), { saldoInicial: 25000, ddMaximo: 3000 }).value;
