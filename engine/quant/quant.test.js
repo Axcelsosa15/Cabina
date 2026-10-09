@@ -193,6 +193,31 @@ ok(!Q.dimensionar({ simbolo: "MNQ", balance: 1000, entrada: 20000, stop: 20000 }
 }
 ok(Q.dimensionar({ simbolo: "MNQ", balance: 25000, entrada: 20000, stop: 19990, riesgoPct: 8 }).warnings.some(w => w.code === "RIESGO_ALTO"), "avisa riesgo agresivo");
 
+/* UN TICK QUE NO LLEGA AL CENTAVO. `toCents(0.001)` es 0, asi que
+   `riesgoPorContratoCents` valia 0 y la division daba Infinity: dimensionar()
+   respondia ok:true con **contratos: Infinity**. valuarOperacion ya lo
+   rechazaba con TICK_SIN_VALOR; las dos tienen que decir lo mismo. */
+{
+  const ov = { XYZ: { tickSize: 0.01, tickValue: 0.001 } };
+  const d = Q.dimensionar({ simbolo: "XYZ", balance: 50000, entrada: 100, stop: 99, riesgoPct: 1 }, { overrides: ov });
+  ok(!d.ok, "un tick que no llega al centavo NO dimensiona");
+  /* `d.error` es null cuando el fallo NO ocurre, asi que se lee con `?.`: sin
+     eso el sabotaje revienta la suite entera con un TypeError en vez de dejar
+     una asercion roja, y se pierden las 300 de abajo. */
+  const cod = d.ok ? null : (d.error || {}).code;
+  ok(cod === "TICK_SIN_VALOR", "y lo dice con TICK_SIN_VALOR, igual que valuarOperacion");
+  const v2 = Q.valuarOperacion({ simbolo: "XYZ", direccion: "long", entrada: 100, salida: 101, stop: 99, contratos: 1 }, { overrides: ov });
+  const cod2 = v2.ok ? null : (v2.error || {}).code;
+  ok(cod2 !== null && cod2 === cod, "las dos funciones dan el MISMO codigo para el mismo contrato");
+}
+/* Un balance por debajo de medio centavo hacia toCents(balance) === 0 y el
+   porcentaje real salia de una division por cero. */
+{
+  const d = Q.dimensionar({ simbolo: "MNQ", balance: 0.001, entrada: 21000, stop: 20990, riesgoPct: 1 });
+  ok(d.ok && d.value.contratos === 0, "un balance diminuto da cero contratos, no un error");
+  ok(d.ok && d.value.riesgoPctReal === null, "y el porcentaje real es null, no una division por cero");
+}
+
 /* ═══ estadistica ═══ */
 grupo("estadistica");
 eq(Q.momentos([1, 2, 3, 4, 5]).media, 3, "media");

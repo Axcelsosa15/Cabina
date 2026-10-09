@@ -70,6 +70,17 @@ const SEMILLA = {
     credito: op('credito', { fees: -25 }),        // comisión −$25: también −$5
     tres:    op('tres',   { qty: 3 }),            // 3 contratos:          +$60
     menos3:  op('menos3', { qty: -3 }),           // −3 contratos: también +$60
+    /* INVERSIONES: la misma pregunta en la otra pestaña. 10 × $100 = $1.000
+       invertidos y precio actual 100, o sea cero ganancia. Lo único que cambia
+       entre las dos posiciones es el SIGNO del campo «Comisiones $». */
+    invCoste:   { id: 'invCoste', type: 'inversion', op: 'compra', asset: 'AAA', market: 'us',
+                  date: '2026-09-01', qty: 10, price: 100, fees: 100 },
+    invCredito: { id: 'invCredito', type: 'inversion', op: 'compra', asset: 'BBB', market: 'us',
+                  date: '2026-09-01', qty: 10, price: 100, fees: -100 },
+  },
+  positions: {
+    pA: { id: 'pA', asset: 'AAA', market: 'us', date: '2026-09-01', qty: 10, entry: 100, current: 100 },
+    pB: { id: 'pB', asset: 'BBB', market: 'us', date: '2026-09-01', qty: 10, entry: 100, current: 100 },
   },
   playbooks: { p1: { id: 'p1', name: 'Setup', type: 'futuros', kind: 'futuros', status: 'activo' } },
 };
@@ -147,7 +158,29 @@ console.log('\n═══ 4 · la suma de la cuenta refleja el dinero corregido �
 const total = await pg.evaluate(() => FUT.calculateAccountStats('a1').jTotal);
 ok(cerca(total, 130), 'el journal de la cuenta suma +$130 (sumaba +$140)', total);
 
-console.log('\n═══ 5 · ningún error de página ═══');
+console.log('\n═══ 5 · lo mismo en INVERSIONES, que era la pestaña que faltaba ═══');
+/* Qué falló aquí, medido en un navegador antes de arreglarlo: con «Comisiones $»
+   = −100 sobre una posición que no había ganado ni perdido nada, la app publicaba
+   `neto = +100` y `retorno = +10%`. Doscientos dólares inventados y un cambio de
+   SIGNO en el número que dice si una inversión va bien.
+
+   El ledger de la cuenta prop ya leía el importe como magnitud, y el motor ya lo
+   hacía para futuros. Inversiones era la única de las tres que seguía leyendo el
+   signo, y resolvía las comisiones por su cuenta en once sitios distintos. */
+const inv = id => pg.evaluate(i => {
+  const r = window.INV.performance(i);
+  return r ? { comisiones: r.comisiones, neto: r.neto, retorno: r.retorno } : null;
+}, id);
+const iCoste = await inv('pA'), iCredito = await inv('pB');
+ok(iCoste && cerca(iCoste.comisiones, 100), 'control: comisión 100 se lee 100', iCoste && iCoste.comisiones);
+ok(iCoste && cerca(iCoste.neto, -100), 'control: su neto es −$100 (la comisión es un coste)', iCoste && iCoste.neto);
+ok(iCredito && cerca(iCredito.comisiones, 100), 'comisión −100 TAMBIÉN se lee 100', iCredito && iCredito.comisiones);
+ok(iCredito && cerca(iCredito.neto, -100), 'y su neto es −$100, no +$100', iCredito && iCredito.neto);
+ok(iCoste && iCredito && cerca(iCoste.retorno, iCredito.retorno),
+   'el signo del campo NO cambia el rendimiento', iCredito && iCredito.retorno);
+ok(iCredito && iCredito.retorno < 0, 'una posición plana con comisión rinde NEGATIVO, nunca +10%', iCredito && iCredito.retorno);
+
+console.log('\n═══ 6 · ningún error de página ═══');
 ok(errs.length === 0, 'sin errores de JavaScript', errs.join(' | ') || 'ninguno');
 
 await nav.close(); srv.close();

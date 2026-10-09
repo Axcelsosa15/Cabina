@@ -498,6 +498,23 @@ function dimensionar(params, opciones) {
   if (balance === null || balance <= 0) return Err("BALANCE_INVALIDO", "El balance debe ser mayor que cero.", { balance });
   if (entrada === null || stop === null) return Err("FALTA_STOP", "Se necesita entrada y stop para dimensionar.");
 
+  /* EL MISMO CONTROL QUE valuarOperacion, Y FALTABA AQUI.
+     `toCents` redondea al centavo, asi que un tick de 0,001 USD vale CERO
+     centavos. Alla arriba eso devuelve TICK_SIN_VALOR; aqui no habia nada, y
+     `riesgoPorContratoCents` salia 0. La division de abajo daba Infinity y la
+     funcion respondia `ok: true` con **contratos: Infinity** y riesgoReal null:
+     una funcion de dimensionamiento de posicion diciendo «compra infinitos
+     contratos» y marcandolo como exito. `resolveContract` no lo filtra porque
+     solo exige tickValue > 0, y 0,001 lo cumple.
+     Hoy la app llama a dimensionar() sin `overrides`, asi que con los contratos
+     de serie no se alcanza; pero el motor es publico (window.QuantEngine) y la
+     asimetria entre las dos funciones era una trampa esperando a que alguien
+     anada contratos a medida. */
+  const tickCents = toCents(c.tickValue);
+  if (tickCents === null || tickCents === 0) {
+    return Err("TICK_SIN_VALOR", `El tick de ${c.symbol} no tiene valor monetario representable.`, { tickValue: c.tickValue });
+  }
+
   const res = Ok(null);
   const ticksRiesgo = Math.abs(Math.round(entrada / c.tickSize) - Math.round(stop / c.tickSize));
   if (ticksRiesgo === 0) return Err("RIESGO_CERO", "Entrada y stop coinciden: no hay riesgo que dimensionar.");
@@ -510,7 +527,7 @@ function dimensionar(params, opciones) {
   if (pct > 0.05) addWarn(res, "RIESGO_ALTO", `Arriesgar ${roundTo(pct * 100, 2)}% por operacion es agresivo: 10 perdidas seguidas se llevan ${roundTo((1 - Math.pow(1 - pct, 10)) * 100, 1)}% de la cuenta.`, { pct });
 
   const riesgoPermitidoCents = toCents(balance * pct);
-  const riesgoPorContratoCents = ticksRiesgo * toCents(c.tickValue);
+  const riesgoPorContratoCents = ticksRiesgo * tickCents;
   const bruto = riesgoPermitidoCents / riesgoPorContratoCents;
   let contratos = Math.floor(bruto);
   if (cfg.maxContratos) contratos = Math.min(contratos, toPosInt(cfg.maxContratos) ?? contratos);
@@ -529,7 +546,9 @@ function dimensionar(params, opciones) {
     riesgoPorContrato: fromCents(riesgoPorContratoCents),
     /* lo que se deja en la mesa por no poder fraccionar un contrato */
     desaprovechado: fromCents(riesgoPermitidoCents - riesgoRealCents),
-    riesgoPctReal: roundTo(riesgoRealCents / toCents(balance), 6),
+    /* Un balance por debajo de medio centavo da toCents(balance) === 0, y el
+       porcentaje seria una division por cero. Se dice null, que es la verdad. */
+    riesgoPctReal: toCents(balance) ? roundTo(riesgoRealCents / toCents(balance), 6) : null,
     fraccional: roundTo(bruto, 4),
   });
   return res;
