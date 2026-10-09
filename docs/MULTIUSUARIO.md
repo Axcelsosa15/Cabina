@@ -260,8 +260,14 @@ Para abrir las cuentas, en este orden:
 1. **GitHub Pages activado** (Settings → Pages → Source: GitHub Actions). Sin eso no
    hay página pública donde entrar.
 2. **Supabase → Authentication → URL Configuration**: *Site URL* =
-   `https://axcelsosa15.github.io/TURBOK2/`, y la misma URL en *Redirect URLs*. Sin
-   esto, los enlaces de confirmar y de recuperar vuelven a `localhost`.
+   `https://axcelsosa15.github.io/Cabina/`, y `https://axcelsosa15.github.io/Cabina/**` en *Redirect URLs*.
+   Sin esto, los enlaces de confirmar y de recuperar vuelven a `localhost`.
+
+   **Esto pasó de verdad el 2026-10-08.** El dueño intentó crear una cuenta y el
+   enlace del correo le llevó a `http://localhost:3000` — el valor de fábrica del
+   *Site URL*. La app no tiene la culpa: envía su `redirect_to` correcto, pero
+   Supabase lo descarta si no está en la lista blanca y cae al *Site URL*. Por eso
+   hay que poner LOS DOS campos, no sólo uno.
 3. **Activar la protección de contraseñas filtradas** y poner el **mínimo en 8**
    (Authentication → contraseñas). Con login por contraseña no es opcional. El
    proyecto viejo la tenía apagada.

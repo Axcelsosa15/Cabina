@@ -942,8 +942,18 @@ Las reglas:
 >    riesgo: la MISMA operación daba **R = 1,00** en el journal y **R = 0,33** en
 >    Métricas.
 >
+> 4. `positions[].fees` y `trades[].fees` **de inversión**. Con «Comisiones $» =
+>    `-100` sobre una posición de 10 × $100 que no había ganado ni perdido nada, la
+>    app publicaba **neto = +$100** y **retorno = +10%**. La pestaña resolvía las
+>    comisiones por su cuenta en **once** sitios (`posPerf`, `posCalc`, `posLotes`,
+>    `investStats`, el desglose mensual, la tabla…), ninguno con magnitud.
+>
 > El 1 se arregló meses antes que el 2 y el 3, un campo más allá, sin que nadie
-> buscara los otros dos. Por eso esto es un protocolo y no un arreglo.
+> buscara los otros dos. Y cuando se arreglaron el 2 y el 3 —en el motor, para
+> futuros— tampoco se buscó el 4: Inversiones siguió un mes entero leyendo el
+> signo, con este protocolo ya escrito. Por eso esto es un protocolo y no un
+> arreglo, y por eso la regla de arriba dice **una sola definición**: ahora es
+> `comisionDe()`, y los once sitios la llaman.
 
 ---
 

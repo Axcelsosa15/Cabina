@@ -77,10 +77,27 @@ nada en la base. Eso es lo que tiene que pasar.
 
 Tres cosas, y la primera es la que rompe el alta si falta.
 
-1. **URL Configuration.** *Site URL* = la URL de tu página de Pages, y la misma en
-   *Redirect URLs*.
-   **Si no lo pones, el enlace del correo de confirmación le lleva a `localhost` y no
-   puede terminar de crear la cuenta.** Es el fallo número uno de este paso.
+1. **URL Configuration**, con estos dos valores exactos:
+
+   | campo | valor |
+   |---|---|
+   | *Site URL* | `https://axcelsosa15.github.io/Cabina/` |
+   | *Redirect URLs* | `https://axcelsosa15.github.io/Cabina/**` |
+
+   **Pasó el 2026-10-08, con esta guía ya escrita y este paso sin hacer:** al pulsar
+   «Crear cuenta» el enlace del correo llevó a `http://localhost:3000`, que es el
+   valor de fábrica del *Site URL*. No es un fallo de la app — envía su `redirect_to`
+   correcto—, pero Supabase lo descarta si no está en la lista blanca y cae al *Site
+   URL*. Por eso van **los dos** campos, no sólo el primero.
+
+   Si ya intentaste crear la cuenta antes de arreglarlo, ese usuario existe pero sin
+   confirmar y volver a registrarlo con el mismo correo falla. Bórralo en
+   **Authentication → Users** y repite.
+
+   La URL sale del propio despliegue: `pagina.yml` la imprime y comprueba byte a byte
+   que sirve el `index.html` probado. Si algún día renombras el repositorio, **cambia
+   también estos dos campos** — pasó: el repositorio se llamaba TURBOK2 y la URL vieja
+   quedó escrita en tres documentos.
 2. **Que el alta esté abierta.** «Allow new users to sign up» tiene que estar
    encendido, o su registro se rechaza sin explicar por qué.
 3. **Contraseñas: mínimo 8 y protección de contraseñas filtradas encendida.** Con

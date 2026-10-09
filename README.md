@@ -1,10 +1,10 @@
-# TURBOK2 · Cabina
+# Cabina
 
 Diario de trading de futuros e inversiones. Una sola página, sin build ni framework:
 pre-sesión, reglas duras, cuentas de prop firm, journal de futuros con P&L exacto en la
 rejilla de ticks, métricas de edge, cartera de inversiones, playbook y tesis.
 
-**En producción:** https://axcelsosa15.github.io/TURBOK2/
+**En producción:** https://axcelsosa15.github.io/Cabina/
 
 No es asesoramiento financiero: operar futuros conlleva un riesgo alto de pérdida.
 

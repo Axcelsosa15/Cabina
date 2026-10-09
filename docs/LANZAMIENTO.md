@@ -66,8 +66,9 @@ Cuando se quite, deja de exigirlo.
    algún día, puede convenir mantenerlo cerrado. No es una decisión técnica.
 2. **Idioma.** Sólo español. Es un mercado, y es una decisión.
 
-Decididas: el **nombre** es Cabina (el repositorio sigue llamándose TURBOK2, y eso no
-se ve desde la app); las **cuentas del autor** se quitaron del código (arriba).
+Decididas: el **nombre** es Cabina, y desde 2026-10-08 el repositorio también se
+llama así —antes era TURBOK2—, de modo que la URL pública pasó a
+`https://axcelsosa15.github.io/Cabina/`; las **cuentas del autor** se quitaron del código (arriba).
 
 **Lo que quitarlas del código no quita:** la historia de git. Los commits anteriores
 siguen conteniendo los nombres y el repositorio es público. Borrarlos de ahí exige
