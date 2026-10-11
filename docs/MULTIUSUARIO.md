@@ -182,7 +182,8 @@ dispositivos, porque sin la columna no la hay. Al aplicar la migración vuelve s
 |---|---|---|
 | `test/db.mjs` | **Postgres 16 real, local.** Aplica las migraciones del repositorio tal cual sobre un arnés con lo mínimo de `auth` y `storage` y corre `concurrencia.sql`, `aislamiento.sql` y `capturas.sql`. Demuestra el DDL, el trigger, el UPDATE condicional y la RLS entre dos usuarios | **PASS** |
 | `test/conflicto.mjs` | la app real contra el doble: A gana, B ve conflicto, la base conserva lo de A. Contra el upsert anterior se pone roja | **PASS** |
-| el proyecto Supabase real | que el proyecto **tenga** la migración aplicada, que el `auth.uid()` de GoTrue se comporte como el sustituto, que PostgREST devuelva `[]` con 0 filas, y que el Storage aplique las políticas igual | **UNKNOWN** |
+| el proyecto Supabase real | que el proyecto **tenga** la migración aplicada y que la RLS aísle de verdad a dos usuarios con sesión. Corrido con `aislamiento.sql` en el editor SQL el 11/10/2026: **8 de 8**, ver abajo | **PASS** |
+| el proyecto Supabase real, lo que falta | que el `auth.uid()` de GoTrue real (no el sustituto de la prueba) se comporte igual, que PostgREST devuelva `[]` con 0 filas en vez de error, y que el Storage aplique las políticas igual | **UNKNOWN** |
 
 El UNKNOWN no es un hueco por rellenar: desde CI la política de red deniega
 `supabase.co` (403 al CONNECT, medido con `curl`). Lo corre el dueño:
@@ -208,10 +209,40 @@ enlace no saca nada, y eso importa desde que la página es indexable.
 `DELETE` **no se probó a propósito**: comprobarlo significa ejecutar un borrado real
 contra la tabla de producción. Por el mismo GRANT debería estar igual de denegado.
 
-**Lo que esto NO demuestra, y sigue en UNKNOWN:** que un usuario CON sesión no pueda
-leer las filas de otro. Eso es justo lo que gobiernan las políticas RLS y hacen falta
-dos cuentas para verlo. Es la comprobación que hay que hacer **antes** de darle el
-enlace a nadie, no después.
+**Lo que esto no demostraba** era lo otro: que un usuario CON sesión no pueda leer las
+filas de otro. Eso lo gobiernan las políticas RLS y hacen falta dos cuentas para verlo.
+Se cerró el mismo día.
+
+#### Aislamiento entre dos usuarios con sesión · 11/10/2026
+
+`supabase/pruebas/aislamiento.sql`, corrido entero en el editor SQL del proyecto real.
+El bloque termina a propósito en `raise exception`, así que la transacción se deshace
+y el veredicto viaja en el mensaje del error:
+
+```
+ERROR: P0001: RESULTADO A_ve_lo_suyo=2 B_lee_de_A=0 B_modifica_de_A=0 B_borra_de_A=0
+               B_escribe_como_A_bloqueado=true B_ve_solo_lo_suyo=1
+               anonimo_bloqueado=true A_intacto=1
+CONTEXT: PL/pgSQL function inline_code_block line 58 at RAISE
+```
+
+Las ocho cifras son las esperadas. Leído de izquierda a derecha: A ve sus dos
+documentos; B no lee ninguno de A, no modifica ninguno, no borra ninguno, no consigue
+escribir uno a nombre de A, y ve exactamente el suyo; sin sesión no se ve nada; y lo de
+A queda intacto después de todos los intentos.
+
+Comprobado después, con una consulta de solo lectura, que la transacción no dejó nada:
+
+| | |
+|---|---|
+| usuarios de prueba que quedaron | **0** |
+| documentos en `cabina_docs` | **1** (el real, el de antes) |
+| filas con basura de la prueba | **0** |
+| políticas RLS sobre la tabla | **4** |
+| RLS activa en la tabla | **true** |
+
+Esto era la comprobación que había que hacer **antes** de darle el enlace a nadie. Ya
+está hecha.
 
 ### Lo que sigue sin resolverse
 
