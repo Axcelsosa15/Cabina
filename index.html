@@ -1138,6 +1138,11 @@
   .hero > div { background: var(--surface-2); padding:12px 16px; min-width: 0; }
   .hero .v { font-family: var(--font-mono); font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hero .v.good { color: var(--good); }
+  /* `.hero .v.bad` NO EXISTIA. Mientras el balance final llevaba `good` clavado
+     nunca hizo falta — nada podía pintarse de rojo—, y al condicionar el color
+     un negativo se habría quedado BLANCO: el único caso que de verdad hay que
+     ver, sin aviso. El verde se queda definido porque otras tarjetas lo usan. */
+  .hero .v.bad { color: var(--negative); }
   @media (max-width: 520px) { .hero { grid-template-columns: 1fr; } }
   .chart { width: 100%; height: auto; display: block; }
   .chart text { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); }
@@ -11721,9 +11726,9 @@
     const x = ccInputs(); const s = simulate(x, cc.mode); const tr = cc.mode === "trading";
     $("ccMeta").textContent = `${x.y} años · ${tr ? x.rm + "% mensual, retiro " + x.w + "%" : x.r + "% anual"}`;
     $("ccHero").innerHTML = `
-      <div><span class="lab">Balance final</span><div class="v good">${money(s.final)}</div>${x.i ? `<div class="s" style="font-size:12px;color:var(--muted)">${money(s.realFinal)} en dinero de hoy</div>` : ""}</div>
+      <div><span class="lab">Balance final</span><div class="v ${s.final < 0 ? "bad" : ""}">${money(s.final)}</div>${x.i ? `<div class="s" style="font-size:12px;color:var(--muted)">${money(s.realFinal)} en dinero de hoy</div>` : ""}</div>
       <div><span class="lab">Aportado</span><div class="v">${money(s.contributed)}</div></div>
-      <div><span class="lab">${tr ? "Ganado (balance + retiros)" : "Interés generado"}</span><div class="v ${s.interest > 0 ? "good" : s.interest < 0 ? "bad" : ""}">${money(s.interest)}</div>${tr ? `<div class="s" style="font-size:12px;color:var(--muted)">retirado: ${money(s.withdrawn)}</div>` : ""}</div>`;
+      <div><span class="lab">${tr ? "Ganado (balance + retiros)" : "Interés generado"}</span><div class="v ${s.interest < 0 ? "bad" : ""}">${money(s.interest)}</div>${tr ? `<div class="s" style="font-size:12px;color:var(--muted)">retirado: ${money(s.withdrawn)}</div>` : ""}</div>`;
     const mult = s.contributed ? s.final / s.contributed : 0;
     $("ccNote").textContent = tr
       ? `${x.rm}% mensual sostenido equivale a ${((Math.pow(1 + x.rm / 100, 12) - 1) * 100).toFixed(0)}% anual. Casi nadie lo sostiene 12 meses seguidos; úsalo como escenario, no como plan. Si el mes es rojo no hay retiro.`
@@ -11737,9 +11742,18 @@
         const share = (s.final - at.bal) / s.final;
         return `${base} El ${(share * 100).toFixed(0)}% del balance final se construye en ${k === 1 ? "el último año" : "los últimos " + k + " años"}: el interés compuesto castiga empezar tarde más que aportar poco.`;
       })();
-    $("ccTable").innerHTML = `<table class="t"><thead><tr><th>Año</th><th class="r">Aportado</th><th class="r">${tr ? "Retirado" : "Interés"}</th><th class="r">Balance</th><th class="r">${tr ? "Ganado en el año" : "Interés del año"}</th></tr></thead><tbody>${s.rows.map((r, i) => { const prev = i ? s.rows[i - 1] : null; const g = (tr ? r.interest : r.interest) - (prev ? prev.interest : 0); return `<tr><td>${r.year}</td><td class="r">${money(r.contributed)}</td><td class="r">${money(tr ? r.withdrawn : r.interest)}</td><td class="r ${r.bal > 0 ? "pos" : r.bal < 0 ? "neg" : ""}"><strong>${money(r.bal)}</strong></td><td class="r ${g > 0 ? "pos" : g < 0 ? "neg" : ""}">${money(g)}</td></tr>`; }).join("")}</tbody></table>`;
+    $("ccTable").innerHTML = `<table class="t"><thead><tr><th>Año</th><th class="r">Aportado</th><th class="r">${tr ? "Retirado" : "Interés"}</th><th class="r">Balance</th><th class="r">${tr ? "Ganado en el año" : "Interés del año"}</th></tr></thead><tbody>${s.rows.map((r, i) => { const prev = i ? s.rows[i - 1] : null; const g = (tr ? r.interest : r.interest) - (prev ? prev.interest : 0); return `<tr><td>${r.year}</td><td class="r">${money(r.contributed)}</td><td class="r">${money(tr ? r.withdrawn : r.interest)}</td><td class="r ${r.bal < 0 ? "neg" : ""}"><strong>${money(r.bal)}</strong></td><td class="r ${g < 0 ? "neg" : ""}">${money(g)}</td></tr>`; }).join("")}</tbody></table>`;
     renderCalcChart(s, x);
   }
+  /* EL COLOR SÓLO DONDE DECIDE ALGO. El balance final llevaba la clase `good`
+     CLAVADA: verde pasara lo que pasara, incluso con un balance negativo. Un
+     color que no cambia no informa de nada — es decoración—, y en el interés
+     compuesto todas esas cifras son positivas por construcción, así que el verde
+     estaba teñido sobre un hecho que no existía. El sistema de diseño lo dice en
+     su primera línea: el color sólo aparece donde hay un número que decide algo.
+     Ahora el positivo es --text, el nivel del DATO, y el rojo se reserva para lo
+     único que de verdad hay que ver: un número en negativo — que en «Cuenta de
+     trading», con retiros, sí puede pasar. */
   function renderCalcChart(s, x) {
     const W = chartW($("ccChartWrap")), H = 240, pl = 56, pr = 16, pt = 14, pb = 26;
     const pts = [{ year: 0, bal: x.p, contributed: x.p }].concat(s.rows);
