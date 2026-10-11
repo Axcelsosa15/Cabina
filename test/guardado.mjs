@@ -123,6 +123,17 @@ const opRapida = async (p, txt) => {
   await ctx.close();
 }
 
+/* DESDE LA COLA DURABLE (11/10/2026) UN FALLO CON CUENTA TIENE DOS FORMAS, y las
+   dos son el mismo aviso: «SIN GUARDAR · N» cuando el cambio no esta en ningun
+   sitio mas que la pantalla, y «PENDIENTES · N» cuando esta a salvo en IndexedDB
+   esperando a salir. Lo que estas aserciones vigilan NO es la palabra: es que el
+   rotulo no diga «sincronizado» mientras hay algo sin llegar a la base, y que un
+   guardado bueno no tape el aviso de otro documento. Las dos propiedades siguen
+   intactas; lo que cambia es que ahora el usuario ademas NO pierde el dato.
+   Aceptar solo «sin guardar» convertiria esta prueba en una que exige que la app
+   siga perdiendo cosas. */
+const avisa = t => !/sincronizado/i.test(String(t)) && /(sin guardar|pendientes)/i.test(String(t));
+
 /* ═══ CASO B · la cuenta rechaza la escritura ════════════════════════════
    Con el doble de Supabase (test/nube-doble.mjs) y la sesión ya abierta. La
    avería se pone desde el test, en el doble, no desde la página. */
@@ -150,7 +161,7 @@ const dobleDb = async () => {
   await p.waitForTimeout(3200);
   const t1 = await lee(p);
   ok(!/^sincronizado$/i.test(t1.rotulo.trim()), 'a los 3,2 s el rotulo YA NO dice «sincronizado»', `«${t1.rotulo.trim()}»`);
-  ok(/sin guardar/i.test(t1.rotulo), 'dice que hay algo sin guardar', `«${t1.rotulo.trim()}»`);
+  ok(avisa(t1.rotulo), 'dice que hay algo que no ha llegado a la cuenta', `«${t1.rotulo.trim()}»`);
   ok(!/se guardan y se comparten/.test(t1.pie), 'y el pie deja de prometer que se guarda', `«${t1.pie.trim().slice(0, 80)}»`);
 
   /* Cuando la base vuelve: guardar OTRO documento no limpia el aviso, porque los
@@ -163,8 +174,8 @@ const dobleDb = async () => {
   const t2 = await lee(p);
   const pend1 = Number(t2.rotulo.replace(/[^0-9]/g, '')) || 0;
   ok(t2.ops === 2, 'con la base de vuelta, la operacion nueva entra', `ops ${t2.ops}`);
-  ok(/sin guardar/i.test(t2.rotulo) && pend1 < pend0,
-     'el aviso BAJA pero no desaparece: la operacion vieja sigue sin guardar',
+  ok(avisa(t2.rotulo) && pend1 < pend0,
+     'el aviso BAJA pero no desaparece: la operacion vieja sigue sin llegar',
      `de ${pend0} a ${pend1}`);
   /* y ahora si: se vuelven a guardar LOS MISMOS documentos que fallaron */
   await p.evaluate(async () => {
@@ -199,7 +210,7 @@ const dobleDb = async () => {
   const hay = await p.evaluate(() => document.querySelectorAll('.check input[type=checkbox]:not(:disabled)').length);
   if (hay) { await p.click('.check input[type=checkbox]:not(:disabled)'); await p.waitForTimeout(1200); }
   const d0 = await lee(p);
-  ok(hay > 0 && /sin guardar/i.test(d0.rotulo), 'con SOLO el dia roto, el rotulo avisa', `${hoy} · ${hay} casillas · «${d0.rotulo.trim()}»`);
+  ok(hay > 0 && avisa(d0.rotulo), 'con SOLO el dia roto, el rotulo avisa', `${hoy} · ${hay} casillas · «${d0.rotulo.trim()}»`);
   /* Ahora se guarda bien OTRO documento -- `settings/main`, que no toca el dia.
      Con una operacion no valia: el registro rapido escribe la ficha Y el dia, asi
      que el dia se volvia a romper en la misma accion y el contador regresaba a 1
@@ -216,7 +227,7 @@ const dobleDb = async () => {
   await p.waitForTimeout(1400);
   const d1 = await lee(p);
   ok(guardoOtro, 'se guarda bien otro documento: settings/main', `${guardoOtro}`);
-  ok(/sin guardar/i.test(d1.rotulo),
+  ok(avisa(d1.rotulo),
      'y el aviso del DIA sigue: un guardado bueno no tapa otro documento roto', `«${d1.rotulo.trim()}»`);
   /* y el dia, en efecto, sigue siendo el que falla */
   ok(/doc-roto/.test(d1.pie), 'el motivo que se muestra es el del documento roto', `«${d1.pie.trim().slice(0, 96)}»`);

@@ -280,7 +280,14 @@ console.log('\n═══ ABRIR SIN RED · no parece una cuenta vacía ═══'
   nube.caida = true;
   await p.reload({ waitUntil: 'load' }); await p.waitForFunction(() => typeof window.FUT !== 'undefined');
   ok(await esperaNube(p, () => document.getElementById('saveState').textContent === 'sin conexión'), 'sin red: el rótulo dice «sin conexión», no «sincronizado»');
-  ok(/NO se guarda/.test(await p.textContent('#footerStore')), 'y el pie avisa de que no se guarda');
+  /* Antes el pie decia «lo que cambies NO se guarda», y con la cola durable eso
+     dejo de ser cierto: lo que cambies SI se guarda, en el dispositivo, y sale
+     cuando vuelva la red. Lo que sigue siendo cierto —y es lo que importa aqui—
+     es que lo que se ve puede no estar al dia, y que no se finge lo contrario. */
+  const pieSinRed = await p.textContent('#footerStore');
+  ok(/no estar al día/i.test(pieSinRed) && !/sincronizado/i.test(pieSinRed),
+     'y el pie avisa de que lo que se ve puede no estar al día', `«${pieSinRed.trim().slice(0, 90)}»`);
+  ok(/cola/i.test(pieSinRed), 'y dice qué pasa con lo que cambies: se queda en cola', `«${pieSinRed.trim().slice(-70)}»`);
   nube.caida = false;
   await p.evaluate(() => window.dispatchEvent(new Event('online')));
   ok(await esperaNube(p, () => document.getElementById('saveState').textContent === 'sincronizado' && FUT.trades().length === 1), 'vuelve la red: se recarga sola y dice «sincronizado»');

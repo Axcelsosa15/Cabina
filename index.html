@@ -2804,7 +2804,16 @@
     setStoreLabel();
     avisaConflicto(clave);
   }
-  function resuelto(clave) { if (conflictos.delete(clave)) setStoreLabel(); }
+  /* Resolver el conflicto cierra también la entrada de la cola: si el usuario se
+     quedó con la versión de la base, la copia pendiente ya no representa nada que
+     quiera guardar, y dejarla ahí marcada «conflicto» para siempre sería ruido
+     que nunca se va. Si se quedó con la suya, la escritura que viene detrás la
+     quita igual al entrar bien. */
+  function resuelto(clave) {
+    const uid = state.nube && nube.ses ? nube.ses.uid : null;
+    if (uid) cola.quita(uid, clave).catch(() => { });
+    if (conflictos.delete(clave)) setStoreLabel();
+  }
   function noSeGuardo(clave, motivo, que) {
     /* UN CONFLICTO NO ES UN ERROR CUALQUIERA. «No se pudo guardar (conflicto)» y un
        destello de 2,5 s dejarían al usuario sin saber que hay DOS versiones y que
@@ -3245,28 +3254,67 @@
         + " Pulsa «Resolver conflicto» para ver qué cambió y decidir con qué versión te quedas.";
       return;
     }
+    /* LO ENCOLADO Y LO QUE SE PIERDE AL RECARGAR NO SON LO MISMO, y mezclarlos
+       sería la mentira nueva que la cola podía introducir en este rótulo: decir
+       «si recargas, se pierde» de algo que está en IndexedDB y se reintenta solo
+       asusta de más; decir «pendiente, tranquilo» de algo que vive en un Map en
+       memoria asusta de menos, que es el error peor de los dos. Se cuentan por
+       separado y cada uno tiene su frase. */
+    const uidCola = state.nube && nube.ses ? nube.ses.uid : null;
+    const enCola = uidCola ? cola.lista(uidCola) : [];
+    const rutasCola = new Set(enCola.map(r => r.ruta));
+    const volatiles = [...sinGuardar.keys()].filter(r => !rutasCola.has(r));
+    const guardaCola = cola.durable ? "en este dispositivo" : "sólo en memoria";
+    const avisoCola = cola.durable
+      ? " Se envían solos cuando vuelva la red, aunque cierres la pestaña."
+      : " Este navegador no deja guardar en disco (modo privado), así que cerrar la pestaña los pierde: copia el respaldo.";
     /* Una sesión caducada es peor que un fallo suelto: TODO lo que escribas a
        partir de ahí se rechaza. Se dice primero, y se dice qué hacer. */
     if (state.nube && nube.caducada) {
       el.textContent = "sesión caducada"; el.className = "save-state nosave"; f.className = "nosave";
-      f.textContent = "Tu sesión caducó: lo que cambies NO se guarda hasta que vuelvas a entrar (botón Entrar, arriba).";
+      f.textContent = "Tu sesión caducó: lo que cambies NO se guarda hasta que vuelvas a entrar (botón Entrar, arriba)."
+        + (enCola.length ? " Hay " + plu(enCola.length, "cambio esperando", "cambios esperando") + " " + guardaCola + "; se envían en cuanto entres." : "");
+      return;
+    }
+    /* LO QUE SE PIERDE AL RECARGAR VA ANTES QUE LA FALTA DE RED. Antes «sin
+       conexión» ganaba y tapaba un SIN GUARDAR; con la cola, la mayoría de los
+       fallos sin red quedan a salvo y el que NO queda es el único que urge. */
+    if (volatiles.length) {
+      el.textContent = "SIN GUARDAR · " + volatiles.length;
+      el.className = "save-state nosave";
+      f.className = "nosave";
+      f.textContent = "Hay " + plu(volatiles.length, "cambio que NO se guardó", "cambios que NO se guardaron")
+        + " (" + (sinGuardarMotivo || "error") + ") y que tampoco entraron en la cola: están en la pantalla y en ningún sitio más."
+        + " Si recargas, se pierden. Copia el respaldo antes de cerrar.";
       return;
     }
     if (state.nube && nube.sinRed) {
-      el.textContent = "sin conexión"; el.className = "save-state nosave"; f.className = "nosave";
-      f.textContent = "Sin conexión con tu cuenta: lo que ves puede no estar al día y lo que cambies NO se guarda. Se vuelve a cargar solo cuando vuelva la red.";
+      el.textContent = enCola.length ? "sin conexión · " + enCola.length + " en cola" : "sin conexión";
+      el.className = "save-state nosave"; f.className = "nosave";
+      f.textContent = "Sin conexión con tu cuenta: lo que ves puede no estar al día."
+        + (enCola.length ? " Lo que has cambiado está guardado " + guardaCola + "." + avisoCola
+                         : " Lo que cambies se queda en cola y se envía al volver la red.");
       return;
     }
-    /* Lo que no se guardo manda sobre el modo de guardado: decir
-       «sincronizado» mientras hay un documento que la base rechazo es la
-       mentira que este rotulo contaba antes. */
-    if (sinGuardar.size) {
-      el.textContent = "SIN GUARDAR · " + sinGuardar.size;
-      el.className = "save-state nosave";
-      f.className = "nosave";
-      f.textContent = "Hay " + plu(sinGuardar.size, "cambio que NO se guardo", "cambios que NO se guardaron")
-        + " (" + (sinGuardarMotivo || "error") + "). Están en la pantalla pero no en el almacenamiento: si recargas, se pierden."
-        + " Copia el respaldo antes de cerrar.";
+    /* PENDIENTES no es un error: es trabajo a salvo que todavía no ha salido. Va
+       después de lo que sí es un error y antes de «sincronizado», porque decir
+       «sincronizado» con cosas sin enviar es la misma mentira de siempre. */
+    if (enCola.length) {
+      const esperando = enCola.filter(r => r.estado === "espera").length;
+      const parados = enCola.length - esperando;
+      el.textContent = "PENDIENTES · " + enCola.length;
+      el.className = "save-state nosave"; f.className = "nosave";
+      /* EL MOTIVO, SIEMPRE. El rótulo anterior lo decía («no se guardó (doc-roto)»)
+         y la cola estuvo a punto de quitarlo: «pendiente» sin más no distingue un
+         corte de red de un documento que la base rechaza una y otra vez, y son
+         dos problemas distintos con dos salidas distintas. Lo cazó
+         `test/guardado.mjs`, que exigía el motivo en el pie. */
+      const motivos = [...new Set(enCola.map(r => r.motivo).filter(Boolean))];
+      f.textContent = "Hay " + plu(enCola.length, "cambio guardado", "cambios guardados") + " " + guardaCola + " que todavía no ha llegado a tu cuenta"
+        + (motivos.length ? " (" + motivos.join(", ") + ")" : "") + "."
+        + (esperando ? " Se reintenta solo." : "")
+        + (parados ? " " + plu(parados, "Uno no se puede reintentar solo", "No se pueden reintentar solos") + ": espera" + (parados === 1 ? "" : "n") + " a que vuelvas a entrar o a que decidas qué versión vale." : "")
+        + (cola.durable ? "" : avisoCola);
       return;
     }
     f.className = "";
@@ -3362,7 +3410,15 @@
     setStoreLabel();
     if (hay && state.nube && state.db && state.db.refresca) state.db.refresca(true);
   }
-  window.addEventListener("online", () => { if (state.nube && state.db && state.db.refresca) state.db.refresca(true); });
+  /* Volver la red es el momento exacto de vaciar la cola. `refresca` trae lo de
+     fuera; `drena` manda lo de dentro. En ese orden no: primero se manda lo
+     propio, porque una lectura que llegue antes pisaría la pantalla con la
+     versión vieja de un documento que todavía está sin enviar. */
+  window.addEventListener("online", async () => {
+    if (!state.nube || !state.db) return;
+    if (state.db.drena) { try { await state.db.drena(); } catch (e) { } }
+    if (state.db.refresca) state.db.refresca(true);
+  });
   const nubeCab = () => ({ apikey: NUBE_CLAVE, "content-type": "application/json" });
   /* Una sola renovación a la vez: si tres escrituras ven el token viejo, las tres
      esperan a la misma. El refresh se gasta al usarse; renovar dos veces en
@@ -3470,8 +3526,136 @@
       return { escritos: pares.length - fallos, fallos };
     }
     return { doc, collection: n => Object.assign(consulta({ coll: String(n) }), { doc: id => doc(n + "/" + id) }),
-      refresca, escribeVarios, vaciar: be.vaciar || null };
+      refresca, escribeVarios, vaciar: be.vaciar || null,
+      /* Sólo el almacén de la cuenta tiene cola: sin cuenta se escribe en
+         localStorage y no hay red que pueda fallar. */
+      drena: be.drena ? (f => be.drena(f)) : null, enCola: be.enCola || null };
   }
+
+  /* ═══════════════ LA COLA DURABLE · IndexedDB ═══════════════
+
+     QUÉ AGUJERO TAPA, con precisión. Hasta aquí una escritura que fallaba se
+     anotaba en `sinGuardar` —un Map EN MEMORIA— y el rótulo decía SIN GUARDAR:
+     honesto, y efímero. Apuntar una operación en el metro y cerrar la pestaña la
+     perdía, y no quedaba rastro de que hubiera existido nunca.
+
+     POR QUÉ EL COMENTARIO DE «LOS SEIS ESTADOS» DECÍA QUE NO, Y EN QUÉ TENÍA
+     RAZÓN. Decía que una cola es una segunda fuente de verdad y que dos copias
+     que divergen es un problema peor. Eso es cierto de una cola que drena con
+     upsert: sería last-write-wins por la puerta de atrás, y se llevaría por
+     delante el control de concurrencia que tanto cuesta mantener.
+
+     Por eso esta cola NO es una segunda fuente de verdad: es un BUFFER DE ENVÍO.
+     Drena por `escribeOcc` y `borraOcc`, exactamente la misma puerta que usa todo
+     lo demás, así que un conflicto al drenar sigue siendo un conflicto y se le
+     pregunta al usuario. La base manda igual que antes. Lo único que cambia es
+     que un cambio que no pudo salir sobrevive a cerrar la pestaña.
+
+     LAS CINCO REGLAS. Cada una tapa una forma conocida de romper esto:
+
+     1. CADA REGISTRO LLEVA SU `uid`, y sólo se drena el del dueño de la sesión.
+        Sin esto, en un navegador compartido B entra y lo pendiente de A se
+        escribe en la cuenta de B. Es el mismo agujero de aislamiento que cierra
+        la RLS en la base, reabierto en el cliente — y la RLS no lo pararía,
+        porque la petición iría firmada con el token de B.
+
+     2. UNA ENTRADA POR DOCUMENTO. El almacén escribe documentos enteros, no
+        parches: la última escritura de `days/2026-10-11` gana, y guardar las
+        cuarenta anteriores para reproducirlas en orden no añade nada y hace el
+        drenaje lento. Un `set` sustituye a un `del` anterior, y al revés.
+
+     3. SÓLO SALE DE LA COLA CON ÉXITO CONFIRMADO. Ni por antigüedad, ni al
+        caducar la sesión, ni al cambiar de pantalla. Lo único que la vacía sin
+        escribir es que el usuario lo pida.
+
+     4. NO SE REINTENTA LO QUE NUNCA VA A ENTRAR. Un conflicto, una sesión
+        caducada o un 400 de validación no mejoran reintentando: se quedan
+        marcados, visibles, y esperan a una decisión o a un login. Reintentar un
+        400 en bucle es cómo se funde una batería.
+
+     5. SIN IndexedDB (modo privado estricto) la cola vive en memoria y el rótulo
+        NO promete que sobreviva a la recarga. Prometer una durabilidad que no hay
+        es peor que no tenerla. */
+  const cola = (() => {
+    const DB = "cabina-cola", TIENDA = "pendientes";
+    /* El espejo en memoria está siempre al día y es lo que lee el rótulo: pintar
+       el estado del guardado no puede depender de una promesa. IndexedDB es la
+       copia que sobrevive a cerrar la pestaña, no la que se consulta. */
+    const espejo = new Map();
+    let idb = null, roto = false, abriendo = null;
+    const k = (uid, ruta) => uid + "\u0000" + ruta;
+
+    function abre() {
+      if (idb || roto) return Promise.resolve(idb);
+      if (abriendo) return abriendo;
+      abriendo = new Promise(res => {
+        let req;
+        try { req = indexedDB.open(DB, 1); } catch (e) { roto = true; return res(null); }
+        req.onupgradeneeded = () => { const d = req.result; if (!d.objectStoreNames.contains(TIENDA)) d.createObjectStore(TIENDA, { keyPath: "clave" }); };
+        req.onsuccess = () => { idb = req.result; res(idb); };
+        req.onerror = () => { roto = true; res(null); };
+        req.onblocked = () => { roto = true; res(null); };
+      });
+      const q = abriendo; q.then(() => { abriendo = null; });
+      return q;
+    }
+    /* Cualquier fallo de IndexedDB degrada a memoria y NO rompe la escritura: la
+       cola es una red de seguridad, y una red que tira al suelo a quien la usa
+       sería peor que no tenerla. */
+    function tx(modo, fn) {
+      return abre().then(d => {
+        if (!d) return null;
+        return new Promise(res => {
+          let t, req;
+          try { t = d.transaction(TIENDA, modo); req = fn(t.objectStore(TIENDA)); }
+          catch (e) { roto = true; return res(null); }
+          t.oncomplete = () => res(req ? req.result : true);
+          t.onerror = () => res(null);
+          t.onabort = () => res(null);
+        });
+      }).catch(() => null);
+    }
+    /* Se llena una vez al arrancar. Mientras no termine, `lista()` devuelve menos
+       de lo que hay — nunca más: el rótulo puede quedarse corto un instante, que
+       es el error inofensivo de los dos. */
+    async function carga() {
+      const todo = await tx("readonly", t => t.getAll());
+      if (Array.isArray(todo)) for (const r of todo) if (r && r.clave) espejo.set(r.clave, r);
+      return espejo.size;
+    }
+    function guarda(uid, ruta, op, dato, estado, motivo) {
+      const c = k(uid, ruta), viejo = espejo.get(c);
+      /* El motivo entra con el registro, no en una segunda escritura: «pendiente»
+         a secas no distingue un túnel de un documento que la base rechaza una y
+         otra vez, y son dos problemas con dos salidas distintas. */
+      const r = { clave: c, uid, ruta, op, dato: op === "del" ? null : dato, at: Date.now(),
+                  estado: estado || "espera", motivo: String(motivo || ""),
+                  intentos: (viejo ? viejo.intentos : 0) + 1 };
+      espejo.set(c, r);
+      return tx("readwrite", t => t.put(r)).then(() => r);
+    }
+    function marca(uid, ruta, estado, motivo) {
+      const r = espejo.get(k(uid, ruta));
+      if (!r) return Promise.resolve(null);
+      r.estado = estado; r.motivo = String(motivo || ""); r.intentos++;
+      return tx("readwrite", t => t.put(r)).then(() => r);
+    }
+    function quita(uid, ruta) {
+      const c = k(uid, ruta);
+      if (!espejo.delete(c)) return Promise.resolve(false);
+      return tx("readwrite", t => t.delete(c)).then(() => true);
+    }
+    /* Regla 1. Lo de otro `uid` no se devuelve, no se drena y NO se borra: ese
+       usuario puede volver a entrar en este navegador y encontrarlo donde lo
+       dejó. */
+    const lista = uid => (uid ? [...espejo.values()].filter(r => r.uid === uid).sort((a, b) => a.at - b.at) : []);
+    function vacia(uid) {
+      const cs = lista(uid).map(r => r.clave);
+      cs.forEach(c => espejo.delete(c));
+      return tx("readwrite", t => { cs.forEach(c => t.delete(c)); }).then(() => cs.length);
+    }
+    return { carga, guarda, marca, quita, lista, vacia, get durable() { return !roto; } };
+  })();
 
   /* LA CUENTA · Supabase, tabla cabina_docs, una fila por documento y usuario.
      Diferencia honesta con el local: no hay tiempo real. Lo que escribes se ve al
@@ -3529,6 +3713,82 @@
     const SIN_COLUMNA = new Set(["42703", "PGRST204"]);
     const esSinColumna = e => !!e && (SIN_COLUMNA.has(String(e.code)) || /version/.test(String(e.msg || "")) && /column/i.test(String(e.msg || "")));
 
+    /* ── QUÉ SE REINTENTA Y QUÉ NO (regla 4) ──────────────────────────────────
+       Un fallo de red no trae `status`: `nubeHttp` lanza `{code:"sin_conexion"}`.
+       Eso —y sólo eso, más los 5xx, el 408, el 409 y el 429— es lo que puede
+       salir bien al segundo intento. El resto no mejora por insistir. */
+    function clasifica(e) {
+      const c = e && e.code, st = e && e.status;
+      if (c === "conflicto" || c === "conflicto_borrado") return "conflicto";
+      if (c === "sin_sesion" || st === 401 || st === 403 || nube.caducada) return "sin_sesion";
+      if (st >= 400 && st < 500 && st !== 408 && st !== 409 && st !== 429) return "rechazado";
+      return "espera";
+    }
+    const uidAhora = () => (nube.ses && nube.ses.uid) || null;
+    async function alFallar(p, op, d, e) {
+      const uid = uidAhora(); if (!uid) return;
+      const cl = clasifica(e);
+      /* UN CONFLICTO NO ENTRA EN LA COLA. Hay dos versiones del documento y
+         reintentar elegiría una por su cuenta; eso es exactamente lo que el
+         control de concurrencia existe para no hacer. Lo decide el usuario, y
+         `hayConflicto` ya guarda su copia y abre la pantalla. */
+      if (cl === "conflicto") return;
+      try { await cola.guarda(uid, p, op, d, cl, (e && e.code) || ""); } catch (x) { }
+      programa();
+    }
+    const desencola = p => { const uid = uidAhora(); return uid ? cola.quita(uid, p).catch(() => { }) : Promise.resolve(); };
+
+    /* ── EL DRENAJE ───────────────────────────────────────────────────────────
+       Va por `escribeOcc`/`borraOcc`, no por `escribe`/`borra`: si fuera por las
+       de arriba, un fallo al drenar volvería a encolar lo que ya está en la cola
+       y se contaría dos veces el intento. El estado lo lleva el drenaje. */
+    let drenando = false, reloj = null, espera = 5000;
+    async function drena(forzar) {
+      const uid = uidAhora();
+      if (drenando || !uid || nube.caducada) return 0;
+      const lote = cola.lista(uid).filter(r => (forzar ? r.estado !== "rechazado" : r.estado === "espera"));
+      if (!lote.length) return 0;
+      drenando = true;
+      let hechos = 0;
+      try {
+        for (const r of lote) {
+          /* La sesión puede caducar o cambiar A MITAD del lote. Se comprueba cada
+             vuelta: escribir el documento de A con el token de B sería la fuga
+             que la regla 1 existe para impedir. */
+          if (uidAhora() !== uid || nube.caducada) break;
+          try {
+            if (r.op === "del") await this.borraOcc(r.ruta); else await this.escribeOcc(r.ruta, r.dato);
+            await cola.quita(uid, r.ruta);
+            siSeGuardo(r.ruta);
+            hechos++;
+          } catch (e) {
+            const cl = clasifica(e);
+            if (cl === "conflicto") {
+              /* Al drenar, un conflicto SE QUEDA en la cola además de levantarse:
+                 la copia pendiente es justo la que el usuario necesita para
+                 decidir, y si la tiráramos aquí la decisión sería imposible. */
+              await cola.marca(uid, r.ruta, "conflicto", (e && e.code) || "");
+              hayConflicto(r.ruta, { borrado: e && e.code === "conflicto_borrado" }, r.dato);
+            } else {
+              await cola.marca(uid, r.ruta, cl, (e && e.code) || "");
+            }
+            /* Sin red, el siguiente fallará igual: no se castiga al resto del lote
+               con una ronda de peticiones condenadas. */
+            if (cl === "espera" || cl === "sin_sesion") break;
+          }
+        }
+      } finally { drenando = false; setStoreLabel(); programa(); }
+      return hechos;
+    }
+    /* Espera creciente con techo de cinco minutos. Sin techo, una pestaña olvidada
+       con el wifi caído pide cada cinco segundos durante horas. */
+    function programa() {
+      clearTimeout(reloj);
+      const uid = uidAhora(); if (!uid) return;
+      if (!cola.lista(uid).some(r => r.estado === "espera")) { espera = 5000; return; }
+      reloj = setTimeout(() => { espera = Math.min(espera * 2, 300000); be.drena(); }, espera);
+    }
+
     /* Un PATCH condicionado a la versión. Devuelve la fila nueva, o null si
        coincidieron 0 filas (que es el conflicto). */
     async function parchea(p, d, esperada) {
@@ -3536,7 +3796,7 @@
         { method: "PATCH", headers: { prefer: "return=representation" }, body: { data: d } });
       return Array.isArray(r) && r.length ? r[0] : null;
     }
-    return almacen({
+    const be = {
       async leeDoc(p) {
         let a;
         try { a = await nubeFetch(`${T}?select=data,version&path=eq.${enc(p)}`); }
@@ -3572,9 +3832,16 @@
         }
         return out;
       },
+      /* LA ÚNICA PUERTA POR LA QUE SALE UNA ESCRITURA A LA CUENTA. Si entra, se
+         quita de la cola (pudo entrar ahí en un intento anterior). Si no entra,
+         se encola — y SE SIGUE LANZANDO el error, para que `noSeGuardo` pinte lo
+         que siempre pintó. Tragárselo aquí sería volver a decir «guardado» de
+         algo que no lo está, que es justo lo que este código dejó de hacer. */
       async escribe(p, d) {
         enVuelo++; setStoreLabel();
-        try { return await this.escribeOcc(p, d); } finally { enVuelo--; setStoreLabel(); }
+        try { const r = await this.escribeOcc(p, d); await desencola(p); return r; }
+        catch (e) { await alFallar(p, "set", d, e); throw e; }
+        finally { enVuelo--; setStoreLabel(); }
       },
       async escribeOcc(p, d) {
         /* Sin columna no hay escritura condicional posible: se vuelve al upsert de
@@ -3617,7 +3884,16 @@
           throw e;
         }
       },
+      /* El borrado no pasaba por `enVuelo`, así que «guardando…» nunca aparecía
+         al borrar: la pestaña cerrada en ese segundo se llevaba el borrado sin
+         que nada lo avisara. Mismo envoltorio que `escribe`, misma cola. */
       async borra(p) {
+        enVuelo++; setStoreLabel();
+        try { await this.borraOcc(p); await desencola(p); }
+        catch (e) { await alFallar(p, "del", null, e); throw e; }
+        finally { enVuelo--; setStoreLabel(); }
+      },
+      async borraOcc(p) {
         if (nube.occ === false) { await nubeFetch(`${T}?path=eq.${enc(p)}`, { method: "DELETE", headers: { prefer: "return=minimal" } }); return; }
         let esperada = vers.get(p);
         if (esperada == null) { await this.leeDoc(p); esperada = vers.get(p); }
@@ -3639,7 +3915,10 @@
       },
       /* Para las pruebas y para el diálogo de conflicto: qué versión se leyó. */
       versionDe: p => vers.get(p),
-    });
+      drena,
+      enCola: () => cola.lista(uidAhora()),
+    };
+    return almacen(be);
   }
 
   /* ESTE NAVEGADOR · localStorage, clave cabina-mnq:v1, con la forma de siempre:
@@ -7960,6 +8239,14 @@
       const lockedUntil = ev.status === "LOCKED" && (ev.risk.locked || k.streakHit) ? d : null;
       return Object.assign({}, ev, { violations, warnings, lockedUntil, reason: ev.why, cuenta: a.id, fecha: d });
     },
+  };
+  /* La cola pendiente, de sólo lectura, para que `test/cola.mjs` pueda mirarla sin
+     abrir IndexedDB a mano en cada aserción. Devuelve LO DEL DUEÑO DE LA SESIÓN,
+     igual que el drenaje: una superficie de depuración que enseñara lo de otro
+     usuario sería la misma fuga que la cola existe para no tener. */
+  FUT.cola = () => {
+    const uid = state.nube && nube.ses ? nube.ses.uid : null;
+    return cola.lista(uid).map(r => ({ ruta: r.ruta, op: r.op, estado: r.estado, motivo: r.motivo, intentos: r.intentos, dato: r.dato ? clone(r.dato) : null }));
   };
   // Superficie de depuración y de pruebas. Leer está permitido; escribir, solo por aquí.
   window.FUT = FUT;
@@ -13070,6 +13357,13 @@
   if (state.settings.meta && state.settings.meta.acct && acctById(state.settings.meta.acct)) ft.acct = state.settings.meta.acct;
   else if (state.settings.meta) state.settings.meta.acct = "";
   setStoreLabel();
+  /* LA COLA SE LEE AL ARRANCAR, SIEMPRE. Es lo que convierte «cerré la pestaña en
+     el metro» en «se envió al llegar a casa». No bloquea el arranque: la cabina
+     se pinta con lo que hay y el rótulo se corrige en cuanto IndexedDB contesta. */
+  if (state.nube) cola.carga().then(n => {
+    setStoreLabel();
+    if (n && state.db && state.db.drena) state.db.drena();
+  }).catch(() => { });
   state.listo = true;
   renderAll();
   if (enlace && enlace.error) abreCuenta("fuera", "El enlace no sirvió (" + enlace.error + "). Si caducó, pide otro.", "bad");

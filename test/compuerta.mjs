@@ -225,6 +225,15 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      CONSERVE lo de A y que B vea CONFLICTO — no que aparezca la palabra. Contra el
      upsert sin condición de la fase 1 se pone roja. */
   dice('conflicto', 'suite', 'Dos dispositivos: el que llega tarde no pisa, y se entera', 'persistencia');
+  /* LA COLA DURABLE. `cola.mjs` apaga la red, escribe, CIERRA LA PESTANA, la vuelve
+     a abrir y devuelve la red: lo que se exige es que la operacion llegue a la base.
+     Contra el codigo anterior -- `sinGuardar` era un Map en memoria -- se pone roja.
+     Y la segunda mitad es la que impide el atajo: mientras el cambio estaba en cola,
+     OTRO dispositivo escribio ese documento; al drenar tiene que salir CONFLICTO y
+     lo del otro tiene que seguir en la base. Una cola que drenara con upsert pasa la
+     primera y falla esta. Los dos sabotajes se corrieron el 11/10/2026 y las dos se
+     pusieron rojas por la asercion correcta. */
+  dice('cola', 'suite', 'Sin red, cerrar la pestana ya no pierde el cambio', 'persistencia');
   /* EL ESQUEMA Y LAS POLÍTICAS, EN UN POSTGRES DE VERDAD. Esto es nuevo y conviene
      decir exactamente qué añade y qué no. `db.mjs` arranca un Postgres local, aplica
      LAS MIGRACIONES DEL REPOSITORIO tal cual sobre un arnés con lo mínimo de `auth`
