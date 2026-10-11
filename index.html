@@ -347,6 +347,44 @@
   @media (max-width: 640px) { .tiles, .tiles.five { grid-template-columns: 1fr 1fr; } }
 
   /* ---------- tables ---------- */
+  /* ANTES DE OPERAR. No es un panel más: lleva el acento a la izquierda para
+     que se lea como un aviso y no como contenido, y en cuanto se pulsa
+     «Leídas» deja una sola línea en su sitio. La densidad importa — diez
+     reglas en bloque son un muro—, así que a partir de 900px van en dos
+     columnas y el ojo las abarca de una vez. */
+  .credo { border: 1px solid var(--line-strong); border-left: 2px solid var(--accent);
+           border-radius: var(--r-md); background: var(--surface); margin-bottom: var(--s5); }
+  .credo > header { display: flex; align-items: center; gap: 12px;
+                    padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .credo > header h2 { margin: 0; font-size: var(--t-section); letter-spacing: .08em;
+                       text-transform: uppercase; color: var(--text); }
+  .credo > header .meta { font-family: var(--font-mono); font-size: var(--t-meta); color: var(--dim); }
+  .credo > header #credoOk { margin-left: auto; }
+  .credo-list { margin: 0; padding: 14px 18px 16px 18px; list-style: none;
+                columns: 1; column-gap: 40px; }
+  @media (min-width: 900px) { .credo-list { columns: 2; } }
+  .credo-list li { break-inside: avoid; display: flex; gap: 10px; padding: 5px 0;
+                   font-size: var(--t-body); line-height: 1.45; color: var(--text); }
+  .credo-list li::before { content: counter(credo); counter-increment: credo;
+                           font-family: var(--font-mono); font-size: var(--t-meta);
+                           color: var(--dim); min-width: 2ch; padding-top: 3px; }
+  .credo-list { counter-reset: credo; }
+  .credo-ed { padding: 0 18px 16px; }
+  .credo-lbl { display: block; font-size: var(--t-meta); color: var(--muted); margin-bottom: 8px; }
+  .credo-ed textarea { width: 100%; box-sizing: border-box; background: var(--bg);
+                       color: var(--text); border: 1px solid var(--line-strong);
+                       border-radius: var(--r-sm); padding: 10px 12px;
+                       font-size: var(--t-body); line-height: 1.5; resize: vertical; }
+  /* La huella: una línea y nada más. Es un <button> y no un <div> con onclick
+     porque se puede volver a abrir, y eso es una acción: trae Enter, espacio,
+     foco y semántica sin inventar nada. */
+  .credo-trace { display: block; width: 100%; text-align: left; background: none;
+                 border: 0; border-left: 2px solid var(--line-strong);
+                 padding: 2px 0 2px 14px; margin-bottom: var(--s5);
+                 font-family: var(--font-mono); font-size: var(--t-meta);
+                 color: var(--dim); letter-spacing: .04em; }
+  .credo-trace:hover { color: var(--muted); border-left-color: var(--accent); }
+
   .twrap { overflow-x: auto; }
   table.t { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
   table.t th { text-align: left; font-weight: 500; color: var(--muted); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; padding:4px 8px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -1733,6 +1771,38 @@
      ¿puedo operar? ¿cuánto tengo? ¿cuánto llevo hoy? ¿cuánto riesgo queda?
      Todas viven en la cuenta, así que la cuenta va primero y a lo ancho.
      La pre-sesión es un ritual de una vez al día; la cuenta se mira cada hora. -->
+<!-- ANTES DE OPERAR · lo primero que se ve, una vez al día y no más.
+     Va ARRIBA DEL TODO y por encima de las cuentas a propósito: su trabajo es
+     leerse antes de mirar un número, no competir con ellos. Y desaparece al
+     pulsar «Leídas»: una lista permanente deja de leerse a la semana, que es
+     exactamente lo que no se quería.
+
+     LAS REGLAS SON DATOS DEL USUARIO, NO DEL CÓDIGO. test/lanzamiento.mjs
+     recorre cada fichero versionado para que no vuelva la configuración
+     personal del autor; incrustar aquí las reglas de alguien lo rompería en
+     espíritu aunque pasara la expresión regular. Lo que sí vive en el código
+     es una PLANTILLA que cualquiera puede cargar y reescribir, igual que las
+     del Playbook. -->
+<section class="credo view-only" id="credoBand" hidden>
+  <header>
+    <h2>Antes de operar</h2>
+    <span class="meta" id="credoMeta"></span>
+    <button type="button" class="btn sm ghost" id="credoEdit">Editar</button>
+    <button type="button" class="btn sm primary" id="credoOk">Leídas</button>
+  </header>
+  <ol class="credo-list" id="credoList"></ol>
+  <div class="credo-ed" id="credoEdBox" hidden>
+    <label class="credo-lbl" for="credoText">Una regla por línea. Las tuyas, con tus palabras.</label>
+    <textarea id="credoText" rows="12" spellcheck="false"></textarea>
+    <div class="jactions">
+      <button type="button" class="btn primary" id="credoSave">Guardar</button>
+      <button type="button" class="btn ghost" id="credoCancel">Cancelar</button>
+      <button type="button" class="btn ghost" id="credoSeed">Cargar una plantilla</button>
+    </div>
+  </div>
+</section>
+<button type="button" class="credo-trace view-only" id="credoTrace" hidden></button>
+
 <section class="panel" id="panelAccts">
       <header><h2>Cuentas prop</h2><div class="hgroup"><select id="cabAcct" aria-label="Cuenta de trabajo"><option value="">todas las cuentas</option></select><span class="meta" id="acctsMeta"></span><button type="button" class="btn sm ghost" id="addAcct">+ Añadir cuenta</button><button type="button" class="btn ghost sm selbtn" id="selbtn-accts" title="Selecciona varias cuentas y bórralas de una vez">Seleccionar</button></div></header>
       <div class="body">
@@ -2867,7 +2937,12 @@
     };
     colls[name] = c; return c;
   }
-  const COLLS = ["trades", "playbooks", "ideas", "markets", "watch", "positions", "scenarios", "risk", "tesis"];
+  /* «credo» entra aquí o no existe al día siguiente. coll() crea la
+     colección en memoria la primera vez que se pide, pero quien la HIDRATA
+     al arrancar —del respaldo local y de la base— es esta lista. Sin la
+     entrada, las reglas se guardan bien, se ven bien, y desaparecen en la
+     siguiente recarga sin un solo error en consola. Medido así. */
+  const COLLS = ["trades", "playbooks", "ideas", "markets", "watch", "positions", "scenarios", "risk", "tesis", "credo"];
 
   const RULE_NUM = ["maxLoss", "maxGain", "maxContracts", "maxLosses", "minDays", "payoutBuffer"];
   function normRules(r) {
@@ -12688,6 +12763,96 @@
      De paso desaparece el último try{}catch{} mudo de la app: el de los destinos
      de la calculadora. Si falla, se dice cuál falló en vez de tragárselo. */
   coll("trades").subscribe(() => fanout(FANOUT_TRADES));
+  /* ══════════════ ANTES DE OPERAR ══════════════
+     Una lista que se lee una vez al día y se quita de en medio. El problema
+     que resuelve no es «no tengo mis reglas escritas» —las reglas duras ya
+     existen y la app las VIGILA—; es que las cuatro o cinco que una máquina no
+     puede comprobar («no persigas una tendencia agotada») no están en ninguna
+     parte, y son justo las que se olvidan con el mercado abierto.
+
+     POR QUÉ NO ES OTRO PANEL FIJO: una lista permanente deja de leerse en una
+     semana. Se convierte en decoración, y además carga la pantalla. Ésta
+     aparece, se lee, se acusa recibo y desaparece hasta mañana.
+
+     EL ACUSE VIVE EN localStorage, NO EN days/<fecha>. Es un gesto de este
+     dispositivo y de este día: no merece una escritura en la base, ni entrar
+     en el juego de versiones y conflictos, ni viajar entre dispositivos. Si se
+     borran los datos del navegador, lo único que pasa es que mañana la lista
+     saluda otra vez — que es el comportamiento correcto, no un fallo. */
+  const CREDO_VISTO = "cabina:credo-visto";
+
+  /* PLANTILLA, NO CONFIGURACIÓN. Nadie arranca con esto puesto: hay que
+     pedirlo. Son máximas genéricas de disciplina, del mismo tipo que las
+     plantillas del Playbook, y están para reescribirse. */
+  const CREDO_PLANTILLA = [
+    "Opera sólo setups que entiendas.",
+    "Ten la salida decidida antes que la entrada.",
+    "Tamaño lo bastante pequeño para pensar con claridad.",
+    "Nunca conviertas una operación corta en una inversión larga.",
+    "No persigas una tendencia que ya se agotó.",
+    "Que el precio confirme la entrada; no la adelantes.",
+    "Si el setup falla y salta el stop, asume la pérdida.",
+    "Fuera del mercado cuando tu edge no está.",
+    "Juzga la calidad de la decisión, no el resultado de la operación.",
+    "Cuantifica las reglas antes de que entren la emoción y el ego.",
+  ];
+
+  const credoItems = () => coll("credo").items.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  const credoVistoHoy = () => { try { return localStorage.getItem(CREDO_VISTO) === todayISO(); } catch { return false; } };
+
+  function renderCredo() {
+    const items = credoItems(), hay = items.length, visto = credoVistoHoy();
+    const editando = !$("credoEdBox").hidden;
+    /* Sin reglas escritas no se enseña un bloque vacío pidiendo trabajo: se
+       enseña la huella, que invita sin estorbar. */
+    const abierto = editando || (hay && !visto);
+    $("credoBand").hidden = !abierto;
+    $("credoTrace").hidden = abierto;
+    $("credoTrace").textContent = hay
+      ? `Antes de operar · ${items.length} reglas leídas hoy · ver`
+      : "Antes de operar · escribe las reglas que ninguna máquina puede vigilarte";
+    $("credoMeta").textContent = hay ? `${items.length} reglas · una vez al día` : "sin reglas todavía";
+    $("credoOk").hidden = !hay || editando;
+    $("credoList").hidden = editando;
+    $("credoList").innerHTML = items.map(r => `<li>${esc(r.text)}</li>`).join("");
+  }
+
+  function abreCredoEd() {
+    $("credoText").value = credoItems().map(r => r.text).join("\n");
+    $("credoEdBox").hidden = false; $("credoBand").hidden = false; renderCredo();
+    $("credoText").focus();
+  }
+  async function guardaCredo() {
+    const lineas = String($("credoText").value || "").split("\n").map(x => x.trim()).filter(Boolean).slice(0, 40);
+    const c = coll("credo");
+    /* Se reemplaza la lista entera: el textarea ES la lista, y conservar ids
+       viejos de líneas que ya no existen sólo deja basura que nadie ve. */
+    for (const old of c.items.slice()) await c.remove(old.id);
+    for (let i = 0; i < lineas.length; i++) await c.set("r" + (i + 1), { text: lineas[i], order: i });
+    $("credoEdBox").hidden = true;
+    try { localStorage.removeItem(CREDO_VISTO); } catch { }
+    renderCredo();
+  }
+
+  $("credoEdit").addEventListener("click", abreCredoEd);
+  $("credoCancel").addEventListener("click", () => { $("credoEdBox").hidden = true; renderCredo(); });
+  $("credoSave").addEventListener("click", guardaCredo);
+  $("credoSeed").addEventListener("click", () => {
+    const hay = String($("credoText").value || "").trim();
+    $("credoText").value = (hay ? hay + "\n" : "") + CREDO_PLANTILLA.join("\n");
+    $("credoText").focus();
+  });
+  $("credoOk").addEventListener("click", () => {
+    try { localStorage.setItem(CREDO_VISTO, todayISO()); } catch { }
+    renderCredo();
+  });
+  $("credoTrace").addEventListener("click", () => {
+    if (!credoItems().length) { abreCredoEd(); return; }
+    try { localStorage.removeItem(CREDO_VISTO); } catch { }
+    renderCredo();
+  });
+  coll("credo").subscribe(() => renderCredo());
+
   coll("playbooks").subscribe(() => fanout([Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.edge]));
   coll("ideas").subscribe(() => fanout([Z.ideas, Z.contadores]));
   coll("markets").subscribe(() => fanout([Z.invest, Z.destinos]));
