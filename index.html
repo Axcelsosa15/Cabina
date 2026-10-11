@@ -369,6 +369,15 @@
                            font-family: var(--font-mono); font-size: var(--t-meta);
                            color: var(--dim); min-width: 2ch; padding-top: 3px; }
   .credo-list { counter-reset: credo; }
+  /* EL ESTADO VACÍO NO PUEDE SER DISCRETO. La primera versión dejaba una línea
+     de 11px cuando no había reglas escritas: discreta está bien DESPUÉS de
+     leerlas — ahí estorbar es el fallo—, pero antes de configurarlo hace
+     invisible justo lo que se pidió que fuera lo primero del día. Se tardó
+     cuatro intentos en encontrarla en un teléfono, y eso es el diseño
+     fallando, no el usuario. */
+  .credo-vacio { padding: 16px 18px 18px; }
+  .credo-vacio p { margin: 0 0 14px; font-size: var(--t-body); line-height: 1.5;
+                   color: var(--muted); max-width: 62ch; }
   .credo-ed { padding: 0 18px 16px; }
   .credo-lbl { display: block; font-size: var(--t-meta); color: var(--muted); margin-bottom: 8px; }
   .credo-ed textarea { width: 100%; box-sizing: border-box; background: var(--bg);
@@ -1816,6 +1825,11 @@
     <button type="button" class="btn sm ghost" id="credoEdit">Editar</button>
     <button type="button" class="btn sm primary" id="credoOk">Leídas</button>
   </header>
+  <div class="credo-vacio" id="credoVacio" hidden>
+    <p>Las reglas duras de abajo las vigila Cabina sola. Éstas son las otras: las
+       que ninguna máquina puede comprobarte y se olvidan con el mercado abierto.</p>
+    <button type="button" class="btn primary" id="credoEmpezar">Escribir mis reglas</button>
+  </div>
   <ol class="credo-list" id="credoList"></ol>
   <div class="credo-ed" id="credoEdBox" hidden>
     <label class="credo-lbl" for="credoText">Una regla por línea. Las tuyas, con tus palabras.</label>
@@ -12831,15 +12845,19 @@
     const editando = !$("credoEdBox").hidden;
     /* Sin reglas escritas no se enseña un bloque vacío pidiendo trabajo: se
        enseña la huella, que invita sin estorbar. */
-    const abierto = editando || (hay && !visto);
+    /* Sin reglas la banda NO se pliega nunca: no hay nada que acusar todavía,
+       y una invitación que no se ve no invita a nada. */
+    const abierto = editando || !hay || !visto;
     $("credoBand").hidden = !abierto;
     $("credoTrace").hidden = abierto;
+    $("credoVacio").hidden = hay || editando;
+    $("credoEdit").hidden = !hay || editando;
     $("credoTrace").textContent = hay
       ? `Antes de operar · ${items.length} reglas leídas hoy · ver`
       : "Antes de operar · escribe las reglas que ninguna máquina puede vigilarte";
     $("credoMeta").textContent = hay ? `${items.length} reglas · una vez al día` : "sin reglas todavía";
     $("credoOk").hidden = !hay || editando;
-    $("credoList").hidden = editando;
+    $("credoList").hidden = editando || !hay;
     $("credoList").innerHTML = items.map(r => `<li>${esc(r.text)}</li>`).join("");
   }
 
@@ -12861,6 +12879,7 @@
   }
 
   $("credoEdit").addEventListener("click", abreCredoEd);
+  $("credoEmpezar").addEventListener("click", abreCredoEd);
   $("credoCancel").addEventListener("click", () => { $("credoEdBox").hidden = true; renderCredo(); });
   $("credoSave").addEventListener("click", guardaCredo);
   $("credoSeed").addEventListener("click", () => {
