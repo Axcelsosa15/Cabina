@@ -1636,12 +1636,30 @@
       border-bottom: 0; border-right: 1px solid var(--line);
       overflow-y: auto; overflow-x: hidden;
     }
-    #tabnav::before {
-      content: "Secciones"; display: block;
-      padding: 4px 12px 16px;
-      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
-      letter-spacing: .08em; text-transform: uppercase; color: var(--dim);
+    /* LA MARCA VIVE EN EL RAÍL, NO EN LA BARRA. Donde cualquier producto pone
+       su nombre el raíl ponía «SECCIONES» en gris minúsculo, y la marca competía
+       con el reloj arriba. Movida aquí, la barra superior queda para lo que es:
+       contexto a la izquierda, acciones a la derecha.
+
+       Va `fixed` y no reordenando el marcado porque por debajo de 1100 el raíl
+       NO EXISTE — la navegación es una tira horizontal— y la marca tiene que
+       volver a su sitio en la barra. Un solo nodo, dos colocaciones, cero
+       duplicado: duplicarla significaría dos títulos editables que pueden
+       discrepar. El fondo es el del raíl para que la lista no se vea por
+       debajo al desplazarla. */
+    #tabnav::before { content: none; }
+    #tabnav { padding-top: 76px; }
+    .topbar .brand {
+      position: fixed; top: 0; left: 0; z-index: 21;
+      width: var(--rail); box-sizing: border-box;
+      display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+      margin: 0; padding: 18px 12px 14px;
+      background: var(--surface);
     }
+    .topbar .brand h1 { font-size: 19px; }
+    /* En 240px menos el canal no caben 220px de campo más su borde. */
+    .topbar .brand input.t, .topbar .brand input.s { width: 100%; max-width: 100%; }
+    .topbar .clock { margin-left: 0; }
     #tabnav .tabbtn {
       display: flex; align-items: center; gap: 8px; width: 100%;
       text-align: left; text-transform: none; letter-spacing: 0;
@@ -1685,9 +1703,17 @@
       padding-block: 0; margin-bottom: 24px; gap: 0 24px;
       border-bottom: 1px solid var(--line);
     }
-    .topbar .brand { flex: none; }
     .topbar .clock { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; margin-left: 0; }
     .topbar .clock #saveState { margin-right: auto; }
+
+    /* LOS AVISOS, EN UNA LÍNEA. Con `flex-wrap: wrap` el botón se caía a una
+       segunda fila en cuanto el texto era largo, y dos avisos apilados comen
+       cuatro filas antes de ver un solo dato. No se recorta el texto — un
+       aviso a medias es peor que ninguno—: se deja encoger al párrafo
+       (`min-width: 0`) y el botón se queda anclado a la derecha. */
+    .demobar, .cuentabar { flex-wrap: nowrap; }
+    .demobar > span, .cuentabar > span { min-width: 0; }
+    .demobar > b, .cuentabar > b { flex: none; }
   }
 
   /* EL CONTENIDO DEJA DE ESTIRARSE SIN FIN. A 1920 la columna mide 1600px y las
