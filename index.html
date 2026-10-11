@@ -1621,7 +1621,57 @@
        todos quedan alineados y la columna se lee como una tabla. */
     #tabnav .tabbtn .n { margin-left: auto; }
 
+    /* LA BARRA SUPERIOR, COMO BARRA DE APLICACION Y NO COMO FILA DE COSAS.
+       A 1440 se parte en dos lineas y mide 119px de alto: marca, estado del
+       mercado, reloj, estado de guardado y cuatro botones, todo del mismo
+       tamaño y sin un orden que se lea. Es lo que delata que la pantalla no
+       está terminada, mas que cualquier tipografía.
+
+       Una sola fila, altura fija, y una regla de lectura: a la IZQUIERDA lo que
+       te dice dónde estás y qué hora es — lo que un trader mira sin pensar —;
+       a la DERECHA lo que se pulsa. El empujón lo da el estado de guardado con
+       `margin-right:auto` y no el primer botón, porque los botones se ocultan
+       (`conflbtn`, `cuentaBtn` nacen con `hidden`) y un elemento oculto no
+       empuja nada: la barra se habría desarmado sola en cuanto cambiara el
+       estado de la sesion. */
     .topbar { padding-top: 20px; }
+  }
+
+  /* La fila única empieza en 1280, no en 1100. Medido: a 1100 quedan 780px
+     para marca + estado + reloj + guardado + cuatro botones, no caben, y
+     forzarlo sólo cambia dos filas honestas por una fila apretada de 98px.
+     Entre 1100 y 1279 la barra sigue partiendo, que es lo correcto. */
+  @media (min-width: 1280px) {
+    .topbar {
+      flex-wrap: nowrap; align-items: center; min-height: 64px;
+      padding-block: 0; margin-bottom: 24px; gap: 0 24px;
+      border-bottom: 1px solid var(--line);
+    }
+    .topbar .brand { flex: none; }
+    .topbar .clock { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; margin-left: 0; }
+    .topbar .clock #saveState { margin-right: auto; }
+  }
+
+  /* EL CONTENIDO DEJA DE ESTIRARSE SIN FIN. A 1920 la columna mide 1600px y las
+     tablas reparten cinco columnas por 770px: se lee, pero los ojos viajan de
+     una punta a otra para juntar una fecha con su P&L. Se topa en 1560, que es
+     donde las dos tarjetas de cuenta siguen cabiendo lado a lado. Por debajo de
+     1800 no cambia nada: el tope se calcula para no morder nunca el canal
+     normal. */
+  @media (min-width: 1800px) {
+    /* Y se CENTRA en el hueco que deja el raíl, no se queda pegada a la
+       izquierda: a 2560 eso dejaba 720px de vacío a un solo lado, que se lee
+       como una página mal montada y no como una aplicación ancha. */
+    /* OJO: la variable VA EN UN SELECTOR. Declarada suelta dentro del @media
+       el navegador la tira, `var(--sobra)` queda invalido, el `max()` entero
+       se cae y las dos reglas de abajo no llegan a aplicarse — sin error en
+       consola y sin que se note hasta que mides. Medido: a 2560 el contenido
+       seguía en 2240px. */
+    :root { --sobra: calc((100vw - var(--rail) - 1560px) / 2); }
+    body {
+      padding-left:  calc(var(--rail) + max(var(--gut), var(--sobra)));
+      padding-right: max(var(--gut), var(--sobra));
+    }
   }
 </style>
 
