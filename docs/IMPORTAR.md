@@ -149,6 +149,56 @@ repositorio como fixture anónimo.
 
 > **Control:** hay al menos un `.csv` real en `test/fixtures/`. Sin esto, todo lo
 > de abajo se diseña a ciegas y se rehace.
+>
+> **Sigue sin hacerse a 12/10/2026.** La fase 0.5 (abajo) se adelantó porque no
+> depende de ella; el resto sí.
+
+### Fase 0.5 — Leer bytes *(hecha, 12/10/2026)*
+
+La única parte del importador que **no depende de tener el CSV**, y conviene decir
+por qué se adelantó: leer bytes no cambia según el bróker, y es la capa que
+corrompe datos **en silencio**. Un separador decimal mal leído no lanza ningún
+error: convierte 1,5 contratos en 15 y el P&L sale diez veces mayor con todas las
+pantallas en verde.
+
+Funciones puras en `index.html` (`FUT.csv`), sin tocar el almacén, la pantalla ni
+el motor. Cubren: BOM de Excel, CRLF / LF / CR suelto, comillas con comas, saltos
+de línea y comillas dobladas dentro, separador `,` `;` tab `|` elegido **por la
+forma de la tabla y contando sólo fuera de comillas**, y filas desiguales que se
+rellenan y se cuentan en vez de descartarse.
+
+**La decisión de diseño que importa: el separador decimal y el orden de la fecha
+se deciden POR COLUMNA, no por celda, y «no se puede saber» es una respuesta.**
+
+Por celda es imposible: `1,500` son mil quinientos o uno coma cinco, y `03/04/2026`
+es el 3 de abril o el 4 de marzo. Por columna casi siempre se resuelve —basta con
+que una sola fila sea inequívoca: un `3,75` decide la columna entera, un día 15
+decide el formato entero—. Cuando la columna no lo resuelve, se devuelve vacío y lo
+decide quien importa. **Elegir el formato de casa ahí mete las operaciones en el día
+equivocado durante doce meses sin un solo error en pantalla.**
+
+La misma regla en lo pequeño: lo que no es un número es `null`, nunca `0` (un `0` se
+suma y mentiría en el P&L); un lado ilegible es `null`, nunca `long` (caer a compra
+convierte una venta en su contraria).
+
+`test/csv.mjs`, 49 aserciones, con cinco sabotajes corridos el 12/10/2026:
+
+| sabotaje | qué se puso rojo |
+|---|---|
+| el decimal ambiguo cae al punto | 2 — «AMBIGUO, y se devuelve "" en vez de adivinar» |
+| la fecha ambigua cae a mes/día | 1 — la aserción del 03/04 |
+| el separador se cuenta sin mirar comillas | 3 — el fichero sale con 1 columna donde hay 3 |
+| las filas desiguales se descartan | 1 — la fila corta desaparece |
+| un lado ilegible cae a `long` | 1 — una venta se convierte en compra |
+
+> **Control:** los cinco sabotajes ponen roja la aserción que les corresponde. El
+> tercero no lo hacía con el primer fixture —tenía más comas que `;`, pero el
+> recuento se saltaba la cabecera y acertaba por casualidad—; hizo falta uno donde
+> comas y `;` empatan y la coma gana por ir primera en la lista.
+
+**Lo que esto NO desbloquea:** nada de lo de abajo. La fase 0 sigue bloqueando el
+mapeo, el emparejado y la detección exactamente igual. Esto es el suelo sobre el
+que se apoyan, no un atajo para saltárselos.
 
 ### Fase 1 — El mapeador manual
 

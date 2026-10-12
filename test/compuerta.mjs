@@ -234,6 +234,14 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      primera y falla esta. Los dos sabotajes se corrieron el 11/10/2026 y las dos se
      pusieron rojas por la asercion correcta. */
   dice('cola', 'suite', 'Sin red, cerrar la pestana ya no pierde el cambio', 'persistencia');
+  /* LEER UN CSV, la capa de abajo del importador y la unica que corrompe EN
+     SILENCIO: un decimal mal leido convierte 1,5 contratos en 15 sin un solo error
+     en pantalla. Lo que `csv.mjs` exige no es que acierte siempre, es que cuando el
+     fichero NO dice lo suficiente conteste «no se puede saber» en vez de adivinar.
+     Cinco sabotajes corridos el 12/10/2026, los cinco rojos por su asercion.
+     NO es el importador: la fase 0 de docs/IMPORTAR.md sigue bloqueando el mapeo,
+     el emparejado y la deteccion. */
+  dice('csv', 'suite', 'Leer un CSV no adivina lo que el fichero no dice', 'persistencia');
   /* EL ESQUEMA Y LAS POLÍTICAS, EN UN POSTGRES DE VERDAD. Esto es nuevo y conviene
      decir exactamente qué añade y qué no. `db.mjs` arranca un Postgres local, aplica
      LAS MIGRACIONES DEL REPOSITORIO tal cual sobre un arnés con lo mínimo de `auth`

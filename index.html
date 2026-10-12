@@ -13425,6 +13425,237 @@
     setRiskForm(s2); flash(`escenario «${s2.name}» cargado`);
   });
 
+  /* ═══════════════ LEER UN CSV DE BRÓKER · la parte que no depende del bróker ═══════════════
+
+     Esto NO es el importador. `docs/IMPORTAR.md` deja claro que la fase 0 —tener
+     un CSV real en `test/fixtures/`— bloquea el mapeo y la detección, y sigue
+     bloqueándolos: un mapeo escrito de memoria falla con el primer fichero de
+     verdad y hay que rehacerlo.
+
+     Lo que SÍ se puede hacer sin el fichero es esto: leer bytes. Que un campo
+     entrecomillado lleve una coma dentro, que Excel ponga un BOM delante, que un
+     NinjaTrader en español exporte con punto y coma, que una cifra venga «1.234,56»
+     o «(50.00)» — nada de eso cambia según el bróker, y es exactamente donde un
+     importador corrompe datos EN SILENCIO. Un decimal mal leído no da error: da
+     una operación de 15 contratos donde había 1,5.
+
+     LA DECISIÓN DE DISEÑO QUE IMPORTA: el separador decimal y el formato de fecha
+     NO se deciden por celda, se deciden POR COLUMNA mirando todas las filas. Por
+     celda es imposible: «1,500» puede ser mil quinientos o uno coma cinco, y
+     adivinar es cómo se pierde un cero. Por columna casi siempre se resuelve
+     —basta con que UNA fila sea inequívoca— y cuando no se resuelve se dice, y lo
+     decide quien importa. Nunca se adivina en silencio.
+
+     Son funciones puras: entra texto, sale estructura. Ni tocan el almacén, ni la
+     pantalla, ni el motor. Probadas en `test/csv.mjs`. */
+  const CSV_SEPS = [",", ";", "\t", "|"];
+
+  /* Cuenta un separador SÓLO fuera de comillas: un fichero con comas dentro de
+     campos entrecomillados y punto y coma de verdad elegiría la coma si se
+     contara a lo bruto, y partiría cada fila por la mitad. */
+  function csvCuenta(txt, sep) {
+    let n = 0, dentro = false;
+    for (let i = 0; i < txt.length; i++) {
+      const c = txt[i];
+      if (c === '"') { if (dentro && txt[i + 1] === '"') i++; else dentro = !dentro; }
+      else if (!dentro && c === sep) n++;
+    }
+    return n;
+  }
+  /* El separador es el que aparece el MISMO número de veces en cada línea, que es
+     lo que de verdad define una tabla. Empatados, gana el más frecuente. */
+  function csvSeparador(txt) {
+    const muestra = txt.slice(0, 64000);
+    let mejor = ",", mejorPunt = -1;
+    for (const s of CSV_SEPS) {
+      const lineas = csvLineas(muestra).slice(0, 12).filter(l => l.trim());
+      if (lineas.length < 2) { const n = csvCuenta(muestra, s); if (n > mejorPunt) { mejor = s; mejorPunt = n; } continue; }
+      const cuentas = lineas.map(l => csvCuenta(l, s));
+      const base = cuentas[0];
+      if (!base) continue;
+      const iguales = cuentas.filter(c => c === base).length / cuentas.length;
+      const punt = iguales * 1000 + base;
+      if (punt > mejorPunt) { mejor = s; mejorPunt = punt; }
+    }
+    return mejor;
+  }
+  /* Partir en líneas respetando los saltos DENTRO de comillas: una nota con un
+     salto de línea es legítima y partirla inventa filas. */
+  function csvLineas(txt) {
+    const out = []; let act = "", dentro = false;
+    for (let i = 0; i < txt.length; i++) {
+      const c = txt[i];
+      if (c === '"') { if (dentro && txt[i + 1] === '"') { act += '""'; i++; } else { dentro = !dentro; act += c; } continue; }
+      if (!dentro && (c === "\n" || c === "\r")) { if (c === "\r" && txt[i + 1] === "\n") i++; out.push(act); act = ""; continue; }
+      act += c;
+    }
+    out.push(act);
+    return out;
+  }
+  function csvCampos(linea, sep) {
+    const out = []; let act = "", dentro = false;
+    for (let i = 0; i < linea.length; i++) {
+      const c = linea[i];
+      if (c === '"') { if (dentro && linea[i + 1] === '"') { act += '"'; i++; } else dentro = !dentro; continue; }
+      if (!dentro && c === sep) { out.push(act); act = ""; continue; }
+      act += c;
+    }
+    out.push(act);
+    return out.map(s => s.trim());
+  }
+  /* LAS FILAS DESIGUALES NO SE TIRAN. Una fila con una columna de menos suele ser
+     una operación de verdad con un campo vacío, y descartarla en silencio es la
+     forma de perder dinero que este fichero existe para no tener. Se rellena, se
+     cuenta y se dice. */
+  function csvLee(texto) {
+    const avisos = [];
+    let txt = String(texto == null ? "" : texto);
+    if (txt.charCodeAt(0) === 0xFEFF) { txt = txt.slice(1); avisos.push("El fichero traía una marca de Excel (BOM) al principio; se quitó."); }
+    const sep = csvSeparador(txt);
+    const crudas = csvLineas(txt).filter((l, i, a) => l.trim() !== "" || i < a.length - 1);
+    const filas = crudas.filter(l => l.trim() !== "").map(l => csvCampos(l, sep));
+    if (!filas.length) return { sep, cabecera: [], filas: [], desiguales: 0, avisos: ["El fichero no tiene ninguna fila."] };
+    const cabecera = filas[0];
+    const n = cabecera.length;
+    let desiguales = 0;
+    const cuerpo = filas.slice(1).map(f => {
+      if (f.length === n) return f;
+      desiguales++;
+      return f.length < n ? f.concat(Array(n - f.length).fill("")) : f.slice(0, n);
+    });
+    if (desiguales) avisos.push(plu(desiguales, "fila no tenía", "filas no tenían") + " las " + n + " columnas de la cabecera. NO se descartan: se rellenan y se marcan, porque tirarlas sería perder operaciones.");
+    return { sep, cabecera, filas: cuerpo, desiguales, avisos };
+  }
+
+  /* ── NÚMEROS ──────────────────────────────────────────────────────────────
+     `csvDecimal(columna)` mira TODAS las celdas y contesta "." , "," o "" (no se
+     puede saber). La regla, en orden:
+       1. Si alguna celda tiene los dos signos, el ÚLTIMO es el decimal. Decisivo.
+       2. Si alguna celda tiene un signo seguido de un número de dígitos distinto
+          de 3, ese signo es decimal. «1,50» no puede ser un millar.
+       3. Si alguna celda tiene DOS o más del mismo signo («1.234.567»), ese signo
+          es de millares, y el decimal es el otro.
+       4. Si todo son grupos de 3 exactos, es AMBIGUO y se devuelve "". */
+  function csvDecimal(celdas) {
+    let hayDos = null, porLargo = null, millar = null;
+    for (const raw of celdas) {
+      const s = String(raw == null ? "" : raw).replace(/[^\d.,-]/g, "");
+      if (!s) continue;
+      const puntos = (s.match(/\./g) || []).length, comas = (s.match(/,/g) || []).length;
+      if (puntos && comas) { hayDos = s.lastIndexOf(".") > s.lastIndexOf(",") ? "." : ","; break; }
+      if (puntos > 1) millar = ".";
+      if (comas > 1) millar = ",";
+      if (puntos === 1 || comas === 1) {
+        const sig = puntos ? "." : ",";
+        const cola = s.slice(s.indexOf(sig) + 1);
+        if (/^\d+$/.test(cola) && cola.length !== 3 && porLargo == null) porLargo = sig;
+      }
+    }
+    if (hayDos) return hayDos;
+    if (porLargo) return porLargo;
+    if (millar) return millar === "." ? "," : ".";
+    return "";
+  }
+  /* Con el decimal ya decidido por la columna, una celda se lee sin adivinar nada.
+     `(50)` es negativo (contabilidad), y lo que no sea un número es null — nunca
+     0, que es un número que se puede sumar y mentiría en el P&L. */
+  function csvNumero(raw, decimal) {
+    let s = String(raw == null ? "" : raw).trim();
+    if (!s) return null;
+    let neg = false;
+    if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+    s = s.replace(/[^\d.,+-]/g, "");
+    if (s.startsWith("-")) { neg = !neg; }
+    s = s.replace(/[+-]/g, "");
+    if (!s) return null;
+    const dec = decimal || (/[.,]/.test(s) ? csvDecimal([s]) : "");
+    if (dec === ".") s = s.replace(/,/g, "");
+    else if (dec === ",") s = s.replace(/\./g, "").replace(",", ".");
+    else s = s.replace(/[.,]/g, "");       // sin decidir: se tratan como millares
+    const n = Number(s);
+    if (!isFinite(n)) return null;
+    return neg ? -n : n;
+  }
+
+  /* ── FECHAS ───────────────────────────────────────────────────────────────
+     03/04/2026 es el 3 de abril o el 4 de marzo, y no hay forma de saberlo de UNA
+     celda. De la columna entera, casi siempre sí: basta con que un solo día pase
+     de 12. `csvOrdenFecha` contesta "dmy", "mdy", "ymd" o "" — y "" significa que
+     lo tiene que decir una persona, no que se elija el de casa. */
+  function csvOrdenFecha(celdas) {
+    let iso = 0, vistas = 0, d1 = false, d2 = false;
+    for (const raw of celdas) {
+      const s = String(raw == null ? "" : raw).trim();
+      if (!s) continue;
+      const m = s.match(/^(\d{1,4})[/.\-](\d{1,2})[/.\-](\d{1,4})/);
+      if (!m) continue;
+      vistas++;
+      const a = Number(m[1]), b = Number(m[2]), c = Number(m[3]);
+      if (m[1].length === 4 || a > 31) { iso++; continue; }
+      if (a > 12 && a <= 31) d1 = true;        // el primero no puede ser mes
+      if (b > 12 && b <= 31) d2 = true;        // el segundo no puede ser mes
+      if (c > 31 && String(c).length < 4) return "";
+    }
+    if (!vistas) return "";
+    if (iso === vistas) return "ymd";
+    if (iso) return "";                         // mezcla: no se adivina
+    if (d1 && d2) return "";                    // imposible: hay filas malas
+    if (d1) return "dmy";
+    if (d2) return "mdy";
+    return "";
+  }
+  /* Devuelve AAAA-MM-DD, o null. No inventa el año de dos cifras por encima de
+     2068 ni acepta un 31 de febrero: una fecha imposible es un fichero mal leído,
+     y seguir adelante con ella mete la operación en el día equivocado. */
+  function csvFecha(raw, orden) {
+    const s = String(raw == null ? "" : raw).trim();
+    if (!s) return null;
+    const m = s.match(/^(\d{1,4})[/.\-](\d{1,2})[/.\-](\d{1,4})/);
+    if (!m) return null;
+    let a = Number(m[1]), b = Number(m[2]), c = Number(m[3]), y, mes, dia;
+    const o = m[1].length === 4 ? "ymd" : orden;
+    if (o === "ymd") { y = a; mes = b; dia = c; }
+    else if (o === "mdy") { mes = a; dia = b; y = c; }
+    else if (o === "dmy") { dia = a; mes = b; y = c; }
+    else return null;
+    if (y < 100) y += y < 70 ? 2000 : 1900;
+    if (!(y >= 1900 && y <= 2200) || mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+    const f = new Date(Date.UTC(y, mes - 1, dia));
+    if (f.getUTCFullYear() !== y || f.getUTCMonth() !== mes - 1 || f.getUTCDate() !== dia) return null;
+    const p = n => String(n).padStart(2, "0");
+    return y + "-" + p(mes) + "-" + p(dia);
+  }
+  /* La hora, a HH:MM de 24 h. «1:05:09 PM» y «13:05» son la misma. */
+  function csvHora(raw) {
+    const s = String(raw == null ? "" : raw).trim();
+    const m = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])\.?m\.?/i) || s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (!m) return null;
+    let h = Number(m[1]); const min = Number(m[2]);
+    const suf = (m[4] || "").toLowerCase();
+    if (suf === "p" && h < 12) h += 12;
+    if (suf === "a" && h === 12) h = 0;
+    if (h > 23 || min > 59) return null;
+    return String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
+  }
+  /* El lado. Los brókers escriben lo mismo de ocho maneras; lo que NO se hace es
+     caer a «long» por defecto, que convertiría una venta ilegible en una compra. */
+  function csvLado(raw) {
+    const s = String(raw == null ? "" : raw).trim().toLowerCase();
+    if (/^(b|buy|bought|long|compra|comprar|largo)$/.test(s)) return "long";
+    if (/^(s|sell|sold|short|venta|vender|corto|sell short|sellshort)$/.test(s)) return "short";
+    if (/\bbuy\b|\blong\b|\bcompra/.test(s)) return "long";
+    if (/\bsell\b|\bshort\b|\bventa/.test(s)) return "short";
+    return null;
+  }
+  /* Para `test/csv.mjs`: son puras y no tocan nada, así que exponerlas no abre
+     ninguna puerta. Lo que NO se expone es un importador, porque no lo hay. */
+  const CSV = { lee: csvLee, separador: csvSeparador, decimal: csvDecimal, numero: csvNumero,
+                ordenFecha: csvOrdenFecha, fecha: csvFecha, hora: csvHora, lado: csvLado };
+  /* Se cuelga de FUT AQUÍ y no arriba con el resto: `const CSV` todavía no existe
+     cuando se evalúa aquella línea, y `FUT.csv = CSV` allí sería un
+     ReferenceError que tumbaría la página entera antes de pintar nada. */
+  FUT.csv = CSV;
+
   /* =============================== COPIA DE SEGURIDAD Y TRASPASO ===============================
      Un archivo JSON con todo lo que guarda la cabina. Dos usos: respaldo, y llevar
      los datos a otra copia de Cabina (la del repositorio, por ejemplo). El formato
