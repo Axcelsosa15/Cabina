@@ -13587,7 +13587,7 @@ tbody tr:last-child td{border-bottom:0}
       { g: "Ir a", i: "◫", t: "Inversiones", s: "", f: ir("invest") },
       { g: "Ir a", i: "◱", t: "Playbook", s: "", f: ir("playbook") },
       { g: "Ir a", i: "◰", t: "Formas de hacer dinero", s: "", f: ir("ideas") },
-      { g: "Ir a", i: "⌕", t: "Estudio", s: "", f: ir("estudio") },
+      
       { g: "Ir a", i: "▦", t: "Calculadora de riesgo", s: "R", f: ir("calc") },
     ];
     /* Las cuentas se listan solas: son el filtro que más se cambia, y con tres
@@ -13645,8 +13645,6 @@ tbody tr:last-child td{border-bottom:0}
       texto(p, ["category","market","status","notes","thesis","url"]), p, "ideas"));
     lee(() => coll("tesis").items).forEach(p => indexa("Tesis", "◎", p.title || p.name || p.asset || "Tesis",
       texto(p, ["market","status","thesis","notes","conclusion","url"]), p, "ideas"));
-    lee(() => estudioLista()).filter(p => p.type !== "trade-review").forEach(p => indexa("Research", "⌕", p.title || p.question || "Research",
-      texto(p, ["type","status","url","question","evidence","counter","conclusion","tags"]), p, "estudio"));
 
     /* Las sesiones históricas ya renderizadas son registros existentes de Cabina.
        Se indexan tal cual aparecen; no se reconstruye ni se inventa un resumen. */
@@ -14674,7 +14672,7 @@ tbody tr:last-child td{border-bottom:0}
   function estudioFlashcards(){return estudioLista().filter(d=>(d.type==="flashcard"||d.prompt)&&d.prompt&&d.answer);}
   function renderEstudioFlash(){const fs=estudioFlashcards(),p=$("studyFlashPrompt"),a=$("studyFlashAnswer");if(!fs.length){$("studyFlashPos").textContent="";p.textContent="Crea una flashcard para practicar la recuperación activa.";a.hidden=true;a.textContent="";$("studyReveal").disabled=true;$("studyNext").disabled=true;return;}$("studyReveal").disabled=false;$("studyNext").disabled=fs.length<2;estudioFlashIdx%=fs.length;const d=fs[estudioFlashIdx];$("studyFlashPos").textContent=(estudioFlashIdx+1)+"/"+fs.length;p.textContent=d.prompt;a.textContent=d.answer;a.hidden=!estudioFlashRevelada;$("studyReveal").textContent=estudioFlashRevelada?"Ocultar respuesta":"Revelar respuesta";}
   $("studyReveal").addEventListener("click",()=>{estudioFlashRevelada=!estudioFlashRevelada;renderEstudioFlash();});$("studyNext").addEventListener("click",()=>{const fs=estudioFlashcards();if(fs.length){estudioFlashIdx=(estudioFlashIdx+1)%fs.length;estudioFlashRevelada=false;renderEstudioFlash();}});
-  function estudioAcciones(){const out=[{g:"Ir a",i:"⌕",t:"Estudio · biblioteca de investigación",s:"⌘K",f:()=>showTab("estudio")}];estudioLista().filter(d=>d.type!=="trade-review").forEach(d=>out.push({g:"Investigación",i:"↗",t:"Estudio · "+(d.title||"Documento"),s:ESTUDIO_TIPOS[d.type]||"Documento",f:()=>{showTab("estudio");$("studySearch").value=d.title||"";renderEstudio();}}));return out;}
+  function estudioAcciones(){const out=[{g:"Ir a",i:"⌕",t:"Estudio · biblioteca de investigación",s:"⌘K",d:"investigación notas fuentes tesis conceptos revisión",f:()=>showTab("estudio")}];estudioLista().filter(d=>d.type!=="trade-review").forEach(d=>out.push({g:"Investigación",i:"↗",t:"Estudio · "+(d.title||"Documento"),s:ESTUDIO_TIPOS[d.type]||"Documento",d:[d.type,d.status,d.url,d.question,d.evidence,d.counter,d.conclusion,(d.tags||[]).join(" ")].join(" "),f:()=>{showTab("estudio");$("studySearch").value=d.title||"";renderEstudio();}}));return out;}
   /* ESTUDIO · revisión vinculada al journal existente. No copia ni altera el trade. */
   const estudioTrades=()=>typeof FUT!=="undefined"&&FUT&&typeof FUT.trades==="function"?FUT.trades().slice():[];
   const estudioDinero=v=>v==null||v===""||!Number.isFinite(Number(v))?"—":new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:2}).format(Number(v));
