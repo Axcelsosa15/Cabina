@@ -122,7 +122,10 @@ dice('motor-bundle', 'suite', 'La fuente del motor coincide con el bundle', 'mot
     /* Los estilos originales, el estilo propio de ESTUDIO y la capa global. La capa global lleva
        id propio para poder comprobarla sin confundirla con los estilos originales. */
     const sistema = n(/^<style id="cabina-unified-estudio-system">$/gm);
-    if (estilos !== 5) mal.push(`${estilos} <style> (esperados 5)`);
+    const identidadTipografica = n(/^<style id="cabina-typographic-identity">$/gm);
+    const estilosBase = estilos - identidadTipografica;
+    if (estilosBase !== 5) mal.push(`${estilosBase} estilos base (esperados 5; total ${estilos}; identidad tipográfica ${identidadTipografica})`);
+    if (identidadTipografica > 1) mal.push(`${identidadTipografica} bloques de identidad tipográfica (máximo 1)`);
     if (sistema !== 1) mal.push(`${sistema} capas cabina-unified-estudio-system (esperada 1)`);
     if (scripts !== 1) mal.push(`${scripts} <script> (esperado 1)`);
     if (!cierra) mal.push('no cierra con </script></body></html>');
@@ -131,7 +134,7 @@ dice('motor-bundle', 'suite', 'La fuente del motor coincide con el bundle', 'mot
     if (fachadas !== 3) mal.push(`${fachadas}/3 fachadas expuestas`);
     fila('index.html', 'Integridad estructural', mal.length ? 'FAIL' : 'PASS',
       mal.length ? mal.join(' · ')
-        : `${h.split('\n').length} líneas · 5 <style> · 1 <script> · IIFE del motor · window.QuantEngine · 3 fachadas`);
+        : `${h.split('\n').length} líneas · ${estilosBase} estilos base${identidadTipografica ? ' + identidad tipográfica' : ''} · 1 <script> · IIFE del motor · window.QuantEngine · 3 fachadas`);
   }
 }
 
