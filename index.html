@@ -14650,10 +14650,21 @@ tbody tr:last-child td{border-bottom:0}
   $("studyTradeClear").addEventListener("click",()=>{$("studyTradeAccount").value="";$("studyTradeSearch").value="";$("studyTradeInstrument").value="";$("studyTradeDirection").value="";$("studyTradeFrom").value="";$("studyTradeTo").value="";renderEstudioTrades();});
   $("studyTradeSearch").addEventListener("input",renderEstudioTrades);
   $("studyTradeReviewForm").addEventListener("submit",async e=>{
-    e.preventDefault();const tradeId=$("studyTradeId").value,t=estudioTrades().find(x=>String(x.id)===String(tradeId));if(!t)return;
-    const id=$("studyTradeReviewId").value||uid("trade-review"),old=coll("research").get(id),now=Date.now();
+    e.preventDefault();
+    const status=$("studyTradeSaveState"),form=$("studyTradeReviewForm"),button=form.querySelector('button[type="submit"]');
+    const tradeId=$("studyTradeId").value,t=estudioTrades().find(x=>String(x.id)===String(tradeId));
+    if(!t){status.textContent="No se pudo guardar: selecciona una operación primero.";return;}
+    const id=$("studyTradeReviewId").value||uid("trade-review"),clave="research/"+id,old=coll("research").get(id),now=Date.now();
     const d={...(old||{}),id,type:"trade-review",tradeId:String(t.id),title:"Revisión: "+(t.instrument||"trade")+" · "+estudioTradeFecha(t),status:$("studyTradeReviewStatus").value,question:$("studyTradePlan").value.trim(),evidence:$("studyTradeExecution").value.trim(),conclusion:$("studyTradeLesson").value.trim(),tags:["trade-review",String(t.instrument||"").toUpperCase()].filter(Boolean),createdAt:old&&old.createdAt||now,updatedAt:now};
-    await coll("research").set(id,d);$("studyTradeReviewId").value=id;$("studyTradeSaveState").textContent="Revisión guardada.";renderEstudio();estudioCargarReview(String(t.id));
+    if(button)button.disabled=true;
+    status.textContent="Guardando revisión…";
+    try{
+      await coll("research").set(id,d);
+      if(sinGuardar.has(clave)){status.textContent="No se pudo confirmar el guardado. Revisa el estado de sincronización.";return;}
+      $("studyTradeReviewId").value=id;status.textContent="Revisión guardada.";renderEstudio();estudioCargarReview(String(t.id));
+    }catch(err){
+      status.textContent="Error al guardar la revisión. Inténtalo de nuevo.";
+    }finally{if(button)button.disabled=false;}
   });
   coll("research").subscribe(()=>renderEstudio());document.addEventListener("keydown",e=>{if(e.key==="Escape")estudioCerrar();});renderEstudio();
 
