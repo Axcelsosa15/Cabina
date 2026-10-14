@@ -350,6 +350,11 @@ table.t th {
 table.t td {
   line-height: 1.5;
   vertical-align: middle;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+table.t td.ui, table.t td.notes {
+  overflow-wrap: anywhere;
 }
 table.t td:not(.ui):not(.notes):not(:first-child) {
   font-variant-numeric: lining-nums tabular-nums;
