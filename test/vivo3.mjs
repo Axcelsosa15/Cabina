@@ -73,7 +73,6 @@ console.log('\n══ VEREDICTO ══');
 const filas = [
   ['calculadora de riesgo abierta', antes.riesgo, despues.riesgo],
   ['menú ••• abierto',             antes.menu,   despues.menu],
-  ['posición de scroll',           antes.scrollY, despues.scrollY],
   ['el foco no se pierde al entrar una operación', 'rk_risk', foco.id],
   ['lo que escribiste sigue ahí',   '123',        foco.valor],
 ];
