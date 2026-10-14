@@ -50,6 +50,35 @@
 .cmd{border:1px solid #3b515f!important;background:linear-gradient(145deg,#111c26,#0b1118)!important;box-shadow:0 28px 100px #000a,0 0 0 1px #70e0cf0a!important}.cmd-in{background:linear-gradient(100deg,#14212a,#0d151d)!important;border-bottom:1px solid #293c48!important}.cmd-in:focus-within{box-shadow:inset 0 -1px #70e0cf55}.cmd-in input{font-size:15px!important}.cmd-it[aria-selected="true"]{background:#18302e!important;box-shadow:inset 2px 0 #70e0cf}.cmd-it[aria-selected="true"] .ct{color:#e4fff9}.cmd-grp{color:#79cfc2!important;letter-spacing:.13em!important}
 @media(max-width:850px){.study-hero{grid-template-columns:1fr}.study-bottom{grid-template-columns:1fr}}@media(max-width:600px){.study-grid{grid-template-columns:1fr}.study-protocol{grid-template-columns:1fr}.study-fields{grid-template-columns:1fr}.study-field.full{grid-column:auto}.study-hero{padding-top:14px}.study-toolbar{align-items:flex-start}.study-shortcut{display:none}.study-dialog-head,.study-dialog-body,.study-dialog-foot{padding-left:13px;padding-right:13px}}@media(prefers-reduced-motion:reduce){.study-card,.study-progress,.study-searchrow{transition:none!important}
 }
+
+/* GLOBAL COMMAND PALETTE · shared visual language, read-only search */
+.gs-trigger-key{font:10px/1.2 var(--font-mono,monospace);margin-left:6px;padding:2px 5px;border:1px solid var(--line,#344653);border-radius:4px;color:var(--muted,#a5adbb)}
+.gs-backdrop{position:fixed;z-index:10000;inset:0;display:flex;align-items:flex-start;justify-content:center;padding:clamp(12px,8vh,84px) 14px 18px;background:rgba(3,7,11,.76);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.gs-backdrop[hidden]{display:none!important}
+.gs-dialog{width:min(720px,100%);max-height:min(78vh,760px);display:flex;flex-direction:column;overflow:hidden;border:1px solid #354956;border-radius:16px;background:linear-gradient(145deg,#141e27,#0d131a);box-shadow:0 28px 100px #0009,inset 0 1px #ffffff08;color:var(--text,#e8ecf2)}
+.gs-head{display:flex;align-items:center;gap:12px;padding:17px 18px 14px;border-bottom:1px solid #293944}
+.gs-mark{display:grid;place-items:center;flex:0 0 38px;height:38px;border:1px solid #315b59;border-radius:10px;background:#142925;color:#8ce8da;font-size:25px}
+.gs-head h2{margin:0;font:600 17px/1.3 var(--font-display,system-ui);letter-spacing:-.025em}
+.gs-head p{margin:3px 0 0;color:#8fa1af;font-size:12px;line-height:1.4}
+.gs-close{margin-left:auto;flex:0 0 auto;border:1px solid #354653;border-radius:6px;padding:5px 8px;background:#101820;color:#b6c5ce;font:10px var(--font-mono,monospace)}
+.gs-input-wrap{display:flex;align-items:center;gap:11px;margin:14px 16px 10px;padding:12px 13px;border:1px solid #426f6b;border-radius:10px;background:#0a1218;box-shadow:0 0 0 3px #70e0cf0c}
+.gs-input-wrap>span{font-size:22px;color:#70e0cf}
+.gs-input-wrap input{flex:1;min-width:0;border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;color:#edf4f8!important;font:14px/1.5 var(--font-ui,system-ui);padding:0!important}
+.gs-input-wrap kbd,.gs-foot kbd{border:1px solid #344550;border-radius:4px;padding:2px 5px;color:#94a5b2;font:10px var(--font-mono,monospace)}
+.gs-meta{display:flex;justify-content:space-between;gap:10px;padding:0 18px 8px;color:#81929f;font-size:10px}
+.gs-results{overflow:auto;overscroll-behavior:contain;padding:0 8px 8px;min-height:100px}
+.gs-group-label{padding:11px 10px 5px;color:#7f9aab;font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.gs-result{display:flex;width:100%;align-items:center;gap:11px;text-align:left;padding:10px;border:1px solid transparent;border-radius:9px;background:transparent;color:#e3edf2;cursor:pointer}
+.gs-result:hover,.gs-result[aria-selected=true]{border-color:#355955;background:linear-gradient(100deg,#18302c,#17232b)}
+.gs-result-icon{display:grid;place-items:center;flex:0 0 34px;height:34px;border:1px solid #30434e;border-radius:8px;background:#111a22;color:#83d9cd;font-size:12px;font-family:var(--font-mono,monospace)}
+.gs-result-copy{min-width:0;flex:1}
+.gs-result-title{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:650}
+.gs-result-context{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8fa1af;font-size:10px}
+.gs-result-type{color:#78909e;font-size:9px;white-space:nowrap}
+.gs-empty{padding:26px 12px;text-align:center;color:#8fa1af;font-size:12px}
+.gs-foot{display:flex;justify-content:space-between;gap:12px;padding:11px 16px;border-top:1px solid #293944;color:#7e909e;font-size:10px}
+@media(max-width:600px){.gs-backdrop{padding:8px;align-items:flex-start}.gs-dialog{max-height:88vh;border-radius:12px}.gs-head{padding:13px}.gs-meta{padding-inline:13px}.gs-meta span:last-child{display:none}.gs-foot{font-size:9px}.gs-result-type{display:none}.gs-trigger-key{display:none}}
+@media(prefers-reduced-motion:reduce){.gs-backdrop *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
@@ -1870,6 +1899,7 @@ tbody tr:last-child td{border-bottom:0}
          una ACCION, y una accion es un <button>: trae Enter, espacio, foco y
          semantica sin inventar nada. -->
     <button type="button" class="editbtn conflbtn" id="resolveConflict" hidden>Resolver conflicto</button>
+    <button type="button" class="editbtn" id="globalSearchOpen" aria-haspopup="dialog" aria-controls="globalSearchDialog" title="Búsqueda global (⌘K / Ctrl+K)">Buscar <kbd class="gs-trigger-key">⌘K</kbd></button>
     <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)">+ Rápido</button>
     <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
     <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
@@ -2648,6 +2678,17 @@ tbody tr:last-child td{border-bottom:0}
 </div>
 <div class="tip" id="tip"></div>
 <div class="lightbox" id="lightbox" role="dialog" aria-label="Imagen"><img alt=""></div>
+
+
+<div class="gs-backdrop" id="globalSearchDialog" hidden>
+  <section class="gs-dialog" role="dialog" aria-modal="true" aria-labelledby="gsTitle" aria-describedby="gsHelp">
+    <header class="gs-head"><span class="gs-mark" aria-hidden="true">⌕</span><div><h2 id="gsTitle">Búsqueda global</h2><p id="gsHelp">Encuentra operaciones, cuentas, posiciones, playbooks, ideas y research.</p></div><button type="button" class="gs-close" id="globalSearchClose" aria-label="Cerrar búsqueda">Esc</button></header>
+    <label class="gs-input-wrap"><span aria-hidden="true">⌕</span><input id="globalSearchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Buscar por activo, cuenta, setup, tesis…" aria-label="Buscar en Cabina"><kbd>↵</kbd></label>
+    <div class="gs-meta"><span id="globalSearchCount" aria-live="polite">Escribe para buscar</span><span>↑ ↓ navegar · Enter abrir · Esc cerrar</span></div>
+    <div class="gs-results" id="globalSearchResults" role="listbox" aria-label="Resultados de búsqueda"><div class="gs-empty">Empieza escribiendo un activo, una cuenta o una idea.</div></div>
+    <footer class="gs-foot"><span><kbd>⌘</kbd>/<kbd>Ctrl</kbd> <kbd>K</kbd> abrir</span><span>Resultados locales · sin IA simulada</span></footer>
+  </section>
+</div>
 
 <script>
 (function () {
@@ -14699,6 +14740,80 @@ tbody tr:last-child td{border-bottom:0}
     }finally{if(button)button.disabled=false;}
   });
   coll("research").subscribe(()=>renderEstudio());document.addEventListener("keydown",e=>{if(e.key==="Escape")estudioCerrar();});renderEstudio();
+
+
+  /* Búsqueda global: índice de lectura sobre los modelos existentes. No escribe,
+     no crea una segunda base y no simula búsqueda semántica. */
+  const gsDialog = $("globalSearchDialog"), gsInput = $("globalSearchInput"), gsResults = $("globalSearchResults");
+  let gsItems = [], gsActive = 0, gsTimer = 0, gsReturnFocus = null;
+  const gsNorm = v => String(v == null ? "" : v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+  const gsText = (o, keys) => keys.map(k => o && o[k] != null ? (Array.isArray(o[k]) ? o[k].join(" ") : String(o[k])) : "").filter(Boolean).join(" · ");
+  const gsAdd = (out, type, icon, title, context, tab, id, haystack) => {
+    if (!title || !String(title).trim()) return;
+    out.push({type,icon,title:String(title),context:String(context||""),tab,id:id==null?"":String(id),haystack:gsNorm([title,context,haystack,id].join(" "))});
+  };
+  function gsIndex(){
+    const out=[];
+    const safe=(fn,fallback=[])=>{try{const v=fn();return Array.isArray(v)?v:fallback}catch{return fallback}};
+    safe(()=>FUT.trades()).forEach(t=>gsAdd(out,"Operación","TR",t.instrument||t.symbol||"Operación",gsText(t,["date","time","direction","side","qty","entry","exit","pnlEff","rReal"]), "futuros",t.id,JSON.stringify(t)));
+    safe(()=>FUT.accounts()).forEach(a=>gsAdd(out,"Cuenta","AC",a.name||a.firm||"Cuenta",gsText(a,["firm","kind","status","size","id"]),"cabina",a.id,JSON.stringify(a)));
+    safe(()=>coll("positions").items).forEach(p=>gsAdd(out,"Posición","PO",p.asset||p.symbol||p.ticker||"Posición",gsText(p,["market","accountId","quantity","qty","shares","cost","currentPrice","notes"]),"invest",p.id,JSON.stringify(p)));
+    safe(()=>coll("playbooks").items).forEach(p=>gsAdd(out,"Playbook","PB",p.title||p.name||p.setup||"Playbook",gsText(p,["instrument","market","timeframe","session","status","notes","rules"]),"playbook",p.id,JSON.stringify(p)));
+    safe(()=>coll("ideas").items).forEach(p=>gsAdd(out,"Idea","ID",p.title||p.name||p.asset||"Idea",gsText(p,["category","market","status","notes","thesis","url"]),"ideas",p.id,JSON.stringify(p)));
+    safe(()=>coll("tesis").items).forEach(p=>gsAdd(out,"Tesis","TE",p.title||p.name||p.asset||"Tesis",gsText(p,["market","status","thesis","notes","conclusion","url"]),"ideas",p.id,JSON.stringify(p)));
+    safe(()=>estudioLista()).filter(p=>p.type!=="trade-review").forEach(p=>gsAdd(out,"Research","RE",p.title||p.question||"Research",gsText(p,["type","status","url","question","evidence","counter","conclusion","tags"]),"estudio",p.id,JSON.stringify(p)));
+    /* Sesiones archivadas que el modelo exponga explícitamente; no se fabrican. */
+    safe(()=>Array.isArray(state.sessions)?state.sessions:state.settings?.sessions).forEach(p=>gsAdd(out,"Sesión","SE",p.title||p.name||p.date||"Sesión",gsText(p,["date","instrument","notes","result","status"]),"cabina",p.id,JSON.stringify(p)));
+    return out;
+  }
+  function gsOpen(){
+    gsReturnFocus=document.activeElement;gsDialog.hidden=false;gsInput.value="";gsActive=0;
+    gsRender();requestAnimationFrame(()=>gsInput.focus());
+  }
+  function gsClose(){
+    gsDialog.hidden=true;gsItems=[];if(gsReturnFocus&&typeof gsReturnFocus.focus==="function")gsReturnFocus.focus();
+  }
+  function gsRender(){
+    const q=gsNorm(gsInput.value),all=gsIndex();
+    gsItems=q?all.filter(x=>x.haystack.includes(q)).sort((a,b)=>{
+      const ae=gsNorm(a.title)===q?0:gsNorm(a.title).startsWith(q)?1:2;
+      const be=gsNorm(b.title)===q?0:gsNorm(b.title).startsWith(q)?1:2;return ae-be||a.title.localeCompare(b.title);
+    }).slice(0,40):[];
+    gsActive=Math.min(gsActive,Math.max(0,gsItems.length-1));
+    $("globalSearchCount").textContent=q?(gsItems.length+" resultado"+(gsItems.length===1?"":"s")):"Escribe para buscar";
+    if(!q){gsResults.innerHTML='<div class="gs-empty">Busca por activo, cuenta, fecha, setup, tesis o palabra clave.</div>';return;}
+    if(!gsItems.length){gsResults.innerHTML='<div class="gs-empty">Sin coincidencias. Prueba con otro término o una parte del nombre.</div>';return;}
+    const groups=new Map();gsItems.forEach((x,i)=>{if(!groups.has(x.type))groups.set(x.type,[]);groups.get(x.type).push({...x,index:i})});
+    gsResults.innerHTML=[...groups.entries()].map(([type,items])=>'<div class="gs-group-label">'+gsEsc(type)+'</div>'+items.map(x=>'<button type="button" class="gs-result" role="option" data-gs-index="'+x.index+'" aria-selected="'+(x.index===gsActive)+'"><span class="gs-result-icon">'+gsEsc(x.icon)+'</span><span class="gs-result-copy"><span class="gs-result-title">'+gsEsc(x.title)+'</span><span class="gs-result-context">'+gsEsc(x.context||"Sin contexto adicional")+'</span></span><span class="gs-result-type">'+gsEsc(x.type)+'</span></button>').join("")).join("");
+  }
+  function gsEsc(v){return String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+  function gsMove(delta){if(!gsItems.length)return;gsActive=(gsActive+delta+gsItems.length)%gsItems.length;gsResults.querySelectorAll("[data-gs-index]").forEach(n=>n.setAttribute("aria-selected",String(Number(n.dataset.gsIndex)===gsActive)));gsResults.querySelector('[data-gs-index="'+gsActive+'"]')?.scrollIntoView({block:"nearest"});}
+  function gsGo(index){
+    const item=gsItems[index];if(!item)return;gsClose();
+    document.querySelector('.tabbtn[data-tab="'+item.tab+'"]')?.click();
+    requestAnimationFrame(()=>{
+      const candidates=[...document.querySelectorAll("[data-id], [data-trade-id], tr, .acct, .study-card, .position-row")];
+      const target=candidates.find(n=>(n.dataset.id===item.id||n.dataset.tradeId===item.id)&&n.offsetParent!==null)
+        ||candidates.find(n=>n.offsetParent!==null&&item.title&&gsNorm(n.innerText).includes(gsNorm(item.title)));
+      if(target){target.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"center"});target.classList.add("gs-target-highlight");setTimeout(()=>target.classList.remove("gs-target-highlight"),1800);}
+      if(item.type==="Research"&&$("studySearch")){$("studySearch").value=item.title;$("studySearch").dispatchEvent(new Event("input",{bubbles:true}));}
+    });
+  }
+  $("globalSearchOpen")?.addEventListener("click",gsOpen);
+  $("globalSearchClose")?.addEventListener("click",gsClose);
+  gsDialog?.addEventListener("click",e=>{if(e.target===gsDialog)gsClose();});
+  gsInput?.addEventListener("input",()=>{gsActive=0;clearTimeout(gsTimer);gsTimer=setTimeout(gsRender,90);});
+  gsResults?.addEventListener("click",e=>{const b=e.target.closest("[data-gs-index]");if(b)gsGo(Number(b.dataset.gsIndex));});
+  gsInput?.addEventListener("keydown",e=>{
+    if(e.key==="ArrowDown"){e.preventDefault();gsMove(1);}
+    else if(e.key==="ArrowUp"){e.preventDefault();gsMove(-1);}
+    else if(e.key==="Enter"){e.preventDefault();gsGo(gsActive);}
+    else if(e.key==="Escape"){e.preventDefault();gsClose();}
+  });
+  document.addEventListener("keydown",e=>{
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){e.preventDefault();gsOpen();}
+    else if(e.key==="Escape"&&!gsDialog.hidden)gsClose();
+  });
 
 })();
 </script>
