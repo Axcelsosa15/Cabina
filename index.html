@@ -75,6 +75,66 @@ svg.chart .s3, .chart .s3 { stroke: #78a9ff !important; }
 svg.chart .end, svg.chart .hp, .chart .end, .chart .hp { fill: #70e0cf !important; }
 svg.chart .hp2, .chart .hp2 { fill: #91a4b3 !important; }
 svg.chart .dd, svg.chart .uw, .chart .dd, .chart .uw { fill: #e0604f !important; }
+
+/* CABINA VISUAL SYSTEM v2 — refinamiento global de lectura, jerarquía y estados */
+:root{--cab-card-radius:14px;--cab-control-radius:9px;--cab-shadow-card:0 8px 24px rgba(0,0,0,.16);--cab-focus:0 0 0 3px rgba(112,224,207,.16)}
+body{letter-spacing:-.006em}
+::selection{background:rgba(112,224,207,.26);color:#f4fffd}
+.topbar{gap:14px 22px;padding-block:20px 16px}
+.brand h1{letter-spacing:-.045em;font-size:clamp(22px,2.1vw,28px)}
+.brand .sub{color:#9eacba}
+.clock .time{letter-spacing:-.035em;font-weight:600}
+.tabnav{position:sticky;top:0;z-index:30;padding:5px 4px 0;margin:0 0 28px;background:rgba(11,14,19,.92);backdrop-filter:blur(18px);border-bottom:1px solid #283440}
+.tabbtn{position:relative;border-radius:9px 9px 0 0;padding:13px 15px 14px;font-size:11px;letter-spacing:.065em;transition:color var(--mo),background var(--mo),border-color var(--mo)}
+.tabbtn:hover{background:rgba(255,255,255,.035)}
+.tabbtn.active{color:#eafffb;background:linear-gradient(180deg,rgba(79,179,160,.12),rgba(79,179,160,.025))}
+.tabbtn.active::after{content:"";position:absolute;height:2px;left:13px;right:13px;bottom:-1px;background:#70e0cf;border-radius:3px 3px 0 0;box-shadow:0 0 12px rgba(112,224,207,.24)}
+section.panel{border-color:#25303b;border-radius:var(--cab-card-radius);background:linear-gradient(155deg,rgba(23,29,38,.98),rgba(16,21,29,.98));box-shadow:var(--cab-shadow-card);overflow:clip;transition:border-color var(--mo),box-shadow var(--mo),transform var(--mo)}
+section.panel:hover{border-color:#344453}
+.panel>header{padding:15px 18px;border-bottom-color:#27323e}
+.panel>header h2{font-size:11px;letter-spacing:.085em;line-height:1.4}
+.panel>header .meta{color:#b3bfcc;font-size:11px}
+.panel .body{padding:18px}
+.grid,.col{gap:18px}
+.grid{align-items:stretch}
+.panel .body>.grid,.panel .body>.col{gap:14px}
+.btn,.editbtn{border-radius:var(--cab-control-radius);min-height:36px;transition:transform var(--mo-fast),border-color var(--mo),background var(--mo),color var(--mo),box-shadow var(--mo)}
+.btn:hover,.editbtn:hover{border-color:#506373;background-color:#222c38}
+.btn:active,.editbtn:active{transform:translateY(1px)}
+.btn.primary{background:linear-gradient(135deg,#78dfd0,#4fb3a0);border-color:#70d6c6;color:#071310;box-shadow:0 3px 12px rgba(79,179,160,.12);font-weight:750}
+.btn.primary:hover{filter:brightness(1.06);box-shadow:0 5px 18px rgba(79,179,160,.18)}
+.btn.danger:hover{background:rgba(226,105,89,.09);border-color:#e26959}
+input[type=number],input[type=text],input[type=date],textarea,select{border-radius:var(--cab-control-radius);min-height:36px;border-color:#34404d;background-color:#0c1118;transition:border-color var(--mo),box-shadow var(--mo),background var(--mo)}
+input:hover,textarea:hover,select:hover{border-color:#465666}
+input:focus,textarea:focus,select:focus{outline:none;border-color:#64caba;box-shadow:var(--cab-focus);background-color:#0e151d}
+input::placeholder,textarea::placeholder{color:#7f8d9d;opacity:1}
+.lab{color:#b0bdca;font-size:10px;letter-spacing:.105em}
+.note-p,.empty{color:#b0bdca}
+.toolbar{gap:10px}
+.seg{border-radius:9px;border-color:#34404d;padding:3px;background:#0c1118}
+.seg button{border-radius:6px;padding:8px 13px}
+.seg button.active{background:linear-gradient(135deg,#70d8c8,#4fb3a0);color:#071310;font-weight:750}
+.pill{border-radius:999px}
+table{border-collapse:separate;border-spacing:0}
+th{color:#b7c4d0;font-size:10px;letter-spacing:.075em;text-transform:uppercase}
+td,th{padding:10px 12px;border-bottom-color:#26313c}
+tbody tr{transition:background var(--mo-fast)}
+tbody tr:hover{background:rgba(255,255,255,.025)}
+tbody tr:last-child td{border-bottom:0}
+.chart{overflow:visible}
+.chart text{paint-order:stroke;stroke:rgba(11,14,19,.35);stroke-width:.25px}
+.chart .grid line{stroke:#2b3541;stroke-opacity:.78}
+.chart .axis line,.chart .zero{stroke:#536171}
+.chart .bar{transition:opacity var(--mo),filter var(--mo)}
+.chart .bar:hover{opacity:.9;filter:brightness(1.15)}
+.legend{color:#b0bdca;gap:12px 16px}
+.tip{border-color:#40515f;border-radius:9px;background:rgba(14,20,28,.97);box-shadow:0 10px 30px #0007;backdrop-filter:blur(10px)}
+:focus-visible{outline:2px solid #70e0cf;outline-offset:3px}
+[role=dialog],.modal,.study-dialog{border-color:#344553;box-shadow:0 28px 90px rgba(0,0,0,.55)}
+@media(min-width:1200px){.tab.active{animation:cabina-tab-in 180ms ease-out both}@keyframes cabina-tab-in{from{opacity:.75;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}}
+@media(max-width:760px){.topbar{padding-block:14px 12px;gap:10px 14px}.clock{margin-left:0;width:100%;justify-content:space-between}.tabnav{margin-inline:calc(var(--gut)*-1);padding-inline:var(--gut);margin-bottom:20px}.tabbtn{padding:12px 12px 13px;font-size:10px}section.panel{border-radius:12px}.panel>header{padding:13px 14px}.panel .body{padding:14px}.grid,.col{gap:14px}}
+@media(prefers-reduced-motion:reduce){.tabbtn,section.panel,.btn,.editbtn,input,textarea,select,tbody tr{transition:none!important}}
+
 </style>
 
 <style>
