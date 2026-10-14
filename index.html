@@ -14427,5 +14427,93 @@
 
 })();
 </script>
+
+<style id="cabina-unified-estudio-system">
+/* CABINA · sistema visual unificado inspirado en ESTUDIO.
+   Capa de presentación únicamente: no altera cálculos, estado ni persistencia. */
+:root{
+  --ui-glow:rgba(112,224,207,.10);
+  --ui-panel:linear-gradient(145deg,#141c25 0%,#10161e 100%);
+  --ui-panel-raised:linear-gradient(145deg,#18232c 0%,#121a22 100%);
+  --ui-focus:0 0 0 3px rgba(112,224,207,.15);
+}
+::selection{background:rgba(112,224,207,.25);color:#f1fffc}
+:where(button,input,select,textarea,[tabindex]):focus-visible{
+  outline:2px solid #70e0cf!important;outline-offset:3px!important;
+}
+#tabnav .tabbtn{
+  border:1px solid transparent;border-radius:9px;
+  transition:background .16s ease,border-color .16s ease,color .16s ease,transform .16s ease;
+}
+#tabnav .tabbtn:hover{background:linear-gradient(120deg,#17232c,#121a22);border-color:#293b46;color:#dce9f1}
+#tabnav .tabbtn.active{
+  background:linear-gradient(120deg,#18332f,#15212a);
+  border-color:#315a55;border-left-color:#70e0cf;color:#d9fff8;
+  box-shadow:inset 0 1px rgba(255,255,255,.025),0 5px 18px rgba(0,0,0,.12);
+}
+#tabnav .tabbtn.active::after{opacity:.8}
+.panel{
+  border-color:#293540;background:var(--ui-panel);
+  box-shadow:0 8px 28px rgba(0,0,0,.08),inset 0 1px rgba(255,255,255,.018);
+  overflow:clip;
+}
+.panel>header{border-bottom-color:#26323d;background:linear-gradient(100deg,rgba(22,34,43,.8),rgba(16,22,30,.35))}
+.panel>header h2{letter-spacing:.075em}
+.panel .body{min-width:0}
+.tiles{gap:1px;background:#27333e;border:1px solid #27333e;border-radius:12px;overflow:hidden}
+.tile{background:linear-gradient(145deg,#151d26,#11171f);padding:14px 16px;transition:background .16s ease}
+.tile:hover{background:linear-gradient(145deg,#192630,#131b23)}
+.tile .v{letter-spacing:-.035em}
+.btn{
+  border-color:#34434f;background:linear-gradient(135deg,#1a2530,#151d26);
+  color:#dce6ee;border-radius:8px;box-shadow:inset 0 1px rgba(255,255,255,.035);
+  transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;
+}
+.btn:hover{border-color:#52706f;background:linear-gradient(135deg,#20312f,#17242b)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:linear-gradient(135deg,#70e0cf,#4fb3a0);border-color:#70e0cf;color:#071310;box-shadow:0 4px 16px rgba(79,179,160,.12)}
+.btn.primary:hover{filter:brightness(1.06);box-shadow:0 5px 20px rgba(79,179,160,.2)}
+.btn.ghost{background:transparent;box-shadow:none}
+.btn.danger{background:rgba(224,96,79,.06);border-color:rgba(224,96,79,.32)}
+:where(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea){
+  border-color:#2d3b47!important;background-color:#0c1219!important;color:#e8eef4;
+  border-radius:8px;box-shadow:inset 0 1px 2px rgba(0,0,0,.12);
+  transition:border-color .16s ease,box-shadow .16s ease,background-color .16s ease;
+}
+:where(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea):focus{
+  border-color:#5abcae!important;box-shadow:var(--ui-focus)!important;background-color:#0e171e!important;
+}
+:where(input,textarea)::placeholder{color:#738393}
+:where(select,option){color-scheme:dark}
+.chip,.badge,.tag{border-color:#2d3c47}
+.empty{border-color:#344550;background:linear-gradient(145deg,rgba(19,29,38,.7),rgba(13,19,26,.55));border-radius:11px}
+:where(table,.table){border-color:#293641}
+:where(th,thead td){color:#9eafbd;background:rgba(20,30,39,.82);letter-spacing:.055em}
+:where(td,th){border-color:#25313b}
+:where(tbody tr){transition:background .12s ease}
+:where(tbody tr:hover){background:rgba(112,224,207,.035)}
+:where(hr){border-color:#27333e}
+:where(.modal,.ov,.overlay){backdrop-filter:blur(9px)}
+:where(.modal>*,.dialog,.modal-card){border-color:#344651}
+:where(.toolbar,.tools,.actions){gap:8px}
+:where(.hint,.note,.help,.meta){line-height:1.5}
+a{transition:color .15s ease}
+a:hover{color:#a4f2e6}
+@media(max-width:850px){
+  .panel{border-radius:11px}
+  .panel>header{padding:12px 14px}
+  .panel .body{padding:14px}
+  .tile{padding:12px}
+}
+@media(max-width:600px){
+  .btn{min-height:34px}
+  .panel>header h2{font-size:12px}
+  .tiles{border-radius:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
+}
+</style>
+
 </body>
 </html>
