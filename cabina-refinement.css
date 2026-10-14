@@ -404,3 +404,38 @@ table.t td:not(.ui):not(.notes):not(:first-child) {
     scrollbar-width: thin;
   }
 }
+
+
+/* CABINA · Chart palette correction
+   SVG chart labels and numeric ticks must remain legible on dark surfaces.
+   Positive/negative series retain semantic colors; neutral series use teal/blue,
+   never the browser's default black. !important also defeats inline SVG fills. */
+.chart,
+.chart text,
+.chart text tspan,
+svg.chart text,
+svg.chart text tspan {
+  color: var(--text, #e7eef4) !important;
+  fill: var(--chart-label, #b8c7d2) !important;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1, "zero" 0;
+}
+.chart .bar.pos { fill: var(--good, #5bc489) !important; }
+.chart .bar.neg { fill: var(--bad, #e0604f) !important; }
+.chart .bar.neu { fill: var(--dim, #8194a3) !important; }
+.chart .s1 { stroke: var(--accent, #70e0cf) !important; }
+.chart .s2 { stroke: var(--muted, #91a4b3) !important; }
+.chart .s3 { stroke: var(--blue, #78a9ff) !important; }
+.chart .a1 { fill: var(--accent, #70e0cf) !important; }
+.chart .end,
+.chart .hp { fill: var(--accent, #70e0cf) !important; }
+.chart .hp2 { fill: var(--muted, #91a4b3) !important; }
+.chart .dd,
+.chart .uw { fill: var(--bad, #e0604f) !important; }
+.chart .uwl { stroke: var(--bad, #e0604f) !important; }
+.chart .grid line { stroke: var(--chart-grid, #293945) !important; }
+.chart .axis line,
+.chart .zero,
+.chart .xh { stroke: var(--line-strong, #405361) !important; }
+.chart .bar { stroke: none; }
+.chart :where(text, tspan) { text-shadow: none; }
