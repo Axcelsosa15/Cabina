@@ -106,33 +106,37 @@ jobs:
       - id: deploy
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
 
-      # LO PUBLICADO ES LO PROBADO. El checkout anterior está fijado al head_sha
-      # de la ejecución de pruebas que disparó este workflow, no al main actual.
-      # Se pide la URL real y se compara byte a byte
-      # con el index.html que acaba de pasar la suite. El CDN tarda unos segundos
-      # en servir la versión nueva: hasta un minuto de reintentos.
+      # LO PUBLICADO ES LO PROBADO. Pages/CDN puede tardar en propagar
+      # el deployment; se usa una URL sin caché y un hash para evitar falsos rojos
+      # y para mostrar qué versión responde realmente.
       - name: La página publicada es exactamente index.html
         run: |
           url="${{ steps.deploy.outputs.page_url }}"
-          for i in $(seq 1 12); do
-            if curl -fsSL "$url" -o publicado.html && cmp -s publicado.html sitio/index.html; then
-              echo "✅ $url sirve exactamente el HTML generado y probado ($(wc -c < sitio/index.html) bytes)"
-              echo "✅ $url sirve exactamente el HTML generado y probado" >> "$GITHUB_STEP_SUMMARY"
-              if ! curl -fsS -o /dev/null "${url%/}/cabina-refinement.css"; then
-                echo "::error::${url%/}/cabina-refinement.css no responde: no se puede cargar el refinamiento visual"
-                exit 1
+          esperado="$(sha256sum sitio/index.html | cut -d' ' -f1)"
+          for i in $(seq 1 36); do
+            probe="${url}?cabina_verify=${GITHUB_RUN_ID}-${i}"
+            if curl -fsSL -H 'Cache-Control: no-cache' "$probe" -o publicado.html; then
+              recibido="$(sha256sum publicado.html | cut -d' ' -f1)"
+              if [ "$recibido" = "$esperado" ]; then
+                echo "✅ $url sirve exactamente el HTML generado y probado (sha256 $recibido)"
+                echo "✅ $url sirve exactamente el HTML generado y probado" >> "$GITHUB_STEP_SUMMARY"
+                if ! curl -fsS -H 'Cache-Control: no-cache' -o /dev/null "${url%/}/cabina-refinement.css?cabina_verify=${GITHUB_RUN_ID}"; then
+                  echo "::error::${url%/}/cabina-refinement.css no responde: no se puede cargar el refinamiento visual"
+                  exit 1
+                fi
+                echo "✅ cabina-refinement.css responde"
+                if ! curl -fsS -H 'Cache-Control: no-cache' -o /dev/null "${url%/}/og.png?cabina_verify=${GITHUB_RUN_ID}"; then
+                  echo "::error::${url%/}/og.png no responde: el enlace compartido saldrá sin imagen"
+                  exit 1
+                fi
+                echo "✅ ${url%/}/og.png responde"
+                exit 0
               fi
-              echo "✅ cabina-refinement.css responde"
-              # Y la imagen para compartir responde de verdad, no sólo existe en
-              # el repositorio. Es lo que faltaba la vez que dio 404.
-              if ! curl -fsS -o /dev/null "${url%/}/og.png"; then
-                echo "::error::${url%/}/og.png no responde: el enlace compartido saldrá sin imagen"
-                exit 1
-              fi
-              echo "✅ ${url%/}/og.png responde"
-              exit 0
+              echo "Propagación pendiente ($i/36): esperado=$esperado servido=$recibido"
+            else
+              echo "Página todavía no responde ($i/36)"
             fi
             sleep 5
           done
-          echo "::error::$url no sirve el HTML generado de este commit"
+          echo "::error::$url no sirve el HTML generado de este commit tras 180 segundos"
           exit 1
