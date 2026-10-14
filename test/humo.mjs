@@ -117,6 +117,14 @@ const studyInitial = await p.evaluate(() => ({
 }));
 paso('ESTUDIO TRADE EXPLORER', studyInitial.panel && studyInitial.cards === 6 && studyInitial.count === 6,
   `panel ${studyInitial.panel} · ${studyInitial.cards} trades · ${studyInitial.count} originales`);
+const studyMetrics = await p.evaluate(() => ({
+  count: document.querySelector('#studyTradeMetricCount')?.textContent,
+  win: document.querySelector('#studyTradeMetricWin')?.textContent,
+  pnl: document.querySelector('#studyTradeMetricPnl')?.textContent
+}));
+paso('ESTUDIO METRICS', studyMetrics.count === '6' && studyMetrics.win === '66.7%' &&
+  Math.abs(Number((studyMetrics.pnl || '').replace(/[^0-9.-]/g, '')) - 70) < 0.005,
+  `count ${studyMetrics.count} · win ${studyMetrics.win} · net ${studyMetrics.pnl}`);
 await p.fill('#studyTradeSearch', 'MNQ');
 await p.waitForTimeout(100);
 paso('ESTUDIO SEARCH', await p.locator('#studyTradeList [data-study-trade]').count() === 6, 'MNQ devuelve las seis operaciones');
