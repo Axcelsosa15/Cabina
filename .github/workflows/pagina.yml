@@ -60,7 +60,7 @@ jobs:
           page = Path("sitio/index.html")
           html = page.read_text()
           css_hash = hashlib.sha256(Path("sitio/cabina-refinement.css").read_bytes()).hexdigest()[:12]
-          link = f'  <link rel="stylesheet" href="./cabina-refinement.css?v={css_hash}">\\n'
+          link = f'  <link rel="stylesheet" href="./cabina-refinement.css?v={css_hash}">\n'
           if "cabina-refinement.css" not in html:
               if "</head>" not in html:
                   raise SystemExit("No se encontró </head> para insertar la hoja de estilos")
