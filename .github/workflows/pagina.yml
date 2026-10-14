@@ -58,7 +58,7 @@ jobs:
           from pathlib import Path
           page = Path("sitio/index.html")
           html = page.read_text()
-          link = '  <link rel="stylesheet" href="./cabina-refinement.css">\\n'
+          link = '  <link rel="stylesheet" href="./cabina-refinement.css">\n'
           if "cabina-refinement.css" not in html:
               if "</head>" not in html:
                   raise SystemExit("No se encontró </head> para insertar la hoja de estilos")
