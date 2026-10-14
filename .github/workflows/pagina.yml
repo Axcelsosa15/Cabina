@@ -56,9 +56,11 @@ jobs:
           cp cabina-refinement.css sitio/cabina-refinement.css
           python3 - <<'PY'
           from pathlib import Path
+          import hashlib
           page = Path("sitio/index.html")
           html = page.read_text()
-          link = '  <link rel="stylesheet" href="./cabina-refinement.css">\n'
+          css_hash = hashlib.sha256(Path("sitio/cabina-refinement.css").read_bytes()).hexdigest()[:12]
+          link = f'  <link rel="stylesheet" href="./cabina-refinement.css?v={css_hash}">\\n'
           if "cabina-refinement.css" not in html:
               if "</head>" not in html:
                   raise SystemExit("No se encontró </head> para insertar la hoja de estilos")
@@ -114,8 +116,13 @@ jobs:
           url="${{ steps.deploy.outputs.page_url }}"
           for i in $(seq 1 12); do
             if curl -fsSL "$url" -o publicado.html && cmp -s publicado.html sitio/index.html; then
-              echo "✅ $url sirve exactamente el HTML generado y probado ($(wc -c < index.html) bytes)"
-              echo "✅ $url sirve exactamente el index.html probado" >> "$GITHUB_STEP_SUMMARY"
+              echo "✅ $url sirve exactamente el HTML generado y probado ($(wc -c < sitio/index.html) bytes)"
+              echo "✅ $url sirve exactamente el HTML generado y probado" >> "$GITHUB_STEP_SUMMARY"
+              if ! curl -fsS -o /dev/null "${url%/}/cabina-refinement.css"; then
+                echo "::error::${url%/}/cabina-refinement.css no responde: no se puede cargar el refinamiento visual"
+                exit 1
+              fi
+              echo "✅ cabina-refinement.css responde"
               # Y la imagen para compartir responde de verdad, no sólo existe en
               # el repositorio. Es lo que faltaba la vez que dio 404.
               if ! curl -fsS -o /dev/null "${url%/}/og.png"; then
