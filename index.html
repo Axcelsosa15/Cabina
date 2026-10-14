@@ -1871,7 +1871,7 @@ tbody tr:last-child td{border-bottom:0}
          una ACCION, y una accion es un <button>: trae Enter, espacio, foco y
          semantica sin inventar nada. -->
     <button type="button" class="editbtn conflbtn" id="resolveConflict" hidden>Resolver conflicto</button>
-    <button type="button" class="editbtn" id="cmdOpenButton" title="Búsqueda global (⌘K / Ctrl+K)">Buscar <kbd>⌘K</kbd></button>
+    <button type="button" class="editbtn" id="cmdOpenButton" aria-haspopup="dialog" aria-controls="cmdOv" title="Búsqueda global (⌘K / Ctrl+K)">Buscar <kbd>⌘K</kbd></button>
     <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)">+ Rápido</button>
     <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
     <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
@@ -13587,6 +13587,7 @@ tbody tr:last-child td{border-bottom:0}
       { g: "Ir a", i: "◫", t: "Inversiones", s: "", f: ir("invest") },
       { g: "Ir a", i: "◱", t: "Playbook", s: "", f: ir("playbook") },
       { g: "Ir a", i: "◰", t: "Formas de hacer dinero", s: "", f: ir("ideas") },
+      { g: "Ir a", i: "⌕", t: "Estudio", s: "", f: ir("estudio") },
       { g: "Ir a", i: "▦", t: "Calculadora de riesgo", s: "R", f: ir("calc") },
     ];
     /* Las cuentas se listan solas: son el filtro que más se cambia, y con tres
@@ -13646,6 +13647,20 @@ tbody tr:last-child td{border-bottom:0}
       texto(p, ["market","status","thesis","notes","conclusion","url"]), p, "ideas"));
     lee(() => estudioLista()).filter(p => p.type !== "trade-review").forEach(p => indexa("Research", "⌕", p.title || p.question || "Research",
       texto(p, ["type","status","url","question","evidence","counter","conclusion","tags"]), p, "estudio"));
+
+    /* Las sesiones históricas ya renderizadas son registros existentes de Cabina.
+       Se indexan tal cual aparecen; no se reconstruye ni se inventa un resumen. */
+    [...document.querySelectorAll("#histWrap tr, #tiles [data-date], #tiles [data-session-id]")].forEach((node, n) => {
+      const contexto = String(node.innerText || "").replace(/\\s+/g, " ").trim();
+      if (!contexto) return;
+      const titulo = contexto.split(" · ")[0].slice(0, 100) || ("Sesión " + (n + 1));
+      datos.push({ g: "Sesiones", i: "◷", t: titulo, s: contexto.slice(0, 42), d: contexto, f: () => {
+        showTab("cabina"); requestAnimationFrame(() => {
+          node.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+          node.classList.add("cmd-target-highlight"); setTimeout(() => node.classList.remove("cmd-target-highlight"), 1800);
+        });
+      }});
+    });
     return base.concat(cuentas, estudioAcciones(), datos);
   }
 
@@ -13654,7 +13669,7 @@ tbody tr:last-child td{border-bottom:0}
   function cmdPinta() {
     const q = sinTildes(cmdQ.value.trim());
     const todas = cmdAcciones();
-    cmdVis = q ? todas.filter(a => sinTildes(a.t + " " + a.g + " " + (a.d || "") + " " + (a.s || "")).includes(q)) : todas;
+    const tokens = q.split(/\\s+/).filter(Boolean);\n    cmdVis = q ? todas.filter(a => { const hay = sinTildes(a.t + " " + a.g + " " + (a.d || "") + " " + (a.s || "")); return tokens.every(token => hay.includes(token)); }) : todas;
     if (cmdSel >= cmdVis.length) cmdSel = Math.max(0, cmdVis.length - 1);
     if (!cmdVis.length) { cmdList.innerHTML = `<p class="cmd-none">Nada que coincida con «${esc(cmdQ.value.trim())}».</p>`; return; }
     let html = "", grupo = null;
