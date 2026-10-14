@@ -47,9 +47,10 @@ console.log('\n══ entra una operación ══');
    no es si el panel sigue visible mientras estás en otra pestaña —no lo está,
    obviamente—, sino si al VOLVER sigue abierto y con los números frescos. Medir
    `despues` desde otra pestaña comparaba «visible» contra «oculto» y fallaba
-   siempre: el test se estaba midiendo a sí mismo. */
+   siempre: el test se estaba midiendo a sí mismo. El usuario estaba en CALCULADORA
+   antes de ir a FUTUROS; debe volver a CALCULADORA, no a CABINA. */
 await op(p, id, 20990);
-await p.click('.tabbtn[data-tab="cabina"]').catch(()=>{}); await p.waitForTimeout(800);
+await p.click('.tabbtn[data-tab="calc"]').catch(()=>{}); await p.waitForTimeout(800);
 const despues = await estado(p);
 console.log('  ' + JSON.stringify(despues));
 
