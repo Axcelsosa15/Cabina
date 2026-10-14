@@ -10368,8 +10368,7 @@
       fields: [
         { key: "name", label: "Nombre de la cuenta", w: 3, ph: "Ej. IBKR · Long-term" },
         { key: "type", label: "Tipo", type: "select", options: [["brokerage","Brokerage"],["crypto","Crypto / exchange"],["options","Options"],["futures","Futures / trading"],["retirement","Retirement"],["other","Otro"]] },
-        { key: "broker", label: "Broker / exchange", ph: "Ej. Interactive Brokers" },
-        { key: "currency", label: "Moneda base", type: "select", options: [["USD","USD"],["EUR","EUR"],["DOP","DOP"],["GBP","GBP"],["Other","Otra"]] }
+        { key: "broker", label: "Broker / exchange", ph: "Ej. Interactive Brokers", help: "La cartera consolidada trabaja en USD; registra los importes en dólares." }
       ],
       values: old || { type: "brokerage", currency: "USD" },
       validate: v => !String(v.name || "").trim() ? "Escribe el nombre de la cuenta" : null,
@@ -10377,7 +10376,7 @@
         const accounts = investmentAccounts();
         const id = old ? old.id : uid("invacct");
         const next = { id, name: String(v.name).trim(), type: v.type || "brokerage",
-          broker: String(v.broker || "").trim(), currency: v.currency || "USD",
+          broker: String(v.broker || "").trim(), currency: "USD",
           createdAt: old ? old.createdAt : Date.now() };
         state.settings.meta.investAccounts = old ? accounts.map(a => a.id === id ? next : a) : accounts.concat(next);
         persistSettings();
@@ -12065,7 +12064,23 @@
       values: p || { date: todayISO(), qty: 1, accountId: defaultInvestmentAccountId() },
       validate: v => !v.asset ? "Falta el activo" : v.qty == null || v.entry == null ? "Falta cantidad o precio" : null,
       onSave: v => {
-        const rec = Object.assign({}, p || {}, v, { id: isNew ? uid("pos") : p.id, market: marketId, accountId: v.accountId || "" });
+        const nextAccountId = v.accountId || "";
+        if (!isNew && String(p.accountId || "") !== nextAccountId) {
+          const sameBucket = coll("positions").items.filter(x =>
+            String(x.asset || "").trim().toUpperCase() === String(p.asset || "").trim().toUpperCase() &&
+            x.market === p.market && String(x.accountId || "") === String(p.accountId || ""));
+          if (sameBucket.length > 1) {
+            alert("No se cambió la cuenta: hay varias posiciones del mismo activo en la cuenta de origen. Asigna sus operaciones manualmente para evitar mezclar lotes.");
+            return;
+          }
+          const linked = coll("trades").items.filter(t => t.type === "inversion" &&
+            String(t.asset || "").trim().toUpperCase() === String(p.asset || "").trim().toUpperCase() &&
+            (!p.market || !t.market || t.market === p.market) &&
+            String(t.accountId || "") === String(p.accountId || "") &&
+            ["compra", "aporte", "venta", "dividendo"].includes(t.op));
+          linked.forEach(t => coll("trades").set(t.id, Object.assign({}, t, { accountId: nextAccountId })));
+        }
+        const rec = Object.assign({}, p || {}, v, { id: isNew ? uid("pos") : p.id, market: marketId, accountId: nextAccountId });
         /* El precio actual es manual y no tenía fecha, así que una cartera
            valorada hace tres meses se mostraba como «valor actual» sin más.
            Sellarlo permite decir cuándo se miró, en vez de fingir que es hoy. */
