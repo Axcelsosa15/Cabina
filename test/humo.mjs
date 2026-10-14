@@ -123,7 +123,7 @@ await p.fill('#studyTradePlan', 'Esperaba continuación tras el impulso.');
 await p.fill('#studyTradeExecution', 'Entrada y salida registradas; revisar paciencia.');
 await p.fill('#studyTradeLesson', 'Esperar confirmación antes de entrar.');
 await p.click('#studyTradeReviewForm button[type="submit"]');
-await p.waitForFunction(() => /Revisión guardada/.test(document.querySelector('#studyTradeSaveState')?.textContent || ''), null, { timeout: 5000 });
+await p.waitForFunction(() => /revisión guardada/i.test(document.querySelector('#studyTradeSaveState')?.textContent || ''), null, { timeout: 5000 });
 const reviewCheck = await p.evaluate(() => ({
   count: FUT.trades().filter(t => t.accountId === 'humo1').length,
   reviews: JSON.parse(localStorage.getItem('cabina-mnq:v1') || '{}').research
