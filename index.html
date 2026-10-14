@@ -9933,10 +9933,10 @@ svg.chart .dd, svg.chart .uw, .chart .dd, .chart .uw { fill: #e0604f !important;
     const fmt = opts.fmt || (v => Math.abs(v) >= 1e3 ? "$" + (v / 1e3).toFixed(1) + "k" : "$" + Math.round(v));
     const every = Math.max(1, Math.ceil(items.length / (opts.maxLabels || 16)));
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.aria || "gráfico")}">
-      <g class="grid">${ticks.map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line><text x="${pl - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${fmt(v)}</text>`).join("")}</g>
+      <g class="grid">${ticks.map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line><text style="fill:#c8d5df!important;color:#c8d5df;font-size:12px;font-weight:500" x="${pl - 8}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${fmt(v)}</text>`).join("")}</g>
       <line class="zero" x1="${pl}" x2="${W - pr}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}"></line>
       ${items.map((it, i) => { const top = Math.min(y(it.value), y(0)), h = Math.max(1, Math.abs(y(it.value) - y(0)));
-        return `<rect class="bar ${it.cls || (it.value >= 0 ? "pos" : "neg")}" x="${(pl + i * bw + (bw - bwUse) / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${bwUse.toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${esc(it.title || (it.label + ": " + fmt(it.value)))}</title></rect>${i % every === 0 ? `<text x="${(pl + i * bw + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${esc(it.label)}</text>` : ""}`; }).join("")}
+        return `<rect class="bar ${it.cls || (it.value >= 0 ? "pos" : "neg")}" ${it.color ? `style="fill:${it.color}"` : ""} x="${(pl + i * bw + (bw - bwUse) / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${bwUse.toFixed(1)}" height="${h.toFixed(1)}" rx="3"><title>${esc(it.title || (it.label + ": " + fmt(it.value)))}</title></rect>${i % every === 0 ? `<text style="fill:#c8d5df!important;color:#c8d5df;font-size:12px;font-weight:500" x="${(pl + i * bw + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${esc(it.label)}</text>` : ""}`; }).join("")}
     </svg>`;
   }
   const fmtK$ = v => Math.abs(v) >= 1e3 ? "$" + (v / 1e3).toFixed(1) + "k" : "$" + Math.round(v);
@@ -11984,7 +11984,8 @@ svg.chart .dd, svg.chart .uw, .chart .dd, .chart .uw { fill: #e0604f !important;
     const entries = Object.keys(s.byMarket).map(id => { const m = mm.find(x => x.id === id); return { id, name: marketName(id), short: (m && m.short) || marketName(id).slice(0, 4).toUpperCase(), val: s.byMarket[id].val, n: s.byMarket[id].n }; }).sort((a, b) => b.val - a.val);
     if (!entries.length || s.cur <= 0) { wrap.innerHTML = `<p class="empty">Sin posiciones. Añade una en el mercado que corresponda, más abajo.</p>`; tbl.innerHTML = ""; $("ivAllocMeta").textContent = ""; return; }
     $("ivAllocMeta").innerHTML = `${money(s.cur)} en ${entries.length} ${entries.length === 1 ? "mercado" : "mercados"}`;
-    wrap.innerHTML = chartBars(entries.map(e => ({ label: e.short, value: e.val, cls: "pos", title: `${e.name} · ${money(e.val)} · ${pct(e.val / s.cur)} · ${plu(e.n, "posición", "posiciones")}` })), { W: chartW(wrap), H: 170, pl: 50, aria: "Asignación por mercado", maxLabels: 8 });
+    const marketColors = ["#70e0cf", "#78a9ff", "#b39bff", "#e4b86a", "#91c9a7", "#e58eaa", "#91a4b3", "#c8d5df"];
+    wrap.innerHTML = chartBars(entries.map((e, i) => ({ label: e.short, value: e.val, cls: "pos", color: marketColors[i % marketColors.length], title: `${e.name} · ${money(e.val)} · ${pct(e.val / s.cur)} · ${plu(e.n, "posición", "posiciones")}` })), { W: chartW(wrap), H: 205, pl: 58, aria: "Asignación por mercado", maxLabels: 8 });
     tbl.innerHTML = `<div class="twrap" style="margin-top:12px"><table class="t"><thead><tr><th>Mercado</th><th class="r">Pos.</th><th class="r">Valor</th><th class="r">Peso</th></tr></thead><tbody>${entries.map(e => `<tr><td class="ui">${esc(e.name)}</td><td class="r">${e.n}</td><td class="r pos">${money(e.val)}</td><td class="r ${e.val / s.cur > .5 ? "neg" : ""}">${pct(e.val / s.cur)}</td></tr>`).join("")}</tbody></table></div>`;
   }
   function renderIvPerf(s) {
@@ -11999,7 +12000,7 @@ svg.chart .dd, svg.chart .uw, .chart .dd, .chart .uw { fill: #e0604f !important;
     if (!items.length) { wrap.innerHTML = `<p class="empty">Ninguna posición tiene precio actual. Escríbelo en la posición y aquí verás cuál tira y cuál pesa.</p>`; $("ivPerfMeta").textContent = ""; return; }
     const best = items[0], worst = items[items.length - 1];
     $("ivPerfMeta").innerHTML = `mejor <span class="pos">${esc(best.p.asset)} ${(best.f.pct * 100).toFixed(1)}%</span> · peor <span class="neg">${esc(worst.p.asset)} ${(worst.f.pct * 100).toFixed(1)}%</span>`;
-    wrap.innerHTML = chartBars(items.map(r => ({ label: String(r.p.asset || "").slice(0, 8), value: r.f.pct, title: `${r.p.asset} · ${(r.f.pct >= 0 ? "+" : "") + (r.f.pct * 100).toFixed(1)}% neto · ${sig2(r.f.neto)} sobre ${money(r.f.base, 2)} invertidos` })), { W: chartW(wrap), H: 170, pl: 46, fmt: v => (v * 100).toFixed(0) + "%", aria: "Rendimiento por posición", maxLabels: 12 });
+    wrap.innerHTML = chartBars(items.map(r => ({ label: String(r.p.asset || "").slice(0, 8), value: r.f.pct, title: `${r.p.asset} · ${(r.f.pct >= 0 ? "+" : "") + (r.f.pct * 100).toFixed(1)}% neto · ${sig2(r.f.neto)} sobre ${money(r.f.base, 2)} invertidos` })), { W: chartW(wrap), H: 205, pl: 52, fmt: v => (v * 100).toFixed(0) + "%", aria: "Rendimiento por posición", maxLabels: 12 });
   }
   function renderIvFlows(s) {
     const months = monthsBack(12);
@@ -12009,8 +12010,8 @@ svg.chart .dd, svg.chart .uw, .chart .dd, .chart .uw { fill: #e0604f !important;
     const totIn = ins.reduce((a, b) => a + b.value, 0), totInc = inc.reduce((a, b) => a + b.value, 0);
     $("ivFlowMeta").innerHTML = totIn ? `${money(totIn)} en 12 meses · media ${money(totIn / 12)}/mes` : "sin aportes registrados";
     $("ivIncMeta").innerHTML = totInc ? `${money(totInc)} en 12 meses` : "sin cobros registrados";
-    fw.innerHTML = totIn ? chartBars(ins, { W: chartW(fw), H: 160, pl: 50, aria: "Aportes por mes", maxLabels: 12 }) : `<p class="empty">Registra cada compra o aporte y aquí se ve si el plan se cumple o solo se cuenta.</p>`;
-    iw.innerHTML = totInc ? chartBars(inc, { W: chartW(iw), H: 160, pl: 50, aria: "Ingresos por mes", maxLabels: 12 }) : `<p class="empty">Sin cobros. Registra dividendos, cupones, primas y alquileres como operación de tipo cobro.</p>`;
+    fw.innerHTML = totIn ? chartBars(ins, { W: chartW(fw), H: 195, pl: 58, aria: "Aportes por mes", maxLabels: 12 }) : `<p class="empty">Registra cada compra o aporte y aquí se ve si el plan se cumple o solo se cuenta.</p>`;
+    iw.innerHTML = totInc ? chartBars(inc, { W: chartW(iw), H: 195, pl: 58, aria: "Ingresos por mes", maxLabels: 12 }) : `<p class="empty">Sin cobros. Registra dividendos, cupones, primas y alquileres como operación de tipo cobro.</p>`;
   }
   function renderIvHealth(s) {
     const el = $("ivScore"), vd = $("ivVerdict"); if (!el) return;
