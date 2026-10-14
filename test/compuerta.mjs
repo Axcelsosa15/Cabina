@@ -119,10 +119,10 @@ dice('motor-bundle', 'suite', 'La fuente del motor coincide con el bundle', 'mot
     const expone = n(/^  window\.QuantEngine = QE;$/gm);
     const fachadas = ['window.FUT = FUT;', 'window.INV = INV;', 'window.TES = TES;'].filter(x => h.includes(x)).length;
     const mal = [];
-    /* Los dos estilos originales y la capa global de ESTUDIO. La capa global lleva
+    /* Los estilos originales, el estilo propio de ESTUDIO y la capa global. La capa global lleva
        id propio para poder comprobarla sin confundirla con los estilos originales. */
     const sistema = n(/^<style id="cabina-unified-estudio-system">$/gm);
-    if (estilos !== 3) mal.push(`${estilos} <style> (esperados 3)`);
+    if (estilos !== 4) mal.push(`${estilos} <style> (esperados 4)`);
     if (sistema !== 1) mal.push(`${sistema} capas cabina-unified-estudio-system (esperada 1)`);
     if (scripts !== 1) mal.push(`${scripts} <script> (esperado 1)`);
     if (!cierra) mal.push('no cierra con </script></body></html>');
@@ -131,7 +131,7 @@ dice('motor-bundle', 'suite', 'La fuente del motor coincide con el bundle', 'mot
     if (fachadas !== 3) mal.push(`${fachadas}/3 fachadas expuestas`);
     fila('index.html', 'Integridad estructural', mal.length ? 'FAIL' : 'PASS',
       mal.length ? mal.join(' · ')
-        : `${h.split('\n').length} líneas · 3 <style> · 1 <script> · IIFE del motor · window.QuantEngine · 3 fachadas`);
+        : `${h.split('\n').length} líneas · 4 <style> · 1 <script> · IIFE del motor · window.QuantEngine · 3 fachadas`);
   }
 }
 
