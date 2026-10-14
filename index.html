@@ -4337,9 +4337,20 @@ tbody tr:last-child td{border-bottom:0}
     const b = e.target.closest && e.target.closest(".seg button, .tabnav .tabbtn");
     if (b) aLaVista(b);
   }, true);
+  /* Recordar el scroll vertical de cada sección. Al ocultar una pestaña alta,
+     el navegador puede limitar window.scrollY al alto de la sección entrante;
+     no debemos guardar ese límite temporal como si fuera la posición del usuario. */
+  const tabScrollPositions = new Map();
+  let switchingTabScroll = false;
+  window.addEventListener("scroll", () => {
+    if (!switchingTabScroll && state.tab) tabScrollPositions.set(state.tab, window.scrollY);
+  }, { passive: true });
+
   function showTab(name) {
     if (name === "journal") name = "futuros";
     if (!document.querySelector(`.tab[data-tab="${name}"]`)) name = "cabina";
+    if (state.tab && !switchingTabScroll) tabScrollPositions.set(state.tab, window.scrollY);
+    switchingTabScroll = true;
     state.tab = name;
     document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
     document.querySelectorAll(".tabbtn").forEach(b => {
@@ -4352,6 +4363,14 @@ tbody tr:last-child td{border-bottom:0}
     if (name !== "cabina" && state.editing) setEditing(false);
     try { if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name); } catch {}
     redrawCharts();
+    /* Esperar a que la pestaña entrante participe en el layout antes de
+       restaurar su posición. Mantener el bloqueo durante el ajuste evita que
+       el scroll transitorio sobrescriba el valor guardado. */
+    requestAnimationFrame(() => {
+      const y = tabScrollPositions.get(name) ?? 0;
+      window.scrollTo({ top: y, left: 0, behavior: "auto" });
+      requestAnimationFrame(() => { switchingTabScroll = false; });
+    });
   }
   function redrawCharts() {
     try {
