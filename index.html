@@ -1715,6 +1715,65 @@ tbody tr:last-child td{border-bottom:0}
   .qk .btn:disabled, .qk .btn.primary:disabled {
     background: var(--surface-2); color: var(--dim); border-color: var(--line); opacity: 1; }
 
+  /* ---------- REGISTRO RÁPIDO · REDISEÑO DE CLARIDAD ---------- */
+  #quickOv { background: rgba(3, 6, 12, .78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: clamp(12px, 3vw, 28px); }
+  #quickOv .qk {
+    width: min(100%, 600px); max-width: 600px; margin: auto;
+    border: 1px solid var(--line-strong); border-radius: 20px; overflow: hidden;
+    box-shadow: 0 28px 90px rgba(0,0,0,.42), 0 1px 0 rgba(255,255,255,.04) inset;
+    animation: qk-enter .18s ease-out both;
+  }
+  @keyframes qk-enter { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  #quickOv .qk > header { padding: 20px 22px; gap: 16px; background: linear-gradient(135deg, var(--surface-2), var(--surface)); }
+  #quickOv .qk > header h3 { font-family: var(--font-mono); font-size: 12px; letter-spacing: .12em; }
+  #quickOv #qkClose { width: 36px; height: 36px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); font-size: 22px; }
+  #quickOv .qk .body { padding: 20px 22px 22px; gap: 20px; }
+  #quickOv .qkseg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; border-radius: 12px; padding: 4px; background: var(--bg); border-color: var(--line); }
+  #quickOv .qkseg button { padding: 11px 14px; border-radius: 9px; font-size: 12px; letter-spacing: .01em; }
+  #quickOv .qkseg button.active { box-shadow: 0 2px 8px rgba(0,0,0,.16); }
+  #quickOv #qkOp { display: grid; gap: 10px; }
+  #quickOv #qkOp > .lab { margin: 0; font-size: 10px; letter-spacing: .1em; }
+  #quickOv .qk .qin {
+    min-height: 64px; border-radius: 14px; text-align: left; padding: 16px 18px;
+    font-size: clamp(22px, 4vw, 28px); letter-spacing: -.035em; font-weight: 650;
+    border-color: var(--line-strong); background: var(--bg);
+    box-shadow: 0 0 0 1px transparent; transition: border-color .16s ease, box-shadow .16s ease;
+  }
+  #quickOv .qk .qin:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+  #quickOv .qk .qhint { margin: 0; text-align: left; line-height: 1.6; font-size: 11px; }
+  #quickOv .qkprev { padding: 16px; border-radius: 14px; gap: 12px; background: var(--surface-2); border-color: var(--line); }
+  #quickOv .qkprev .big { font-size: clamp(25px, 4vw, 32px); line-height: 1.1; letter-spacing: -.045em; overflow-wrap: anywhere; }
+  #quickOv .qkprev .kv { grid-template-columns: minmax(82px, .36fr) 1fr; gap: 8px 14px; }
+  #quickOv .qkprev .kv b { font-size: 10px; letter-spacing: .08em; }
+  #quickOv .qkprev .kv span { overflow-wrap: anywhere; }
+  #quickOv #qkOp > div:not(.qkprev) { padding-top: 4px; }
+  #quickOv #qkOp > div:not(.qkprev) > .lab { margin-bottom: 9px; }
+  #quickOv .qkchips { gap: 7px; }
+  #quickOv .qkchip { padding: 8px 11px; border-radius: 999px; font-size: 11px; line-height: 1.25; transition: border-color .14s ease, background .14s ease, color .14s ease; }
+  #quickOv .qkchip:hover { border-color: var(--accent); }
+  #quickOv .qkchip[aria-pressed="true"] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent) inset; }
+  #quickOv #qkNotaBox { display: grid; gap: 10px; }
+  #quickOv #qkNota { width: 100%; min-height: 120px; border-radius: 12px; padding: 12px 14px; line-height: 1.6; }
+  #quickOv .qk > footer { position: sticky; bottom: 0; padding: 14px 22px max(14px, env(safe-area-inset-bottom)); gap: 9px; background: var(--surface); }
+  #quickOv .qk > footer .btn { min-height: 42px; border-radius: 11px; }
+  #quickOv .qk > footer #qkSave { min-width: 112px; font-weight: 700; }
+  #quickOv .qk > footer #qkDetalles { margin-left: auto; }
+  #quickOv .qk button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  @media (max-width: 520px) {
+    #quickOv { padding: 8px; align-items: flex-end; }
+    #quickOv .qk { width: 100%; max-width: none; border-radius: 18px 18px 12px 12px; max-height: calc(100dvh - 16px); overflow-y: auto; }
+    #quickOv .qk > header { padding: 16px 16px; }
+    #quickOv .qk .body { padding: 16px; gap: 17px; }
+    #quickOv .qk .qin { min-height: 58px; padding: 14px; font-size: 24px; }
+    #quickOv .qkprev { padding: 13px; }
+    #quickOv .qk > footer { padding: 12px 16px max(12px, env(safe-area-inset-bottom)); flex-wrap: wrap; gap: 8px; }
+    #quickOv .qk > footer .sp { display: none; }
+    #quickOv .qk > footer #qkCancel { order: 3; }
+    #quickOv .qk > footer #qkDetalles { margin-left: auto; }
+    #quickOv .qk > footer #qkSave { min-width: 100px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #quickOv .qk { animation: none; } #quickOv .qk * { transition: none !important; } }
+
   /* ═══════════════ NAVEGACIÓN LATERAL · sólo cuando hay sitio ═══════════════
      A partir de 1100 px las siete secciones dejan de ser una tira horizontal y
      pasan a un raíl fijo a la izquierda: se leen todas de una vez, sin arrastrar
