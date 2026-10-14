@@ -252,3 +252,147 @@ input[type=range] { accent-color: var(--cab-accent); }
     animation-iteration-count: 1 !important;
   }
 }
+
+/* CABINA · Typography and numeric QA pass
+   Final layer: legibility and stable numeric columns across every workspace. */
+
+/* One coherent typographic system. Avoid tiny text and over-tracked labels. */
+body {
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+:where(p, li, dd, .note-p, .empty, .hint, .help, .note, .qnote) {
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+:where(h1, h2, h3, h4, h5, h6) {
+  line-height: 1.3;
+  text-wrap: balance;
+}
+:where(.panel > header h2, .panel > header h3, .credo > header h2) {
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: .055em;
+}
+:where(.lab, .qec .qk, .kpis .k, .study-kicker) {
+  font-size: 10px;
+  line-height: 1.45;
+  letter-spacing: .065em;
+}
+:where(.meta, .sub, .help, .note-p, .empty, .tile .s, .qec .qs) {
+  line-height: 1.5;
+}
+
+/* Every numeric readout uses lining, tabular figures. No slashed zero:
+   account balances, prices, percentages, and P&L must be unambiguous. */
+:where(.mono, .tile .v, .kpis .v, .hero .v, .cap .v, .cal, .lv .l .v,
+       .meter .row, .clock .time, .pill, .save-state, table.t,
+       input[type="number"], .study-stat-num) {
+  font-variant-numeric: lining-nums tabular-nums !important;
+  font-feature-settings: "tnum" 1, "lnum" 1, "zero" 0 !important;
+  letter-spacing: 0;
+}
+
+/* Numbers should never silently disappear behind an ellipsis. Compact metrics
+   scale down first; only long text labels may truncate. */
+.tile .v {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  font-size: clamp(15px, 1.35vw, 21px);
+  line-height: 1.3;
+  letter-spacing: -.025em;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+.kpis .v {
+  min-width: 0;
+  font-size: clamp(13px, 1.1vw, 16px);
+  line-height: 1.4;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+:where(.hero .v, .cap .v, .lv .l .v) {
+  min-width: 0;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+:where(.tile .k, .kpis .k) {
+  min-width: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.45;
+}
+
+/* Table data: preserve column readability and prevent currency/percent digits
+   from wrapping character-by-character. The table wrapper may scroll instead. */
+table.t {
+  font-size: 12px;
+  line-height: 1.45;
+}
+table.t th {
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: .055em;
+  white-space: normal;
+  overflow-wrap: normal;
+}
+table.t td {
+  line-height: 1.5;
+  vertical-align: middle;
+}
+table.t td:not(.ui):not(.notes):not(:first-child) {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+:where(.qsweep td, .peorm b, .card .stats, .card .kv span) {
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.45;
+}
+:where(.chip, .qflag, .study-tag, .study-state) {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+/* Form controls: a readable baseline and stable digit entry without changing
+   field sizing, names, values, event handlers, or validation behavior. */
+:where(input, select, textarea, button) {
+  line-height: 1.4;
+}
+:where(input[type="number"], input[type="date"], input[inputmode="decimal"],
+       input[inputmode="numeric"]) {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1, "zero" 0;
+  letter-spacing: 0;
+}
+:where(label, .field-label, .study-field label) {
+  line-height: 1.45;
+}
+
+/* Smaller screens: give labels and controls room instead of shrinking figures
+   to unreadable sizes. */
+@media (max-width: 900px) {
+  .tile .v { font-size: clamp(15px, 2.3vw, 19px); }
+  .kpis .v { font-size: clamp(13px, 1.9vw, 15px); }
+  table.t { font-size: 11.5px; }
+}
+@media (max-width: 600px) {
+  body { font-size: 14px; }
+  .tile { padding: 11px 12px; }
+  .tile .v { font-size: clamp(14px, 3.6vw, 18px); letter-spacing: -.02em; }
+  .kpis .v { font-size: 13px; }
+  :where(.lab, .qec .qk, .kpis .k) { font-size: 10px; }
+  table.t { min-width: 520px; }
+  :where(.table-wrap, .table-scroll, .overflow-x-auto, .twrap) {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+}
