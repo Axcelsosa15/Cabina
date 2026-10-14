@@ -1918,6 +1918,8 @@ tbody tr:last-child td{border-bottom:0}
 </div></div><div class="study-dialog-foot"><button type="button" class="btn danger sm" id="studyDelete">Eliminar</button><span style="flex:1"></span><button type="button" class="btn ghost sm" id="studyCancel">Cancelar</button><button type="submit" class="btn primary sm">Guardar documento</button></div></form></div></div>
 <!-- ======================= CABINA ======================= -->
 <div class="tab active" data-tab="cabina">
+<section class="study-hero workspace-hero" aria-label="Resumen de Cabina"><div><div class="study-kicker">OPERACIÓN · DISCIPLINA · RIESGO</div><h1>Opera con un plan.<br><span class="workspace-highlight">Protege el capital.</span></h1><p>Tu sesión, cuentas, reglas y registro en el mismo flujo: primero confirma si puedes operar; después decide cuánto arriesgar.</p></div><aside class="study-stat workspace-stat"><div class="study-stat-top"><span>CENTRO DE OPERACIONES</span><span>01 / EJECUCIÓN</span></div><h2 class="workspace-stat-title">Plan → riesgo → ejecución</h2><p class="workspace-stat-copy">No avances a la siguiente etapa sin validar la anterior.</p><div class="workspace-pills"><span>Pre-sesión</span><span>Reglas duras</span><span>Diario</span></div></aside></section>
+
 <!-- ORDEN VISUAL. Las preguntas se responden en el orden en que se hacen:
      ¿puedo operar? ¿cuánto tengo? ¿cuánto llevo hoy? ¿cuánto riesgo queda?
      Todas viven en la cuenta, así que la cuenta va primero y a lo ancho.
@@ -2086,6 +2088,8 @@ tbody tr:last-child td{border-bottom:0}
 
 <!-- ======================= FUTUROS ======================= -->
 <div class="tab" data-tab="futuros">
+<section class="study-hero workspace-hero" aria-label="Resumen de Futuros"><div><div class="study-kicker">FUTUROS · JOURNAL · RENDIMIENTO</div><h1>Revisa cada operación.<br><span class="workspace-highlight">Encuentra tu ventaja.</span></h1><p>Analiza el historial por cuenta, estrategia, instrumento y sesión; conecta las métricas con las decisiones que tomaste en el mercado.</p></div><aside class="study-stat workspace-stat"><div class="study-stat-top"><span>DIARIO DE FUTUROS</span><span>02 / REVISIÓN</span></div><h2 class="workspace-stat-title">Registrar → medir → corregir</h2><p class="workspace-stat-copy">Una operación aislada no define el resultado. Busca patrones repetibles en una muestra suficiente.</p><div class="workspace-pills"><span>Historial</span><span>Equity</span><span>Expectativa R</span></div></aside></section>
+
   <div class="toolbar">
     <div class="seg" id="ftSeg">
       <button data-v="resumen" class="active">Resumen</button>
@@ -2252,6 +2256,8 @@ tbody tr:last-child td{border-bottom:0}
 <!-- MÉTRICAS / EDGE · sólo operaciones de FUTUROS del journal, netas de comisión.
      Las inversiones no entran nunca: tradesOf("futuros") las deja fuera por tipo. -->
 <div class="tab" data-tab="edge">
+<section class="study-hero workspace-hero" aria-label="Resumen de Métricas y Edge"><div><div class="study-kicker">ESTADÍSTICA · EXPECTATIVA · RIESGO</div><h1>Mide tu ventaja.<br><span class="workspace-highlight">Valídala con datos.</span></h1><p>Evalúa rendimiento neto, drawdown, tamaño de posición y calidad de la muestra antes de sacar conclusiones sobre una estrategia.</p></div><aside class="study-stat workspace-stat"><div class="study-stat-top"><span>ANÁLISIS CUANTITATIVO</span><span>03 / VALIDACIÓN</span></div><h2 class="workspace-stat-title">Costes incluidos. Supuestos visibles.</h2><p class="workspace-stat-copy">Comprueba los parámetros y el tamaño de la muestra: una métrica sin contexto puede inducir a error.</p><div class="workspace-pills"><span>P&amp;L neto</span><span>Drawdown</span><span>Riesgo</span></div></aside></section>
+
   <div class="toolbar">
     <select id="mxAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select>
     <select id="mxSetup" aria-label="Setup"><option value="">todos los setups</option></select>
@@ -2319,6 +2325,8 @@ tbody tr:last-child td{border-bottom:0}
 </div>
 
 <div class="tab" data-tab="playbook">
+<section class="study-hero workspace-hero" aria-label="Resumen del Playbook"><div><div class="study-kicker">SISTEMAS · CONDICIONES · EJECUCIÓN</div><h1>Convierte setups en reglas.<br><span class="workspace-highlight">Ejecuta sin improvisar.</span></h1><p>Documenta contexto, entrada, invalidación y gestión para que cada estrategia pueda revisarse, practicarse y mejorarse.</p></div><aside class="study-stat workspace-stat"><div class="study-stat-top"><span>BIBLIOTECA DE ESTRATEGIAS</span><span>04 / PROCESO</span></div><h2 class="workspace-stat-title">Contexto → señal → gestión</h2><p class="workspace-stat-copy">Define qué debe ocurrir, qué invalida la idea y cómo registrar si respetaste el plan.</p><div class="workspace-pills"><span>Reglas</span><span>Checklist</span><span>Revisión</span></div></aside></section>
+
   <nav class="tabnav sub" id="pbNav" aria-label="Tipo de inversión o trading"></nav>
   <div class="toolbar">
     <input type="text" id="pbSearch" placeholder="buscar…" aria-label="Buscar setup" style="width:160px">
@@ -2338,6 +2346,8 @@ tbody tr:last-child td{border-bottom:0}
 
 <!-- ======================= IDEAS ======================= -->
 <div class="tab" data-tab="ideas">
+<section class="study-hero workspace-hero" aria-label="Resumen de Formas de hacer dinero"><div><div class="study-kicker">OPORTUNIDADES · VIABILIDAD · PRÓXIMOS PASOS</div><h1>Investiga oportunidades.<br><span class="workspace-highlight">Convierte ideas en planes.</span></h1><p>Compara cada forma de generar ingresos por capital, tiempo, riesgo y evidencia. Conserva el siguiente paso concreto y descarta lo que no se sostiene.</p></div><aside class="study-stat workspace-stat"><div class="study-stat-top"><span>REPOSITORIO DE OPORTUNIDADES</span><span>05 / EVALUACIÓN</span></div><h2 class="workspace-stat-title">Hipótesis antes que entusiasmo.</h2><p class="workspace-stat-copy">Anota por qué podría funcionar, qué puede fallar y cómo comprobarlo con el menor coste posible.</p><div class="workspace-pills"><span>Capital</span><span>Riesgo</span><span>Validación</span></div></aside></section>
+
   <div class="toolbar">
     <select id="idCat" aria-label="Categoría"><option value="">todas las categorías</option></select>
     <select id="idStatus" aria-label="Estado"><option value="">todos los estados</option></select>
@@ -2351,6 +2361,8 @@ tbody tr:last-child td{border-bottom:0}
 
 <!-- ======================= INVERSIONES ======================= -->
 <div class="tab" data-tab="invest">
+<section class="study-hero workspace-hero" aria-label="Resumen de Inversiones"><div><div class="study-kicker">PORTFOLIO · CUENTAS · ASIGNACIÓN</div><h1>Consolida tu cartera.<br><span class="workspace-highlight">Entiende cada posición.</span></h1><p>Separa los activos por cuenta y mercado, sigue aportes e ingresos y revisa el rendimiento consolidado sin mezclar historiales de cuentas distintas.</p></div><aside class="study-stat workspace-stat"><div class="study-stat-top"><span>VISIÓN PATRIMONIAL</span><span>06 / SEGUIMIENTO</span></div><h2 class="workspace-stat-title">Cuentas separadas. Vista conjunta.</h2><p class="workspace-stat-copy">Registra operaciones y precios con criterio consistente; los resultados dependen de los datos que introduzcas.</p><div class="workspace-pills"><span>Asignación</span><span>Rendimiento</span><span>Ingresos</span></div></aside></section>
+
   <div class="toolbar">
     <select id="ivAccountFilter" aria-label="Filtrar por cuenta de inversión"><option value="__all">Todas las cuentas</option></select>
     <select id="ivSetup" aria-label="Filtrar por estrategia"><option value="">todas las estrategias</option></select>
@@ -2408,6 +2420,8 @@ tbody tr:last-child td{border-bottom:0}
 
 <!-- ======================= CALCULADORA ======================= -->
 <div class="tab" data-tab="calc">
+<section class="study-hero workspace-hero" aria-label="Resumen de Calculadora"><div><div class="study-kicker">PROYECCIONES · TAMAÑO · DRAWDOWN</div><h1>Modela los escenarios.<br><span class="workspace-highlight">Decide antes de arriesgar.</span></h1><p>Explora interés compuesto, crecimiento de una cuenta y escenarios de riesgo para entender cómo cambian los resultados al modificar cada supuesto.</p></div><aside class="study-stat workspace-stat"><div class="study-stat-top"><span>LABORATORIO DE DECISIONES</span><span>07 / SIMULACIÓN</span></div><h2 class="workspace-stat-title">Supuesto → proyección → decisión</h2><p class="workspace-stat-copy">Las proyecciones son escenarios matemáticos, no promesas de rendimiento. Cambia una variable cada vez para comparar.</p><div class="workspace-pills"><span>Capital</span><span>Retorno</span><span>Drawdown</span></div></aside></section>
+
   <div class="toolbar">
     <div class="seg" id="calcSeg">
       <button data-v="classic" class="active">Interés compuesto</button>
@@ -14597,6 +14611,100 @@ a:hover{color:#a4f2e6}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
 }
+
+/* WORKSPACE SYSTEM — aplicar la jerarquía visual de ESTUDIO a cada sección. */
+.workspace-highlight{color:#78d9ca}
+.workspace-stat-title{font-size:16px;line-height:1.3;letter-spacing:-.025em;margin:12px 0 7px;color:#e8f4f4}
+.workspace-stat-copy{font-size:12px;line-height:1.55;color:#a5b4c1;margin:0}
+.workspace-pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.workspace-pills span{font-size:9px;letter-spacing:.035em;color:#a9d9d1;background:#172a2a;border:1px solid #2d514e;border-radius:6px;padding:5px 7px}
+.workspace-hero{margin:0 0 2px}
+.workspace-hero .workspace-stat{align-self:stretch;display:flex;flex-direction:column;justify-content:center;min-height:150px}
+.workspace-hero .workspace-stat-top span:last-child{color:#78d9ca}
+.tab:not([data-tab="estudio"]) .toolbar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:11px;margin:0 0 18px;border:1px solid #2b3d49;border-radius:12px;
+  background:linear-gradient(110deg,#131e28,#0e141b);
+  box-shadow:inset 0 1px rgba(255,255,255,.025),0 8px 25px rgba(0,0,0,.10);
+}
+.tab:not([data-tab="estudio"]) .toolbar .sp{flex:1}
+.tab:not([data-tab="estudio"]) .toolbar select,
+.tab:not([data-tab="estudio"]) .toolbar input:not([type=checkbox]):not([type=radio]){
+  min-height:34px;max-width:100%;
+}
+.tab:not([data-tab="estudio"]) .panel{
+  border:1px solid #293944;border-radius:14px;
+  background:linear-gradient(145deg,#141c25 0%,#10161e 100%);
+  box-shadow:0 8px 28px rgba(0,0,0,.12),inset 0 1px rgba(255,255,255,.018);
+}
+.tab:not([data-tab="estudio"]) .panel>header{
+  padding:14px 17px;border-bottom:1px solid #263541;
+  background:linear-gradient(100deg,rgba(22,34,43,.78),rgba(16,22,30,.32));
+  gap:12px;min-width:0;
+}
+.tab:not([data-tab="estudio"]) .panel>header h2{
+  font-size:12px;line-height:1.35;font-weight:750;letter-spacing:-.01em;color:#e2eaf0;
+}
+.tab:not([data-tab="estudio"]) .panel .body{padding:16px 17px;min-width:0}
+.tab:not([data-tab="estudio"]) .tiles{border-radius:12px;overflow:hidden}
+.tab:not([data-tab="estudio"]) .tile{background:linear-gradient(145deg,#151e27,#11171f);padding:15px 16px}
+.tab:not([data-tab="estudio"]) .tile .k,
+.tab:not([data-tab="estudio"]) .tile .l{color:#9cabb9}
+.tab:not([data-tab="estudio"]) .tile .v{font-variant-numeric:tabular-nums;letter-spacing:-.035em}
+.tab:not([data-tab="estudio"]) .cards{gap:12px}
+.tab:not([data-tab="estudio"]) .cards .card{
+  border:1px solid #2b3b47;border-radius:13px;
+  background:linear-gradient(145deg,#141c25,#10161e);
+  box-shadow:0 8px 24px rgba(0,0,0,.10);
+  padding:17px;gap:10px;
+  transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease;
+}
+.tab:not([data-tab="estudio"]) .cards .card:hover{
+  transform:translateY(-2px);border-color:#3b6664;
+  background:linear-gradient(145deg,#17232c,#111820);
+  box-shadow:0 12px 28px rgba(0,0,0,.18);
+}
+.tab:not([data-tab="estudio"]) .cards .card .ch{align-items:center}
+.tab:not([data-tab="estudio"]) .cards .card .ch h3{font-size:15px;line-height:1.35;letter-spacing:-.02em}
+.tab:not([data-tab="estudio"]) .cards .card .kv{row-gap:6px;line-height:1.45}
+.tab:not([data-tab="estudio"]) .cards .card .stats,
+.tab:not([data-tab="estudio"]) .cards .card .cf{border-top-color:#293641;padding-top:11px}
+.tab:not([data-tab="estudio"]) .cards .card .chip:not(.good):not(.warn):not(.bad){
+  color:#a9b9c7;background:#1a242e;border-color:#2c3b47;border-radius:6px;
+}
+.tab:not([data-tab="estudio"]) .empty{
+  padding:30px 20px;border:1px dashed #344653;border-radius:13px;
+  background:linear-gradient(145deg,rgba(19,29,38,.72),rgba(13,19,26,.6));
+  color:#a5b4c1;line-height:1.55;
+}
+.tab:not([data-tab="estudio"]) .seg{
+  padding:3px;gap:2px;border:1px solid #293b47;border-radius:10px;
+  background:#0d141b;
+}
+.tab:not([data-tab="estudio"]) .seg button{border-radius:7px;transition:background .16s ease,color .16s ease,border-color .16s ease}
+.tab:not([data-tab="estudio"]) .seg button.active{
+  color:#d9fff8;background:linear-gradient(135deg,#1b3935,#17232c);
+  border-color:#376b65;box-shadow:inset 0 1px rgba(255,255,255,.035);
+}
+.tab:not([data-tab="estudio"]) .seg button:not(.active):hover{background:#17232c;color:#dce9f1}
+.tab:not([data-tab="estudio"]) .synced,
+.tab:not([data-tab="estudio"]) .note-p,
+.tab:not([data-tab="estudio"]) .csub{color:#98a9b7;line-height:1.6}
+#tabnav .tabbtn[data-tab="estudio"]:not(.active){background:transparent;border-color:transparent;color:inherit}
+#tabnav .tabbtn[data-tab="estudio"]::before{display:none}
+@media(max-width:850px){
+  .workspace-hero{grid-template-columns:1fr;gap:13px;padding:15px 0 19px}
+  .workspace-hero .workspace-stat{min-height:0}
+  .tab:not([data-tab="estudio"]) .panel>header{padding:12px 14px}
+  .tab:not([data-tab="estudio"]) .panel .body{padding:14px}
+}
+@media(max-width:600px){
+  .workspace-stat-title{font-size:15px}
+  .workspace-pills{margin-top:11px}
+  .tab:not([data-tab="estudio"]) .toolbar{padding:9px;border-radius:10px}
+  .tab:not([data-tab="estudio"]) .panel{border-radius:11px}
+}
+
 </style>
 
 </body>
