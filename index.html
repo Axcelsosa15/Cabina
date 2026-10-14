@@ -13619,7 +13619,10 @@ tbody tr:last-child td{border-bottom:0}
           }
           const nodes = [...document.querySelectorAll("[data-id], [data-trade-id], .acct, tr")];
           const target = nodes.find(n => id && (n.dataset.id === id || n.dataset.tradeId === id) && n.offsetParent !== null)
-            || nodes.find(n => n.offsetParent !== null && String(n.innerText || "").toLowerCase().includes(String(titulo).toLowerCase()));
+            || nodes.find(n => n.offsetParent !== null && String(n.innerText || "").toLowerCase().includes(String(titulo).toLowerCase()))
+            || (grupo === "Sesiones" && objeto && objeto.date
+              ? [...document.querySelectorAll("#histWrap tr")].find(n => n.offsetParent !== null && String(n.innerText || "").includes(String(objeto.date)))
+              : null);
           if (target) {
             target.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
             target.classList.add("cmd-target-highlight");
