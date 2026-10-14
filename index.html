@@ -13608,7 +13608,11 @@ tbody tr:last-child td{border-bottom:0}
     const indexa = (grupo, icono, titulo, contexto, objeto, tab, accion) => {
       if (!titulo || !String(titulo).trim()) return;
       const id = objeto && objeto.id != null ? String(objeto.id) : "";
-      const detalle = [contexto, JSON.stringify(objeto || {})].join(" ");
+      /* No serializar el objeto completo: puede contener capturas/base64 y volver
+         cada pulsación de búsqueda innecesariamente costosa. Sólo indexamos campos
+         textuales relevantes para localizar el registro. */
+      const campos = ["id","title","name","symbol","asset","ticker","instrument","date","time","direction","side","setup","session","notes","tags","thesis","status","url","market","accountId","firm","quantity","qty","entry","exit","result","pnlEff","rReal","question","evidence","counter","conclusion"];
+      const detalle = [contexto, campos.map(k => objeto && objeto[k] != null ? (Array.isArray(objeto[k]) ? objeto[k].join(" ") : String(objeto[k])) : "").join(" "), objeto && objeto.rules ? JSON.stringify(objeto.rules) : ""].join(" ");
       datos.push({ g: grupo, i: icono, t: String(titulo), s: String(contexto || "").slice(0, 42), d: detalle, isData: true, f: () => {
         accion && accion();
         showTab(tab);
