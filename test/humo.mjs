@@ -131,6 +131,18 @@ const breakdown = await p.evaluate(() => ({
 }));
 paso('ESTUDIO BREAKDOWN', breakdown.rows === 2 && /long/i.test(breakdown.text) && /short/i.test(breakdown.text),
   `grupos ${breakdown.rows} · long/short presentes`);
+await p.selectOption('#studyTradeDirection', 'short');
+await p.waitForTimeout(100);
+const shortCount = await p.locator('#studyTradeList [data-study-trade]').count();
+paso('ESTUDIO DIRECTION FILTER', shortCount === 2, `short devuelve ${shortCount} trades`);
+await p.fill('#studyTradeFrom', '2026-09-19');
+await p.waitForTimeout(100);
+paso('ESTUDIO DATE FILTER', await p.locator('#studyTradeList [data-study-trade]').count() === 0,
+  'desde una fecha posterior no devuelve trades anteriores');
+await p.click('#studyTradeClear');
+await p.waitForTimeout(100);
+paso('ESTUDIO CLEAR FILTERS', await p.locator('#studyTradeList [data-study-trade]').count() === 6,
+  'limpiar filtros restaura las seis operaciones');
 await p.fill('#studyTradeSearch', 'MNQ');
 await p.waitForTimeout(100);
 paso('ESTUDIO SEARCH', await p.locator('#studyTradeList [data-study-trade]').count() === 6, 'MNQ devuelve las seis operaciones');
