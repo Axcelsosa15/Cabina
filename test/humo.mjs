@@ -109,6 +109,7 @@ paso('TRADE ENTRY', n6 === 6, `${n6} operaciones`);
 
 /* ESTUDIO · cada revisión referencia el trade original y nunca lo duplica. */
 await p.click('.tabbtn[data-tab="estudio"]'); await p.waitForTimeout(350);
+await p.selectOption('#studyTradeAccount', 'humo1'); await p.waitForTimeout(100);
 const studyInitial = await p.evaluate(() => ({
   panel: !!document.querySelector('#studyTradeList'),
   cards: document.querySelectorAll('#studyTradeList [data-study-trade]').length,
