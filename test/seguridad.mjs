@@ -193,7 +193,7 @@ ok(JSON.stringify((dir['img-src'] || []).slice().sort()) === JSON.stringify(['bl
 ok(JSON.stringify(dir['base-uri']) === `["'none'"]` && JSON.stringify(dir['form-action']) === `["'none'"]`, "base-uri y form-action 'none'");
 ok(!(dir['script-src'] || []).some(x => /^https?:|\*/.test(x)), 'script-src no admite ningún origen externo', (dir['script-src'] || []).join(' '));
 
-/* Y que la política no rompa la app: las siete pestañas, sin una sola violación. */
+/* Y que la política no rompa la app: todas las pestañas, incluida ESTUDIO, sin una sola violación. */
 const csrv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
 await new Promise(r => csrv.listen(0, '127.0.0.1', r));
 const cb = await chromium.launch();
@@ -206,7 +206,7 @@ await cp.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeou
 const pestanas = await cp.evaluate(() => [...document.querySelectorAll('.tabbtn[data-tab]')].map(x => x.dataset.tab));
 for (const t of pestanas) { await cp.click(`.tabbtn[data-tab="${t}"]`); await cp.waitForTimeout(250); }
 const viol = await cp.evaluate(() => window.__csp);
-ok(pestanas.length === 7, 'se recorrieron las siete pestañas', pestanas.join(' · '));
+ok(pestanas.length === 8 && pestanas.includes('estudio'), 'se recorrieron las ocho pestañas, incluida ESTUDIO', pestanas.join(' · '));
 ok(viol.length === 0, 'ninguna violación de CSP usando la app', viol.length ? viol.join(' | ') : 'ninguna');
 ok(cerrs.length === 0, 'y ningún error de página con la política puesta', cerrs.join(' | ') || 'ninguno');
 /* Sin red, ese fetch fallaría igual: lo que se afirma es que lo para la CSP, o
