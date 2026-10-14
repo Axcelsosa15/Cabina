@@ -107,6 +107,68 @@ await p.waitForFunction(() => { try { return Object.keys(JSON.parse(localStorage
 const n6 = await p.evaluate(() => FUT.trades().filter(t => t.accountId === 'humo1').length);
 paso('TRADE ENTRY', n6 === 6, `${n6} operaciones`);
 
+/* ESTUDIO · cada revisión referencia el trade original y nunca lo duplica. */
+await p.click('.tabbtn[data-tab="estudio"]'); await p.waitForTimeout(350);
+await p.selectOption('#studyTradeAccount', 'humo1'); await p.waitForTimeout(100);
+const studyInitial = await p.evaluate(() => ({
+  panel: !!document.querySelector('#studyTradeList'),
+  cards: document.querySelectorAll('#studyTradeList [data-study-trade]').length,
+  count: FUT.trades().filter(t => t.accountId === 'humo1').length
+}));
+paso('ESTUDIO TRADE EXPLORER', studyInitial.panel && studyInitial.cards === 6 && studyInitial.count === 6,
+  `panel ${studyInitial.panel} · ${studyInitial.cards} trades · ${studyInitial.count} originales`);
+const studyMetrics = await p.evaluate(() => ({
+  count: document.querySelector('#studyTradeMetricCount')?.textContent,
+  win: document.querySelector('#studyTradeMetricWin')?.textContent,
+  pnl: document.querySelector('#studyTradeMetricPnl')?.textContent
+}));
+paso('ESTUDIO METRICS', studyMetrics.count === '6' && studyMetrics.win === '66.7%' &&
+  Math.abs(Number((studyMetrics.pnl || '').replace(/[^0-9.-]/g, '')) - 70) < 0.005,
+  `count ${studyMetrics.count} · win ${studyMetrics.win} · net ${studyMetrics.pnl}`);
+const breakdown = await p.evaluate(() => ({
+  rows: document.querySelectorAll('#studyTradeBreakdown tbody tr').length,
+  text: document.querySelector('#studyTradeBreakdown')?.innerText || ''
+}));
+paso('ESTUDIO BREAKDOWN', breakdown.rows === 2 && /long/i.test(breakdown.text) && /short/i.test(breakdown.text),
+  `grupos ${breakdown.rows} · long/short presentes`);
+await p.selectOption('#studyTradeDirection', 'short');
+await p.waitForTimeout(100);
+const shortCount = await p.locator('#studyTradeList [data-study-trade]').count();
+paso('ESTUDIO DIRECTION FILTER', shortCount === 2, `short devuelve ${shortCount} trades`);
+await p.fill('#studyTradeFrom', '2026-09-19');
+await p.waitForTimeout(100);
+paso('ESTUDIO DATE FILTER', await p.locator('#studyTradeList [data-study-trade]').count() === 0,
+  'desde una fecha posterior no devuelve trades anteriores');
+await p.click('#studyTradeClear');
+await p.waitForTimeout(100);
+paso('ESTUDIO CLEAR FILTERS', await p.locator('#studyTradeList [data-study-trade]').count() === 6,
+  'limpiar filtros restaura las seis operaciones');
+await p.fill('#studyTradeSearch', 'MNQ');
+await p.waitForTimeout(100);
+paso('ESTUDIO SEARCH', await p.locator('#studyTradeList [data-study-trade]').count() === 6, 'MNQ devuelve las seis operaciones');
+await p.fill('#studyTradePlan', 'Esperaba continuación tras el impulso.');
+await p.fill('#studyTradeExecution', 'Entrada y salida registradas; revisar paciencia.');
+await p.fill('#studyTradeLesson', 'Esperar confirmación antes de entrar.');
+await p.click('#studyTradeReviewForm button[type="submit"]');
+await p.waitForFunction(() => /revisión guardada/i.test(document.querySelector('#studyTradeSaveState')?.textContent || ''), null, { timeout: 5000 });
+const reviewCheck = await p.evaluate(() => ({
+  count: FUT.trades().filter(t => t.accountId === 'humo1').length,
+  reviews: JSON.parse(localStorage.getItem('cabina-mnq:v1') || '{}').research
+}));
+paso('ESTUDIO REVIEW SAVE', reviewCheck.count === 6 && reviewCheck.reviews && Object.keys(reviewCheck.reviews).length > 0,
+  `${reviewCheck.count} trades originales · revisión guardada`);
+await p.keyboard.press('Control+k'); await p.waitForTimeout(100);
+await p.fill('#cmdQ', 'Revisión: MNQ'); await p.waitForTimeout(100);
+const hiddenReviewActions = await p.locator('#cmdList .cmd-it').count();
+paso('ESTUDIO COMMAND PALETTE', hiddenReviewActions === 0,
+  `revisiones de trades no aparecen como documentos sin destino (${hiddenReviewActions} resultados)`);
+await p.keyboard.press('Escape');
+await p.fill('#studyTradeSearch', 'instrumento-inexistente');
+await p.waitForTimeout(100);
+paso('ESTUDIO EMPTY FILTER', /No hay operaciones/.test(await p.locator('#studyTradeList').innerText()), 'filtro sin resultados tiene estado vacío');
+await p.fill('#studyTradeSearch', '');
+await p.waitForTimeout(100);
+
 /* 9 · CALCULATIONS · contra el valor calculado a mano, no contra la app */
 const total = await p.evaluate(() => FUT.calculateAccountStats('humo1').total);
 paso('CALCULATIONS', Math.abs(total - ESPERADO) < 0.005, `P&L ${total} · esperado ${ESPERADO} (a mano)`);

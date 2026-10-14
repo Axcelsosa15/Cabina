@@ -17,6 +17,13 @@ on:
 permissions:
   contents: read
 
+# No ejecutar suites de commits obsoletos en paralelo: cada push nuevo a esta
+# rama cancela la corrida anterior y valida el HEAD actual, evitando competir
+# por Chromium/CPU y leer fallos de código que ya fue reemplazado.
+concurrency:
+  group: cabina-pruebas-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   suite:
     runs-on: ubuntu-latest
