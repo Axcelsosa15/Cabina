@@ -131,7 +131,7 @@ dice('motor-bundle', 'suite', 'La fuente del motor coincide con el bundle', 'mot
     if (fachadas !== 3) mal.push(`${fachadas}/3 fachadas expuestas`);
     fila('index.html', 'Integridad estructural', mal.length ? 'FAIL' : 'PASS',
       mal.length ? mal.join(' · ')
-        : `${h.split('\n').length} líneas · 2 <style> · 1 <script> · IIFE del motor · window.QuantEngine · 3 fachadas`);
+        : `${h.split('\n').length} líneas · 3 <style> · 1 <script> · IIFE del motor · window.QuantEngine · 3 fachadas`);
   }
 }
 
