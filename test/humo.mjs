@@ -125,6 +125,12 @@ const studyMetrics = await p.evaluate(() => ({
 paso('ESTUDIO METRICS', studyMetrics.count === '6' && studyMetrics.win === '66.7%' &&
   Math.abs(Number((studyMetrics.pnl || '').replace(/[^0-9.-]/g, '')) - 70) < 0.005,
   `count ${studyMetrics.count} · win ${studyMetrics.win} · net ${studyMetrics.pnl}`);
+const breakdown = await p.evaluate(() => ({
+  rows: document.querySelectorAll('#studyTradeBreakdown tbody tr').length,
+  text: document.querySelector('#studyTradeBreakdown')?.innerText || ''
+}));
+paso('ESTUDIO BREAKDOWN', breakdown.rows === 2 && /long/i.test(breakdown.text) && /short/i.test(breakdown.text),
+  `grupos ${breakdown.rows} · long/short presentes`);
 await p.fill('#studyTradeSearch', 'MNQ');
 await p.waitForTimeout(100);
 paso('ESTUDIO SEARCH', await p.locator('#studyTradeList [data-study-trade]').count() === 6, 'MNQ devuelve las seis operaciones');
