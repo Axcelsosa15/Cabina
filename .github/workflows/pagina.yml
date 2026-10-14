@@ -53,6 +53,18 @@ jobs:
           cp index.html sitio/index.html
           cp .nojekyll sitio/.nojekyll
           cp og.png sitio/og.png
+          cp cabina-refinement.css sitio/cabina-refinement.css
+          python3 - <<'PY'
+          from pathlib import Path
+          page = Path("sitio/index.html")
+          html = page.read_text()
+          link = '  <link rel="stylesheet" href="./cabina-refinement.css">\\n'
+          if "cabina-refinement.css" not in html:
+              if "</head>" not in html:
+                  raise SystemExit("No se encontró </head> para insertar la hoja de estilos")
+              html = html.replace("</head>", link + "</head>", 1)
+          page.write_text(html)
+          PY
           ls -la sitio
 
       # EL FALLO QUE ESTE PASO EXISTE PARA IMPEDIR, Y QUE YA OCURRIÓ UNA VEZ:
@@ -77,6 +89,12 @@ jobs:
               faltan=1
             fi
           done
+          if [ ! -f sitio/cabina-refinement.css ]; then
+            echo "::error::cabina-refinement.css no está en el artefacto de publicación"
+            faltan=1
+          else
+            echo "✅ cabina-refinement.css publicado"
+          fi
           exit $faltan
 
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
@@ -95,8 +113,8 @@ jobs:
         run: |
           url="${{ steps.deploy.outputs.page_url }}"
           for i in $(seq 1 12); do
-            if curl -fsSL "$url" -o publicado.html && cmp -s publicado.html index.html; then
-              echo "✅ $url sirve exactamente el index.html probado ($(wc -c < index.html) bytes)"
+            if curl -fsSL "$url" -o publicado.html && cmp -s publicado.html sitio/index.html; then
+              echo "✅ $url sirve exactamente el HTML generado y probado ($(wc -c < index.html) bytes)"
               echo "✅ $url sirve exactamente el index.html probado" >> "$GITHUB_STEP_SUMMARY"
               # Y la imagen para compartir responde de verdad, no sólo existe en
               # el repositorio. Es lo que faltaba la vez que dio 404.
@@ -109,5 +127,5 @@ jobs:
             fi
             sleep 5
           done
-          echo "::error::$url no sirve el index.html de este commit"
+          echo "::error::$url no sirve el HTML generado de este commit"
           exit 1
