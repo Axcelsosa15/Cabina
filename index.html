@@ -1981,6 +1981,11 @@ tbody tr:last-child td{border-bottom:0}
 <div class="study-field"><label for="studyTradePlan">Plan / tesis original</label><textarea id="studyTradePlan" maxlength="4000" placeholder="¿Qué esperabas que hiciera el precio y por qué?"></textarea></div>
 <div class="study-field" style="margin-top:9px"><label for="studyTradeExecution">Revisión de ejecución</label><textarea id="studyTradeExecution" maxlength="4000" placeholder="¿Seguiste el plan? Entrada, stop, salida y errores observables."></textarea></div>
 <div class="study-field" style="margin-top:9px"><label for="studyTradeLesson">Lección y siguiente acción</label><textarea id="studyTradeLesson" maxlength="3000" placeholder="¿Qué repetirás o cambiarás la próxima vez?"></textarea></div>
+<div class="study-field" style="margin-top:9px"><label for="studyTradeSetup">Setup estudiado</label><select id="studyTradeSetup"><option value="">Sin clasificar</option><option value="Continuation">Continuation</option><option value="IFVG">IFVG</option><option value="Silver Bullet">Silver Bullet</option><option value="Venom">Venom</option><option value="Liquidity sweep">Liquidity sweep</option><option value="Otro">Otro</option></select></div>
+<div class="study-field" style="margin-top:9px"><label for="studyTradeVisual">Lectura visual del gráfico</label><textarea id="studyTradeVisual" maxlength="4000" placeholder="1) Contexto HTF y sesgo. 2) Liquidez que esperabas. 3) BOS/CHoCH, FVG/IFVG u otra confirmación. 4) Qué viste antes de entrar."></textarea></div>
+<div class="study-field" style="margin-top:9px"><label for="studyTradeInvalidation">Invalidación y evidencia contraria</label><textarea id="studyTradeInvalidation" maxlength="2500" placeholder="¿Qué señal habría invalidado la idea? ¿Qué evidencia contradice tu sesgo?"></textarea></div>
+<div class="study-field" style="margin-top:9px"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="studyTradeRulesFollowed"> Seguí las reglas de mi plan</label><p class="study-note">Evalúa la decisión por el proceso, no sólo por si ganó o perdió.</p></div>
+<div class="study-field" id="studyTradeShotsHost" style="margin-top:12px"><p class="study-note">Estudio visual: adjunta el gráfico antes de entrar y el resultado posterior. Las capturas se guardan con el sistema privado de capturas de tu cuenta.</p></div>
 <div class="study-field" style="margin-top:9px"><label for="studyTradeReviewStatus">Estado de revisión</label><select id="studyTradeReviewStatus"><option value="todo">Pendiente</option><option value="progressing">En revisión</option><option value="mastered">Revisado</option></select></div>
 <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary sm" type="submit">Guardar revisión</button></div>
 <p class="study-note" id="studyTradeSaveState" role="status"></p>
@@ -14716,6 +14721,7 @@ tbody tr:last-child td{border-bottom:0}
     else if(estudioTradeSeleccionado&&filtered.some(t=>String(t.id)===estudioTradeSeleccionado))estudioCargarReview(estudioTradeSeleccionado);
     else {$("studyTradeReviewForm").hidden=true;$("studyTradeTitle").textContent="Selecciona una operación";$("studyTradeMeta").textContent="No hay operaciones para mostrar con estos filtros.";$("studyTradeStats").textContent="";}
   }
+  let estudioTradeShotState = null;
   function estudioCargarReview(tradeId){
     const t=estudioTrades().find(x=>String(x.id)===String(tradeId));if(!t)return;
     const docs=estudioLista().filter(d=>d.type==="trade-review"&&String(d.tradeId)===String(tradeId)).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
@@ -14723,7 +14729,8 @@ tbody tr:last-child td{border-bottom:0}
     $("studyTradeMeta").textContent=[t.direction||"Dirección sin dato","P&L "+estudioDinero(t.pnlEff),"R "+(t.rReal==null?"—":Number.isFinite(Number(t.rReal))?Number(t.rReal).toFixed(2):"—")].join(" · ");
     $("studyTradeStats").innerHTML=[["Entrada",t.entry],["Stop",t.stop],["Salida",t.exit],["Cantidad",t.qty]].map(([k,v])=>'<span class="study-tag">'+estudioEsc(k)+": "+estudioEsc(v==null||v===""?"—":v)+'</span>').join("");
     $("studyTradeReviewForm").hidden=false;$("studyTradeId").value=String(t.id);$("studyTradeReviewId").value=d.id||"";
-    $("studyTradePlan").value=d.question||"";$("studyTradeExecution").value=d.evidence||"";$("studyTradeLesson").value=d.conclusion||"";$("studyTradeReviewStatus").value=d.status||"todo";$("studyTradeSaveState").textContent=d.updatedAt?"Última revisión guardada: "+estudioFecha(d.updatedAt):"Todavía no hay una revisión guardada.";
+    $("studyTradePlan").value=d.question||"";$("studyTradeExecution").value=d.evidence||"";$("studyTradeLesson").value=d.conclusion||"";$("studyTradeSetup").value=d.studySetup||"";$("studyTradeVisual").value=d.visualRead||"";$("studyTradeInvalidation").value=d.invalidation||"";$("studyTradeRulesFollowed").checked=d.rulesFollowed===true;$("studyTradeReviewStatus").value=d.status||"todo";const shotsHost=$("studyTradeShotsHost");if(shotsHost){shotsHost.innerHTML="<p class=\"study-note\">Adjunta el gráfico antes de entrar y el resultado posterior. Las imágenes nuevas requieren sesión y se guardan en el bucket privado de capturas.</p>";estudioTradeShotState=attachShots(shotsHost,d.images||[]);}else estudioTradeShotState=null;$("studyTradeSaveState").textContent=d.updatedAt?"Última revisión guardada: "+estudioFecha(d.updatedAt):"Todavía no hay una revisión guardada.";
+
   }
   document.querySelector('.tabbtn[data-tab="estudio"]').addEventListener("click",()=>{renderEstudio();});
   $("studyTradeAccount").addEventListener("change",renderEstudioTrades);
@@ -14739,7 +14746,7 @@ tbody tr:last-child td{border-bottom:0}
     const tradeId=$("studyTradeId").value,t=estudioTrades().find(x=>String(x.id)===String(tradeId));
     if(!t){status.textContent="No se pudo guardar: selecciona una operación primero.";return;}
     const id=$("studyTradeReviewId").value||uid("trade-review"),clave="research/"+id,old=coll("research").get(id),now=Date.now();
-    const d={...(old||{}),id,type:"trade-review",tradeId:String(t.id),title:"Revisión: "+(t.instrument||"trade")+" · "+estudioTradeFecha(t),status:$("studyTradeReviewStatus").value,question:$("studyTradePlan").value.trim(),evidence:$("studyTradeExecution").value.trim(),conclusion:$("studyTradeLesson").value.trim(),tags:["trade-review",String(t.instrument||"").toUpperCase()].filter(Boolean),createdAt:old&&old.createdAt||now,updatedAt:now};
+    const d={...(old||{}),id,type:"trade-review",tradeId:String(t.id),title:"Revisión: "+(t.instrument||"trade")+" · "+estudioTradeFecha(t),status:$("studyTradeReviewStatus").value,question:$("studyTradePlan").value.trim(),evidence:$("studyTradeExecution").value.trim(),conclusion:$("studyTradeLesson").value.trim(),studySetup:$("studyTradeSetup").value,visualRead:$("studyTradeVisual").value.trim(),invalidation:$("studyTradeInvalidation").value.trim(),rulesFollowed:$("studyTradeRulesFollowed").checked,images:(estudioTradeShotState&&Array.isArray(estudioTradeShotState.imgs)?estudioTradeShotState.imgs:old&&Array.isArray(old.images)?old.images:[]).map(im=>({id:im.id,data:im.data,caption:String(im.caption||"").slice(0,120),name:String(im.name||"").slice(0,160)})),tags:["trade-review",String(t.instrument||"").toUpperCase(),$("studyTradeSetup").value].filter(Boolean),createdAt:old&&old.createdAt||now,updatedAt:now};
     if(button)button.disabled=true;
     status.textContent="Guardando revisión…";
     try{
