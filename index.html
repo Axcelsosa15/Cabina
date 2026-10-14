@@ -14569,6 +14569,7 @@ tbody tr:last-child td{border-bottom:0}
     $("studyTradeReviewForm").hidden=false;$("studyTradeId").value=String(t.id);$("studyTradeReviewId").value=d.id||"";
     $("studyTradePlan").value=d.question||"";$("studyTradeExecution").value=d.evidence||"";$("studyTradeLesson").value=d.conclusion||"";$("studyTradeReviewStatus").value=d.status||"todo";$("studyTradeSaveState").textContent=d.updatedAt?"Última revisión guardada: "+estudioFecha(d.updatedAt):"Todavía no hay una revisión guardada.";
   }
+  document.querySelector('.tabbtn[data-tab="estudio"]').addEventListener("click",()=>{renderEstudio();});
   $("studyTradeAccount").addEventListener("change",renderEstudioTrades);
   $("studyTradeSearch").addEventListener("input",renderEstudioTrades);
   $("studyTradeReviewForm").addEventListener("submit",async e=>{
