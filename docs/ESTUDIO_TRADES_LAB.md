@@ -112,7 +112,7 @@ Añadir pruebas Playwright para:
 Implementado en la rama, pendiente de CI y revisión antes de integrar:
 
 - Trade Explorer lee operaciones desde `FUT.trades()` y nombres de cuenta desde `FUT.accounts()`.
-- Filtro por cuenta y búsqueda textual por ID, instrumento, dirección, fecha y cuenta.
+- Filtros por cuenta, instrumento, dirección y rango de fechas, más búsqueda textual por ID, instrumento, dirección, fecha y cuenta; acción para limpiar todos los filtros.
 - Ficha de operación con los campos disponibles `entry`, `stop`, `exit`, `qty`, `pnlEff` y `rReal`.
 - Revisión separada por `tradeId`, persistida en la colección existente `research`; no modifica el trade base.
 - Resumen de operaciones filtradas: cantidad, win rate sobre operaciones con P&L disponible, suma de `pnlEff` disponible y R promedio sobre valores disponibles. Los campos faltantes se excluyen de sus denominadores y aparecen como no disponibles cuando no hay muestra.
