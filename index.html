@@ -14556,8 +14556,9 @@ tbody tr:last-child td{border-bottom:0}
     if(!filtered.length){list.innerHTML='<div class="study-empty"><b>'+(trades.length?"No hay operaciones con esos filtros":"Todavía no hay trades en FUTUROS")+'</b><p class="study-note">'+(trades.length?"Cambia la cuenta o la búsqueda.":"Registra una operación en FUTUROS y vuelve a ESTUDIO.")+'</p></div>';return;}
     list.innerHTML=filtered.map(t=>'<button type="button" class="study-card" style="width:100%;text-align:left;cursor:pointer;border-color:'+(String(t.id)===estudioTradeSeleccionado?'#70e0cf':'')+'" data-study-trade="'+estudioEsc(t.id)+'"><div class="study-card-head"><span class="study-kind">'+estudioEsc(t.instrument||"Instrumento sin indicar")+'</span><span class="study-state">'+estudioEsc(t.direction||"Dirección no indicada")+'</span></div><h3 style="font-size:14px;margin:8px 0">'+estudioEsc(estudioTradeFecha(t))+'</h3><div class="study-card-foot"><span>'+estudioEsc(String(t.qty==null?"—":t.qty)+" contratos")+'</span><b>'+estudioEsc(estudioDinero(t.pnlEff))+'</b></div></button>').join("");
     list.querySelectorAll("[data-study-trade]").forEach(b=>b.addEventListener("click",()=>{estudioTradeSeleccionado=b.dataset.studyTrade;renderEstudioTrades();estudioCargarReview(estudioTradeSeleccionado);}));
-    if(estudioTradeSeleccionado&&filtered.some(t=>String(t.id)===estudioTradeSeleccionado))estudioCargarReview(estudioTradeSeleccionado);
-    else if(!estudioTradeSeleccionado) {const chosen=filtered[0];estudioTradeSeleccionado=String(chosen.id);renderEstudioTrades();estudioCargarReview(estudioTradeSeleccionado);}
+    if(filtered.length&&!filtered.some(t=>String(t.id)===estudioTradeSeleccionado)){estudioTradeSeleccionado=String(filtered[0].id);renderEstudioTrades();estudioCargarReview(estudioTradeSeleccionado);}
+    else if(estudioTradeSeleccionado&&filtered.some(t=>String(t.id)===estudioTradeSeleccionado))estudioCargarReview(estudioTradeSeleccionado);
+    else {$("studyTradeReviewForm").hidden=true;$("studyTradeTitle").textContent="Selecciona una operación";$("studyTradeMeta").textContent="No hay operaciones para mostrar con estos filtros.";$("studyTradeStats").textContent="";}
   }
   function estudioCargarReview(tradeId){
     const t=estudioTrades().find(x=>String(x.id)===String(tradeId));if(!t)return;
