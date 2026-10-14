@@ -4314,7 +4314,21 @@ tbody tr:last-child td{border-bottom:0}
      entera salte en vertical al hacerlo. */
   function aLaVista(el) {
     if (!el) return;
-    try { el.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" }); } catch { }
+    /* No usar scrollIntoView: puede desplazar también el documento completo
+       al cambiar de pestaña y sacar al usuario del punto donde estaba.
+       Desplazamos únicamente el contenedor de navegación que necesita mostrar
+       el control activo, tanto en el rail vertical como en la tira horizontal. */
+    const scroller = el.closest("#tabnav") || el.closest(".seg");
+    if (!scroller) return;
+    const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const behavior = reduceMotion ? "auto" : "smooth";
+    const er = el.getBoundingClientRect(), sr = scroller.getBoundingClientRect();
+    if (scroller.scrollWidth > scroller.clientWidth && (er.left < sr.left || er.right > sr.right)) {
+      scroller.scrollTo({ left: scroller.scrollLeft + er.left - sr.left - (sr.width - er.width) / 2, behavior });
+    }
+    if (scroller.scrollHeight > scroller.clientHeight && (er.top < sr.top || er.bottom > sr.bottom)) {
+      scroller.scrollTo({ top: scroller.scrollTop + er.top - sr.top - (sr.height - er.height) / 2, behavior });
+    }
   }
   /* En captura: el botón pulsado es el que va a quedar activo, así que se trae
      sin esperar a que lo marque quien lleve esa navegación. Cubre la tira
