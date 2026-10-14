@@ -13567,7 +13567,7 @@ tbody tr:last-child td{border-bottom:0}
      paralela, ni un camino que sólo exista desde el teclado — si algo sólo se
      puede hacer con ⌘K, es una función escondida, no un atajo. */
   const cmdOv = $("cmdOv"), cmdQ = $("cmdQ"), cmdList = $("cmdList");
-  let cmdSel = 0, cmdVis = [];
+  let cmdSel = 0, cmdVis = [], cmdTodas = [];
 
   function cmdAcciones() {
     const ir = (tab, vista) => () => { showTab(tab); if (vista) setFtView(vista); };
@@ -13653,11 +13653,15 @@ tbody tr:last-child td{border-bottom:0}
     lee(() => coll("tesis").items).forEach(p => indexa("Tesis", "◎", p.title || p.name || p.asset || "Tesis",
       texto(p, ["market","status","thesis","notes","conclusion","url"]), p, "ideas"));
 
-    /* La búsqueda consulta el historial canónico, no sólo el texto pintado.
-       historyMerged conserva la misma ventana de sesiones que Cabina y combina
-       resultados con operaciones existentes sin crear registros duplicados. */
-    lee(() => historyMerged()).forEach(s => indexa("Sesiones", "◷", "Sesión · " + s.date,
-      texto(s, ["date","result","trades","broke","note","closed"]), s, "cabina"));
+    /* Todas las sesiones guardadas viven en state.dias; no limitar la búsqueda
+       a las 14 que se muestran en el panel de historial. El día en curso se añade
+       sólo si aún no está en la colección, para no duplicarlo. */
+    const sesiones = lee(() => state.dias).slice();
+    if (state.day && state.day.date && !sesiones.some(s => s.date === state.day.date)) sesiones.push(state.day);
+    sesiones.sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).forEach(s => {
+      if (s && s.date) indexa("Sesiones", "◷", "Sesión · " + s.date,
+        texto(s, ["date","result","trades","broke","note","closed"]), s, "cabina");
+    });
     return base.concat(cuentas, estudioAcciones(), datos);
   }
 
@@ -13665,7 +13669,7 @@ tbody tr:last-child td{border-bottom:0}
   const sinTildes = x => String(x).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   function cmdPinta() {
     const q = sinTildes(cmdQ.value.trim());
-    const todas = cmdAcciones();
+    const todas = cmdTodas;
     const tokens = q.split(/\s+/).filter(Boolean);
     cmdVis = q ? todas.filter(a => { const hay = sinTildes(a.t + " " + a.g + " " + (a.d || "") + " " + (a.s || "")); return tokens.every(token => hay.includes(token)); }) : todas.filter(a => !a.isData && a.g !== "Investigación");
     if (cmdSel >= cmdVis.length) cmdSel = Math.max(0, cmdVis.length - 1);
@@ -13682,7 +13686,9 @@ tbody tr:last-child td{border-bottom:0}
   }
   $("cmdOpenButton")?.addEventListener("click", cmdAbre);
   function cmdAbre() {
-    cmdQ.value = ""; cmdSel = 0; cmdPinta();
+    cmdQ.value = ""; cmdSel = 0;
+    cmdTodas = cmdAcciones();
+    cmdPinta();
     cmdOv.classList.add("open");
     cmdQ.focus();
   }
