@@ -51,7 +51,7 @@ console.log('\n══ entra una operación ══');
    así que después de registrar la operación hay que volver a CABINA antes de
    comparar el estado persistente. */
 await op(p, id, 20990);
-await p.click('.tabbtn[data-tab="cabina"]').catch(()=>{}); await p.waitForTimeout(800);
+await p.evaluate(() => document.querySelector('.tabbtn[data-tab="cabina"]')?.click()); await p.waitForTimeout(800);
 const despues = await estado(p);
 console.log('  ' + JSON.stringify(despues));
 
