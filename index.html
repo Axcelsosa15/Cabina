@@ -11515,14 +11515,15 @@
   function pctSignoDinero(x) { return x == null ? "—" : (x > 0 ? "+" : "") + money(x); }
 
   function costeDeTocar() {
-    const ventas = tradesOf("inversion").filter(t => t.op === "venta" && t.offPlan);
+    const ventas = tradesOf("inversion").filter(t => t.op === "venta" && t.offPlan && investmentInScope(t));
     if (!ventas.length) return null;
-    const pos = coll("positions").items;
+    const pos = coll("positions").items.filter(investmentInScope);
     let coste = 0, medibles = 0, sinPrecio = 0;
     const filas = [];
     ventas.forEach(t => {
       const activo = String(t.asset || "").trim().toUpperCase();
-      const ref = pos.find(x => String(x.asset || "").trim().toUpperCase() === activo && x.current != null);
+      const ref = pos.find(x => String(x.asset || "").trim().toUpperCase() === activo &&
+        String(x.accountId || "") === String(t.accountId || "") && x.current != null);
       const q = Number(t.qty) || 0, px = Number(t.price) || 0;
       if (!q || !px) return;
       const ingreso = q * px - (Number(t.fees) || 0);
