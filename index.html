@@ -13609,7 +13609,7 @@ tbody tr:last-child td{border-bottom:0}
       if (!titulo || !String(titulo).trim()) return;
       const id = objeto && objeto.id != null ? String(objeto.id) : "";
       const detalle = [contexto, JSON.stringify(objeto || {})].join(" ");
-      datos.push({ g: grupo, i: icono, t: String(titulo), s: String(contexto || "").slice(0, 42), d: detalle, f: () => {
+      datos.push({ g: grupo, i: icono, t: String(titulo), s: String(contexto || "").slice(0, 42), d: detalle, isData: true, f: () => {
         accion && accion();
         showTab(tab);
         requestAnimationFrame(() => {
@@ -13652,7 +13652,7 @@ tbody tr:last-child td{border-bottom:0}
       const contexto = String(node.innerText || "").replace(/\s+/g, " ").trim();
       if (!contexto) return;
       const titulo = contexto.split(" · ")[0].slice(0, 100) || ("Sesión " + (n + 1));
-      datos.push({ g: "Sesiones", i: "◷", t: titulo, s: contexto.slice(0, 42), d: contexto, f: () => {
+      datos.push({ g: "Sesiones", i: "◷", t: titulo, s: contexto.slice(0, 42), d: contexto, isData: true, f: () => {
         showTab("cabina"); requestAnimationFrame(() => {
           node.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
           node.classList.add("cmd-target-highlight"); setTimeout(() => node.classList.remove("cmd-target-highlight"), 1800);
@@ -13668,7 +13668,7 @@ tbody tr:last-child td{border-bottom:0}
     const q = sinTildes(cmdQ.value.trim());
     const todas = cmdAcciones();
     const tokens = q.split(/\s+/).filter(Boolean);
-    cmdVis = q ? todas.filter(a => { const hay = sinTildes(a.t + " " + a.g + " " + (a.d || "") + " " + (a.s || "")); return tokens.every(token => hay.includes(token)); }) : todas;
+    cmdVis = q ? todas.filter(a => { const hay = sinTildes(a.t + " " + a.g + " " + (a.d || "") + " " + (a.s || "")); return tokens.every(token => hay.includes(token)); }) : todas.filter(a => !a.isData && a.g !== "Investigación");
     if (cmdSel >= cmdVis.length) cmdSel = Math.max(0, cmdVis.length - 1);
     if (!cmdVis.length) { cmdList.innerHTML = `<p class="cmd-none">Nada que coincida con «${esc(cmdQ.value.trim())}».</p>`; return; }
     let html = "", grupo = null;
