@@ -43,22 +43,17 @@ const antes = await estado(p);
 console.log('  ' + JSON.stringify(antes));
 
 console.log('\n══ entra una operación ══');
-/* Registrar una operación obliga a pasar por la pestaña de Futuros. La pregunta
-   no es si el panel sigue visible mientras estás en otra pestaña —no lo está,
-   obviamente—, sino si al VOLVER sigue abierto y con los números frescos. Medir
-   `despues` desde otra pestaña comparaba «visible» contra «oculto» y fallaba
-   siempre: el test se estaba midiendo a sí mismo. `antes` se captura en CABINA,
-   así que después de registrar la operación hay que volver a CABINA antes de
-   comparar el estado persistente. */
+/* La calculadora pertenece a CALCULADORA, no a CABINA. Volver a CABINA y medir
+   offsetParent compara una vista visible con otra oculta; no demuestra que el
+   panel haya perdido su estado. Tras guardar la operación, volver a CALCULADORA. */
 await op(p, id, 20990);
-await p.evaluate(() => document.querySelector('.tabbtn[data-tab="cabina"]')?.click()); await p.waitForTimeout(800);
+await p.evaluate(() => document.querySelector('.tabbtn[data-tab="calc"]')?.click()); await p.waitForTimeout(800);
 const despues = await estado(p);
 console.log('  ' + JSON.stringify(despues));
 
-/* El foco no sobrevive a un cambio de pestaña, y no tiene por qué: lo que
-   importa es que un repintado disparado por datos nuevos NO te robe el cursor
-   mientras escribes. Eso se prueba sin navegar: se pone el foco en un campo, se
-   escribe, y se mete una operación por la capa de datos. */
+/* El foco no sobrevive a un cambio de pestaña, y no tiene por qué. Mantener
+   CALCULADORA activa es requisito de esta prueba: intentar enfocar rk_risk
+   dentro de una pestaña oculta sólo enfoca BODY y no prueba el repintado. */
 console.log('\n══ foco mientras escribes, sin cambiar de pestaña ══');
 await p.evaluate(() => { const i = document.getElementById('rk_risk'); if (i) { i.focus(); i.value = '123'; i.dispatchEvent(new Event('input', { bubbles: true })); } });
 await p.waitForTimeout(300);
