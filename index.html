@@ -13646,19 +13646,11 @@ tbody tr:last-child td{border-bottom:0}
     lee(() => coll("tesis").items).forEach(p => indexa("Tesis", "◎", p.title || p.name || p.asset || "Tesis",
       texto(p, ["market","status","thesis","notes","conclusion","url"]), p, "ideas"));
 
-    /* Las sesiones históricas ya renderizadas son registros existentes de Cabina.
-       Se indexan tal cual aparecen; no se reconstruye ni se inventa un resumen. */
-    [...document.querySelectorAll("#histWrap tr, #tiles [data-date], #tiles [data-session-id]")].forEach((node, n) => {
-      const contexto = String(node.innerText || "").replace(/\s+/g, " ").trim();
-      if (!contexto) return;
-      const titulo = contexto.split(" · ")[0].slice(0, 100) || ("Sesión " + (n + 1));
-      datos.push({ g: "Sesiones", i: "◷", t: titulo, s: contexto.slice(0, 42), d: contexto, isData: true, f: () => {
-        showTab("cabina"); requestAnimationFrame(() => {
-          node.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-          node.classList.add("cmd-target-highlight"); setTimeout(() => node.classList.remove("cmd-target-highlight"), 1800);
-        });
-      }});
-    });
+    /* La búsqueda consulta el historial canónico, no sólo el texto pintado.
+       historyMerged conserva la misma ventana de sesiones que Cabina y combina
+       resultados con operaciones existentes sin crear registros duplicados. */
+    lee(() => historyMerged()).forEach(s => indexa("Sesiones", "◷", "Sesión · " + s.date,
+      texto(s, ["date","result","trades","broke","note","closed"]), s, "cabina"));
     return base.concat(cuentas, estudioAcciones(), datos);
   }
 
