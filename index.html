@@ -13373,11 +13373,17 @@ tbody tr:last-child td{border-bottom:0}
        tarjetas completas; se conserva el control activo por ID y se restaura
        tras el layout, junto con la posición vertical previa. */
     const activo = document.activeElement;
+    /* selectionStart/End lanzan InvalidStateError en inputs number, date y otros
+       tipos no textuales. El foco debe preservarse aunque el campo sea numérico:
+       leer esos getters sin protección abortaba el fanout antes de restaurarlo. */
+    let start = null, end = null;
+    if (activo && /^(INPUT|TEXTAREA)$/.test(activo.tagName) &&
+        (activo.tagName === "TEXTAREA" || /^(text|search|url|tel|password)$/i.test(activo.type || "text"))) {
+      try { start = activo.selectionStart; end = activo.selectionEnd; } catch {}
+    }
     const foco = activo && activo !== document.body && activo.id &&
       /^(INPUT|TEXTAREA|SELECT)$/.test(activo.tagName)
-      ? { id: activo.id, value: activo.value,
-          start: typeof activo.selectionStart === "number" ? activo.selectionStart : null,
-          end: typeof activo.selectionEnd === "number" ? activo.selectionEnd : null }
+      ? { id: activo.id, value: activo.value, start, end }
       : null;
     const scrollY = window.scrollY;
     const rotos = [];
