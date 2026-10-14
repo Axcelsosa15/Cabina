@@ -1906,6 +1906,25 @@ tbody tr:last-child td{border-bottom:0}
 <div class="study-hero"><div><div class="study-kicker">Research · Synthesis · Recall</div><h1>Estudia con profundidad.<br><span style="color:#78d9ca">Decide con evidencia.</span></h1><p>Convierte fuentes, conceptos y preguntas en conocimiento útil. Registra hechos, desafía tus hipótesis y conserva conclusiones provisionales conectadas con tu trabajo de mercado.</p></div><div class="study-stat"><div class="study-stat-top"><span>BASE DE CONOCIMIENTO</span><span id="studyCompletion">0% revisado</span></div><div class="study-stat-num"><span id="studyTotal">0</span><span style="font-size:12px;color:var(--muted)"> documentos</span></div><div class="study-stat-top"><span id="studyActive">0 en curso</span><span id="studySources">0 fuentes</span></div><div class="study-progress"><span id="studyProgress"></span></div></div></div>
 <label class="study-searchrow" for="studySearch"><span class="study-searchicon">⌕</span><input id="studySearch" type="text" autocomplete="off" placeholder="Buscar conceptos, tesis, evidencia, preguntas o etiquetas…" aria-label="Buscar en la biblioteca de estudio"><span class="study-shortcut">⌘ K · búsqueda global</span></label>
 <div class="study-toolbar"><div class="study-filters" id="studyFilters" aria-label="Filtrar documentos"><button class="study-filter" data-study-filter="all" aria-pressed="true">Todo</button><button class="study-filter" data-study-filter="concept">Conceptos</button><button class="study-filter" data-study-filter="brief">Research briefs</button><button class="study-filter" data-study-filter="source">Fuentes</button><button class="study-filter" data-study-filter="flashcard">Flashcards</button><button class="study-filter" data-study-filter="todo">Por estudiar</button></div><div class="study-actions"><span id="studyResults" class="muted" style="font-size:10px">0 resultados</span><button type="button" class="btn ghost sm" id="studyExport">Exportar JSON</button><button type="button" class="btn primary sm" id="studyNew">＋ Nuevo documento</button></div></div>
+<div class="study-bottom" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);margin:12px 0 18px">
+<section class="study-panel"><h3>Tu journal · laboratorio de trades</h3><p class="study-note">Selecciona una operación real de FUTUROS para revisarla. Las métricas se leen del trade existente; esta herramienta no crea operaciones duplicadas.</p>
+<div class="study-field"><label for="studyTradeAccount">Cuenta</label><select id="studyTradeAccount"><option value="">Todas las cuentas</option></select></div>
+<div class="study-field" style="margin-top:9px"><label for="studyTradeSearch">Buscar operaciones</label><input id="studyTradeSearch" type="search" placeholder="Instrumento, dirección, fecha o ID…" autocomplete="off"></div>
+<div id="studyTradeList" style="display:grid;gap:7px;margin-top:12px" aria-live="polite"><p class="study-note">Cargando operaciones del journal…</p></div>
+</section>
+<section class="study-panel"><h3 id="studyTradeTitle">Selecciona una operación</h3>
+<p class="study-note" id="studyTradeMeta">Al seleccionar un trade aparecerán aquí sus datos y la revisión guardada.</p>
+<div id="studyTradeStats" class="study-tags" style="margin:12px 0"></div>
+<form id="studyTradeReviewForm" hidden>
+<input type="hidden" id="studyTradeReviewId"><input type="hidden" id="studyTradeId">
+<div class="study-field"><label for="studyTradePlan">Plan / tesis original</label><textarea id="studyTradePlan" maxlength="4000" placeholder="¿Qué esperabas que hiciera el precio y por qué?"></textarea></div>
+<div class="study-field" style="margin-top:9px"><label for="studyTradeExecution">Revisión de ejecución</label><textarea id="studyTradeExecution" maxlength="4000" placeholder="¿Seguiste el plan? Entrada, stop, salida y errores observables."></textarea></div>
+<div class="study-field" style="margin-top:9px"><label for="studyTradeLesson">Lección y siguiente acción</label><textarea id="studyTradeLesson" maxlength="3000" placeholder="¿Qué repetirás o cambiarás la próxima vez?"></textarea></div>
+<div class="study-field" style="margin-top:9px"><label for="studyTradeReviewStatus">Estado de revisión</label><select id="studyTradeReviewStatus"><option value="todo">Pendiente</option><option value="progressing">En revisión</option><option value="mastered">Revisado</option></select></div>
+<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary sm" type="submit">Guardar revisión</button></div>
+<p class="study-note" id="studyTradeSaveState" role="status"></p>
+</form>
+</section></div>
 <div class="study-grid" id="studyGrid" aria-live="polite"></div>
 <div class="study-bottom"><section class="study-panel"><h3>Protocolo de investigación</h3><div class="study-protocol"><div class="study-step"><i>01</i><span><b style="color:var(--text)">Pregunta.</b> Define qué necesitas descubrir antes de recopilar información.</span></div><div class="study-step"><i>02</i><span><b style="color:var(--text)">Evidencia.</b> Registra fuente, fecha, datos y limitaciones.</span></div><div class="study-step"><i>03</i><span><b style="color:var(--text)">Antítesis.</b> Busca qué invalidaría tu hipótesis.</span></div><div class="study-step"><i>04</i><span><b style="color:var(--text)">Síntesis.</b> Separa hechos, interpretación y especulación.</span></div></div></section>
 <section class="study-panel"><h3>Recuperación activa <span id="studyFlashPos" class="muted"></span></h3><div class="study-flash"><small>FLASHCARD</small><p id="studyFlashPrompt">Crea una flashcard para practicar la recuperación activa.</p><div id="studyFlashAnswer" class="study-flash-answer" hidden></div></div><div class="study-flash-actions"><button type="button" class="btn ghost sm" id="studyReveal">Revelar respuesta</button><button type="button" class="btn ghost sm" id="studyNext">Siguiente ↗</button></div><div class="study-note">Intenta responder antes de revelar. Los documentos se guardan en la misma cuenta y sistema de respaldo de Cabina.</div></section></div></section></div>
@@ -14493,21 +14512,21 @@ tbody tr:last-child td{border-bottom:0}
   setTimeout(() => { migrarSiHaceFalta().catch(e => { try { console.warn(e); } catch (x) { } }); }, 1200);
 
   /* ESTUDIO: utiliza la colección genérica existente para persistencia, sync y backups. */
-  const ESTUDIO_TIPOS={concept:"Concepto",brief:"Research brief",source:"Fuente",flashcard:"Flashcard"};
+  const ESTUDIO_TIPOS={concept:"Concepto",brief:"Research brief",source:"Fuente",flashcard:"Flashcard","trade-review":"Revisión de trade"};
   const ESTUDIO_ESTADOS={todo:"Por estudiar",progressing:"En curso",mastered:"Revisado"};
-  let estudioFiltro="all",estudioFlashIdx=0,estudioFlashRevelada=false;
+  let estudioFiltro="all",estudioFlashIdx=0,estudioFlashRevelada=false,estudioTradeSeleccionado="";
   const estudioNorm=x=>String(x||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();
   function estudioEsc(x){return esc(String(x==null?"":x));}
   function estudioLista(){return coll("research").items.slice().sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));}
   function estudioTexto(d){return[d.title,d.question,d.evidence,d.counter,d.conclusion,d.url,(d.tags||[]).join(" ")].join(" ");}
-  function estudioVisible(){const q=estudioNorm($("studySearch").value.trim());return estudioLista().filter(d=>{const ok=estudioFiltro==="all"||(estudioFiltro==="todo"?d.status==="todo":d.type===estudioFiltro);return ok&&(!q||estudioNorm(estudioTexto(d)).includes(q));});}
+  function estudioVisible(){const q=estudioNorm($("studySearch").value.trim());return estudioLista().filter(d=>{if(d.type==="trade-review")return false;const ok=estudioFiltro==="all"||(estudioFiltro==="todo"?d.status==="todo":d.type===estudioFiltro);return ok&&(!q||estudioNorm(estudioTexto(d)).includes(q));});}
   function estudioFecha(v){try{return new Intl.DateTimeFormat("es-US",{month:"short",day:"numeric",year:"numeric"}).format(new Date(Number(v)||v));}catch{return"Sin fecha";}}
   function renderEstudio(){
-    if(!$("studyGrid"))return;const docs=estudioVisible(),all=estudioLista(),done=all.length?Math.round(all.filter(d=>d.status==="mastered").length/all.length*100):0;
+    if(!$("studyGrid"))return;const docs=estudioVisible(),all=estudioLista().filter(d=>d.type!=="trade-review"),done=all.length?Math.round(all.filter(d=>d.status==="mastered").length/all.length*100):0;
     $("studyTotal").textContent=all.length;$("studyActive").textContent=all.filter(d=>d.status==="progressing").length+" en curso";$("studySources").textContent=all.filter(d=>d.url).length+" fuentes";$("studyCompletion").textContent=done+"% revisado";$("studyProgress").style.width=done+"%";$("studyResults").textContent=docs.length+" resultado"+(docs.length===1?"":"s");$("nResearch").textContent=all.length?String(all.length):"";
     const grid=$("studyGrid");if(!docs.length){grid.innerHTML='<div class="study-empty"><b>'+(all.length?"No hay coincidencias":"Tu biblioteca empieza con una buena pregunta")+'</b>'+(all.length?"Cambia el filtro o prueba otros términos.":"Crea un concepto, registra una fuente o formula una tesis que quieras investigar.")+'<div style="margin-top:13px"><button type="button" class="btn primary sm" id="studyEmptyNew">＋ Crear primer documento</button></div></div>';const b=$("studyEmptyNew");if(b)b.addEventListener("click",()=>estudioEditor());}
     else{grid.innerHTML=docs.map(d=>'<article class="study-card"><div class="study-card-head"><span class="study-kind">'+estudioEsc(ESTUDIO_TIPOS[d.type]||"Documento")+'</span><span class="study-state '+(d.status==="progressing"?"progressing":d.status==="mastered"?"mastered":"")+'">'+estudioEsc(ESTUDIO_ESTADOS[d.status]||"Por estudiar")+'</span></div><h3>'+estudioEsc(d.title)+'</h3><p>'+estudioEsc(d.question||d.conclusion||d.evidence||"Sin resumen todavía.")+'</p><div class="study-tags">'+(Array.isArray(d.tags)?d.tags.slice(0,5):[]).map(t=>'<span class="study-tag">'+estudioEsc(t)+'</span>').join("")+'</div><div class="study-card-foot"><span>'+estudioEsc(estudioFecha(d.updatedAt||d.createdAt))+(d.url?' · <a href="'+estudioEsc(d.url)+'" target="_blank" rel="noopener noreferrer">Abrir fuente ↗</a>':'')+'</span><button type="button" data-study-edit="'+estudioEsc(d.id)+'">Editar</button></div></article>').join("");grid.querySelectorAll("[data-study-edit]").forEach(b=>b.addEventListener("click",()=>estudioEditor(b.dataset.studyEdit)));}
-    renderEstudioFlash();
+    renderEstudioFlash();renderEstudioTrades();
   }
   function estudioEditor(id){const d=estudioLista().find(x=>x.id===id)||{};$("studyForm").reset();$("studyId").value=d.id||"";$("studyType").value=d.type||"concept";$("studyStatus").value=d.status||"todo";$("studyTitle").value=d.title||"";$("studyQuestion").value=d.question||"";$("studyTags").value=(d.tags||[]).join(", ");$("studyUrl").value=d.url||"";$("studyEvidence").value=d.evidence||"";$("studyCounter").value=d.counter||"";$("studyConclusion").value=d.conclusion||"";$("studyPrompt").value=d.prompt||"";$("studyAnswer").value=d.answer||"";$("studyModalTitle").textContent=id?"Editar documento":"Nuevo documento de estudio";$("studyDelete").hidden=!id;$("studyModal").classList.add("open");$("studyTitle").focus();}
   function estudioCerrar(){$("studyModal").classList.remove("open");}
@@ -14521,6 +14540,42 @@ tbody tr:last-child td{border-bottom:0}
   function renderEstudioFlash(){const fs=estudioFlashcards(),p=$("studyFlashPrompt"),a=$("studyFlashAnswer");if(!fs.length){$("studyFlashPos").textContent="";p.textContent="Crea una flashcard para practicar la recuperación activa.";a.hidden=true;a.textContent="";$("studyReveal").disabled=true;$("studyNext").disabled=true;return;}$("studyReveal").disabled=false;$("studyNext").disabled=fs.length<2;estudioFlashIdx%=fs.length;const d=fs[estudioFlashIdx];$("studyFlashPos").textContent=(estudioFlashIdx+1)+"/"+fs.length;p.textContent=d.prompt;a.textContent=d.answer;a.hidden=!estudioFlashRevelada;$("studyReveal").textContent=estudioFlashRevelada?"Ocultar respuesta":"Revelar respuesta";}
   $("studyReveal").addEventListener("click",()=>{estudioFlashRevelada=!estudioFlashRevelada;renderEstudioFlash();});$("studyNext").addEventListener("click",()=>{const fs=estudioFlashcards();if(fs.length){estudioFlashIdx=(estudioFlashIdx+1)%fs.length;estudioFlashRevelada=false;renderEstudioFlash();}});
   function estudioAcciones(){const out=[{g:"Ir a",i:"⌕",t:"Estudio · biblioteca de investigación",s:"⌘K",f:()=>showTab("estudio")}];estudioLista().forEach(d=>out.push({g:"Investigación",i:"↗",t:"Estudio · "+(d.title||"Documento"),s:ESTUDIO_TIPOS[d.type]||"Documento",f:()=>{showTab("estudio");$("studySearch").value=d.title||"";renderEstudio();}}));return out;}
+  /* ESTUDIO · revisión vinculada al journal existente. No copia ni altera el trade. */
+  const estudioTrades=()=>typeof FUT!=="undefined"&&FUT&&typeof FUT.trades==="function"?FUT.trades().slice():[];
+  const estudioDinero=v=>v==null||v===""||!Number.isFinite(Number(v))?"—":new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:2}).format(Number(v));
+  const estudioTradeFecha=t=>String(t.date||"Sin fecha");
+  function renderEstudioTrades(){
+    const list=$("studyTradeList"),account=$("studyTradeAccount");if(!list||!account)return;
+    const trades=estudioTrades().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+    const prev=account.value,ids=[...new Set(trades.map(t=>String(t.accountId||"")).filter(Boolean))];
+    const accts=typeof FUT!=="undefined"&&typeof FUT.accounts==="function"?FUT.accounts():[];
+    account.innerHTML='<option value="">Todas las cuentas</option>'+ids.map(id=>{const a=accts.find(x=>String(x.id)===id);return '<option value="'+estudioEsc(id)+'">'+estudioEsc(a&&(a.name||a.label)||id)+'</option>';}).join("");
+    if(ids.includes(prev))account.value=prev;
+    const q=estudioNorm(($("studyTradeSearch")||{}).value||"");
+    const filtered=trades.filter(t=>(!account.value||String(t.accountId||"")===account.value)&&(!q||estudioNorm([t.id,t.instrument,t.direction,t.date,t.accountId].join(" ")).includes(q)));
+    if(!filtered.length){list.innerHTML='<div class="study-empty"><b>'+(trades.length?"No hay operaciones con esos filtros":"Todavía no hay trades en FUTUROS")+'</b><p class="study-note">'+(trades.length?"Cambia la cuenta o la búsqueda.":"Registra una operación en FUTUROS y vuelve a ESTUDIO.")+'</p></div>';return;}
+    list.innerHTML=filtered.map(t=>'<button type="button" class="study-card" style="width:100%;text-align:left;cursor:pointer;border-color:'+(String(t.id)===estudioTradeSeleccionado?'#70e0cf':'')+'" data-study-trade="'+estudioEsc(t.id)+'"><div class="study-card-head"><span class="study-kind">'+estudioEsc(t.instrument||"Instrumento sin indicar")+'</span><span class="study-state">'+estudioEsc(t.direction||"Dirección no indicada")+'</span></div><h3 style="font-size:14px;margin:8px 0">'+estudioEsc(estudioTradeFecha(t))+'</h3><div class="study-card-foot"><span>'+estudioEsc(String(t.qty==null?"—":t.qty)+" contratos")+'</span><b>'+estudioEsc(estudioDinero(t.pnlEff))+'</b></div></button>').join("");
+    list.querySelectorAll("[data-study-trade]").forEach(b=>b.addEventListener("click",()=>{estudioTradeSeleccionado=b.dataset.studyTrade;renderEstudioTrades();estudioCargarReview(estudioTradeSeleccionado);}));
+    if(estudioTradeSeleccionado&&filtered.some(t=>String(t.id)===estudioTradeSeleccionado))estudioCargarReview(estudioTradeSeleccionado);
+    else if(!estudioTradeSeleccionado) {const chosen=filtered[0];estudioTradeSeleccionado=String(chosen.id);renderEstudioTrades();estudioCargarReview(estudioTradeSeleccionado);}
+  }
+  function estudioCargarReview(tradeId){
+    const t=estudioTrades().find(x=>String(x.id)===String(tradeId));if(!t)return;
+    const docs=estudioLista().filter(d=>d.type==="trade-review"&&String(d.tradeId)===String(tradeId)).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+    const d=docs[0]||{}; $("studyTradeTitle").textContent=(t.instrument||"Trade")+" · "+estudioTradeFecha(t);
+    $("studyTradeMeta").textContent=[t.direction||"Dirección sin dato","P&L "+estudioDinero(t.pnlEff),"R "+(t.rReal==null?"—":Number.isFinite(Number(t.rReal))?Number(t.rReal).toFixed(2):"—")].join(" · ");
+    $("studyTradeStats").innerHTML=[["Entrada",t.entry],["Stop",t.stop],["Salida",t.exit],["Cantidad",t.qty]].map(([k,v])=>'<span class="study-tag">'+estudioEsc(k)+": "+estudioEsc(v==null||v===""?"—":v)+'</span>').join("");
+    $("studyTradeReviewForm").hidden=false;$("studyTradeId").value=String(t.id);$("studyTradeReviewId").value=d.id||"";
+    $("studyTradePlan").value=d.question||"";$("studyTradeExecution").value=d.evidence||"";$("studyTradeLesson").value=d.conclusion||"";$("studyTradeReviewStatus").value=d.status||"todo";$("studyTradeSaveState").textContent=d.updatedAt?"Última revisión guardada: "+estudioFecha(d.updatedAt):"Todavía no hay una revisión guardada.";
+  }
+  $("studyTradeAccount").addEventListener("change",renderEstudioTrades);
+  $("studyTradeSearch").addEventListener("input",renderEstudioTrades);
+  $("studyTradeReviewForm").addEventListener("submit",async e=>{
+    e.preventDefault();const tradeId=$("studyTradeId").value,t=estudioTrades().find(x=>String(x.id)===String(tradeId));if(!t)return;
+    const id=$("studyTradeReviewId").value||uid("trade-review"),old=coll("research").get(id),now=Date.now();
+    const d={...(old||{}),id,type:"trade-review",tradeId:String(t.id),title:"Revisión: "+(t.instrument||"trade")+" · "+estudioTradeFecha(t),status:$("studyTradeReviewStatus").value,question:$("studyTradePlan").value.trim(),evidence:$("studyTradeExecution").value.trim(),conclusion:$("studyTradeLesson").value.trim(),tags:["trade-review",String(t.instrument||"").toUpperCase()].filter(Boolean),createdAt:old&&old.createdAt||now,updatedAt:now};
+    await coll("research").set(id,d);$("studyTradeReviewId").value=id;$("studyTradeSaveState").textContent="Revisión guardada.";renderEstudio();estudioCargarReview(String(t.id));
+  });
   coll("research").subscribe(()=>renderEstudio());document.addEventListener("keydown",e=>{if(e.key==="Escape")estudioCerrar();});renderEstudio();
 
 })();
