@@ -13651,7 +13651,7 @@ tbody tr:last-child td{border-bottom:0}
     /* Las sesiones históricas ya renderizadas son registros existentes de Cabina.
        Se indexan tal cual aparecen; no se reconstruye ni se inventa un resumen. */
     [...document.querySelectorAll("#histWrap tr, #tiles [data-date], #tiles [data-session-id]")].forEach((node, n) => {
-      const contexto = String(node.innerText || "").replace(/\\s+/g, " ").trim();
+      const contexto = String(node.innerText || "").replace(/\s+/g, " ").trim();
       if (!contexto) return;
       const titulo = contexto.split(" · ")[0].slice(0, 100) || ("Sesión " + (n + 1));
       datos.push({ g: "Sesiones", i: "◷", t: titulo, s: contexto.slice(0, 42), d: contexto, f: () => {
@@ -13669,7 +13669,8 @@ tbody tr:last-child td{border-bottom:0}
   function cmdPinta() {
     const q = sinTildes(cmdQ.value.trim());
     const todas = cmdAcciones();
-    const tokens = q.split(/\\s+/).filter(Boolean);\n    cmdVis = q ? todas.filter(a => { const hay = sinTildes(a.t + " " + a.g + " " + (a.d || "") + " " + (a.s || "")); return tokens.every(token => hay.includes(token)); }) : todas;
+    const tokens = q.split(/\s+/).filter(Boolean);
+    cmdVis = q ? todas.filter(a => { const hay = sinTildes(a.t + " " + a.g + " " + (a.d || "") + " " + (a.s || "")); return tokens.every(token => hay.includes(token)); }) : todas;
     if (cmdSel >= cmdVis.length) cmdSel = Math.max(0, cmdVis.length - 1);
     if (!cmdVis.length) { cmdList.innerHTML = `<p class="cmd-none">Nada que coincida con «${esc(cmdQ.value.trim())}».</p>`; return; }
     let html = "", grupo = null;
