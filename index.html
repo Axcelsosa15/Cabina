@@ -53,6 +53,30 @@
 </style>
 </head>
 <body>
+<style id="cabina-chart-label-contrast">
+/* CABINA: explicit chart label contrast, independent of external stylesheets. */
+svg.chart text,
+svg.chart text tspan,
+svg.chart tspan,
+.chart text,
+.chart text tspan {
+  fill: #c8d5df !important;
+  color: #c8d5df !important;
+  -webkit-text-fill-color: #c8d5df !important;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1, "zero" 0;
+}
+svg.chart .bar.pos, .chart .bar.pos { fill: #5bc489 !important; }
+svg.chart .bar.neg, .chart .bar.neg { fill: #e0604f !important; }
+svg.chart .bar.neu, .chart .bar.neu { fill: #8194a3 !important; }
+svg.chart .s1, .chart .s1 { stroke: #70e0cf !important; }
+svg.chart .s2, .chart .s2 { stroke: #91a4b3 !important; }
+svg.chart .s3, .chart .s3 { stroke: #78a9ff !important; }
+svg.chart .end, svg.chart .hp, .chart .end, .chart .hp { fill: #70e0cf !important; }
+svg.chart .hp2, .chart .hp2 { fill: #91a4b3 !important; }
+svg.chart .dd, svg.chart .uw, .chart .dd, .chart .uw { fill: #e0604f !important; }
+</style>
+
 <style>
   /* ═══════════════════ SISTEMA DE DISEÑO DE CABINA ═══════════════════
      Una sola fuente para superficie, línea, texto, color semántico, espacio,
