@@ -50,5 +50,19 @@ await p.keyboard.press('Control+k'); await p.waitForTimeout(250);
 await p.keyboard.type('50K'); await p.waitForTimeout(250);
 await p.keyboard.press('Enter'); await p.waitForTimeout(500);
 ok(await p.evaluate(()=>FUT.selectedAccountId()==='prop50'), 'selecciona cuenta por la puerta de FUT', await p.evaluate(()=>FUT.selectedAccountId()));
+
+/* La paleta también busca datos reales, no sólo acciones y pestañas. */
+FUT.createTrade({id:'global-search-probe',type:'futuros',accountId:FUT.selectedAccountId()||'a1',
+  instrument:'MNQ',direction:'long',qty:1,date:'2026-09-18',time:'10:25',
+  entry:21000,stop:20990,exit:21010,notes:'global-search-probe-unique'});
+await p.waitForTimeout(250);
+await p.keyboard.press('Control+k'); await p.waitForTimeout(200);
+await p.fill('#cmdQ','global-search-probe-unique'); await p.waitForTimeout(250);
+ok(await p.evaluate(()=>[...document.querySelectorAll('.cmd-it .ct')].some(n=>n.textContent.includes('MNQ')),
+  'la búsqueda global encuentra una operación por texto de sus datos');
+await p.keyboard.press('Enter'); await p.waitForTimeout(350);
+ok(await p.evaluate(()=>document.querySelector('.tab.active')?.dataset.tab==='futuros'),
+  'abrir un resultado global navega a la pestaña de la operación');
+
 console.log('\n  errores JS:', errs.length, errs.join(' | '));
 await b.close(); process.exit(errs.length?1:0);

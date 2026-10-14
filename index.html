@@ -50,6 +50,7 @@
 .cmd{border:1px solid #3b515f!important;background:linear-gradient(145deg,#111c26,#0b1118)!important;box-shadow:0 28px 100px #000a,0 0 0 1px #70e0cf0a!important}.cmd-in{background:linear-gradient(100deg,#14212a,#0d151d)!important;border-bottom:1px solid #293c48!important}.cmd-in:focus-within{box-shadow:inset 0 -1px #70e0cf55}.cmd-in input{font-size:15px!important}.cmd-it[aria-selected="true"]{background:#18302e!important;box-shadow:inset 2px 0 #70e0cf}.cmd-it[aria-selected="true"] .ct{color:#e4fff9}.cmd-grp{color:#79cfc2!important;letter-spacing:.13em!important}
 @media(max-width:850px){.study-hero{grid-template-columns:1fr}.study-bottom{grid-template-columns:1fr}}@media(max-width:600px){.study-grid{grid-template-columns:1fr}.study-protocol{grid-template-columns:1fr}.study-fields{grid-template-columns:1fr}.study-field.full{grid-column:auto}.study-hero{padding-top:14px}.study-toolbar{align-items:flex-start}.study-shortcut{display:none}.study-dialog-head,.study-dialog-body,.study-dialog-foot{padding-left:13px;padding-right:13px}}@media(prefers-reduced-motion:reduce){.study-card,.study-progress,.study-searchrow{transition:none!important}
 }
+
 </style>
 </head>
 <body>
@@ -215,8 +216,9 @@ tbody tr:last-child td{border-bottom:0}
        La jerarquía guía el ojo; si todo pesa igual, nada pesa. Los números
        financieros van SIEMPRE en tabular: una columna de cifras que baila
        al actualizarse se lee peor y se compara mal. */
-    --font-ui:   -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, "Segoe UI", "Archivo", "Helvetica Neue", Arial, sans-serif;
-    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "IBM Plex Mono", Consolas, monospace;
+    --font-display: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
     --t-display: 34px;   /* el balance: un número por pantalla */
     --t-primary: 21px;   /* la métrica de una sección */
     --t-body:    13.5px; /* el texto que se lee */
@@ -380,9 +382,9 @@ tbody tr:last-child td{border-bottom:0}
   .qeg { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px; }
   .qec { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); padding:12px 12px; min-width: 0; }
   .qec .qk { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: block; }
-  .qec .qv { font: 600 21px/1.15 "IBM Plex Mono", monospace; margin-top:3px; word-break: break-word; }
+  .qec .qv { font: 600 21px/1.15 var(--font-mono); margin-top:3px; word-break: break-word; }
   .qec .qs { font-size: 12.5px; color: var(--dim); margin-top:4px; line-height: 1.45; }
-  .qec .qci { font: 500 12px/1.4 "IBM Plex Mono", monospace; color: var(--muted); margin-top:3px; }
+  .qec .qci { font: 500 12px/1.4 var(--font-mono); color: var(--muted); margin-top:3px; }
   .qflag { display: inline-flex; align-items: center; gap:4px; font-size: 11px; font-weight: 700; letter-spacing: .05em;
            text-transform: uppercase; padding:2px 8px; border-radius: var(--r-sm); border: 1px solid currentColor; }
   .qflag.ok { color: var(--good); } .qflag.no { color: var(--warn); } .qflag.bad { color: var(--bad); }
@@ -391,8 +393,8 @@ tbody tr:last-child td{border-bottom:0}
   .qnote.warn { border-color: var(--warn); color: var(--text); }
   .qnote.bad { border-color: var(--bad); color: var(--text); }
   .qnote b { color: var(--text); font-weight: 600; }
-  .qsweep { width: 100%; border-collapse: collapse; margin-top:12px; font: 500 13px/1.4 "IBM Plex Mono", monospace; }
-  .qsweep th { text-align: right; font: 600 11px/1 "Archivo", sans-serif; letter-spacing: .06em; text-transform: uppercase;
+  .qsweep { width: 100%; border-collapse: collapse; margin-top:12px; font: 500 13px/1.4 var(--font-mono); }
+  .qsweep th { text-align: right; font: 600 11px/1 var(--font-ui); letter-spacing: .06em; text-transform: uppercase;
                color: var(--muted); padding: 0 8px 8px; border-bottom: 1px solid var(--line); }
   .qsweep th:first-child, .qsweep td:first-child { text-align: left; }
   .qsweep td { text-align: right; padding:8px 8px; border-bottom: 1px solid var(--line); }
@@ -413,7 +415,7 @@ tbody tr:last-child td{border-bottom:0}
   .peorm { display: flex; align-items: baseline; gap:8px; flex-wrap: wrap; margin-top:12px; padding-top:12px;
            border-top: 1px dashed var(--line); font-size: 12.5px; color: var(--dim); }
   .peorm .pk { text-transform: uppercase; letter-spacing: .05em; font-size: 11px; }
-  .peorm b { font: 600 16px/1 "IBM Plex Mono", monospace; color: var(--muted); }
+  .peorm b { font: 600 16px/1 var(--font-mono); color: var(--muted); }
   .peorm.warn b { color: var(--warn); } .peorm.bad b { color: var(--bad); }
   .peorm .pd { margin-left: auto; }
   /* avisos del motor dentro del editor: informan, no bloquean */
@@ -430,10 +432,10 @@ tbody tr:last-child td{border-bottom:0}
   .eav.venta b { color: var(--accent); }
   .tocar { margin-top:12px; border: 1px solid var(--line); border-radius: var(--r-sm); padding:12px 16px; }
   .tocar .th { display: flex; align-items: baseline; justify-content: space-between; gap:12px; flex-wrap: wrap; }
-  .tocar .th h4 { margin: 0; font: 700 12px/1 "Archivo", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-  .tocar .big { font: 600 24px/1.1 "IBM Plex Mono", monospace; margin:8px 0 2px; }
+  .tocar .th h4 { margin: 0; font: 700 12px/1 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .tocar .big { font: 600 24px/1.1 var(--font-mono); margin:8px 0 2px; }
   .tocar p { margin:8px 0 0; font-size: 12.5px; color: var(--dim); line-height: 1.5; }
-  .qhead h3 { font: 700 13px/1 "Archivo", sans-serif; letter-spacing: .07em; text-transform: uppercase; color: var(--text); margin: 0; }
+  .qhead h3 { font: 700 13px/1 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; color: var(--text); margin: 0; }
   .qhead .qsub { font-size: 12.5px; color: var(--dim); }
   @media (max-width: 560px) { .qeg { grid-template-columns: 1fr 1fr; } .qec .qv { font-size: 18px; } }
   .tile .v { font-family: var(--font-mono); font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top:2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1869,6 +1871,7 @@ tbody tr:last-child td{border-bottom:0}
          una ACCION, y una accion es un <button>: trae Enter, espacio, foco y
          semantica sin inventar nada. -->
     <button type="button" class="editbtn conflbtn" id="resolveConflict" hidden>Resolver conflicto</button>
+    <button type="button" class="editbtn" id="cmdOpenButton" aria-haspopup="dialog" aria-controls="cmdOv" title="Búsqueda global (⌘K / Ctrl+K)">Buscar <kbd>⌘K</kbd></button>
     <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)">+ Rápido</button>
     <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
     <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
@@ -2648,6 +2651,7 @@ tbody tr:last-child td{border-bottom:0}
 <div class="tip" id="tip"></div>
 <div class="lightbox" id="lightbox" role="dialog" aria-label="Imagen"><img alt=""></div>
 
+
 <script>
 (function () {
   "use strict";
@@ -2663,7 +2667,7 @@ tbody tr:last-child td{border-bottom:0}
     if (document.getElementById("fuentesGoogle")) return;
     const l = document.createElement("link");
     l.id = "fuentesGoogle"; l.rel = "stylesheet";
-    l.href = "https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap";
+    l.href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap";
     document.head.appendChild(l);
   }
   if (document.readyState === "complete") cargaFuentes(); else window.addEventListener("load", cargaFuentes, { once: true });
@@ -13372,11 +13376,17 @@ tbody tr:last-child td{border-bottom:0}
        tarjetas completas; se conserva el control activo por ID y se restaura
        tras el layout, junto con la posición vertical previa. */
     const activo = document.activeElement;
+    /* selectionStart/End lanzan InvalidStateError en inputs number, date y otros
+       tipos no textuales. El foco debe preservarse aunque el campo sea numérico:
+       leer esos getters sin protección abortaba el fanout antes de restaurarlo. */
+    let start = null, end = null;
+    if (activo && /^(INPUT|TEXTAREA)$/.test(activo.tagName) &&
+        (activo.tagName === "TEXTAREA" || /^(text|search|url|tel|password)$/i.test(activo.type || "text"))) {
+      try { start = activo.selectionStart; end = activo.selectionEnd; } catch {}
+    }
     const foco = activo && activo !== document.body && activo.id &&
       /^(INPUT|TEXTAREA|SELECT)$/.test(activo.tagName)
-      ? { id: activo.id, value: activo.value,
-          start: typeof activo.selectionStart === "number" ? activo.selectionStart : null,
-          end: typeof activo.selectionEnd === "number" ? activo.selectionEnd : null }
+      ? { id: activo.id, value: activo.value, start, end }
       : null;
     const scrollY = window.scrollY;
     const rotos = [];
@@ -13557,7 +13567,7 @@ tbody tr:last-child td{border-bottom:0}
      paralela, ni un camino que sólo exista desde el teclado — si algo sólo se
      puede hacer con ⌘K, es una función escondida, no un atajo. */
   const cmdOv = $("cmdOv"), cmdQ = $("cmdQ"), cmdList = $("cmdList");
-  let cmdSel = 0, cmdVis = [];
+  let cmdSel = 0, cmdVis = [], cmdTodas = [];
 
   function cmdAcciones() {
     const ir = (tab, vista) => () => { showTab(tab); if (vista) setFtView(vista); };
@@ -13577,6 +13587,7 @@ tbody tr:last-child td{border-bottom:0}
       { g: "Ir a", i: "◫", t: "Inversiones", s: "", f: ir("invest") },
       { g: "Ir a", i: "◱", t: "Playbook", s: "", f: ir("playbook") },
       { g: "Ir a", i: "◰", t: "Formas de hacer dinero", s: "", f: ir("ideas") },
+      
       { g: "Ir a", i: "▦", t: "Calculadora de riesgo", s: "R", f: ir("calc") },
     ];
     /* Las cuentas se listan solas: son el filtro que más se cambia, y con tres
@@ -13589,15 +13600,78 @@ tbody tr:last-child td{border-bottom:0}
       f: () => { FUT.setSelectedAccount(a.id); showTab("cabina"); },
     }));
     if (FUT.selectedAccountId()) cuentas.push({ g: "Cuenta de trabajo", i: "○", t: "Todas las cuentas", s: "", f: () => { FUT.setSelectedAccount(""); showTab("cabina"); } });
-    return base.concat(cuentas, estudioAcciones());
+
+    /* Búsqueda de datos reales: sólo lectura sobre las colecciones canónicas.
+       No se crean copias ni se recalculan métricas financieras aquí. */
+    const datos = [];
+    const texto = (o, ks) => ks.map(k => o && o[k] != null ? (Array.isArray(o[k]) ? o[k].join(" ") : String(o[k])) : "").filter(Boolean).join(" · ");
+    const indexa = (grupo, icono, titulo, contexto, objeto, tab, accion) => {
+      if (!titulo || !String(titulo).trim()) return;
+      const id = objeto && objeto.id != null ? String(objeto.id) : "";
+      /* No serializar el objeto completo: puede contener capturas/base64 y volver
+         cada pulsación de búsqueda innecesariamente costosa. Sólo indexamos campos
+         textuales relevantes para localizar el registro. */
+      const campos = ["id","title","name","symbol","asset","ticker","instrument","date","time","direction","side","setup","session","notes","tags","thesis","status","url","market","accountId","firm","quantity","qty","entry","exit","result","pnlEff","rReal","question","evidence","counter","conclusion"];
+      const detalle = [contexto, campos.map(k => objeto && objeto[k] != null ? (Array.isArray(objeto[k]) ? objeto[k].join(" ") : String(objeto[k])) : "").join(" "), objeto && objeto.rules ? JSON.stringify(objeto.rules) : ""].join(" ");
+      datos.push({ g: grupo, i: icono, t: String(titulo), s: String(contexto || "").slice(0, 42), d: detalle, isData: true, f: () => {
+        accion && accion();
+        showTab(tab);
+        requestAnimationFrame(() => {
+          if (grupo === "Research" && $("studySearch")) {
+            $("studySearch").value = String(titulo);
+            $("studySearch").dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          const nodes = [...document.querySelectorAll("[data-id], [data-trade-id], .acct, tr")];
+          const target = nodes.find(n => id && (n.dataset.id === id || n.dataset.tradeId === id) && n.offsetParent !== null)
+            || nodes.find(n => n.offsetParent !== null && String(n.innerText || "").toLowerCase().includes(String(titulo).toLowerCase()))
+            || (grupo === "Sesiones" && objeto && objeto.date
+              ? [...document.querySelectorAll("#histWrap tr")].find(n => n.offsetParent !== null && String(n.innerText || "").includes(String(objeto.date)))
+              : null);
+          if (target) {
+            target.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+            target.classList.add("cmd-target-highlight");
+            setTimeout(() => target.classList.remove("cmd-target-highlight"), 1800);
+          }
+        });
+      }});
+    };
+    const lee = fn => { try { const v = fn(); return Array.isArray(v) ? v : []; } catch { return []; } };
+    lee(() => coll("trades").items).forEach(t => {
+      const tab = t.type === "inversion" ? "invest" : "futuros";
+      indexa("Operaciones", "↗", t.instrument || t.symbol || "Operación",
+        texto(t, ["date","time","direction","side","qty","entry","exit","pnlEff","rReal"]), t, tab);
+    });
+    lee(() => FUT.accounts()).forEach(a => indexa("Cuentas", "◉", a.name || a.firm || "Cuenta",
+      texto(a, ["firm","kind","status","size","id"]), a, "cabina",
+      () => { try { FUT.setSelectedAccount(a.id); } catch {} }));
+    lee(() => coll("positions").items).forEach(p => indexa("Posiciones", "◫", p.asset || p.symbol || p.ticker || "Posición",
+      texto(p, ["market","accountId","quantity","qty","shares","cost","currentPrice"]), p, "invest"));
+    lee(() => coll("playbooks").items).forEach(p => indexa("Playbook", "▱", p.title || p.name || p.setup || "Playbook",
+      texto(p, ["instrument","market","timeframe","session","status","notes","rules"]), p, "playbook"));
+    lee(() => coll("ideas").items).forEach(p => indexa("Ideas", "◇", p.title || p.name || p.asset || "Idea",
+      texto(p, ["category","market","status","notes","thesis","url"]), p, "ideas"));
+    lee(() => coll("tesis").items).forEach(p => indexa("Tesis", "◎", p.title || p.name || p.asset || "Tesis",
+      texto(p, ["market","status","thesis","notes","conclusion","url"]), p, "ideas"));
+
+    /* Todas las sesiones guardadas viven en state.dias; no limitar la búsqueda
+       a las 14 que se muestran en el panel de historial. El día en curso se añade
+       sólo si aún no está en la colección, para no duplicarlo. */
+    const sesiones = lee(() => state.dias).slice();
+    if (state.day && state.day.date && !sesiones.some(s => s.date === state.day.date)) sesiones.push(state.day);
+    sesiones.sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).forEach(s => {
+      if (s && s.date) indexa("Sesiones", "◷", "Sesión · " + s.date,
+        texto(s, ["date","result","trades","broke","note","closed"]), s, "cabina");
+    });
+    return base.concat(cuentas, estudioAcciones(), datos);
   }
 
   // Coincidencia por subcadena sin acentos: «analisis» encuentra «análisis».
   const sinTildes = x => String(x).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   function cmdPinta() {
     const q = sinTildes(cmdQ.value.trim());
-    const todas = cmdAcciones();
-    cmdVis = q ? todas.filter(a => sinTildes(a.t + " " + a.g).includes(q)) : todas;
+    const todas = cmdTodas;
+    const tokens = q.split(/\s+/).filter(Boolean);
+    cmdVis = q ? todas.filter(a => { const hay = sinTildes(a.t + " " + a.g + " " + (a.d || "") + " " + (a.s || "")); return tokens.every(token => hay.includes(token)); }) : todas.filter(a => !a.isData && a.g !== "Investigación");
     if (cmdSel >= cmdVis.length) cmdSel = Math.max(0, cmdVis.length - 1);
     if (!cmdVis.length) { cmdList.innerHTML = `<p class="cmd-none">Nada que coincida con «${esc(cmdQ.value.trim())}».</p>`; return; }
     let html = "", grupo = null;
@@ -13610,8 +13684,11 @@ tbody tr:last-child td{border-bottom:0}
     const act = cmdList.querySelector('[aria-selected="true"]');
     if (act) act.scrollIntoView({ block: "nearest" });
   }
+  $("cmdOpenButton")?.addEventListener("click", cmdAbre);
   function cmdAbre() {
-    cmdQ.value = ""; cmdSel = 0; cmdPinta();
+    cmdQ.value = ""; cmdSel = 0;
+    cmdTodas = cmdAcciones();
+    cmdPinta();
     cmdOv.classList.add("open");
     cmdQ.focus();
   }
@@ -13621,7 +13698,8 @@ tbody tr:last-child td{border-bottom:0}
     cmdCierra();
     try { a.f(); } catch (e) { try { console.error("acción «" + a.t + "» falló:", e); } catch (x) { } flash("Esa acción no se pudo abrir."); }
   }
-  cmdQ.addEventListener("input", () => { cmdSel = 0; cmdPinta(); });
+  let cmdTimer = 0;
+  cmdQ.addEventListener("input", () => { cmdSel = 0; clearTimeout(cmdTimer); cmdTimer = setTimeout(cmdPinta, 75); });
   cmdList.addEventListener("click", e => { const b = e.target.closest(".cmd-it"); if (b) cmdEjecuta(Number(b.dataset.k)); });
   cmdList.addEventListener("mousemove", e => {
     const b = e.target.closest(".cmd-it"); if (!b) return;
@@ -14599,7 +14677,7 @@ tbody tr:last-child td{border-bottom:0}
   function estudioFlashcards(){return estudioLista().filter(d=>(d.type==="flashcard"||d.prompt)&&d.prompt&&d.answer);}
   function renderEstudioFlash(){const fs=estudioFlashcards(),p=$("studyFlashPrompt"),a=$("studyFlashAnswer");if(!fs.length){$("studyFlashPos").textContent="";p.textContent="Crea una flashcard para practicar la recuperación activa.";a.hidden=true;a.textContent="";$("studyReveal").disabled=true;$("studyNext").disabled=true;return;}$("studyReveal").disabled=false;$("studyNext").disabled=fs.length<2;estudioFlashIdx%=fs.length;const d=fs[estudioFlashIdx];$("studyFlashPos").textContent=(estudioFlashIdx+1)+"/"+fs.length;p.textContent=d.prompt;a.textContent=d.answer;a.hidden=!estudioFlashRevelada;$("studyReveal").textContent=estudioFlashRevelada?"Ocultar respuesta":"Revelar respuesta";}
   $("studyReveal").addEventListener("click",()=>{estudioFlashRevelada=!estudioFlashRevelada;renderEstudioFlash();});$("studyNext").addEventListener("click",()=>{const fs=estudioFlashcards();if(fs.length){estudioFlashIdx=(estudioFlashIdx+1)%fs.length;estudioFlashRevelada=false;renderEstudioFlash();}});
-  function estudioAcciones(){const out=[{g:"Ir a",i:"⌕",t:"Estudio · biblioteca de investigación",s:"⌘K",f:()=>showTab("estudio")}];estudioLista().filter(d=>d.type!=="trade-review").forEach(d=>out.push({g:"Investigación",i:"↗",t:"Estudio · "+(d.title||"Documento"),s:ESTUDIO_TIPOS[d.type]||"Documento",f:()=>{showTab("estudio");$("studySearch").value=d.title||"";renderEstudio();}}));return out;}
+  function estudioAcciones(){const out=[{g:"Ir a",i:"⌕",t:"Estudio · biblioteca de investigación",s:"⌘K",d:"investigación notas fuentes tesis conceptos revisión",f:()=>showTab("estudio")}];estudioLista().filter(d=>d.type!=="trade-review").forEach(d=>out.push({g:"Investigación",i:"↗",t:"Estudio · "+(d.title||"Documento"),s:ESTUDIO_TIPOS[d.type]||"Documento",d:[d.type,d.status,d.url,d.question,d.evidence,d.counter,d.conclusion,(d.tags||[]).join(" ")].join(" "),f:()=>{showTab("estudio");$("studySearch").value=d.title||"";renderEstudio();}}));return out;}
   /* ESTUDIO · revisión vinculada al journal existente. No copia ni altera el trade. */
   const estudioTrades=()=>typeof FUT!=="undefined"&&FUT&&typeof FUT.trades==="function"?FUT.trades().slice():[];
   const estudioDinero=v=>v==null||v===""||!Number.isFinite(Number(v))?"—":new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:2}).format(Number(v));
@@ -14692,6 +14770,8 @@ tbody tr:last-child td{border-bottom:0}
     }finally{if(button)button.disabled=false;}
   });
   coll("research").subscribe(()=>renderEstudio());document.addEventListener("keydown",e=>{if(e.key==="Escape")estudioCerrar();});renderEstudio();
+
+
 
 })();
 </script>
@@ -14915,6 +14995,504 @@ a:hover{color:#a4f2e6}
   .study-grid, .study-bottom { animation:none!important; }
   #tabnav .tabbtn::after { transition:none!important; }
   .tile:hover { transform:none; }
+}
+
+/* INTEGRATED CABINA REFINEMENT LAYER · was previously an unreferenced stylesheet */
+/* CABINA · ESTUDIO refinement layer
+   Visual-only enhancement. No trading logic, storage, calculations, or risk rules. */
+
+:root {
+  color-scheme: dark;
+  --cab-bg: #090d12;
+  --cab-surface: #101720;
+  --cab-surface-2: #141e28;
+  --cab-surface-3: #192530;
+  --cab-line: #283744;
+  --cab-line-strong: #3a4c59;
+  --cab-text: #edf4f8;
+  --cab-muted: #8fa1af;
+  --cab-subtle: #687b8b;
+  --cab-accent: #70e0cf;
+  --cab-accent-strong: #4db8a7;
+  --cab-danger: #f07878;
+  --cab-warning: #e7bd72;
+  --cab-radius-sm: 7px;
+  --cab-radius: 11px;
+  --cab-radius-lg: 15px;
+  --cab-shadow: 0 14px 36px rgba(0,0,0,.17);
+  --cab-focus: 0 0 0 3px rgba(112,224,207,.16);
+}
+
+/* Overall rhythm and rendering */
+html { background: var(--cab-bg); scroll-padding-top: 24px; }
+body {
+  color: var(--cab-text);
+  font-feature-settings: "ss01" on, "cv11" on;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: rgba(112,224,207,.25); color: #fff; }
+:where(button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--cab-accent) !important;
+  outline-offset: 3px !important;
+}
+:where(button, input, select, textarea) { font: inherit; }
+:where(button) { -webkit-tap-highlight-color: transparent; }
+:where(a) { text-underline-offset: 3px; }
+
+/* Navigation: clearer active state, improved scanning and touch targets */
+#tabnav {
+  gap: 5px;
+  scrollbar-width: thin;
+  scrollbar-color: #344652 transparent;
+}
+#tabnav .tabbtn {
+  min-height: 38px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: #91a2af;
+  letter-spacing: .035em;
+  transition: color .16s ease, background .16s ease, border-color .16s ease, transform .16s ease;
+}
+#tabnav .tabbtn:hover {
+  color: #e4f1f5;
+  background: #141f28;
+  border-color: #293b47;
+}
+#tabnav .tabbtn.active {
+  color: #dcfff8;
+  background: linear-gradient(130deg, rgba(33,75,69,.62), rgba(21,36,45,.92));
+  border-color: #355c58;
+  box-shadow: inset 0 1px rgba(255,255,255,.035), 0 4px 14px rgba(0,0,0,.13);
+}
+#tabnav .tabbtn.active::after { opacity: .95; }
+#tabnav .tabbtn:active { transform: translateY(1px); }
+
+/* Content sections and hierarchy */
+.panel {
+  overflow: clip;
+  border: 1px solid var(--cab-line);
+  border-radius: var(--cab-radius-lg);
+  background: linear-gradient(145deg, #121a23 0%, #0e151d 100%);
+  box-shadow: var(--cab-shadow), inset 0 1px rgba(255,255,255,.018);
+}
+.panel + .panel { margin-top: 16px; }
+.panel > header {
+  min-height: 48px;
+  padding: 13px 17px;
+  border-bottom: 1px solid #263440;
+  background: linear-gradient(100deg, rgba(24,38,48,.82), rgba(16,24,32,.45));
+}
+.panel > header h2,
+.panel > header h3 {
+  color: #dce8ef;
+  letter-spacing: .085em;
+  line-height: 1.35;
+}
+.panel .body { min-width: 0; }
+.panel .body > :first-child { margin-top: 0; }
+.panel .body > :last-child { margin-bottom: 0; }
+
+/* Metrics: more legible numbers and consistent surfaces */
+.tiles {
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid #293945;
+  border-radius: var(--cab-radius);
+  background: #293945;
+}
+.tile {
+  min-width: 0;
+  padding: 15px 16px;
+  background: linear-gradient(145deg, #151f29, #101820);
+  transition: background .18s ease;
+}
+.tile:hover { background: linear-gradient(145deg, #1a2932, #121c25); }
+.tile .v {
+  color: #f0f7fa;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.04em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.tile .k,
+.tile .label,
+.tile .l {
+  color: var(--cab-muted);
+  letter-spacing: .075em;
+  line-height: 1.45;
+}
+.tile :where(small, .sub, .delta) { line-height: 1.45; }
+
+/* Buttons: primary action is unmistakable; secondary controls stay quiet */
+.btn {
+  min-height: 34px;
+  padding: 8px 12px;
+  border: 1px solid #354653;
+  border-radius: 8px;
+  color: #dce7ed;
+  background: linear-gradient(135deg, #1b2731, #141d26);
+  box-shadow: inset 0 1px rgba(255,255,255,.035);
+  font-weight: 600;
+  letter-spacing: .01em;
+  transition: color .15s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.btn:hover {
+  border-color: #4a7774;
+  color: #f3fffd;
+  background: linear-gradient(135deg, #20342f, #17262d);
+}
+.btn:active { transform: translateY(1px); }
+.btn.primary {
+  color: #071512;
+  border-color: #70e0cf;
+  background: linear-gradient(135deg, #82ebdb, #54c2b0);
+  box-shadow: 0 5px 16px rgba(67,183,164,.13), inset 0 1px rgba(255,255,255,.28);
+  font-weight: 750;
+}
+.btn.primary:hover {
+  color: #04100e;
+  border-color: #a0f5e9;
+  background: linear-gradient(135deg, #a0f5e9, #67d5c3);
+  box-shadow: 0 7px 22px rgba(67,183,164,.2);
+}
+.btn.ghost { background: transparent; box-shadow: none; }
+.btn.danger {
+  color: #ffb4b4;
+  border-color: rgba(240,120,120,.32);
+  background: rgba(240,120,120,.055);
+}
+.btn.danger:hover {
+  border-color: rgba(240,120,120,.65);
+  background: rgba(240,120,120,.12);
+}
+button:disabled, .btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Forms: calmer fields, readable labels, strong focus feedback */
+:where(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea) {
+  min-width: 0;
+  border: 1px solid #30414e !important;
+  border-radius: 8px;
+  color: #edf4f8 !important;
+  background-color: #0b1219 !important;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.16);
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+:where(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea):hover {
+  border-color: #465b68 !important;
+}
+:where(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea):focus {
+  border-color: #63cdbd !important;
+  background-color: #0d171e !important;
+  box-shadow: var(--cab-focus) !important;
+}
+:where(input, textarea)::placeholder { color: #718493; opacity: 1; }
+:where(label, .field-label) { color: #aebdc8; }
+:where(select, option) { color-scheme: dark; }
+input[type=checkbox], input[type=radio] { accent-color: var(--cab-accent); }
+input[type=range] { accent-color: var(--cab-accent); }
+:where(.field, .form-row, .form-group) { min-width: 0; }
+
+/* Data tables: less noise, stable alignment, horizontal safety on mobile */
+:where(table, .table) { border-color: #293945; font-variant-numeric: tabular-nums; }
+:where(th, thead td) {
+  color: #9fb1bf;
+  background: rgba(20,30,39,.88);
+  font-size: .78em;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+:where(td, th) { border-color: #26343f; }
+:where(tbody tr) { transition: background .12s ease; }
+:where(tbody tr:hover) { background: rgba(112,224,207,.035); }
+:where(td) { overflow-wrap: anywhere; }
+:where(.table-wrap, .table-scroll, .overflow-x-auto) { max-width: 100%; }
+
+/* Chips, status labels, helper text, and empty states */
+:where(.chip, .badge, .tag) { border-color: #354752; }
+:where(.hint, .note, .help, .meta, .subtle) { color: var(--cab-muted); line-height: 1.55; }
+:where(.empty, .empty-state) {
+  border: 1px dashed #3a4d59;
+  border-radius: var(--cab-radius);
+  background: linear-gradient(145deg, rgba(21,33,43,.7), rgba(13,20,27,.62));
+}
+:where(hr) { border-color: #293945; opacity: 1; }
+:where(.modal, .ov, .overlay) { backdrop-filter: blur(10px); }
+:where(.dialog, .modal-card) {
+  border-color: #354854;
+  border-radius: var(--cab-radius-lg);
+  box-shadow: 0 24px 80px rgba(0,0,0,.42);
+}
+
+/* Keep dense finance/trading screens usable at narrower widths */
+@media (max-width: 900px) {
+  .panel { border-radius: 12px; }
+  .panel > header { padding: 12px 14px; }
+  .tile { padding: 12px 13px; }
+}
+@media (max-width: 640px) {
+  #tabnav .tabbtn { min-height: 36px; padding: 8px 10px; }
+  .panel + .panel { margin-top: 12px; }
+  .panel > header h2, .panel > header h3 { font-size: 12px; }
+  .tile .v { font-size: clamp(18px, 5vw, 27px); }
+  .btn { min-height: 36px; }
+  :where(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea) { max-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* CABINA · Typography and numeric QA pass
+   Final layer: legibility and stable numeric columns across every workspace. */
+
+/* One coherent typographic system. Avoid tiny text and over-tracked labels. */
+body {
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+:where(p, li, dd, .note-p, .empty, .hint, .help, .note, .qnote) {
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+:where(h1, h2, h3, h4, h5, h6) {
+  line-height: 1.3;
+  text-wrap: balance;
+}
+:where(.panel > header h2, .panel > header h3, .credo > header h2) {
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: .055em;
+}
+:where(.lab, .qec .qk, .kpis .k, .study-kicker) {
+  font-size: 10px;
+  line-height: 1.45;
+  letter-spacing: .065em;
+}
+:where(.meta, .sub, .help, .note-p, .empty, .tile .s, .qec .qs) {
+  line-height: 1.5;
+}
+
+/* Every numeric readout uses lining, tabular figures. No slashed zero:
+   account balances, prices, percentages, and P&L must be unambiguous. */
+:where(.mono, .tile .v, .kpis .v, .hero .v, .cap .v, .cal, .lv .l .v,
+       .meter .row, .clock .time, .pill, .save-state, table.t,
+       input[type="number"], .study-stat-num) {
+  font-variant-numeric: lining-nums tabular-nums !important;
+  font-feature-settings: "tnum" 1, "lnum" 1, "zero" 0 !important;
+  letter-spacing: 0;
+}
+
+/* Numbers should never silently disappear behind an ellipsis. Compact metrics
+   scale down first; only long text labels may truncate. */
+.tile .v {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  font-size: clamp(15px, 1.35vw, 21px);
+  line-height: 1.3;
+  letter-spacing: -.025em;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.kpis .v {
+  min-width: 0;
+  font-size: clamp(13px, 1.1vw, 16px);
+  line-height: 1.4;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+:where(.hero .v, .cap .v, .lv .l .v) {
+  min-width: 0;
+  line-height: 1.25;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+:where(.tile .k, .kpis .k) {
+  min-width: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.45;
+}
+
+/* Table data: preserve column readability and prevent currency/percent digits
+   from wrapping character-by-character. The table wrapper may scroll instead. */
+table.t {
+  font-size: 12px;
+  line-height: 1.45;
+}
+table.t th {
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: .055em;
+  white-space: normal;
+  overflow-wrap: normal;
+}
+table.t td {
+  line-height: 1.5;
+  vertical-align: middle;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+table.t td.ui, table.t td.notes {
+  overflow-wrap: anywhere;
+}
+table.t td:not(.ui):not(.notes):not(:first-child) {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+:where(.qsweep td, .peorm b, .card .stats, .card .kv span) {
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.45;
+}
+:where(.chip, .qflag, .study-tag, .study-state) {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+/* Form controls: a readable baseline and stable digit entry without changing
+   field sizing, names, values, event handlers, or validation behavior. */
+:where(input, select, textarea, button) {
+  line-height: 1.4;
+}
+:where(input[type="number"], input[type="date"], input[inputmode="decimal"],
+       input[inputmode="numeric"]) {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1, "zero" 0;
+  letter-spacing: 0;
+}
+:where(label, .field-label, .study-field label) {
+  line-height: 1.45;
+}
+
+/* Smaller screens: give labels and controls room instead of shrinking figures
+   to unreadable sizes. */
+@media (max-width: 900px) {
+  .tile .v { font-size: clamp(15px, 2.3vw, 19px); }
+  .kpis .v { font-size: clamp(13px, 1.9vw, 15px); }
+  table.t { font-size: 11.5px; }
+}
+@media (max-width: 600px) {
+  body { font-size: 14px; }
+  .tile { padding: 11px 12px; }
+  .tile .v { font-size: clamp(14px, 3.6vw, 18px); letter-spacing: -.02em; }
+  .kpis .v { font-size: 13px; }
+  :where(.lab, .qec .qk, .kpis .k) { font-size: 10px; }
+  table.t { min-width: 520px; }
+  :where(.table-wrap, .table-scroll, .overflow-x-auto, .twrap) {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+}
+
+
+/* CABINA · Chart palette correction
+   SVG chart labels and numeric ticks must remain legible on dark surfaces.
+   Positive/negative series retain semantic colors; neutral series use teal/blue,
+   never the browser's default black. !important also defeats inline SVG fills. */
+.chart,
+.chart text,
+.chart text tspan,
+svg.chart text,
+svg.chart text tspan {
+  color: var(--text, #e7eef4) !important;
+  fill: var(--chart-label, #b8c7d2) !important;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1, "zero" 0;
+}
+.chart .bar.pos { fill: var(--good, #5bc489) !important; }
+.chart .bar.neg { fill: var(--bad, #e0604f) !important; }
+.chart .bar.neu { fill: var(--dim, #8194a3) !important; }
+.chart .s1 { stroke: var(--accent, #70e0cf) !important; }
+.chart .s2 { stroke: var(--muted, #91a4b3) !important; }
+.chart .s3 { stroke: var(--blue, #78a9ff) !important; }
+.chart .a1 { fill: var(--accent, #70e0cf) !important; }
+.chart .end,
+.chart .hp { fill: var(--accent, #70e0cf) !important; }
+.chart .hp2 { fill: var(--muted, #91a4b3) !important; }
+.chart .dd,
+.chart .uw { fill: var(--bad, #e0604f) !important; }
+.chart .uwl { stroke: var(--bad, #e0604f) !important; }
+.chart .grid line { stroke: var(--chart-grid, #293945) !important; }
+.chart .axis line,
+.chart .zero,
+.chart .xh { stroke: var(--line-strong, #405361) !important; }
+.chart .bar { stroke: none; }
+.chart :where(text, tspan) { text-shadow: none; }
+
+
+.cmd-target-highlight{outline:2px solid var(--accent,#70e0cf)!important;outline-offset:3px!important;border-radius:8px;box-shadow:0 0 0 5px #70e0cf14!important;}
+</style>
+
+
+<style id="cabina-typographic-identity">
+/* CABINA TYPOGRAPHIC SYSTEM · one connected hierarchy across every workspace */
+:root {
+  --font-display: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --type-title-tracking: -0.035em;
+  --type-label-tracking: 0.055em;
+}
+html, body, button, input, select, textarea {
+  font-family: var(--font-ui);
+  font-synthesis: none;
+  font-optical-sizing: auto;
+}
+h1, h2, h3, h4, h5, h6,
+.brand h1, .study-hero h1, .panel > header h2, .panel > header h3,
+.dialog h1, .dialog h2, .modal h1, .modal h2,
+.section-title, .page-title, .hero-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: var(--type-title-tracking);
+  font-synthesis: none;
+  text-wrap: balance;
+}
+h1 { font-weight: 700; }
+h2, h3 { font-weight: 600; }
+button, .btn, .editbtn, [role="button"] {
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+label, .lab, .field-label, .panel > header .meta {
+  font-family: var(--font-ui);
+  font-weight: 500;
+}
+:where(.mono, .clock .time, .clock .tz, .pill, .save-state,
+       .tile .v, .hero .v, .kpis .v, .acc-figs .v, .mtop .v,
+       .jstrip .v, .pdgrid b, .score .r .v, table.t,
+       input[type="number"], input[type="date"], .tabular, [data-numeric]) {
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+table, .table, table.t { font-variant-numeric: lining-nums tabular-nums; }
+:where(.gain, .positive, .pnl-positive, [data-pnl="positive"]) { color: var(--good, #22C55E); }
+:where(.loss, .negative, .pnl-negative, [data-pnl="negative"]) { color: var(--bad, #EF4444); }
+@media (max-width: 600px) {
+  h1 { letter-spacing: -0.025em; }
+  .brand h1 { font-size: clamp(21px, 6vw, 27px); }
 }
 </style>
 

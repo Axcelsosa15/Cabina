@@ -43,13 +43,8 @@ const antes = await estado(p);
 console.log('  ' + JSON.stringify(antes));
 
 console.log('\n══ entra una operación ══');
-/* Registrar una operación obliga a pasar por la pestaña de Futuros. La pregunta
-   no es si el panel sigue visible mientras estás en otra pestaña —no lo está,
-   obviamente—, sino si al VOLVER sigue abierto y con los números frescos. Medir
-   `despues` desde otra pestaña comparaba «visible» contra «oculto» y fallaba
-   siempre: el test se estaba midiendo a sí mismo. `antes` se captura en CABINA,
-   así que después de registrar la operación hay que volver a CABINA antes de
-   comparar el estado persistente. */
+/* Registrar una operación obliga a pasar por Futuros. El panel medido aquí
+   pertenece a Cabina: volvemos a esa pestaña antes de comparar su estado. */
 await op(p, id, 20990);
 await p.evaluate(() => document.querySelector('.tabbtn[data-tab="cabina"]')?.click()); await p.waitForTimeout(800);
 const despues = await estado(p);
