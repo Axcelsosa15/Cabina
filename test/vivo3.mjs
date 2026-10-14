@@ -49,7 +49,7 @@ console.log('\n══ entra una operación ══');
    `despues` desde otra pestaña comparaba «visible» contra «oculto» y fallaba
    siempre: el test se estaba midiendo a sí mismo. */
 await op(p, id, 20990);
-await p.click('.tabbtn[data-tab="calc"]').catch(()=>{}); await p.waitForTimeout(800);
+await p.click('.tabbtn[data-tab="cabina"]').catch(()=>{}); await p.waitForTimeout(800);
 const despues = await estado(p);
 console.log('  ' + JSON.stringify(despues));
 
