@@ -14807,6 +14807,46 @@ a:hover{color:#a4f2e6}
   .tab:not([data-tab="estudio"]) .panel{border-radius:11px}
 }
 
+
+/* MOTION SYSTEM — feedback espacial sutil; no altera estado ni cálculos. */
+@keyframes cabina-enter {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes cabina-soft-reveal {
+  from { opacity: .72; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+#tabnav .tabbtn { position:relative; isolation:isolate; }
+#tabnav .tabbtn::after {
+  content:""; position:absolute; left:12px; right:12px; bottom:3px; height:2px;
+  border-radius:2px; background:#70e0cf; opacity:0; transform:scaleX(.35);
+  transform-origin:center; transition:transform .22s ease,opacity .18s ease;
+}
+#tabnav .tabbtn.active::after { opacity:.85; transform:scaleX(1); }
+.tab.active > .panel, .tab.active > .study-shell, .tab.active > .workspace-hero {
+  animation:cabina-enter .24s cubic-bezier(.2,.7,.2,1) both;
+}
+.tab.active > .panel:nth-of-type(2), .tab.active > .study-shell > .study-grid,
+.tab.active > .workspace-hero + .panel { animation-delay:.035s; }
+.panel, .study-panel, .study-metric, .study-stat, .workspace-stat {
+  transition: border-color .18s ease, box-shadow .2s ease, background-color .2s ease;
+}
+.panel:hover, .study-panel:hover {
+  border-color:#354c58;
+  box-shadow:0 12px 32px rgba(0,0,0,.14), inset 0 1px rgba(255,255,255,.025);
+}
+.tile { transition:background .18s ease, transform .18s ease, border-color .18s ease; }
+.tile:hover { transform:translateY(-2px); }
+.btn:not(:disabled):active { transform:translateY(1px) scale(.99); }
+.study-grid, .study-bottom { animation:cabina-soft-reveal .22s ease both; }
+:where(.panel, .study-panel, .study-metric, .workspace-stat) { will-change:auto; }
+@media (prefers-reduced-motion:reduce) {
+  .tab.active > .panel, .tab.active > .study-shell, .tab.active > .workspace-hero,
+  .study-grid, .study-bottom { animation:none!important; }
+  #tabnav .tabbtn::after { transition:none!important; }
+  .tile:hover { transform:none; }
+}
 </style>
 
 </body>
