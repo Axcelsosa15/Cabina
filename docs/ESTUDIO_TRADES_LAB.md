@@ -116,6 +116,7 @@ Implementado en la rama, pendiente de CI y revisión antes de integrar:
 - Ficha de operación con los campos disponibles `entry`, `stop`, `exit`, `qty`, `pnlEff` y `rReal`.
 - Revisión separada por `tradeId`, persistida en la colección existente `research`; no modifica el trade base.
 - Resumen de operaciones filtradas: cantidad, win rate sobre operaciones con P&L disponible, suma de `pnlEff` disponible y R promedio sobre valores disponibles. Los campos faltantes se excluyen de sus denominadores y aparecen como no disponibles cuando no hay muestra.
+- Comparativa por instrumento y dirección: tamaño de muestra, win rate sobre P&L disponible, suma de P&L disponible y R promedio sobre los trades que contienen `rReal`.
 - Pruebas Playwright para selección, búsqueda, persistencia de revisión, no duplicación de trades, estado vacío y valores de resumen.
 
 Todavía no están implementados todos los filtros ni los análisis avanzados enumerados en las entregas futuras. El resumen de métricas es descriptivo y no demuestra ventaja estadística. Esta rama no está publicada en producción; no integrar hasta revisar la suite completa y los controles de calidad.
