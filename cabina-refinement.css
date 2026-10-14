@@ -307,7 +307,8 @@ body {
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 .kpis .v {
   min-width: 0;
@@ -316,12 +317,14 @@ body {
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 :where(.hero .v, .cap .v, .lv .l .v) {
   min-width: 0;
   line-height: 1.25;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 :where(.tile .k, .kpis .k) {
   min-width: 0;
