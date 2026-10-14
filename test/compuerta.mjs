@@ -114,7 +114,7 @@ dice('motor-bundle', 'suite', 'La fuente del motor coincide con el bundle', 'mot
     const n = (re) => (h.match(re) || []).length;
     const estilos = n(/^<style(?:\s+[^>]*)?>$/gm);
     const scripts = n(/^<script>$/gm);
-    const cierra = /<\/script>\s*(?:<style id="cabina-unified-estudio-system">[\s\S]*?<\/style>\s*)?<\/body>\s*<\/html>\s*$/.test(h);
+    const cierra = /<\/script>\s*(?:(?:<style id="cabina-unified-estudio-system">[\s\S]*?<\/style>|<style id="cabina-typographic-identity">[\s\S]*?<\/style>)\s*)*<\/body>\s*<\/html>\s*$/.test(h)
     const motor = n(/^  const QE = \(function \(\) \{$/gm);
     const expone = n(/^  window\.QuantEngine = QE;$/gm);
     const fachadas = ['window.FUT = FUT;', 'window.INV = INV;', 'window.TES = TES;'].filter(x => h.includes(x)).length;
