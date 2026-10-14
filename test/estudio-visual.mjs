@@ -16,9 +16,8 @@ p.on('pageerror', e => errs.push(e.message));
 await siembra(p, URL, { settings: { meta: {}, accounts: [], rules: [] }, trades: {}, research: {} });
 await p.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 15000 });
 await p.evaluate(() => {
-  FUT.createAccount({ id: 'study-visual-account', name: 'Cuenta de estudio', size: 25000, dd: 1000, ddKind: 'estatico' });
-  FUT.setSelectedAccount('study-visual-account');
-  FUT.createTrade({ id: 'study-visual-trade', type: 'futuros', accountId: 'study-visual-account', date: '2026-10-01', symbol: 'MNQ', dir: 'long', qty: 1, entry: 21000, exit: 21025, stop: 20975 });
+  FUT.createAccount({ id: 'study-visual-account', name: 'Cuenta de estudio', kind: 'evaluacion', status: 'evaluacion' });
+  FUT.createTrade({ id: 'study-visual-trade', type: 'futuros', accountId: 'study-visual-account', date: '2026-10-01', instrument: 'MNQ', direction: 'long', qty: 1, entry: 21000, exit: 21025, stop: 20975 });
 });
 await p.click('.tabbtn[data-tab="estudio"]');
 await quieto(p, 50, 3000);
