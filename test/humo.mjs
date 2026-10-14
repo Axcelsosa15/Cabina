@@ -157,6 +157,12 @@ const reviewCheck = await p.evaluate(() => ({
 }));
 paso('ESTUDIO REVIEW SAVE', reviewCheck.count === 6 && reviewCheck.reviews && Object.keys(reviewCheck.reviews).length > 0,
   `${reviewCheck.count} trades originales · revisión guardada`);
+await p.keyboard.press('Control+k'); await p.waitForTimeout(100);
+await p.fill('#cmdQ', 'Revisión: MNQ'); await p.waitForTimeout(100);
+const hiddenReviewActions = await p.locator('#cmdList .cmd-it').count();
+paso('ESTUDIO COMMAND PALETTE', hiddenReviewActions === 0,
+  `revisiones de trades no aparecen como documentos sin destino (${hiddenReviewActions} resultados)`);
+await p.keyboard.press('Escape');
 await p.fill('#studyTradeSearch', 'instrumento-inexistente');
 await p.waitForTimeout(100);
 paso('ESTUDIO EMPTY FILTER', /No hay operaciones/.test(await p.locator('#studyTradeList').innerText()), 'filtro sin resultados tiene estado vacío');
