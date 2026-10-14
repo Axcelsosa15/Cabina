@@ -2241,13 +2241,20 @@
 <!-- ======================= INVERSIONES ======================= -->
 <div class="tab" data-tab="invest">
   <div class="toolbar">
+    <select id="ivAccountFilter" aria-label="Filtrar por cuenta de inversión"><option value="__all">Todas las cuentas</option></select>
     <select id="ivSetup" aria-label="Filtrar por estrategia"><option value="">todas las estrategias</option></select>
+    <button type="button" class="btn ghost sm" id="ivAcctAdd">+ Cuenta</button>
+    <button type="button" class="btn ghost sm" id="ivAcctManage" aria-expanded="false">Gestionar cuentas</button>
     <span class="sp"></span>
     <button type="button" class="btn ghost sm selbtn" id="selbtn-ivOps" title="Selecciona varias operaciones y bórralas de una vez">Seleccionar</button>
     <button type="button" class="btn primary" id="ivNew">+ Nueva operación de inversión</button>
   </div>
+  <section class="panel" id="ivAccountsPanel" hidden style="margin-bottom:24px">
+    <header><h2>Cuentas de inversión</h2><span class="meta">eliminar una cuenta conserva su historial</span></header>
+    <div class="body" id="ivAccountsList"></div>
+  </section>
   <section class="panel" style="margin-bottom:24px">
-    <header><h2>Cartera · todos los mercados</h2><span class="meta">separada de futuros · precios los escribes tú</span></header>
+    <header><h2>Cartera · todos los mercados</h2><span class="meta" id="ivPortfolioScope">todas las cuentas · cartera consolidada · precios los escribes tú</span></header>
     <div class="tiles five" id="ivTiles"></div>
     <div id="ivTocar" hidden></div>
   </section>
@@ -8250,7 +8257,7 @@
   };
   // Superficie de depuración y de pruebas. Leer está permitido; escribir, solo por aquí.
   window.FUT = FUT;
-  const ivj = { setup: "" };
+  const ivj = { setup: "", account: "__all", manageAccounts: false };
   function acctOptions() { return (state.settings.accounts || []).map(a => [a.id, `${a.firm ? a.firm + " · " : ""}${a.name || "sin nombre"}`]); }
   function acctById(id) { return (state.settings.accounts || []).find(a => a.id === id) || null; }
   function acctLabel(id) { const a = acctById(id); return a ? (a.name || a.firm || "cuenta") : ""; }
@@ -8658,6 +8665,7 @@
     ];
     return [
       { key: "date", label: "Fecha", type: "date" },
+      { key: "accountId", label: "Cuenta de inversión", type: "select", options: [["", "Sin asignar"]].concat(investmentAccounts().map(a => [a.id, a.name])) },
       { key: "market", label: "Mercado", type: "select", options: marketsMerged().filter(m => m.id !== "futuros").map(m => [m.id, m.name]) },
       { key: "asset", label: "Activo", ph: "VTI, BTC, O, T-bill 3m…" },
       { key: "setupId", label: "Estrategia del playbook", type: "select", options: [["", "sin estrategia"]].concat(pbs) },
@@ -8726,7 +8734,7 @@
 
   function openTrade(t, typeForNew, seed, alGuardar) {
     const type = t ? t.type : typeForNew; const isNew = !t; let shots = null;
-    const values = t || Object.assign(type === "futuros" ? { date: ft.day || todayISO(), type, instrument: "MNQ", direction: "long", qty: 1, quality: "A", accountId: defaultAccountId() } : { date: todayISO(), type, op: "compra", horizon: "largo", market: "etfs" }, seed || {});
+    const values = t || Object.assign(type === "futuros" ? { date: ft.day || todayISO(), type, instrument: "MNQ", direction: "long", qty: 1, quality: "A", accountId: defaultAccountId() } : { date: todayISO(), type, op: "compra", horizon: "largo", market: "etfs", accountId: defaultInvestmentAccountId() }, seed || {});
     const renderConds = (fieldsEl, setupId, checks) => {
       let box = fieldsEl.querySelector("#setupConds"); const p = coll("playbooks").get(setupId); const conds = pbConditions(p);
       if (!conds.length) { if (box) box.remove(); return; }
@@ -10302,11 +10310,115 @@
   });
   $("ftAcctAdd").addEventListener("click", () => openAccountEditor(null));
 
+  /* ---------- gestión de cuentas de inversión ---------- */
+  function investmentAccounts() {
+    const meta = state.settings.meta || {};
+    if (!Array.isArray(meta.investAccounts)) meta.investAccounts = [];
+    return meta.investAccounts.filter(a => a && a.id && a.name).map(a => ({
+      id: String(a.id), name: String(a.name), type: String(a.type || "brokerage"),
+      broker: String(a.broker || ""), currency: String(a.currency || "USD"),
+      createdAt: Number(a.createdAt) || 0
+    }));
+  }
+  function defaultInvestmentAccountId() {
+    return ivj.account && ivj.account !== "__all" && ivj.account !== "__none" &&
+      investmentAccounts().some(a => a.id === ivj.account) ? ivj.account : "";
+  }
+  function investmentAccountName(id) {
+    if (!id) return "Sin asignar";
+    const a = investmentAccounts().find(x => x.id === String(id));
+    return a ? a.name : "Cuenta desconocida";
+  }
+  function investmentInScope(item) {
+    if (ivj.account === "__all") return true;
+    if (ivj.account === "__none") return !item.accountId;
+    return String(item.accountId || "") === ivj.account;
+  }
+  function investmentAccountsChanged() {
+    renderInvestmentAccountControls();
+    renderInvestMetrics(); renderInvestOps();
+    renderMarketList(); renderMarketDetail();
+  }
+  function renderInvestmentAccountControls() {
+    const sel = $("ivAccountFilter"), panel = $("ivAccountsPanel"), list = $("ivAccountsList"), btn = $("ivAcctManage");
+    if (!sel || !panel || !list) return;
+    const accts = investmentAccounts();
+    sel.innerHTML = `<option value="__all">Todas las cuentas</option><option value="__none">Sin asignar</option>` +
+      accts.map(a => `<option value="${esc(a.id)}">${esc(a.name)} · ${esc(a.type)}</option>`).join("");
+    if (ivj.account !== "__all" && ivj.account !== "__none" && !accts.some(a => a.id === ivj.account)) ivj.account = "__all";
+    sel.value = ivj.account;
+    if (btn) btn.setAttribute("aria-expanded", String(!!ivj.manageAccounts));
+    panel.hidden = !ivj.manageAccounts;
+    const scope = $("ivPortfolioScope");
+    if (scope) scope.textContent = ivj.account === "__all" ? "Todas las cuentas · cartera consolidada · precios los escribes tú" :
+      ivj.account === "__none" ? "Activos y operaciones sin cuenta asignada" : (accts.find(a => a.id === ivj.account)?.name || "Cuenta") + " · cartera individual";
+    list.innerHTML = accts.length ? accts.map(a => {
+      const nPos = coll("positions").items.filter(p => p.accountId === a.id).length;
+      const nOps = coll("trades").items.filter(t => t.type === "inversion" && t.accountId === a.id).length;
+      return `<div class="row" data-invest-account="${esc(a.id)}" style="display:flex;align-items:center;gap:10px;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)">
+        <div><strong>${esc(a.name)}</strong><div class="meta">${esc(a.type)} · ${esc(a.broker || "broker no indicado")} · ${esc(a.currency)} · ${nPos} posiciones · ${nOps} operaciones</div></div>
+        <div class="tools"><button type="button" class="btn sm ghost" data-invest-act="edit">Editar</button><button type="button" class="btn sm ghost" data-invest-act="delete">Eliminar</button></div>
+      </div>`;
+    }).join("") : `<p class="empty">Todavía no tienes cuentas. Crea una por broker, exchange o cuenta de inversión.</p>`;
+  }
+  function openInvestmentAccountEditor(account) {
+    const old = account || null;
+    openEditor({
+      title: old ? "Editar cuenta de inversión" : "Nueva cuenta de inversión",
+      fields: [
+        { key: "name", label: "Nombre de la cuenta", w: 3, ph: "Ej. IBKR · Long-term" },
+        { key: "type", label: "Tipo", type: "select", options: [["brokerage","Brokerage"],["crypto","Crypto / exchange"],["options","Options"],["futures","Futures / trading"],["retirement","Retirement"],["other","Otro"]] },
+        { key: "broker", label: "Broker / exchange", ph: "Ej. Interactive Brokers", help: "La cartera consolidada trabaja en USD; registra los importes en dólares." }
+      ],
+      values: old || { type: "brokerage", currency: "USD" },
+      validate: v => !String(v.name || "").trim() ? "Escribe el nombre de la cuenta" : null,
+      onSave: v => {
+        const accounts = investmentAccounts();
+        const id = old ? old.id : uid("invacct");
+        const next = { id, name: String(v.name).trim(), type: v.type || "brokerage",
+          broker: String(v.broker || "").trim(), currency: "USD",
+          createdAt: old ? old.createdAt : Date.now() };
+        state.settings.meta.investAccounts = old ? accounts.map(a => a.id === id ? next : a) : accounts.concat(next);
+        persistSettings();
+        investmentAccountsChanged();
+      }
+    });
+  }
+  function deleteInvestmentAccount(id) {
+    const a = investmentAccounts().find(x => x.id === id); if (!a) return;
+    const positions = coll("positions").items.filter(p => p.accountId === id);
+    const ops = coll("trades").items.filter(t => t.type === "inversion" && t.accountId === id);
+    const msg = `Eliminar «${a.name}» no borrará el historial. ${positions.length} posiciones y ${ops.length} operaciones pasarán a «Sin asignar». ¿Continuar?`;
+    if (!confirm(msg)) return;
+    positions.forEach(p => coll("positions").set(p.id, Object.assign({}, p, { accountId: "" })));
+    ops.forEach(t => coll("trades").set(t.id, Object.assign({}, t, { accountId: "" })));
+    state.settings.meta.investAccounts = investmentAccounts().filter(x => x.id !== id);
+    if (ivj.account === id) ivj.account = "__all";
+    persistSettings();
+    investmentAccountsChanged();
+  }
+  $("ivAccountFilter").addEventListener("change", e => {
+    ivj.account = e.target.value || "__all";
+    renderInvestmentAccountControls();
+    renderInvestMetrics(); renderInvestOps(); renderMarketList(); renderMarketDetail();
+  });
+  $("ivAcctAdd").addEventListener("click", () => openInvestmentAccountEditor(null));
+  $("ivAcctManage").addEventListener("click", () => {
+    ivj.manageAccounts = !ivj.manageAccounts; renderInvestmentAccountControls();
+  });
+  $("ivAccountsList").addEventListener("click", e => {
+    const b = e.target.closest("button[data-invest-act]"); if (!b) return;
+    const row = b.closest("[data-invest-account]"); const a = investmentAccounts().find(x => x.id === row.dataset.investAccount); if (!a) return;
+    if (b.dataset.investAct === "edit") openInvestmentAccountEditor(a);
+    if (b.dataset.investAct === "delete") deleteInvestmentAccount(a.id);
+  });
+
   /* ---------- operaciones de inversión (dentro de Inversiones) ---------- */
   function renderInvestOps() {
+    renderInvestmentAccountControls();
     if (ivj.setup && !coll("playbooks").get(ivj.setup)) ivj.setup = "";
     const sf = $("ivSetup"); sf.innerHTML = `<option value="">todas las estrategias</option>` + coll("playbooks").items.filter(p => p.type === "inversion").map(p => `<option value="${p.id}" ${ivj.setup === p.id ? "selected" : ""}>${esc(p.name)}</option>`).join("");
-    let list = tradesOf("inversion"); if (ivj.setup) list = list.filter(t => t.setupId === ivj.setup);
+    let list = tradesOf("inversion").filter(investmentInScope); if (ivj.setup) list = list.filter(t => t.setupId === ivj.setup);
     const buys = list.filter(t => t.op === "compra" || t.op === "aporte"); const invested = buys.reduce((s, t) => s + (t.qty || 0) * (t.price || 0) + (t.fees || 0), 0);
     /* Esta cabecera decía «realizado» sumando la columna Resultado, que se
        escribe a mano. Nadie escribe la ganancia de una venta — sale del coste
@@ -10325,7 +10437,7 @@
       : "";
     const wrap = $("ivOps");
     if (!list.length) { wrap.innerHTML = `<p class="empty">Sin operaciones de inversión. Cada compra, venta, aporte o dividendo va aquí, separado de los futuros.</p>`; return; }
-    wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Mercado</th><th>Activo</th><th>Op.</th><th class="r">Cant.</th><th class="r">Precio</th><th class="r">Total</th><th class="r">Resultado</th><th>Horiz.</th><th>Img</th><th>Tesis</th><th></th></tr></thead><tbody>${list.map(t => { const total = (t.qty || 0) * (t.price || 0); return `<tr data-id="${t.id}"><td>${esc(dmy(t.date))}</td><td class="ui">${esc(marketName(t.market))}</td><td>${esc(t.asset)}</td><td><span class="chip ${t.op === "compra" || t.op === "aporte" ? "inv" : t.op === "venta" ? "warn" : "good"}">${esc(t.op)}</span></td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.price != null ? money(t.price, 2) : "—"}</td><td class="r">${total ? money(total, 2) : "—"}</td><td class="r ${t.pnl > 0 ? "pos" : t.pnl < 0 ? "neg" : ""}">${t.pnl == null ? "—" : money(t.pnl, 2)}</td><td>${esc(t.horizon || "")}</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.note || "")}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button></td></tr>`; }).join("")}</tbody></table>`;
+    wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Cuenta</th><th>Mercado</th><th>Activo</th><th>Op.</th><th class="r">Cant.</th><th class="r">Precio</th><th class="r">Total</th><th class="r">Resultado</th><th>Horiz.</th><th>Img</th><th>Tesis</th><th></th></tr></thead><tbody>${list.map(t => { const total = (t.qty || 0) * (t.price || 0); return `<tr data-id="${t.id}"><td>${esc(dmy(t.date))}</td><td class="ui">${esc(investmentAccountName(t.accountId))}</td><td class="ui">${esc(marketName(t.market))}</td><td>${esc(t.asset)}</td><td><span class="chip ${t.op === "compra" || t.op === "aporte" ? "inv" : t.op === "venta" ? "warn" : "good"}">${esc(t.op)}</span></td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.price != null ? money(t.price, 2) : "—"}</td><td class="r">${total ? money(total, 2) : "—"}</td><td class="r ${t.pnl > 0 ? "pos" : t.pnl < 0 ? "neg" : ""}">${t.pnl == null ? "—" : money(t.pnl, 2)}</td><td>${esc(t.horizon || "")}</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.note || "")}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button></td></tr>`; }).join("")}</tbody></table>`;
   }
   $("ivOps").addEventListener("click", e => {
     if (e.target.classList.contains("thumb")) { openLightbox(e.target.src, e.target.alt); return; }
@@ -11403,14 +11515,15 @@
   function pctSignoDinero(x) { return x == null ? "—" : (x > 0 ? "+" : "") + money(x); }
 
   function costeDeTocar() {
-    const ventas = tradesOf("inversion").filter(t => t.op === "venta" && t.offPlan);
+    const ventas = tradesOf("inversion").filter(t => t.op === "venta" && t.offPlan && investmentInScope(t));
     if (!ventas.length) return null;
-    const pos = coll("positions").items;
+    const pos = coll("positions").items.filter(investmentInScope);
     let coste = 0, medibles = 0, sinPrecio = 0;
     const filas = [];
     ventas.forEach(t => {
       const activo = String(t.asset || "").trim().toUpperCase();
-      const ref = pos.find(x => String(x.asset || "").trim().toUpperCase() === activo && x.current != null);
+      const ref = pos.find(x => String(x.asset || "").trim().toUpperCase() === activo &&
+        String(x.accountId || "") === String(t.accountId || "") && x.current != null);
       const q = Number(t.qty) || 0, px = Number(t.price) || 0;
       if (!q || !px) return;
       const ingreso = q * px - (Number(t.fees) || 0);
@@ -11444,7 +11557,8 @@
        hacer (una posición por compra). Cuando hay ambigüedad no se reparte a
        ojo: se cae a los campos escritos a mano y se dice por qué. */
     const gemelas = coll("positions").items.filter(x =>
-      String(x.asset || "").trim().toUpperCase() === activo && x.market === p.market);
+      String(x.asset || "").trim().toUpperCase() === activo && x.market === p.market &&
+      String(x.accountId || "") === String(p.accountId || ""));
     if (gemelas.length > 1) return { ambigua: true, gemelas: gemelas.length };
     /* TODAS las operaciones del activo, no sólo las que mueven cantidad. Los
        dividendos quedaban fuera del filtro, así que una posición de SCHD que
@@ -11454,6 +11568,7 @@
     const ops = tradesOf("inversion").filter(t =>
       String(t.asset || "").trim().toUpperCase() === activo &&
       (!p.market || !t.market || t.market === p.market) &&
+      String(t.accountId || "") === String(p.accountId || "") &&
       ["compra", "aporte", "venta", "dividendo"].includes(t.op));
     if (!ops.length) return null;
     let qty = 0, coste = 0, vendidoQty = 0, realizado = 0, primera = null, ultima = null, nCompras = 0;
@@ -11677,7 +11792,7 @@
   /* ---------- métricas de la cartera ---------- */
   function monthsBack(n) { const out = []; const d = new Date(state.today + "T12:00:00Z"); d.setUTCDate(1); for (let i = 0; i < n; i++) { out.unshift(d.toISOString().slice(0, 7)); d.setUTCMonth(d.getUTCMonth() - 1); } return out; }
   function investStats() {
-    const ps = coll("positions").items, ops = tradesOf("inversion");
+    const ps = coll("positions").items.filter(investmentInScope), ops = tradesOf("inversion").filter(investmentInScope);
     let cost = 0, cur = 0, priced = 0; const byMarket = {}; const rows = [];
     for (const p of ps) {
       const c = posCalc(p); const val = c.cur != null ? c.cur : c.cost;
@@ -11884,7 +11999,7 @@
   }
   function renderMarketList() {
     const ms = marketsMerged(); if (!ms.find(m => m.id === iv.market)) iv.market = ms[0] ? ms[0].id : null;
-    $("mlist").innerHTML = ms.map(m => { const n = coll("positions").items.filter(p => p.market === m.id).length; return `<button type="button" class="${m.id === iv.market ? "active" : ""}" data-id="${m.id}"><span class="chip ${m.id === "futuros" ? "fut" : "inv"}">${esc(m.short || m.name.slice(0, 3).toUpperCase())}</span>${esc(m.name)}<span class="n">${n ? n + " pos" : ""}</span></button>`; }).join("");
+    $("mlist").innerHTML = ms.map(m => { const n = coll("positions").items.filter(p => p.market === m.id && investmentInScope(p)).length; return `<button type="button" class="${m.id === iv.market ? "active" : ""}" data-id="${m.id}"><span class="chip ${m.id === "futuros" ? "fut" : "inv"}">${esc(m.short || m.name.slice(0, 3).toUpperCase())}</span>${esc(m.name)}<span class="n">${n ? n + " pos" : ""}</span></button>`; }).join("");
   }
   $("mlist").addEventListener("click", e => { const b = e.target.closest("button[data-id]"); if (!b) return; iv.market = b.dataset.id; iv.editGuide = false; renderMarketList(); renderMarketDetail(); });
   $("mAdd").addEventListener("click", () => {
@@ -11895,7 +12010,7 @@
   function renderMarketDetail() {
     const el = $("mDetail"); const m = marketsMerged().find(x => x.id === iv.market);
     if (!m) { el.innerHTML = `<p class="empty">Sin mercados. Añade uno.</p>`; return; }
-    const ps = coll("positions").items.filter(p => p.market === m.id).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const ps = coll("positions").items.filter(p => p.market === m.id && investmentInScope(p)).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
     const ws = coll("watch").items.filter(w => w.market === m.id).sort((a, b) => (a.priority || 9) - (b.priority || 9));
     const isFut = m.id === "futuros";
     const guide = iv.editGuide
@@ -11946,11 +12061,27 @@
   function openPosition(p, marketId) {
     const isNew = !p;
     openEditor({ title: isNew ? "Nueva posición · " + marketName(marketId) : "Editar posición",
-      fields: [{ key: "asset", label: "Activo", w: 2 }, { key: "date", label: "Fecha de entrada", type: "date" }, { key: "qty", label: "Cantidad", type: "number", step: "0.0001" }, { key: "entry", label: "Precio de entrada", type: "number", step: "0.01" }, { key: "fees", label: "Comisiones $", type: "number", step: "0.01" }, { key: "current", label: "Precio actual (lo actualizas tú)", type: "number", step: "0.01" }, { key: "thesis", label: "Tesis", type: "textarea", w: 6, rows: 2 }, { key: "exitPlan", label: "Salida planeada · cuándo vendo", type: "textarea", w: 6, rows: 2, ph: "Objetivo, stop mental o fecha. Sin plan de salida no hay posición." }],
-      values: p || { date: todayISO(), qty: 1 },
+      fields: [{ key: "asset", label: "Activo", w: 2 }, { key: "accountId", label: "Cuenta de inversión", type: "select", options: [["", "Sin asignar"]].concat(investmentAccounts().map(a => [a.id, a.name])) }, { key: "date", label: "Fecha de entrada", type: "date" }, { key: "qty", label: "Cantidad", type: "number", step: "0.0001" }, { key: "entry", label: "Precio de entrada", type: "number", step: "0.01" }, { key: "fees", label: "Comisiones $", type: "number", step: "0.01" }, { key: "current", label: "Precio actual (lo actualizas tú)", type: "number", step: "0.01" }, { key: "thesis", label: "Tesis", type: "textarea", w: 6, rows: 2 }, { key: "exitPlan", label: "Salida planeada · cuándo vendo", type: "textarea", w: 6, rows: 2, ph: "Objetivo, stop mental o fecha. Sin plan de salida no hay posición." }],
+      values: p || { date: todayISO(), qty: 1, accountId: defaultInvestmentAccountId() },
       validate: v => !v.asset ? "Falta el activo" : v.qty == null || v.entry == null ? "Falta cantidad o precio" : null,
       onSave: v => {
-        const rec = Object.assign({}, p || {}, v, { id: isNew ? uid("pos") : p.id, market: marketId });
+        const nextAccountId = v.accountId || "";
+        if (!isNew && String(p.accountId || "") !== nextAccountId) {
+          const sameBucket = coll("positions").items.filter(x =>
+            String(x.asset || "").trim().toUpperCase() === String(p.asset || "").trim().toUpperCase() &&
+            x.market === p.market && String(x.accountId || "") === String(p.accountId || ""));
+          if (sameBucket.length > 1) {
+            alert("No se cambió la cuenta: hay varias posiciones del mismo activo en la cuenta de origen. Asigna sus operaciones manualmente para evitar mezclar lotes.");
+            return;
+          }
+          const linked = coll("trades").items.filter(t => t.type === "inversion" &&
+            String(t.asset || "").trim().toUpperCase() === String(p.asset || "").trim().toUpperCase() &&
+            (!p.market || !t.market || t.market === p.market) &&
+            String(t.accountId || "") === String(p.accountId || "") &&
+            ["compra", "aporte", "venta", "dividendo"].includes(t.op));
+          linked.forEach(t => coll("trades").set(t.id, Object.assign({}, t, { accountId: nextAccountId })));
+        }
+        const rec = Object.assign({}, p || {}, v, { id: isNew ? uid("pos") : p.id, market: marketId, accountId: nextAccountId });
         /* El precio actual es manual y no tenía fecha, así que una cartera
            valorada hace tres meses se mostraba como «valor actual» sin más.
            Sellarlo permite decir cuándo se miró, en vez de fingir que es hoy. */
