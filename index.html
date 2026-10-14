@@ -1911,7 +1911,7 @@ tbody tr:last-child td{border-bottom:0}
 <div class="study-bottom" style="margin:12px 0 18px">
 <section class="study-panel"><h3>Tu journal · laboratorio de trades</h3><p class="study-note">Selecciona una operación real de FUTUROS para revisarla. Las métricas se leen del trade existente; esta herramienta no crea operaciones duplicadas.</p>
 <div class="study-field"><label for="studyTradeAccount">Cuenta</label><select id="studyTradeAccount"><option value="">Todas las cuentas</option></select></div>
-<div class="study-field" style="margin-top:9px"><label for="studyTradeSearch">Buscar operaciones</label><input id="studyTradeSearch" type="search" placeholder="Instrumento, dirección, fecha o ID…" autocomplete="off"></div>
+<div class="study-field" style="margin-top:9px"><label for="studyTradeSearch">Buscar operaciones</label><input id="studyTradeSearch" type="search" placeholder="ID, instrumento, dirección o fecha…" autocomplete="off"></div><div class="study-field" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px"><div><label for="studyTradeInstrument">Instrumento</label><select id="studyTradeInstrument"><option value="">Todos</option></select></div><div><label for="studyTradeDirection">Dirección</label><select id="studyTradeDirection"><option value="">Todas</option></select></div></div><div class="study-field" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px"><div><label for="studyTradeFrom">Desde</label><input id="studyTradeFrom" type="date"></div><div><label for="studyTradeTo">Hasta</label><input id="studyTradeTo" type="date"></div></div><button type="button" class="btn ghost sm" id="studyTradeClear" style="margin-top:8px">Limpiar filtros</button>
 <div id="studyTradeList" style="display:grid;gap:7px;margin-top:12px" aria-live="polite"><p class="study-note">Cargando operaciones del journal…</p></div>
 </section>
 <section class="study-panel"><h3 id="studyTradeTitle">Selecciona una operación</h3>
@@ -14577,11 +14577,19 @@ tbody tr:last-child td{border-bottom:0}
     const list=$("studyTradeList"),account=$("studyTradeAccount");if(!list||!account)return;
     const trades=estudioTrades().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
     const prev=account.value,ids=[...new Set(trades.map(t=>String(t.accountId||"")).filter(Boolean))];
+    const instrument=$("studyTradeInstrument"),direction=$("studyTradeDirection"),prevInstrument=instrument.value,prevDirection=direction.value;
+    const instruments=[...new Set(trades.map(t=>String(t.instrument||"")).filter(Boolean))].sort();
+    const directions=[...new Set(trades.map(t=>String(t.direction||"")).filter(Boolean))].sort();
+    instrument.innerHTML='<option value="">Todos</option>'+instruments.map(v=>'<option value="'+estudioEsc(v)+'">'+estudioEsc(v)+'</option>').join("");
+    direction.innerHTML='<option value="">Todas</option>'+directions.map(v=>'<option value="'+estudioEsc(v)+'">'+estudioEsc(v)+'</option>').join("");
+    if(instruments.includes(prevInstrument))instrument.value=prevInstrument;
+    if(directions.includes(prevDirection))direction.value=prevDirection;
     const accts=typeof FUT!=="undefined"&&typeof FUT.accounts==="function"?FUT.accounts():[];
     account.innerHTML='<option value="">Todas las cuentas</option>'+ids.map(id=>{const a=accts.find(x=>String(x.id)===id);return '<option value="'+estudioEsc(id)+'">'+estudioEsc(a&&(a.name||a.label)||id)+'</option>';}).join("");
     if(ids.includes(prev))account.value=prev;
     const q=estudioNorm(($("studyTradeSearch")||{}).value||"");
-    const filtered=trades.filter(t=>(!account.value||String(t.accountId||"")===account.value)&&(!q||estudioNorm([t.id,t.instrument,t.direction,t.date,t.accountId].join(" ")).includes(q)));
+    const from=$("studyTradeFrom").value,to=$("studyTradeTo").value;
+    const filtered=trades.filter(t=>(!account.value||String(t.accountId||"")===account.value)&&(!instrument.value||String(t.instrument||"")===instrument.value)&&(!direction.value||String(t.direction||"")===direction.value)&&(!from||String(t.date||"").slice(0,10)>=from)&&(!to||String(t.date||"").slice(0,10)<=to)&&(!q||estudioNorm([t.id,t.instrument,t.direction,t.date,t.accountId].join(" ")).includes(q)));
     renderEstudioTradeMetrics(filtered);
     renderEstudioTradeBreakdown(filtered);
     if(!filtered.length){list.innerHTML='<div class="study-empty"><b>'+(trades.length?"No hay operaciones con esos filtros":"Todavía no hay trades en FUTUROS")+'</b><p class="study-note">'+(trades.length?"Cambia la cuenta o la búsqueda.":"Registra una operación en FUTUROS y vuelve a ESTUDIO.")+'</p></div>';$("studyTradeReviewForm").hidden=true;$("studyTradeTitle").textContent="Selecciona una operación";$("studyTradeMeta").textContent=trades.length?"No hay operaciones para mostrar con estos filtros.":"Registra un trade en FUTUROS para comenzar."; $("studyTradeStats").textContent="";return;}
@@ -14602,6 +14610,11 @@ tbody tr:last-child td{border-bottom:0}
   }
   document.querySelector('.tabbtn[data-tab="estudio"]').addEventListener("click",()=>{renderEstudio();});
   $("studyTradeAccount").addEventListener("change",renderEstudioTrades);
+  $("studyTradeInstrument").addEventListener("change",renderEstudioTrades);
+  $("studyTradeDirection").addEventListener("change",renderEstudioTrades);
+  $("studyTradeFrom").addEventListener("change",renderEstudioTrades);
+  $("studyTradeTo").addEventListener("change",renderEstudioTrades);
+  $("studyTradeClear").addEventListener("click",()=>{$("studyTradeAccount").value="";$("studyTradeSearch").value="";$("studyTradeInstrument").value="";$("studyTradeDirection").value="";$("studyTradeFrom").value="";$("studyTradeTo").value="";renderEstudioTrades();});
   $("studyTradeSearch").addEventListener("input",renderEstudioTrades);
   $("studyTradeReviewForm").addEventListener("submit",async e=>{
     e.preventDefault();const tradeId=$("studyTradeId").value,t=estudioTrades().find(x=>String(x.id)===String(tradeId));if(!t)return;
