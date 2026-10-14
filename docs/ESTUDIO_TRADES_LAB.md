@@ -107,6 +107,15 @@ Añadir pruebas Playwright para:
 - La suite existente y las nuevas pruebas pasan.
 - Se entrega una URL de preview o, tras merge y CI verde, la URL de producción verificada.
 
-## Estado
+## Estado de implementación — rama `feat/estudio-trades-lab`
 
-Esta rama contiene la especificación de implementación. No debe presentarse como una función ya desplegada. La implementación de interfaz y lógica debe seguir después de trazar el código existente y preparar pruebas de regresión.
+Implementado en la rama, pendiente de CI y revisión antes de integrar:
+
+- Trade Explorer lee operaciones desde `FUT.trades()` y nombres de cuenta desde `FUT.accounts()`.
+- Filtro por cuenta y búsqueda textual por ID, instrumento, dirección, fecha y cuenta.
+- Ficha de operación con los campos disponibles `entry`, `stop`, `exit`, `qty`, `pnlEff` y `rReal`.
+- Revisión separada por `tradeId`, persistida en la colección existente `research`; no modifica el trade base.
+- Resumen de operaciones filtradas: cantidad, win rate sobre operaciones con P&L disponible, suma de `pnlEff` disponible y R promedio sobre valores disponibles. Los campos faltantes se excluyen de sus denominadores y aparecen como no disponibles cuando no hay muestra.
+- Pruebas Playwright para selección, búsqueda, persistencia de revisión, no duplicación de trades, estado vacío y valores de resumen.
+
+Todavía no están implementados todos los filtros ni los análisis avanzados enumerados en las entregas futuras. El resumen de métricas es descriptivo y no demuestra ventaja estadística. Esta rama no está publicada en producción; no integrar hasta revisar la suite completa y los controles de calidad.
