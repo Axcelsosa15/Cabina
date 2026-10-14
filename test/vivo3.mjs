@@ -43,10 +43,10 @@ const antes = await estado(p);
 console.log('  ' + JSON.stringify(antes));
 
 console.log('\n══ entra una operación ══');
-/* Registrar una operación obliga a pasar por Futuros. La calculadora vive
-   en su propia pestaña: volvemos a ella antes de medir si sigue abierta. */
+/* Registrar una operación obliga a pasar por Futuros. El panel medido aquí
+   pertenece a Cabina: volvemos a esa pestaña antes de comparar su estado. */
 await op(p, id, 20990);
-await p.evaluate(() => document.querySelector('.tabbtn[data-tab="calc"]')?.click()); await p.waitForTimeout(800);
+await p.evaluate(() => document.querySelector('.tabbtn[data-tab="cabina"]')?.click()); await p.waitForTimeout(800);
 const despues = await estado(p);
 console.log('  ' + JSON.stringify(despues));
 
