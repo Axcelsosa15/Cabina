@@ -13367,6 +13367,18 @@ tbody tr:last-child td{border-bottom:0}
   const FANOUT_TRADES = [Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
                          Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion, Z.edge];
   function pinta(lista) {
+    /* Una actualización de datos no debe echar al usuario del campo donde está
+       escribiendo ni devolver la página al inicio. Algunos renders reconstruyen
+       tarjetas completas; se conserva el control activo por ID y se restaura
+       tras el layout, junto con la posición vertical previa. */
+    const activo = document.activeElement;
+    const foco = activo && activo !== document.body && activo.id &&
+      /^(INPUT|TEXTAREA|SELECT)$/.test(activo.tagName)
+      ? { id: activo.id, value: activo.value,
+          start: typeof activo.selectionStart === "number" ? activo.selectionStart : null,
+          end: typeof activo.selectionEnd === "number" ? activo.selectionEnd : null }
+      : null;
+    const scrollY = window.scrollY;
     const rotos = [];
     for (const [nombre, fn] of lista) {
       try { fn(); } catch (e) { rotos.push(nombre); try { console.error("render «" + nombre + "» falló:", e); } catch (x) { } }
@@ -13374,6 +13386,19 @@ tbody tr:last-child td{border-bottom:0}
     if (rotos.length) {
       try { flash(`No se pudieron actualizar: ${rotos.join(", ")}. Los números de esa zona pueden estar viejos — recarga la página.`); } catch (x) { }
     }
+    requestAnimationFrame(() => {
+      if (foco) {
+        const nuevo = document.getElementById(foco.id);
+        if (nuevo && /^(INPUT|TEXTAREA|SELECT)$/.test(nuevo.tagName)) {
+          if (nuevo.value !== foco.value) nuevo.value = foco.value;
+          try { nuevo.focus({ preventScroll: true }); } catch { nuevo.focus(); }
+          if (foco.start !== null && foco.end !== null && typeof nuevo.setSelectionRange === "function") {
+            try { nuevo.setSelectionRange(foco.start, foco.end); } catch {}
+          }
+        }
+      }
+      window.scrollTo({ top: scrollY, left: window.scrollX, behavior: "auto" });
+    });
   }
 
   /* Las zonas pendientes se acumulan y se pintan UNA vez por tick.
