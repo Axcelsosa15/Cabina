@@ -8810,7 +8810,7 @@ tbody tr:last-child td{border-bottom:0}
   function attachShots(fieldsEl, initial) {
     const st = { imgs: (initial || []).filter(hasImg).map(x => Object.assign({}, x)) };
     const box = document.createElement("div");
-    box.className = "fld w6"; box.id = "edShots";
+    box.className = "fld w6 edShots"; box.id = fieldsEl.id === "studyTradeShotsHost" ? "studyTradeShots" : "edShots";
     fieldsEl.appendChild(box);
     const draw = () => {
       // Las capturas que ya existen se ven siempre; añadir nuevas necesita almacenamiento.
