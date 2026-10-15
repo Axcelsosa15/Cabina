@@ -45,10 +45,20 @@ await p.fill('#studyTradeLesson', 'No perseguir el precio si ya se alejó del ni
 await p.click('#studyTradeReviewForm button[type="submit"]');
 await p.waitForFunction(() => {
   const state = (document.querySelector('#studyTradeSaveState')?.textContent || '').trim();
-  // renderEstudio() puede sustituir la confirmación inmediata por el estado
-  // persistido de la revisión antes de que Playwright observe el texto exacto.
-  return /^Revisión guardada\.$/i.test(state) || /^Última revisión guardada:/i.test(state);
+  const reviewId = (document.querySelector('#studyTradeReviewId')?.value || '').trim();
+  return !!reviewId && (/^Revisión guardada\.$/i.test(state) || /^Última revisión guardada:/i.test(state));
 }, null, { timeout: 10000 });
+const guardadoInicial = await p.evaluate(() => ({
+  trade: document.querySelector('#studyTradeId')?.value || '',
+  review: document.querySelector('#studyTradeReviewId')?.value || '',
+  setup: document.querySelector('#studyTradeSetup')?.value || '',
+  visual: document.querySelector('#studyTradeVisual')?.value || '',
+  invalidation: document.querySelector('#studyTradeInvalidation')?.value || '',
+  rules: document.querySelector('#studyTradeRulesFollowed')?.checked === true,
+  saveState: document.querySelector('#studyTradeSaveState')?.textContent || ''
+}));
+ok(guardadoInicial.review.length > 0, 'el guardado asigna un ID de revisión [estado=' + JSON.stringify(guardadoInicial) + ']');
+ok(guardadoInicial.setup === 'IFVG' && guardadoInicial.visual.includes('Barrido de liquidez') && guardadoInicial.invalidation.includes('invalidada') && guardadoInicial.rules, 'el editor conserva todos los campos justo después de guardar [estado=' + JSON.stringify(guardadoInicial) + ']');
 ok(true, 'guarda la revisión y sus campos educativos');
 
 // Cambiar a otra operación debe limpiar el editor; volver a la original debe recuperar sus propios datos.
