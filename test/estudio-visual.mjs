@@ -65,10 +65,19 @@ console.log('  DEBUG revisión tras volver a A:', await p.evaluate(() => ({
   rulesFollowed: document.querySelector('#studyTradeRulesFollowed')?.checked,
   status: document.querySelector('#studyTradeSaveState')?.textContent
 })));
-ok(await p.inputValue('#studyTradeSetup') === 'IFVG', 'el setup se conserva al volver a abrir la operación');
-ok((await p.inputValue('#studyTradeVisual')).includes('Barrido de liquidez'), 'la lectura visual persiste');
-ok((await p.inputValue('#studyTradeInvalidation')).includes('invalidada'), 'la invalidación persiste');
-ok(await p.isChecked('#studyTradeRulesFollowed'), 'la evaluación de reglas persiste');
+const estadoFinal = await p.evaluate(() => ({
+  trade: document.querySelector('#studyTradeId')?.value || '',
+  review: document.querySelector('#studyTradeReviewId')?.value || '',
+  setup: document.querySelector('#studyTradeSetup')?.value || '',
+  visual: document.querySelector('#studyTradeVisual')?.value || '',
+  invalidation: document.querySelector('#studyTradeInvalidation')?.value || '',
+  rules: document.querySelector('#studyTradeRulesFollowed')?.checked === true,
+  saveState: document.querySelector('#studyTradeSaveState')?.textContent || ''
+}));
+ok(estadoFinal.setup === 'IFVG', 'el setup se conserva al volver a abrir la operación [estado=' + JSON.stringify(estadoFinal) + ']');
+ok(estadoFinal.visual.includes('Barrido de liquidez'), 'la lectura visual persiste [estado=' + JSON.stringify(estadoFinal) + ']');
+ok(estadoFinal.invalidation.includes('invalidada'), 'la invalidación persiste [estado=' + JSON.stringify(estadoFinal) + ']');
+ok(estadoFinal.rules, 'la evaluación de reglas persiste [estado=' + JSON.stringify(estadoFinal) + ']');
 ok(errs.length === 0, 'sin errores JavaScript', errs.join(' | ') || 'ninguno');
 
 await b.close();
