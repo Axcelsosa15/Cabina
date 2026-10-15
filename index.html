@@ -14764,10 +14764,21 @@ tbody tr:last-child td{border-bottom:0}
     const d={...(old||{}),id,type:"trade-review",tradeId:String(t.id),title:"Revisión: "+(t.instrument||"trade")+" · "+estudioTradeFecha(t),status:$("studyTradeReviewStatus").value,question:$("studyTradePlan").value.trim(),evidence:$("studyTradeExecution").value.trim(),conclusion:$("studyTradeLesson").value.trim(),studySetup:$("studyTradeSetup").value,visualRead:$("studyTradeVisual").value.trim(),invalidation:$("studyTradeInvalidation").value.trim(),rulesFollowed:$("studyTradeRulesFollowed").checked,images:(estudioTradeShotState&&Array.isArray(estudioTradeShotState.imgs)?estudioTradeShotState.imgs:old&&Array.isArray(old.images)?old.images:[]).map(im=>({id:im.id,data:im.data,caption:String(im.caption||"").slice(0,120),name:String(im.name||"").slice(0,160)})),tags:["trade-review",String(t.instrument||"").toUpperCase(),$("studyTradeSetup").value].filter(Boolean),createdAt:old&&old.createdAt||now,updatedAt:now};
     if(button)button.disabled=true;
     status.textContent="Guardando revisión…";
+    // Registrar la revisión antes de emitir la mutación: coll.set() notifica
+    // suscriptores sincrónicamente y renderEstudio() puede volver a cargar el
+    // editor antes de que la promesa de guardado se resuelva.
+    estudioReviewIdByTrade.set(String(t.id),String(id));
+    estudioReviewByTrade.set(String(t.id),d);
+    $("studyTradeReviewId").value=id;
     try{
       await coll("research").set(id,d);
-      if(sinGuardar.has(clave)){status.textContent="No se pudo confirmar el guardado. Revisa el estado de sincronización.";return;}
-      estudioReviewIdByTrade.set(String(t.id),String(id));estudioReviewByTrade.set(String(t.id),d);$("studyTradeReviewId").value=id;status.textContent="Revisión guardada.";renderEstudio();estudioCargarReview(String(t.id));
+      const saved=coll("research").get(id)||d;
+      estudioReviewIdByTrade.set(String(t.id),String(id));
+      estudioReviewByTrade.set(String(t.id),saved);
+      if(sinGuardar.has(clave)&&!state.demo){status.textContent="No se pudo confirmar el guardado. Revisa el estado de sincronización.";return;}
+      status.textContent="Revisión guardada.";
+      renderEstudio();
+      estudioCargarReview(String(t.id));
     }catch(err){
       status.textContent="Error al guardar la revisión. Inténtalo de nuevo.";
     }finally{if(button)button.disabled=false;}
