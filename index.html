@@ -14725,7 +14725,11 @@ tbody tr:last-child td{border-bottom:0}
   function estudioCargarReview(tradeId){
     const t=estudioTrades().find(x=>String(x.id)===String(tradeId));if(!t)return;
     const docs=estudioLista().filter(d=>d.type==="trade-review"&&String(d.tradeId)===String(tradeId)).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
-    const d=docs[0]||{}; $("studyTradeTitle").textContent=(t.instrument||"Trade")+" · "+estudioTradeFecha(t);
+    // Leer primero la revisión por su ID canónico. La lista visual puede estar
+    // un ciclo de render detrás de coll.set(); no debe restaurar campos viejos.
+    const currentId=$("studyTradeReviewId").value;
+    const currentDoc=currentId?coll("research").get(currentId):null;
+    const d=currentDoc&&currentDoc.type==="trade-review"&&String(currentDoc.tradeId)===String(tradeId)?currentDoc:(docs[0]||{}); $("studyTradeTitle").textContent=(t.instrument||"Trade")+" · "+estudioTradeFecha(t);
     $("studyTradeMeta").textContent=[t.direction||"Dirección sin dato","P&L "+estudioDinero(t.pnlEff),"R "+(t.rReal==null?"—":Number.isFinite(Number(t.rReal))?Number(t.rReal).toFixed(2):"—")].join(" · ");
     $("studyTradeStats").innerHTML=[["Entrada",t.entry],["Stop",t.stop],["Salida",t.exit],["Cantidad",t.qty]].map(([k,v])=>'<span class="study-tag">'+estudioEsc(k)+": "+estudioEsc(v==null||v===""?"—":v)+'</span>').join("");
     $("studyTradeReviewForm").hidden=false;$("studyTradeId").value=String(t.id);$("studyTradeReviewId").value=d.id||"";
