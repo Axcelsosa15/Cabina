@@ -15209,6 +15209,43 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   .ed, .ed * { scroll-behavior: auto !important; }
 }
 
+
+/* ── CABECERA COMPACTA EN EL TELÉFONO ──────────────────────────────────────
+   LA CABECERA SE COMÍA EL PRIMER TERCIO DE LA PANTALLA. Medido con la semilla
+   puesta, dónde empieza el primer bloque de contenido de la pestaña:
+
+       iPhone 430×932    256px   27% de la pantalla
+       iPhone 390×844    308px   36%
+       Android 360×780   308px   39%
+       escritorio        88px     9%
+
+   En un teléfono de 360px abrías la cabina y casi el 40% era cabecera: el
+   título en su propia fila, el reloj en otra, la píldora de sesión en otra —
+   `#sessionPill` llevaba `flex:1 1 100%`, una fila entera para ella sola— y
+   los botones en otra. Para una herramienta cuya razón de ser es leer números
+   rápido, eso es justo al revés.
+
+   Nada se oculta: se aprieta. La píldora deja de reservarse una fila y fluye
+   con el reloj, el bloque de marca y el reloj bajan un escalón de tamaño, y el
+   aire vertical se reduce al de un encabezado, no al de una portada. */
+@media (max-width: 700px) {
+  .topbar { padding-block: 10px 8px; gap: 6px 10px; }
+  .brand h1 { font-size: 19px; }
+  /* `space-between` (heredado del bloque de 760px) repartía los botones a lo
+     ancho y dejaba «Ver demo» a la izquierda y «Editar» pegado al borde
+     derecho con un hueco muerto en medio: parecían dos cosas sin relación.
+     Agrupados a la izquierda se leen como lo que son, una fila de acciones. */
+  .clock { gap: 6px 10px; justify-content: flex-start; }
+  .clock .time { font-size: 18px; }
+  /* La píldora de sesión fluye en la misma fila que el reloj en vez de
+     reservarse una para ella sola. Sigue visible y sigue siendo legible. */
+  #sessionPill { flex: 0 1 auto; order: 2; }
+  .save-state { order: 3; }
+  .editbtn { order: 4; }
+  /* El aviso de «sin guardar» SÍ conserva su fila: es lo único de esta barra
+     que hay que ver, y partirlo lo escondería. */
+  .save-state.nosave { flex: 1 1 100%; }
+}
 </style>
 
 </body>
