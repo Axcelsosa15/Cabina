@@ -21,6 +21,7 @@ await p.click('#demoToggle');
 await p.evaluate(() => {
   FUT.createAccount({ id: 'study-visual-account', name: 'Cuenta de estudio', kind: 'evaluacion', status: 'evaluacion' });
   FUT.createTrade({ id: 'study-visual-trade', type: 'futuros', accountId: 'study-visual-account', date: '2026-10-01', instrument: 'MNQ', direction: 'long', qty: 1, entry: 21000, exit: 21025, stop: 20975 });
+  FUT.createTrade({ id: 'study-visual-trade-b', type: 'futuros', accountId: 'study-visual-account', date: '2026-10-02', instrument: 'MES', direction: 'short', qty: 1, entry: 5800, exit: 5790, stop: 5810 });
 });
 await p.click('.tabbtn[data-tab="estudio"]');
 await quieto(p, 50, 3000);
@@ -44,6 +45,14 @@ await p.fill('#studyTradeLesson', 'No perseguir el precio si ya se alejó del ni
 await p.click('#studyTradeReviewForm button[type="submit"]');
 await p.waitForFunction(() => /revisi[oó]n guardada/i.test(document.querySelector('#studyTradeSaveState')?.textContent || ''), null, { timeout: 10000 });
 ok(true, 'guarda la revisión y sus campos educativos');
+
+// Cambiar a otra operación debe limpiar el editor; volver a la original debe recuperar sus propios datos.
+await p.click('[data-study-trade="study-visual-trade-b"]');
+await quieto(p, 50, 3000);
+ok(await p.inputValue('#studyTradeSetup') === '', 'no mezcla el setup con otra operación');
+ok(await p.inputValue('#studyTradeVisual') === '', 'no mezcla la lectura visual con otra operación');
+ok(await p.inputValue('#studyTradeInvalidation') === '', 'no mezcla la invalidación con otra operación');
+ok(!(await p.isChecked('#studyTradeRulesFollowed')), 'no mezcla la evaluación de reglas con otra operación');
 
 await p.click('[data-study-trade="study-visual-trade"]');
 await quieto(p, 50, 3000);
