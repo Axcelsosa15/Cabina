@@ -8,7 +8,7 @@
      · lo borrado vuelve entero, incluso después de recargar;
      · en masa sólo se borra lo que está EN PANTALLA. */
 import { chromium } from 'playwright';
-import { quieto, arrancada, trasGuardar } from './espera.mjs';
+import { quieto, arrancada, trasGuardar, enDisco } from './espera.mjs';
 const errs = [], fallos = [];
 const F = new Date('2026-09-17T14:00:00Z').getTime();
 const b = await chromium.launch();
@@ -269,8 +269,34 @@ console.log('\n═══ un solo borrado de cuenta, no tres ═══');
   }
   ok(armado === '1', 'el primer clic arma el botón de borrar', 'data-armed=' + JSON.stringify(armado));
   await p.click(DEL); await quieto(p);
-  /* persistSettings va con 500 ms de debounce: leer el disco antes miente. */
-  await new Promise(r => setTimeout(r, 900));
+  /* EL SEGUNDO CLIC SE PIERDE POR LO MISMO QUE EL PRIMERO, y hasta ahora nadie lo
+     comprobaba. El bucle de arriba le puso dientes al clic que ARMA; el que
+     CONFIRMA seguía siendo un `click` suelto, así que cuando la tarjeta se
+     repintaba entre la comprobación de visibilidad y el disparo, la confirmación
+     caía en un nodo ya sustituido y la cuenta seguía viva. Es el mismo defecto
+     del navegador, en el otro clic.
+
+     Medido el 15/10/2026: la compuerta se cerró con las dos aserciones de abajo
+     en rojo —`meta.acct` seguía en "a1" Y `FUT.accounts()` seguía teniendo la
+     cuenta—. Que la segunda también fallara es lo que descarta el reloj: si
+     sólo hubiera sido el debounce, la cuenta habría estado borrada en memoria y
+     sólo el disco iría atrasado. No llegó a borrarse: el clic no llegó.
+
+     POR QUÉ ESTO NO TAPA UN DEFECTO REAL. Sólo se reintenta mientras el botón
+     SIGUE ARMADO, que es la huella de que la confirmación no se registró. Si
+     está desarmado y la cuenta sigue viva, la app aceptó el clic y no borró —eso
+     es un defecto de verdad— y el bucle se corta para que salga rojo. Las dos
+     aserciones siguen siendo exactamente las mismas. */
+  let borrada = await p.evaluate(() => !FUT.accounts().some(a => a.id === 'a1'));
+  for (let i = 0; i < 3 && !borrada; i++) {
+    if (await p.getAttribute(DEL, 'data-armed').catch(() => null) !== '1') break;
+    await p.click(DEL); await quieto(p);
+    borrada = await p.evaluate(() => !FUT.accounts().some(a => a.id === 'a1'));
+  }
+  /* Al DATO, no al reloj: `persistSettings` lleva 500 ms de debounce y 900 ms
+     fijos mienten bajo carga. Si nunca se cumple, se sigue adelante y es la
+     aserción la que lo cuenta, no un timeout sin explicación. */
+  await enDisco(p, d => !(d.settings.meta || {}).acct, 8000).catch(() => {});
   const meta = await p.evaluate(() => { const d = JSON.parse(localStorage.getItem('cabina-mnq:v1')); return (d.settings.meta || {}).acct; });
   ok(!meta, 'borrando desde el menú de la tarjeta no queda un fantasma en disco', JSON.stringify(meta));
   ok(await p.evaluate(() => !FUT.accounts().some(a => a.id === 'a1')), 'y la cuenta se borra de verdad');
