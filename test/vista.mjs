@@ -1,8 +1,8 @@
-/* VISTA · que ninguna de las siete pestanas se salga de la pantalla.
+/* VISTA · que ninguna de las OCHO pestanas se salga de la pantalla.
 
    `diseno.mjs` mide una sola pestana a 1600x1200: espaciado, tipos, contraste. Esto
    mide algo mas tonto y mas facil de romper -- si la pagina desborda en horizontal --
-   en las SEIS pestanas y en tres anchos, incluido un telefono de 430px.
+   en las OCHO pestanas y en tres anchos, incluido un telefono de 430px.
 
    Dos cosas que NO cuentan como desborde, y por que:
 
@@ -29,7 +29,13 @@ const BASE = `http://127.0.0.1:${srv.address().port}/`;
 const b = await chromium.launch();
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
-const TABS = ['cabina', 'futuros', 'edge', 'invest', 'playbook', 'ideas', 'calc'];
+/* LAS OCHO, no siete. `estudio` faltaba desde que se anadio la pestana, asi que
+   el comportamiento responsive de la pestana de la que sale el lenguaje visual de
+   toda la cabina no se medía en ningun ancho -- y la compuerta anunciaba esta fila
+   como «ninguna de las siete pestanas se sale de la pantalla». Son ocho botones en
+   #tabnav: cabina, futuros, edge, invest, playbook, ideas, estudio, calc.
+   Como las demas, se mide en su estado VACIO: este archivo no siembra datos. */
+const TABS = ['cabina', 'futuros', 'edge', 'invest', 'playbook', 'ideas', 'estudio', 'calc'];
 const ANCHOS = [[1440, 900, 'escritorio'], [834, 1000, 'tableta'], [430, 900, 'telefono']];
 
 const mide = p => p.evaluate(() => {
@@ -94,6 +100,43 @@ for (const [w, h, nombre] of ANCHOS) {
     ok(m.scrollX <= 2 && !m.peor, `${t.padEnd(9)} sin desborde horizontal`,
        m.peor ? `${m.peor.tag}${m.peor.id ? '#' + m.peor.id : ''}.${m.peor.cls} se sale ${m.peor.exceso}px` : `scrollX ${m.scrollX}`);
   }
+  /* ESTUDIO CON CONTENIDO, no sólo vacía. El resto de este archivo mide las ocho
+     pestañas sin sembrar, así que la rejilla de ESTUDIO se medía siempre con su
+     estado vacío -- y el estado vacío es justo el que NO puede desbordar, porque
+     `.study-empty` ocupa la fila entera. El riesgo vive en `.study-card`.
+
+     Se crea el documento por el EDITOR DE VERDAD (#studyNew → #studyTitle →
+     submit de #studyForm), no inyectando DOM: así se mide la tarjeta que pinta la
+     app con lo que una persona puede escribir, y no una maqueta nuestra.
+
+     El título es una sola palabra de 66 caracteres -- una URL pegada, un término
+     concatenado. Sin `overflow-wrap` en el h3 eso ensancha la celda de la rejilla
+     por encima de la ventana y desplaza la PÁGINA ENTERA en horizontal.
+
+     SABOTAJE CORRIDO (15/10/2026), poniendo el h3 en `overflow-wrap:normal` y
+     dejando el resto igual. Lo que midió esta misma fila, ancho por ancho:
+
+       escritorio 1440px   scrollX 0     ← la columna mide 554px: ese título cabe
+       tableta     834px   scrollX 0     ← columna de 384px: aún cabe
+       telefono    430px   scrollX 166   ← ROJA
+
+     Con el remedio puesto, 0 en los tres. Así que es el teléfono el que lo
+     atrapa, y por eso el ancho de 430px de este archivo no es decorativo: a
+     1440px y a 834px este defecto es invisible. Un título más largo rompería
+     también los anchos grandes; no se persigue el peor caso posible, se fija el
+     que una persona puede escribir y que hoy desborda. */
+  await p.click('[data-tab="estudio"]');
+  await p.click('#studyNew');
+  await p.fill('#studyTitle', 'ElPrecioDeUnContratoDeMicroNasdaqEnLaRejillaDeTicksDeCuartoDePunto');
+  await p.fill('#studyQuestion', 'Una palabra larga en el titulo no puede desplazar la pagina.');
+  await p.evaluate(() => document.getElementById('studyForm').requestSubmit());
+  /* Al dato, no al reloj: la tarjeta existe o la aserción no tiene qué medir. */
+  await p.waitForFunction(() => document.querySelectorAll('#studyGrid .study-card').length > 0,
+                          null, { timeout: 20000 });
+  const me = await mide(p);
+  ok(me.scrollX <= 2 && !me.peor, `estudio    con una tarjeta de titulo largo, sin desborde`,
+     me.peor ? `${me.peor.tag}.${me.peor.cls} se sale ${me.peor.exceso}px` : `scrollX ${me.scrollX}`);
+
   ok(errs.length === 0, `ningun error de pagina en ${nombre}`, errs.slice(0, 2).join(' | ') || 'ninguno');
   console.log(`     · del entorno, no de la app: ${red.length} recurso(s) bloqueado(s) por el proxy${red.length ? ' (fuentes de Google)' : ''}`);
   await ctx.close();
