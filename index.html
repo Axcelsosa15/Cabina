@@ -14951,10 +14951,48 @@ a:hover{color:#a4f2e6}
   color:#a9b9c7;background:#1a242e;border-color:#2c3b47;border-radius:6px;
 }
 .tab:not([data-tab="estudio"]) .empty{
-  padding:30px 20px;border:1px dashed #344653;border-radius:13px;
+  /* OCUPA LA FILA ENTERA CUANDO ES HIJO DE UNA REJILLA. Medido a 1500px: en
+     PLAYBOOK y en FORMAS DE HACER DINERO el estado vacío caía en UNA columna de
+     385px dentro de un contenedor de 1180px, así que la única cosa que había en
+     la pantalla era una cajita arrinconada a la izquierda con 795px de negro al
+     lado. Los otros seis estados vacíos de la app ya llenaban su contenedor
+     (542/542, 1144/1144, 860/894, 446/480): el defecto era sólo de los que viven
+     en una rejilla. `.study-empty` ya resolvía esto con `grid-column:1/-1`, y
+     una de las plantillas de pre-sesión lo lleva escrito en línea: no es un
+     patrón nuevo, es el mismo sin aplicar. */
+  grid-column:1/-1;
+  /* Y deja de ser una nota suelta para ser un estado compuesto: centrado y con
+     aire, como el de ESTUDIO.
+
+     NI `grid` NI `flex` AQUÍ, y conviene que quede escrito porque fue el primer
+     intento: el contenido de estos estados es texto suelto mezclado con `<code>`
+     («Sin nada en Futuros. Pulsa `Desde plantilla` para empezar…»). Con
+     `display:grid` cada nodo —cada trozo de texto y cada `code`— se convierte en
+     un ítem de la rejilla y la frase se parte en cinco líneas apiladas. Medido en
+     pantalla: quedaba peor que el defecto que venía a arreglar. Con `block` la
+     frase sigue siendo una frase.
+
+     El ancho de la COLUMNA DE TEXTO se controla con el padding lateral, no con un
+     `max-width`: así la caja punteada ocupa la fila entera —que es lo que se
+     quería— y la línea se queda en una medida legible en vez de cruzar 1180px.
+     El porcentaje es RELATIVO AL CONTENEDOR, y eso importa: con `11vw` el mismo
+     valor se calculaba contra la ventana, así que al estado vacío de 446px de la
+     CALCULADORA le metía 165px de padding por lado y le dejaba una columna de
+     texto de 116px. Medido antes de dejarlo. */
+  display:block;
+  text-align:center;
+  padding:38px clamp(22px,9%,190px);border:1px dashed #344653;border-radius:13px;
   background:linear-gradient(145deg,rgba(19,29,38,.72),rgba(13,19,26,.6));
-  color:#a5b4c1;line-height:1.55;
+  color:#a5b4c1;line-height:1.6;
 }
+/* La primera línea del estado vacío pesa como un título, igual que el `b` de
+   `.study-empty`: sin jerarquía, un párrafo centrado es sólo texto centrado. */
+.tab:not([data-tab="estudio"]) .empty b,
+.tab:not([data-tab="estudio"]) .empty strong{
+  display:block;color:#e2eaf0;font-size:15px;line-height:1.35;letter-spacing:-.015em;
+}
+/* Reparte las líneas de forma pareja en vez de dejar una palabra suelta al final. */
+.tab:not([data-tab="estudio"]) .empty{text-wrap:pretty}
 .tab:not([data-tab="estudio"]) .seg{
   padding:3px;gap:2px;border:1px solid #293b47;border-radius:10px;
   background:#0d141b;
