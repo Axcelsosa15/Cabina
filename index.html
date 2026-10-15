@@ -14771,6 +14771,51 @@ tbody tr:last-child td{border-bottom:0}
   });
   coll("research").subscribe(()=>renderEstudio());document.addEventListener("keydown",e=>{if(e.key==="Escape")estudioCerrar();});renderEstudio();
 
+  /* ── TILES SIN DATO ──────────────────────────────────────
+     Con una cuenta nueva, 23 de los 27 tiles de la aplicación muestran «—»:
+     FUTUROS 13 de 13, INVERSIONES 8 de 10, CABINA 2 de 4. Y los 23 se pintaban a
+     peso 800, 26px y #E8ECF2 — EXACTAMENTE lo mismo que una cifra real. El ojo
+     no tenía dónde posarse: con la semilla puesta, los ocho guiones de
+     INVERSIONES competían a igualdad de tinta con el «$556» de FUTUROS.
+
+     Esto NO decide qué se muestra ni toca un cálculo. Lee lo que el render ya
+     escribió y, si el valor es el guión de «todavía no hay dato», le baja el
+     peso visual con una clase. Quitar la clase devuelve la vista anterior tal
+     cual. El texto no cambia, así que un lector de pantalla oye lo mismo.
+
+     POR QUÉ UN OBSERVADOR Y NO UN RETOQUE EN CADA RENDER. Los tiles se pintan
+     con `innerHTML` en cinco contenedores — #tiles, #prTiles, #ftTiles,
+     #ftStreaks, #ivTiles — desde funciones que no se llaman entre sí. Tocar las
+     cinco son cinco sitios donde olvidarse; un observador por contenedor los
+     cubre todos, y cubre el que se añada mañana, porque la lista se saca del
+     propio DOM buscando `.tiles` y no de una lista escrita a mano.
+
+     NO HAY BUCLE: lo único que escribe es la clase, que es un cambio de
+     atributo, y los observadores no escuchan atributos.
+
+     EL CRITERIO ES EL GLIFO, no «está vacío». Un tile con «0» posiciones SÍ
+     tiene dato y se queda a peso completo: cero es una respuesta. Y los tiles
+     dobles —«— / —», mejor/peor día— sólo cuentan como sin dato cuando lo
+     están los dos lados; de ahí que la expresión admita la barra y los espacios
+     de alrededor, y que «$556 / —» siga pesando entero.
+
+     Lo vigila test/vacios.mjs. */
+  const TILE_SIN_DATO = /^[\u2014\s/]*\u2014[\u2014\s/]*$/;
+  function marcarTilesSinDato(cont) {
+    for (const t of cont.querySelectorAll(".tile")) {
+      const v = t.querySelector(".v");
+      t.classList.toggle("sin-dato", !!v && TILE_SIN_DATO.test((v.textContent || "").trim()));
+    }
+  }
+  (function vigilarTilesSinDato() {
+    if (typeof MutationObserver !== "function") return;
+    for (const c of document.querySelectorAll(".tiles")) {
+      marcarTilesSinDato(c);
+      new MutationObserver(() => marcarTilesSinDato(c))
+        .observe(c, { childList: true, subtree: true, characterData: true });
+    }
+  })();
+
 })();
 </script>
 
@@ -14840,6 +14885,23 @@ html{scroll-padding-top:24px}
 .tile{background:linear-gradient(145deg,#151d26,#11171f);padding:14px 16px;transition:background .16s ease}
 .tile:hover{background:linear-gradient(145deg,#192630,#131b23)}
 .tile .v{letter-spacing:-.035em}
+
+/* UN GUIÓN NO ES UNA CIFRA, así que no debe pesar como una. Medido con cuenta
+   nueva: 23 de los 27 tiles mostraban «—» a peso 800 / 26px / #E8ECF2, la misma
+   tinta que «$556». Aquí el guión baja al tercer nivel de texto, a peso 400 y a
+   20px, y el tile pierde el degradado: el que SÍ trae número queda en relieve.
+
+   LA ETIQUETA NO SE TOCA. Es lo que dice QUÉ falta — «P&L neto», «Win rate» — y
+   sigue siendo lo legible del tile. Se baja el valor ausente, no la pregunta.
+
+   El color es `--dim`, el tercer nivel del propio sistema, no un gris inventado
+   para la ocasión: ya está medido en tokens.mjs y no hay un cuarto nivel que
+   mantener. La clase la pone el render; esta hoja sólo decide cómo se ve. */
+.tile.sin-dato{background:#111820}
+.tile.sin-dato:hover{background:#141c25}
+.tile.sin-dato .v{color:var(--dim);font-weight:400;font-size:20px;letter-spacing:0}
+.tile.sin-dato .v.dual{font-size:16px}
+.tile.sin-dato .s{color:var(--dim)}
 .btn{
   border-color:#34434f;background:linear-gradient(135deg,#1a2530,#151d26);
   color:#dce6ee;border-radius:8px;box-shadow:inset 0 1px rgba(255,255,255,.035);
@@ -14880,6 +14942,8 @@ a:hover{color:#a4f2e6}
   .panel>header{padding:12px 14px}
   .panel .body{padding:14px}
   .tile{padding:12px}
+  .tile.sin-dato .v{font-size:17px}
+  .tile.sin-dato .v.dual{font-size:14px}
 }
 @media(max-width:600px){
   .btn{min-height:34px}
