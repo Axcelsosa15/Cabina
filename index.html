@@ -187,6 +187,17 @@ tbody tr:last-child td{border-bottom:0}
            muted  6.50:1   la etiqueta
            dim    4.61:1   el matiz — el suelo AA, no menos
 
+       EL CIERRE DE ESTE COMENTARIO FALTABA, y durante ese tiempo los tres
+       niveles de texto NO EXISTIERON. Los comentarios de CSS no anidan, así que
+       este bloque se cerraba en el cierre del comentario SEMÁNTICOS de más
+       abajo y se tragaba las tres declaraciones de aquí. `--text`, `--muted` y `--dim`
+       salían vacíos en `getComputedStyle`, así que cada `color: var(--text)` y
+       cada `color: var(--muted)` SIN fallback quedaba en `unset`, el color se
+       heredaba, y el texto terminaba en BLANCO PURO: `body` en rgb(255,255,255)
+       en vez de #E8ECF2, y toda la etiqueta, nota, cabecera de tabla y pie
+       secundario al mismo contraste que el dato. Justo la jerarquía que estas
+       líneas describen. Lo vigila test/tokens.mjs. */
+
     --text:  #E8ECF2;
     --muted: #A2AAB9;
     --dim:   #848EA1;
@@ -14696,7 +14707,7 @@ tbody tr:last-child td{border-bottom:0}
     });
     const rows=[...groups.values()].sort((a,b)=>a.instrument.localeCompare(b.instrument)||a.direction.localeCompare(b.direction));
     if(!rows.length){root.innerHTML='<p class="study-note">No hay operaciones para comparar.</p>';return;}
-    root.innerHTML='<table style="width:100%;border-collapse:collapse;min-width:520px"><thead><tr><th style="text-align:left;padding:8px">Instrumento</th><th style="text-align:left;padding:8px">Dirección</th><th style="text-align:right;padding:8px">Trades</th><th style="text-align:right;padding:8px">Win rate*</th><th style="text-align:right;padding:8px">P&amp;L disponible</th><th style="text-align:right;padding:8px">R promedio*</th></tr></thead><tbody>'+rows.map(g=>'<tr><td style="padding:8px">'+estudioEsc(g.instrument)+'</td><td style="padding:8px">'+estudioEsc(g.direction)+'</td><td style="text-align:right;padding:8px">'+g.count+'</td><td style="text-align:right;padding:8px">'+(g.pnl.length?(g.wins/g.pnl.length*100).toFixed(1)+'% ('+g.pnl.length+')':'—')+'</td><td style="text-align:right;padding:8px">'+(g.pnl.length?estudioEsc(estudioDinero(g.pnl.reduce((a,v)=>a+v,0))):'—')+'</td><td style="text-align:right;padding:8px">'+(g.r.length?(g.r.reduce((a,v)=>a+v,0)/g.r.length).toFixed(2)+'R ('+g.r.length+')':'—')+'</td></tr>').join('')+'</tbody></table><p class="study-note" style="margin-top:8px">* El porcentaje usa únicamente operaciones con P&amp;L registrado; R promedio usa únicamente operaciones con R registrado. El número entre paréntesis indica el tamaño de cada muestra disponible.</p>';
+    root.innerHTML='<div class="twrap"><table class="t" style="min-width:520px"><thead><tr><th>Instrumento</th><th>Dirección</th><th class="r">Trades</th><th class="r">Win rate*</th><th class="r">P&amp;L disponible</th><th class="r">R promedio*</th></tr></thead><tbody>'+rows.map(g=>'<tr><td>'+estudioEsc(g.instrument)+'</td><td>'+estudioEsc(g.direction)+'</td><td class="r">'+g.count+'</td><td class="r">'+(g.pnl.length?(g.wins/g.pnl.length*100).toFixed(1)+'% ('+g.pnl.length+')':'—')+'</td><td class="r">'+(g.pnl.length?estudioEsc(estudioDinero(g.pnl.reduce((a,v)=>a+v,0))):'—')+'</td><td class="r">'+(g.r.length?(g.r.reduce((a,v)=>a+v,0)/g.r.length).toFixed(2)+'R ('+g.r.length+')':'—')+'</td></tr>').join('')+'</tbody></table></div><p class="study-note" style="margin-top:8px">* El porcentaje usa únicamente operaciones con P&amp;L registrado; R promedio usa únicamente operaciones con R registrado. El número entre paréntesis indica el tamaño de cada muestra disponible.</p>';
   }
   function renderEstudioTrades(){
     const list=$("studyTradeList"),account=$("studyTradeAccount");if(!list||!account)return;
