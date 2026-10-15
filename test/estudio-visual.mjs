@@ -15,6 +15,9 @@ const errs = [];
 p.on('pageerror', e => errs.push(e.message));
 await siembra(p, URL, { settings: { meta: {}, accounts: [], rules: [] }, trades: {}, research: {} });
 await p.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 15000 });
+// El test es de interfaz: usa el modo demo para que la escritura no dependa
+// de credenciales ni de una conexión real con Supabase.
+await p.click('#demoToggle');
 await p.evaluate(() => {
   FUT.createAccount({ id: 'study-visual-account', name: 'Cuenta de estudio', kind: 'evaluacion', status: 'evaluacion' });
   FUT.createTrade({ id: 'study-visual-trade', type: 'futuros', accountId: 'study-visual-account', date: '2026-10-01', instrument: 'MNQ', direction: 'long', qty: 1, entry: 21000, exit: 21025, stop: 20975 });
