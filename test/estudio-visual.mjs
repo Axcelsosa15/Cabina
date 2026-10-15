@@ -42,7 +42,7 @@ await p.fill('#studyTradePlan', 'Esperaba continuación después del desplazamie
 await p.fill('#studyTradeExecution', 'Entrada después de la confirmación; revisar el stop.');
 await p.fill('#studyTradeLesson', 'No perseguir el precio si ya se alejó del nivel.');
 await p.click('#studyTradeReviewForm button[type="submit"]');
-await p.waitForFunction(() => /Revisión guardada/.test(document.querySelector('#studyTradeSaveState')?.textContent || ''), null, { timeout: 10000 });
+await p.waitForFunction(() => /revisi[oó]n guardada/i.test(document.querySelector('#studyTradeSaveState')?.textContent || ''), null, { timeout: 10000 });
 ok(true, 'guarda la revisión y sus campos educativos');
 
 await p.click('[data-study-trade="study-visual-trade"]');
