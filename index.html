@@ -14986,6 +14986,152 @@ a:hover{color:#a4f2e6}
   #tabnav .tabbtn::after { transition:none!important; }
   .tile:hover { transform:none; }
 }
+
+/* CABINA · Formularios de datos: cuenta, reglas y pre-sesión
+   Capa visual solamente: no cambia datos, validaciones ni comportamiento. */
+.ed {
+  width: min(980px, calc(100vw - 32px));
+  max-width: 980px;
+  max-height: min(90dvh, 920px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.ed > header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  gap: 16px;
+  background: var(--surface);
+}
+.ed > header h3 { font-size: 14px; line-height: 1.35; }
+.ed .fields {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px 18px;
+  padding: 20px 22px;
+}
+.ed .fld { min-width: 0; }
+.ed .fld > label,
+.ed .fld > .lab {
+  display: block;
+  margin: 0 0 7px;
+  line-height: 1.4;
+  font-size: 12px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.ed .fld input:not([type=checkbox]):not([type=radio]),
+.ed .fld select,
+.ed .fld textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 11px;
+  line-height: 1.4;
+}
+.ed .fld textarea { min-height: 96px; resize: vertical; }
+.ed .fld .help {
+  margin-top: 7px;
+  font: 12px/1.5 var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.ed > footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  align-items: center;
+  flex-wrap: wrap;
+  background: var(--surface);
+  padding: 14px 22px;
+}
+.ed > footer button { min-height: 40px; }
+.rulec .ced {
+  gap: 12px;
+  padding: 14px 0 4px;
+  min-width: 0;
+}
+.rulec .ced > .tin {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 11px;
+}
+.rulec .ced .edrow {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.rulec .ced .edrow > div { min-width: 0; }
+.rulec .ced .edrow select,
+.rulec .ced .edrow input { width: 100%; min-width: 0; min-height: 40px; }
+.rulec .ced .edrow .lab {
+  display: block;
+  margin-bottom: 6px;
+  line-height: 1.4;
+  white-space: normal;
+}
+body.editing .check li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+body.editing .check .ced.edit-only {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  gap: 8px;
+}
+body.editing .check .ced .tin {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 9px 10px;
+}
+body.editing .check li > .tools {
+  grid-column: 2;
+  grid-row: 1;
+  flex-wrap: nowrap;
+  align-self: start;
+  gap: 5px;
+}
+body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
+@media (max-width: 900px) {
+  .ed { width: min(760px, calc(100vw - 24px)); }
+  .ed .fields { gap: 14px; padding: 16px; }
+  .rulec .ced .edrow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .ed {
+    width: calc(100vw - 16px);
+    max-height: 94dvh;
+    border-radius: 12px;
+  }
+  .ed > header { padding: 13px 14px; }
+  .ed .fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 12px;
+    padding: 14px;
+  }
+  .ed .fld, .ed .fld.w3, .ed .fld.w6 { grid-column: span 2; }
+  .ed .fld > label, .ed .fld > .lab { font-size: 12px; }
+  .ed .fld .help { font-size: 12px; }
+  .ed > footer { gap: 8px; padding: 12px 14px; }
+  .ed > footer button { flex: 1 1 auto; }
+  .rulec .ced .edrow { grid-template-columns: minmax(0, 1fr); }
+  body.editing .check li { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 10px; }
+  body.editing .check li > .tools { gap: 3px; }
+  body.editing .check li > .tools button { min-width: 30px; min-height: 32px; padding: 5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed, .ed * { scroll-behavior: auto !important; }
+}
+
 </style>
 
 </body>
