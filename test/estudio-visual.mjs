@@ -1,0 +1,100 @@
+/* ESTUDIO VISUAL · una revisión enseña el razonamiento, no solo el resultado. */
+import { chromium } from 'playwright';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { siembra, quieto } from './espera.mjs';
+
+const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
+const URL = 'file://' + join(raiz, 'index.html');
+const fallos = [];
+const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
+
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 1440, height: 1000 } });
+const errs = [];
+p.on('pageerror', e => errs.push(e.message));
+await siembra(p, URL, { settings: { meta: {}, accounts: [], rules: [] }, trades: {}, research: {} });
+await p.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 15000 });
+// El test es de interfaz: usa el modo demo para que la escritura no dependa
+// de credenciales ni de una conexión real con Supabase.
+await p.click('#demoToggle');
+await p.evaluate(() => {
+  FUT.createAccount({ id: 'study-visual-account', name: 'Cuenta de estudio', kind: 'evaluacion', status: 'evaluacion' });
+  FUT.createTrade({ id: 'study-visual-trade', type: 'futuros', accountId: 'study-visual-account', date: '2026-10-01', instrument: 'MNQ', direction: 'long', qty: 1, entry: 21000, exit: 21025, stop: 20975 });
+  FUT.createTrade({ id: 'study-visual-trade-b', type: 'futuros', accountId: 'study-visual-account', date: '2026-10-02', instrument: 'MES', direction: 'short', qty: 1, entry: 5800, exit: 5790, stop: 5810 });
+});
+await p.click('.tabbtn[data-tab="estudio"]');
+await quieto(p, 50, 3000);
+await p.waitForSelector('[data-study-trade="study-visual-trade"]', { timeout: 10000 });
+
+console.log('\n═══ ESTUDIO · convierte una operación en una lección ═══');
+ok(await p.isVisible('#studyTradeSetup'), 'incluye clasificación de setup');
+ok(await p.isVisible('#studyTradeVisual'), 'incluye lectura visual guiada del gráfico');
+ok(await p.isVisible('#studyTradeInvalidation'), 'pide evidencia contraria e invalidación');
+ok(await p.isVisible('#studyTradeRulesFollowed'), 'separa disciplina del resultado');
+ok(await p.isVisible('#studyTradeShotsHost'), 'tiene zona de capturas integrada en la revisión');
+ok(await p.isVisible('#studyTradeReviewForm'), 'abre una revisión vinculada al trade seleccionado');
+
+await p.selectOption('#studyTradeSetup', 'IFVG');
+await p.fill('#studyTradeVisual', 'Barrido de liquidez y desplazamiento; esperé confirmación antes de entrar.');
+await p.fill('#studyTradeInvalidation', 'La idea queda invalidada si recupera el nivel barrido y cierra contra el sesgo.');
+await p.check('#studyTradeRulesFollowed');
+await p.fill('#studyTradePlan', 'Esperaba continuación después del desplazamiento.');
+await p.fill('#studyTradeExecution', 'Entrada después de la confirmación; revisar el stop.');
+await p.fill('#studyTradeLesson', 'No perseguir el precio si ya se alejó del nivel.');
+await p.click('#studyTradeReviewForm button[type="submit"]');
+await p.waitForFunction(() => {
+  const state = (document.querySelector('#studyTradeSaveState')?.textContent || '').trim();
+  const reviewId = (document.querySelector('#studyTradeReviewId')?.value || '').trim();
+  return !!reviewId && (/^Revisión guardada\.$/i.test(state) || /^Última revisión guardada:/i.test(state));
+}, null, { timeout: 10000 });
+const guardadoInicial = await p.evaluate(() => ({
+  trade: document.querySelector('#studyTradeId')?.value || '',
+  review: document.querySelector('#studyTradeReviewId')?.value || '',
+  setup: document.querySelector('#studyTradeSetup')?.value || '',
+  visual: document.querySelector('#studyTradeVisual')?.value || '',
+  invalidation: document.querySelector('#studyTradeInvalidation')?.value || '',
+  rules: document.querySelector('#studyTradeRulesFollowed')?.checked === true,
+  saveState: document.querySelector('#studyTradeSaveState')?.textContent || ''
+}));
+ok(guardadoInicial.review.length > 0, 'el guardado asigna un ID de revisión [estado=' + JSON.stringify(guardadoInicial) + ']');
+ok(guardadoInicial.setup === 'IFVG' && guardadoInicial.visual.includes('Barrido de liquidez') && guardadoInicial.invalidation.includes('invalidada') && guardadoInicial.rules, 'el editor conserva todos los campos justo después de guardar [estado=' + JSON.stringify(guardadoInicial) + ']');
+ok(true, 'guarda la revisión y sus campos educativos');
+
+// Cambiar a otra operación debe limpiar el editor; volver a la original debe recuperar sus propios datos.
+await p.click('[data-study-trade="study-visual-trade-b"]');
+await quieto(p, 50, 3000);
+ok(await p.inputValue('#studyTradeSetup') === '', 'no mezcla el setup con otra operación');
+ok(await p.inputValue('#studyTradeVisual') === '', 'no mezcla la lectura visual con otra operación');
+ok(await p.inputValue('#studyTradeInvalidation') === '', 'no mezcla la invalidación con otra operación');
+ok(!(await p.isChecked('#studyTradeRulesFollowed')), 'no mezcla la evaluación de reglas con otra operación');
+
+await p.click('[data-study-trade="study-visual-trade"]');
+await quieto(p, 50, 3000);
+console.log('  DEBUG revisión tras volver a A:', await p.evaluate(() => ({
+  selectedTrade: document.querySelector('#studyTradeId')?.value,
+  reviewId: document.querySelector('#studyTradeReviewId')?.value,
+  setup: document.querySelector('#studyTradeSetup')?.value,
+  visual: document.querySelector('#studyTradeVisual')?.value,
+  invalidation: document.querySelector('#studyTradeInvalidation')?.value,
+  rulesFollowed: document.querySelector('#studyTradeRulesFollowed')?.checked,
+  status: document.querySelector('#studyTradeSaveState')?.textContent
+})));
+const estadoFinal = await p.evaluate(() => ({
+  trade: document.querySelector('#studyTradeId')?.value || '',
+  review: document.querySelector('#studyTradeReviewId')?.value || '',
+  setup: document.querySelector('#studyTradeSetup')?.value || '',
+  visual: document.querySelector('#studyTradeVisual')?.value || '',
+  invalidation: document.querySelector('#studyTradeInvalidation')?.value || '',
+  rules: document.querySelector('#studyTradeRulesFollowed')?.checked === true,
+  saveState: document.querySelector('#studyTradeSaveState')?.textContent || ''
+}));
+ok(estadoFinal.setup === 'IFVG', 'el setup se conserva al volver a abrir la operación [estado=' + JSON.stringify(estadoFinal) + ']');
+ok(estadoFinal.visual.includes('Barrido de liquidez'), 'la lectura visual persiste [estado=' + JSON.stringify(estadoFinal) + ']');
+ok(estadoFinal.invalidation.includes('invalidada'), 'la invalidación persiste [estado=' + JSON.stringify(estadoFinal) + ']');
+ok(estadoFinal.rules, 'la evaluación de reglas persiste [estado=' + JSON.stringify(estadoFinal) + ']');
+ok(errs.length === 0, 'sin errores JavaScript', errs.join(' | ') || 'ninguno');
+
+await b.close();
+console.log(fallos.length ? `\\n  ${fallos.length} fallos` : '\\n  todo en verde');
+process.exit(fallos.length ? 1 : 0);
