@@ -47,26 +47,30 @@ jobs:
       # servidos. index.html FUE autosuficiente hasta que se añadió la imagen
       # para compartir: og.png vive en el repositorio a propósito —para no
       # depender de un servidor ajeno— y por tanto hay que publicarla.
+      #
+      # LO QUE AQUÍ SE DEJÓ DE HACER, Y POR QUÉ. Este paso inyectaba
+      # `<link rel="stylesheet" href="./cabina-refinement.css">` en el HTML
+      # publicado. La CSP de la página declara
+      # `style-src 'unsafe-inline' https://fonts.googleapis.com`: sin 'self',
+      # el navegador RECHAZA esa hoja. Medido en Chromium contra este mismo
+      # artefacto: «Refused to load the stylesheet ... because it violates the
+      # following Content Security Policy directive», requestfailed con
+      # errorText `csp`, y `scroll-padding-top` del <html> en `auto` cuando la
+      # hoja declara 24px. Las 441 líneas no llegaban a pintar NADA.
+      # La verificación de más abajo decía «✅ responde» porque hacía `curl`,
+      # y curl no aplica CSP: comprobaba que el fichero se sirve, no que el
+      # navegador lo use. Un verde que medía lo que no era.
+      # Y lo peor: la inyección ocurría SÓLO aquí, así que el payload publicado
+      # no era el que prueban humo.mjs ni seguridad.mjs. «Lo publicado es lo
+      # probado» dejaba de ser cierto justo en el fichero que nadie miraba.
+      # Ahora `sitio/index.html` es copia byte a byte de lo que corre la suite.
+      # Lo vigila test/hojas.mjs.
       - name: Armar lo que se publica
         run: |
           mkdir -p sitio
           cp index.html sitio/index.html
           cp .nojekyll sitio/.nojekyll
           cp og.png sitio/og.png
-          cp cabina-refinement.css sitio/cabina-refinement.css
-          python3 - <<'PY'
-          from pathlib import Path
-          import hashlib
-          page = Path("sitio/index.html")
-          html = page.read_text()
-          css_hash = hashlib.sha256(Path("sitio/cabina-refinement.css").read_bytes()).hexdigest()[:12]
-          link = f'  <link rel="stylesheet" href="./cabina-refinement.css?v={css_hash}">\n'
-          if "cabina-refinement.css" not in html:
-              if "</head>" not in html:
-                  raise SystemExit("No se encontró </head> para insertar la hoja de estilos")
-              html = html.replace("</head>", link + "</head>", 1)
-          page.write_text(html)
-          PY
           ls -la sitio
 
       # EL FALLO QUE ESTE PASO EXISTE PARA IMPEDIR, Y QUE YA OCURRIÓ UNA VEZ:
@@ -91,12 +95,6 @@ jobs:
               faltan=1
             fi
           done
-          if [ ! -f sitio/cabina-refinement.css ]; then
-            echo "::error::cabina-refinement.css no está en el artefacto de publicación"
-            faltan=1
-          else
-            echo "✅ cabina-refinement.css publicado"
-          fi
           exit $faltan
 
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
@@ -120,11 +118,6 @@ jobs:
               if [ "$recibido" = "$esperado" ]; then
                 echo "✅ $url sirve exactamente el HTML generado y probado (sha256 $recibido)"
                 echo "✅ $url sirve exactamente el HTML generado y probado" >> "$GITHUB_STEP_SUMMARY"
-                if ! curl -fsS -H 'Cache-Control: no-cache' -o /dev/null "${url%/}/cabina-refinement.css?cabina_verify=${GITHUB_RUN_ID}"; then
-                  echo "::error::${url%/}/cabina-refinement.css no responde: no se puede cargar el refinamiento visual"
-                  exit 1
-                fi
-                echo "✅ cabina-refinement.css responde"
                 if ! curl -fsS -H 'Cache-Control: no-cache' -o /dev/null "${url%/}/og.png?cabina_verify=${GITHUB_RUN_ID}"; then
                   echo "::error::${url%/}/og.png no responde: el enlace compartido saldrá sin imagen"
                   exit 1

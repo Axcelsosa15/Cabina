@@ -14765,6 +14765,37 @@ tbody tr:last-child td{border-bottom:0}
   --ui-focus:0 0 0 3px rgba(112,224,207,.15);
 }
 ::selection{background:rgba(112,224,207,.25);color:#f1fffc}
+/* MARGEN DE PARADA DEL DESPLAZAMIENTO. El documento lleva
+   `scroll-behavior:smooth`, así que lo que se trae con scrollIntoView o con un
+   ancla aterriza pegado al borde — y por debajo de 1100px, DEBAJO de la tira de
+   pestañas, que ahí es `position:sticky;top:0`.
+
+   Los dos valores salen de medir la nav en Chromium, no de estimarla:
+
+     ancho de la ventana   #tabnav
+     390px                 sticky, top:0, alto  51px   ← tira superior
+     760px                 sticky, top:0, alto  51px
+     1024px                sticky, top:0, alto  51px
+     1099px                sticky, top:0, alto  51px
+     1100px                fixed, raíl de 240px de ancho y altura completa
+     1500px                fixed, raíl de 240px de ancho y altura completa
+
+   La tira superior tapa lo que aterrice arriba; el raíl es lateral y no tapa
+   nada arriba. El corte está en `@media (min-width:1100px)`, donde el raíl
+   sustituye a la tira (su alto ahí es el de la ventana, no una cifra fija).
+
+   Así que 63px (51 de la tira + 12 de aire) por debajo del raíl, y 24px de puro
+   aire por encima, donde no hay barra superior que esquivar. Un valor único de
+   24px —lo que traía `cabina-refinement.css`— se queda 27px corto justo en las
+   pantallas donde la barra sí tapa.
+
+   De dónde viene esta regla: era lo ÚNICO que valía la pena de
+   `cabina-refinement.css`, la capa de 441 líneas que el despliegue inyectaba y
+   la CSP rechazaba. El resto era un sistema visual paralelo: aplicarlo habría
+   reescalado la cabina entera (cuerpo 15px→14px, el número de los KPI
+   26px→20.25px, color en 2151 elementos de 2557). Medido antes de borrarlo. */
+html{scroll-padding-top:24px}
+@media (max-width:1099.98px){html{scroll-padding-top:63px}}
 :where(button,input,select,textarea,[tabindex]):focus-visible{
   outline:2px solid #70e0cf!important;outline-offset:3px!important;
 }
