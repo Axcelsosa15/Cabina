@@ -56,6 +56,15 @@ ok(!(await p.isChecked('#studyTradeRulesFollowed')), 'no mezcla la evaluación d
 
 await p.click('[data-study-trade="study-visual-trade"]');
 await quieto(p, 50, 3000);
+console.log('  DEBUG revisión tras volver a A:', await p.evaluate(() => ({
+  selectedTrade: document.querySelector('#studyTradeId')?.value,
+  reviewId: document.querySelector('#studyTradeReviewId')?.value,
+  setup: document.querySelector('#studyTradeSetup')?.value,
+  visual: document.querySelector('#studyTradeVisual')?.value,
+  invalidation: document.querySelector('#studyTradeInvalidation')?.value,
+  rulesFollowed: document.querySelector('#studyTradeRulesFollowed')?.checked,
+  status: document.querySelector('#studyTradeSaveState')?.textContent
+})));
 ok(await p.inputValue('#studyTradeSetup') === 'IFVG', 'el setup se conserva al volver a abrir la operación');
 ok((await p.inputValue('#studyTradeVisual')).includes('Barrido de liquidez'), 'la lectura visual persiste');
 ok((await p.inputValue('#studyTradeInvalidation')).includes('invalidada'), 'la invalidación persiste');
