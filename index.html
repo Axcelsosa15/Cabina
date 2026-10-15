@@ -14724,6 +14724,9 @@ tbody tr:last-child td{border-bottom:0}
   let estudioTradeShotState = null;
   // Conserva la relación trade→review durante cambios de selección aunque el listado reactivo vaya un render detrás.
   const estudioReviewIdByTrade = new Map();
+  // Cachea también el documento, no solo su ID: el editor puede cambiar de trade
+  // mientras la colección reactiva termina de sincronizar su snapshot.
+  const estudioReviewByTrade = new Map();
   function estudioCargarReview(tradeId){
     const t=estudioTrades().find(x=>String(x.id)===String(tradeId));if(!t)return;
     const docs=estudioLista().filter(d=>d.type==="trade-review"&&String(d.tradeId)===String(tradeId)).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
@@ -14733,9 +14736,10 @@ tbody tr:last-child td{border-bottom:0}
     const currentDoc=currentId?coll("research").get(currentId):null;
     const knownId=estudioReviewIdByTrade.get(String(tradeId));
     const knownDoc=knownId?coll("research").get(knownId):null;
+    const cachedDoc=estudioReviewByTrade.get(String(tradeId));
     const valida=d=>d&&d.type==="trade-review"&&String(d.tradeId)===String(tradeId);
-    const d=valida(currentDoc)?currentDoc:valida(knownDoc)?knownDoc:(docs[0]||{});
-    if(d.id)estudioReviewIdByTrade.set(String(tradeId),String(d.id));
+    const d=valida(cachedDoc)?cachedDoc:valida(currentDoc)?currentDoc:valida(knownDoc)?knownDoc:(docs[0]||{});
+    if(d.id){estudioReviewIdByTrade.set(String(tradeId),String(d.id));estudioReviewByTrade.set(String(tradeId),d);}
     $("studyTradeTitle").textContent=(t.instrument||"Trade")+" · "+estudioTradeFecha(t);
     $("studyTradeMeta").textContent=[t.direction||"Dirección sin dato","P&L "+estudioDinero(t.pnlEff),"R "+(t.rReal==null?"—":Number.isFinite(Number(t.rReal))?Number(t.rReal).toFixed(2):"—")].join(" · ");
     $("studyTradeStats").innerHTML=[["Entrada",t.entry],["Stop",t.stop],["Salida",t.exit],["Cantidad",t.qty]].map(([k,v])=>'<span class="study-tag">'+estudioEsc(k)+": "+estudioEsc(v==null||v===""?"—":v)+'</span>').join("");
@@ -14763,7 +14767,7 @@ tbody tr:last-child td{border-bottom:0}
     try{
       await coll("research").set(id,d);
       if(sinGuardar.has(clave)){status.textContent="No se pudo confirmar el guardado. Revisa el estado de sincronización.";return;}
-      estudioReviewIdByTrade.set(String(t.id),String(id));$("studyTradeReviewId").value=id;status.textContent="Revisión guardada.";renderEstudio();estudioCargarReview(String(t.id));
+      estudioReviewIdByTrade.set(String(t.id),String(id));estudioReviewByTrade.set(String(t.id),d);$("studyTradeReviewId").value=id;status.textContent="Revisión guardada.";renderEstudio();estudioCargarReview(String(t.id));
     }catch(err){
       status.textContent="Error al guardar la revisión. Inténtalo de nuevo.";
     }finally{if(button)button.disabled=false;}
