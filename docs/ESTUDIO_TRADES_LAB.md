@@ -120,3 +120,33 @@ Implementado en la rama, pendiente de CI y revisión antes de integrar:
 - Pruebas Playwright para selección, búsqueda, persistencia de revisión, no duplicación de trades, estado vacío y valores de resumen.
 
 Todavía no están implementados todos los filtros ni los análisis avanzados enumerados en las entregas futuras. El resumen de métricas es descriptivo y no demuestra ventaja estadística. Esta rama no está publicada en producción; no integrar hasta revisar la suite completa y los controles de calidad.
+
+## Entrega 6 — escenarios visuales por fase
+
+Una operación se estudia mirando tres momentos distintos del mismo gráfico. La
+ficha de revisión tiene nueve ranuras fijas:
+
+| Fase | Ranuras |
+| --- | --- |
+| Antes · contexto alto | `htf:1D`, `htf:4H`, `htf:1H` |
+| Entrada · al ejecutar | `entrada:1H`, `entrada:30m`, `entrada:15m`, `entrada:3m` |
+| Después del trade | `post:salida`, `post:despues` |
+
+Decisiones que no se ven en la pantalla:
+
+- **No hay almacén nuevo.** Las imágenes pasan por `uploadShot()`, viven en el
+  bucket privado `capturas` de la cuenta y se pintan con `imgAttrs()`: heredan la
+  validación de esquema, el límite de 20 MB y la lectura con token. No se guarda
+  ninguna URL arbitraria, ni siquiera venida de un respaldo.
+- **El trade base no se toca.** Las capturas quedan en el documento
+  `trade-review` de la colección `research`, en un mapa `scenes` asociado por
+  `tradeId`. `scenes` sólo admite las ranuras de la tabla: una clave inventada en
+  un respaldo no se reescribe en el documento.
+- **Se guardan solas.** Al subir una captura el objeto ya está en el bucket; si
+  el documento no la anotara quedaría huérfano y nadie volvería a verlo. Por eso
+  la escritura no espera al botón «Guardar revisión», y usa el mismo `coll(…).set`
+  versionado, con el mismo flujo de conflicto.
+- **Quitarla la borra de los dos sitios**, documento primero y bucket después: al
+  revés, un fallo de red dejaría una referencia a un objeto que ya no existe.
+
+Cubierto por `test/escenarios.mjs`.
