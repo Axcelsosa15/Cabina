@@ -1997,6 +1997,7 @@ tbody tr:last-child td{border-bottom:0}
 <div id="studyTradeStats" class="study-tags" style="margin:12px 0"></div>
 <form id="studyTradeReviewForm" hidden>
 <input type="hidden" id="studyTradeReviewId"><input type="hidden" id="studyTradeId">
+<div id="studyScenes" style="margin:0 0 14px"></div>
 <div class="study-field"><label for="studyTradePlan">Plan / tesis original</label><textarea id="studyTradePlan" maxlength="4000" placeholder="¿Qué esperabas que hiciera el precio y por qué?"></textarea></div>
 <div class="study-field" style="margin-top:9px"><label for="studyTradeExecution">Revisión de ejecución</label><textarea id="studyTradeExecution" maxlength="4000" placeholder="¿Seguiste el plan? Entrada, stop, salida y errores observables."></textarea></div>
 <div class="study-field" style="margin-top:9px"><label for="studyTradeLesson">Lección y siguiente acción</label><textarea id="studyTradeLesson" maxlength="3000" placeholder="¿Qué repetirás o cambiarás la próxima vez?"></textarea></div>
@@ -14743,6 +14744,7 @@ tbody tr:last-child td{border-bottom:0}
     $("studyTradeStats").innerHTML=[["Entrada",t.entry],["Stop",t.stop],["Salida",t.exit],["Cantidad",t.qty]].map(([k,v])=>'<span class="study-tag">'+estudioEsc(k)+": "+estudioEsc(v==null||v===""?"—":v)+'</span>').join("");
     $("studyTradeReviewForm").hidden=false;$("studyTradeId").value=String(t.id);$("studyTradeReviewId").value=d.id||"";
     $("studyTradePlan").value=d.question||"";$("studyTradeExecution").value=d.evidence||"";$("studyTradeLesson").value=d.conclusion||"";$("studyTradeReviewStatus").value=d.status||"todo";$("studyTradeSaveState").textContent=d.updatedAt?"Última revisión guardada: "+estudioFecha(d.updatedAt):"Todavía no hay una revisión guardada.";
+    estudioEscenas=d.scenes&&typeof d.scenes==="object"&&!Array.isArray(d.scenes)?JSON.parse(JSON.stringify(d.scenes)):{};renderEstudioEscenas();
   }
   document.querySelector('.tabbtn[data-tab="estudio"]').addEventListener("click",()=>{renderEstudio();});
   $("studyTradeAccount").addEventListener("change",renderEstudioTrades);
@@ -14758,7 +14760,7 @@ tbody tr:last-child td{border-bottom:0}
     const tradeId=$("studyTradeId").value,t=estudioTrades().find(x=>String(x.id)===String(tradeId));
     if(!t){status.textContent="No se pudo guardar: selecciona una operación primero.";return;}
     const id=$("studyTradeReviewId").value||uid("trade-review"),clave="research/"+id,old=coll("research").get(id),now=Date.now();
-    const d={...(old||{}),id,type:"trade-review",tradeId:String(t.id),title:"Revisión: "+(t.instrument||"trade")+" · "+estudioTradeFecha(t),status:$("studyTradeReviewStatus").value,question:$("studyTradePlan").value.trim(),evidence:$("studyTradeExecution").value.trim(),conclusion:$("studyTradeLesson").value.trim(),tags:["trade-review",String(t.instrument||"").toUpperCase()].filter(Boolean),createdAt:old&&old.createdAt||now,updatedAt:now};
+    const d={...(old||{}),id,type:"trade-review",tradeId:String(t.id),title:"Revisión: "+(t.instrument||"trade")+" · "+estudioTradeFecha(t),status:$("studyTradeReviewStatus").value,question:$("studyTradePlan").value.trim(),evidence:$("studyTradeExecution").value.trim(),conclusion:$("studyTradeLesson").value.trim(),scenes:estudioEscenasLimpias(),tags:["trade-review",String(t.instrument||"").toUpperCase()].filter(Boolean),createdAt:old&&old.createdAt||now,updatedAt:now};
     if(button)button.disabled=true;
     status.textContent="Guardando revisión…";
     try{
@@ -14768,6 +14770,142 @@ tbody tr:last-child td{border-bottom:0}
     }catch(err){
       status.textContent="Error al guardar la revisión. Inténtalo de nuevo.";
     }finally{if(button)button.disabled=false;}
+  });
+  /* ESTUDIO · ESCENARIOS VISUALES ───────────────────────────────────────────
+     Una operación se estudia mirando tres momentos distintos del mismo gráfico:
+     el contexto alto antes de que la idea existiera, lo que había delante al
+     ejecutar, y lo que el precio hizo cuando ya estabas fuera. Separarlos en
+     ranuras con temporalidad fija evita el error de revisar sólo la vela de
+     entrada, que es donde el recuerdo se inventa el contexto.
+
+     Las imágenes NO son un almacén nuevo: pasan por uploadShot(), viven en el
+     mismo bucket privado «capturas» y se pintan con imgAttrs(), así que heredan
+     la validación de esquema, el límite de tamaño y la carga con token. Aquí no
+     se guarda ninguna URL arbitraria. El trade base no se toca: todo queda en el
+     documento de revisión de la colección `research`, asociado por tradeId. */
+  const ESTUDIO_ESCENAS = [
+    { key: "htf", titulo: "1 · Antes · contexto alto", nota: "Dónde estaba el precio antes de que existiera la idea.",
+      slots: [["1D", "Diario"], ["4H", "4 horas"], ["1H", "1 hora"]] },
+    { key: "entrada", titulo: "2 · Entrada · al tomar el trade", nota: "Lo que tenías delante en el momento de ejecutar.",
+      slots: [["1H", "1 hora"], ["30m", "30 minutos"], ["15m", "15 minutos"], ["3m", "3 minutos"]] },
+    { key: "post", titulo: "3 · Después del trade", nota: "Qué hizo el precio cuando ya estabas fuera.",
+      slots: [["salida", "Salida y resultado"], ["despues", "Qué hizo después"]] },
+  ];
+  let estudioEscenas = {};
+  const estudioEscenaKey = (g, s) => g + ":" + s;
+  function estudioEscenaImgs(k){ const v = estudioEscenas && estudioEscenas[k]; return Array.isArray(v) ? v.filter(hasImg) : []; }
+  /* Sólo ranuras conocidas y sólo campos de imagen: lo que venga de un respaldo
+     con claves inventadas no se reescribe en el documento. */
+  function estudioEscenasLimpias(){
+    const out = {};
+    ESTUDIO_ESCENAS.forEach(g => g.slots.forEach(([sl]) => {
+      const k = estudioEscenaKey(g.key, sl), ims = estudioEscenaImgs(k);
+      if (!ims.length) return;
+      out[k] = ims.map(im => {
+        const o = {};
+        if (im.id != null) o.id = String(im.id);
+        if (im.data != null) o.data = im.data;
+        if (im.name != null) o.name = String(im.name).slice(0, 180);
+        o.caption = String(im.caption || "").slice(0, 120);
+        return o;
+      });
+    }));
+    return out;
+  }
+  function estudioEscenaEstado(msg){ const el = $("studyTradeSaveState"); if (el) el.textContent = msg; }
+  function estudioEscenasTotal(){
+    return ESTUDIO_ESCENAS.reduce((n, g) => n + g.slots.reduce((m, [sl]) => m + estudioEscenaImgs(estudioEscenaKey(g.key, sl)).length, 0), 0);
+  }
+  function renderEstudioEscenas(){
+    const root = $("studyScenes"); if (!root) return;
+    const total = estudioEscenasTotal();
+    const grupos = ESTUDIO_ESCENAS.map(g => {
+      const slots = g.slots.map(([sl, etiqueta]) => {
+        const k = estudioEscenaKey(g.key, sl), ims = estudioEscenaImgs(k);
+        const figs = ims.length
+          ? '<div class="pbimgs" style="margin-top:6px">' + ims.map((im, i) =>
+              '<figure class="pbimg" data-escena-fig="' + estudioEsc(k) + '" data-i="' + i + '">' +
+              '<img ' + imgAttrs(im) + ' alt="' + estudioEsc(etiqueta + " · captura " + (i + 1)) + '" loading="lazy">' +
+              '<input class="tin small cap" type="text" data-escena-cap="' + estudioEsc(k) + '" data-i="' + i + '" value="' + estudioEsc(im.caption || "") + '" placeholder="qué se ve" aria-label="' + estudioEsc("Nota de la captura " + (i + 1) + " de " + etiqueta) + '">' +
+              '<button type="button" class="icon del" data-escena-rm="' + estudioEsc(k) + '" data-i="' + i + '" title="Quitar captura">×</button></figure>').join("") + '</div>'
+          : '';
+        const accion = assetsReady()
+          ? '<button type="button" class="btn ghost sm" data-escena-add="' + estudioEsc(k) + '" style="margin-top:6px">＋ ' + (ims.length ? "otra captura" : "captura") + '</button>'
+          : '<p class="study-note" style="margin-top:6px">Entra con tu cuenta para adjuntar capturas.</p>';
+        return '<div style="border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 10px">' +
+          '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">' +
+          '<b style="font-size:12.5px">' + estudioEsc(etiqueta) + '</b>' +
+          '<span class="study-note">' + (ims.length ? estudioEsc(plu(ims.length, "captura", "capturas")) : "vacío") + '</span></div>' +
+          figs + accion + '</div>';
+      }).join("");
+      return '<section style="margin-top:10px">' +
+        '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline">' +
+        '<b style="font-size:13px;color:var(--text)">' + estudioEsc(g.titulo) + '</b>' +
+        '<span class="study-note">' + estudioEsc(g.nota) + '</span></div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:7px">' + slots + '</div></section>';
+    }).join("");
+    root.innerHTML = '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap">' +
+      '<h4 style="margin:0;font-size:13.5px">Escenarios visuales</h4>' +
+      '<span class="study-note" id="studyScenesCount">' + (total ? estudioEsc(plu(total, "captura guardada", "capturas guardadas")) : "sin capturas todavía") + '</span></div>' +
+      '<p class="study-note" style="margin:4px 0 0">Las capturas se guardan solas en esta revisión; el trade de FUTUROS no se modifica.</p>' + grupos;
+  }
+  /* Guarda la revisión con los escenarios actuales. Se llama en cuanto cambia una
+     imagen: la captura ya está subida al bucket, así que dejarla sin anotar en el
+     documento la convertiría en un huérfano invisible. */
+  async function estudioGuardarEscenas(msg){
+    const tradeId = $("studyTradeId").value, t = estudioTrades().find(x => String(x.id) === String(tradeId));
+    if (!t) { estudioEscenaEstado("No se pudo guardar: selecciona una operación primero."); return false; }
+    const id = $("studyTradeReviewId").value || uid("trade-review"), clave = "research/" + id, old = coll("research").get(id), now = Date.now();
+    const d = { ...(old || {}), id, type: "trade-review", tradeId: String(t.id),
+      title: "Revisión: " + (t.instrument || "trade") + " · " + estudioTradeFecha(t),
+      status: $("studyTradeReviewStatus").value || (old && old.status) || "todo",
+      question: $("studyTradePlan").value.trim(), evidence: $("studyTradeExecution").value.trim(), conclusion: $("studyTradeLesson").value.trim(),
+      scenes: estudioEscenasLimpias(),
+      tags: ["trade-review", String(t.instrument || "").toUpperCase()].filter(Boolean),
+      createdAt: (old && old.createdAt) || now, updatedAt: now };
+    estudioEscenaEstado("Guardando escenarios…");
+    try {
+      await coll("research").set(id, d);
+      if (sinGuardar.has(clave)) { estudioEscenaEstado("No se pudo confirmar el guardado. Revisa el estado de sincronización."); return false; }
+      $("studyTradeReviewId").value = id; estudioEscenaEstado(msg || "Escenarios guardados."); return true;
+    } catch (err) { estudioEscenaEstado("Error al guardar los escenarios. Inténtalo de nuevo."); return false; }
+  }
+  function estudioEscenaAdd(k, btn){
+    const inp = $("tradeFile"); if (!inp) return; inp.value = "";
+    const etiqueta = btn.textContent;
+    inp.onchange = async () => {
+      const f = inp.files && inp.files[0]; if (!f) return;
+      btn.disabled = true; btn.textContent = "subiendo…";
+      try {
+        const im = await uploadShot(f);
+        estudioEscenas[k] = estudioEscenaImgs(k).concat([im]);
+        renderEstudioEscenas();
+        await estudioGuardarEscenas("Captura añadida a «" + k.replace(":", " · ") + "».");
+      } catch (err) { btn.disabled = false; btn.textContent = etiqueta; estudioEscenaEstado(uploadErrMsg(err)); }
+    };
+    inp.click();
+  }
+  $("studyScenes").addEventListener("input", e => {
+    const k = e.target.dataset && e.target.dataset.escenaCap; if (k == null) return;
+    const i = Number(e.target.dataset.i), ims = estudioEscenaImgs(k);
+    if (ims[i]) ims[i].caption = e.target.value.slice(0, 120);
+  });
+  $("studyScenes").addEventListener("change", e => {
+    if (e.target.dataset && e.target.dataset.escenaCap != null) estudioGuardarEscenas("Nota de la captura guardada.");
+  });
+  $("studyScenes").addEventListener("click", async e => {
+    const img = e.target.tagName === "IMG" ? e.target.closest("figure.pbimg") : null;
+    if (img) { openLightbox(e.target.src, e.target.alt); return; }
+    const add = e.target.closest("button[data-escena-add]");
+    if (add) { estudioEscenaAdd(add.dataset.escenaAdd, add); return; }
+    const rm = e.target.closest("button[data-escena-rm]");
+    if (!rm) return;
+    if (!armed(rm)) return;
+    const k = rm.dataset.escenaRm, i = Number(rm.dataset.i), ims = estudioEscenaImgs(k), im = ims[i];
+    if (!im) return;
+    ims.splice(i, 1); estudioEscenas[k] = ims; renderEstudioEscenas();
+    await estudioGuardarEscenas("Captura quitada.");
+    if (im.id && im.data == null && assetsReady()) { try { await pb.assets.delete(im.id); } catch (err) { } }
   });
   coll("research").subscribe(()=>renderEstudio());document.addEventListener("keydown",e=>{if(e.key==="Escape")estudioCerrar();});renderEstudio();
 
