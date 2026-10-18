@@ -84,10 +84,30 @@ d = await dia(p);
 ok(d.result === '0' || d.result === '', 'la Cabina ya NO dice $100 sobre un día sin operaciones', JSON.stringify(d));
 ok(d.trades === '0' || d.trades === '', 'y las operaciones vuelven a 0', JSON.stringify(d));
 
+console.log('\n═══ 3b · borrar la última CERRADA dejando una ABIERTA ═══');
+// El caso que la primera versión del arreglo se dejaba fuera: g.n sigue siendo
+// > 0, así que la rama del «día vacío» no salta y la guarda vieja conservaba el
+// resultado anterior sobre un journal que ya no lo respalda.
+const p3 = await pagina(base({ c1: op('c1'), ab: op('ab', { exit: null }) }));  // +$100 cerrada + 1 abierta
+let d3 = await dia(p3);
+ok(d3.result === '100', 'control: el día deriva +$100 de la cerrada', JSON.stringify(d3));
+ok(d3.trades === '2', 'y cuenta 2 operaciones, la abierta incluida', d3.trades);
+await p3.click('.tabbtn[data-tab="futuros"]'); await quieto(p3);
+await p3.click('#ftSeg button[data-v="diario"]'); await quieto(p3);
+await p3.click('#selbtn-jrTable'); await quieto(p3);
+await p3.click('#jrTable tr[data-id="c1"]'); await quieto(p3);
+await p3.click('[data-sel="borrar"]'); await quieto(p3);
+await p3.click('[data-sel="si"]'); await trasGuardar(p3);
+await p3.click('.tabbtn[data-tab="cabina"]'); await quieto(p3);
+d3 = await dia(p3);
+ok(d3.result === '', 'sin ninguna CERRADA el resultado se vacía (conservaba +$100)', JSON.stringify(d3));
+ok(d3.trades === '1', 'y queda 1 operación, la abierta (decía 2)', JSON.stringify(d3));
+
 console.log('\n═══ 4 · un día con operaciones ABIERTAS no se pisa con un 0 ═══');
 const p2 = await pagina(base({ a1: op('a1', { exit: null }) }));   // abierta: sin P&L
 const d2 = await dia(p2);
 ok(d2.result === '', 'con una operación abierta el resultado se queda vacío, no 0', JSON.stringify(d2));
+ok(d2.trades === '1', 'pero sí cuenta la operación: 1', JSON.stringify(d2));
 
 console.log('\n═══ 5 · ningún error de página ═══');
 ok(errs.length === 0, 'sin errores de JavaScript', errs.join(' | ') || 'ninguno');

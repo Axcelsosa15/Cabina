@@ -20,7 +20,7 @@
      · varios términos son un AND, no un OR;
      · la búsqueda aparece como chip y «Ver todo» la quita. */
 import { chromium } from 'playwright';
-import { quieto, arrancada } from './espera.mjs';
+import { quieto, arrancada, trasGuardar } from './espera.mjs';
 const errs = [], fallos = [];
 const F = new Date('2026-09-17T14:00:00Z').getTime();
 const b = await chromium.launch();
@@ -133,7 +133,52 @@ ok(despues.total === antes.total, 'y el total del journal no se mueve', `${antes
 await cabecera('date');
 ok((await ids()).join(',') === 't5,t4,t3,t2,t1', 'volver a Fecha devuelve el orden cronológico', (await ids()).join(','));
 
-console.log('\n═══ 5 · ningún error de página ═══');
+console.log('\n═══ 5 · el borrado en masa NO alcanza lo que el filtro esconde ═══');
+/* La promesa es «en masa sólo se borra lo que está EN PANTALLA» (test/borrar.mjs).
+   `pintaSel()` sólo desarmaba la selección cuando desaparecía la lista ENTERA —
+   cambiar de pestaña—, no cuando un filtro oculta ALGUNAS filas. Seleccionabas
+   tres, acotabas, y «Borrar» se llevaba también las que ya no veías. El fallo es
+   anterior al buscador (el filtro de instrumento ya lo alcanzaba); el buscador lo
+   vuelve trivial, así que se fija aquí. */
+await buscar('');
+await p.click('#selbtn-jrTable'); await quieto(p);
+await p.click('#jrTable tr[data-id="t1"]'); await quieto(p);   // MNQ
+await p.click('#jrTable tr[data-id="t2"]'); await quieto(p);   // MES
+let barra = await p.textContent('#selbar-jrTable');
+ok(/2/.test(barra), 'control: 2 marcadas, una MNQ y una MES', barra.replace(/\s+/g, ' ').trim().slice(0, 50));
+await buscar('MES');   // esconde t1
+ok(await n() === 1, 'control: la búsqueda deja sólo la de MES', await n());
+barra = await p.textContent('#selbar-jrTable');
+ok(/\b1\b/.test(barra) && !/\b2\b/.test(barra.split('Cancelar')[0]),
+   'la selección se recorta a la fila visible: dice 1, no 2', barra.replace(/\s+/g, ' ').trim().slice(0, 60));
+await p.click('[data-sel="borrar"]'); await quieto(p);
+await p.click('[data-sel="si"]'); await trasGuardar(p);
+await buscar('');
+const vivas = await ids();
+ok(vivas.includes('t1'), 'la operación que el filtro escondía SIGUE VIVA (se borraba)', vivas.join(','));
+ok(!vivas.includes('t2'), 'y la que se veía sí se borró', vivas.join(','));
+
+console.log('\n═══ 6 · guardar una operación que la búsqueda esconde ═══');
+/* `revealTrade()` existe para que guardar no deje la operación escondida: quita
+   el filtro de cuenta, setup, instrumento, sesión o rango que la taparía. El
+   buscador era un filtro que no conocía, así que con «MNQ» escrito y una
+   operación de CL recién registrada anunciaba que ya se veía y seguía fuera. */
+await buscar('MNQ');
+const antesN = await n();
+// El registro rápido vive en la pestaña Cabina.
+await p.click('.tabbtn[data-tab="cabina"]'); await quieto(p);
+await p.fill('#qtSym', 'CL');
+// El registro rápido ABRE el editor precargado; guardar es el paso siguiente.
+await p.click('#qtGo'); await quieto(p);
+await p.click('#edSave'); await trasGuardar(p);
+await p.click('.tabbtn[data-tab="futuros"]'); await quieto(p);
+await p.click('#ftSeg button[data-v="diario"]'); await quieto(p);
+const q = await p.inputValue('#ftQ');
+ok(q === '', 'se quitó la búsqueda para que la operación nueva se vea', JSON.stringify(q));
+const tras = await ids();
+ok(tras.length === antesN + 1, 'y la tabla la incluye', `${antesN} → ${tras.length}`);
+
+console.log('\n═══ 7 · ningún error de página ═══');
 ok(errs.length === 0, 'sin errores de JavaScript', errs.join(' | ') || 'ninguno');
 
 await b.close();

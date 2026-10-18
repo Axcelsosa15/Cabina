@@ -3915,7 +3915,19 @@ tbody tr:last-child td{border-bottom:0}
         onSnapshot(cb, err) {
           const s = { q, filas: new Map(),
             emite() { cb(snapFilas(ordena(q, [...s.filas].map(([path, data]) => ({ path, data }))))); },
-            carga() { cuando(() => be.leeFilas(q), a => { s.filas = new Map(a.map(r => [r.path, r.data])); s.emite(); }, err); },
+            /* UNA LECTURA REZAGADA NO PISA A UNA MÁS NUEVA. Con el tic periódico
+               las lecturas dejaron de ser esporádicas (una al volver a la
+               pestaña) y pasaron a ser continuas, así que una respuesta que
+               tarda más que el tope de 20 s puede llegar DESPUÉS de la
+               siguiente y reemplazar el mapa con datos más viejos. La capa de
+               arriba lo aguanta —`attachDb` compara sellos y una ficha vieja no
+               gana— pero `leeFilas` también deja la `version` de cada documento
+               para la escritura condicional, y ahí una versión rezagada provoca
+               un CONFLICTO FALSO en la siguiente edición: nadie cambió nada y
+               el usuario ve la pantalla de conflicto. Se descarta la respuesta
+               que ya quedó atrás. */
+            seq: 0,
+            carga() { const mio = ++s.seq; cuando(() => be.leeFilas(q), a => { if (mio !== s.seq) return; s.filas = new Map(a.map(r => [r.path, r.data])); s.emite(); }, err); },
             cambia(d, p) { if (d == null) s.filas.delete(p); else s.filas.set(p, d); s.emite(); } };
           return suscribe(s);
         },
@@ -6248,32 +6260,33 @@ tbody tr:last-child td{border-bottom:0}
   function syncDayFromTrades(force) {
     const d = state.day; if (!d || d.closed) return;
     const g = futDayAgg(d.date);
-    /* SIN NINGUNA OPERACIÓN, EL DÍA DERIVADO VUELVE A VACÍO.
-       `if (!g.closed) return` era la única guarda, y no distingue dos
-       situaciones muy distintas: «todavía no he cerrado nada» y «ya no queda
-       nada porque lo borré». Con la segunda, la función volvía sin tocar nada y
-       la Cabina conservaba el resultado anterior: borrar la última operación del
-       día dejaba la Cabina diciendo «+$100 · 1 operación» sobre un journal
-       vacío. Dos pantallas de la misma app contando cosas distintas del mismo
-       día — y la que se mira por la mañana es la que mentía.
+    /* EL DÍA DERIVADO SE CALCULA DE UNA VEZ, SIN GUARDAS QUE SE SOLAPEN.
+       Antes era `if (!g.closed) return`, y esa condición no distingue tres
+       situaciones distintas: «aún no he cerrado nada», «ya no queda nada» y
+       «queda algo abierto pero ya no hay cerradas». Volvía sin tocar nada en
+       las tres, así que la Cabina conservaba el resultado anterior:
 
-       Se vuelve a `null`, no a 0, y es la diferencia que importa: «$0» dice que
-       operaste y acabaste en tablas; vacío dice que no hay nada, que es la
-       verdad, y es como se ve un día recién empezado (`newDay`).
+         · borrar la ÚLTIMA operación del día dejaba «+$100 · 1 operación»
+           sobre un journal vacío;
+         · con una cerrada de +$100 y otra abierta, borrar la cerrada dejaba
+           «+$100 · 2 operaciones» con una sola operación abierta en el
+           journal.
 
-       Con operaciones pero ninguna cerrada, la guarda original sigue siendo
-       correcta y queda intacta más abajo. */
-    if (!g.n) {
-      if (d.resultManual && !force) return;
-      if (d.result == null && d.trades == null) return;
-      d.result = null; d.trades = null; d.resultManual = false;
-      persistDay(); renderJournalDay(); return;
-    }
-    if (!g.closed) return;
+       Las dos son la misma pregunta mal contestada, así que ahora hay UNA
+       respuesta: el resultado es la suma de lo cerrado, o NADA si no hay nada
+       cerrado; y las operaciones son las que haya, abiertas incluidas.
+
+       `null` y no `0`, que es la distinción que importa: «$0» dice que
+       operaste y acabaste en tablas; vacío dice que no hay nada que contar, y
+       es como se ve un día recién empezado (`newDay`). Por eso un día con sólo
+       operaciones abiertas sigue sin mostrar un 0 — lo que motivaba la guarda
+       original se mantiene, pero ahora sale del cálculo en vez de un `return`
+       que también tapaba los otros dos casos. */
     if (d.resultManual && !force) return;
-    const r = Math.round(g.pnl * 100) / 100;
-    if (d.result === r && d.trades === g.n && !force) return;
-    d.result = r; d.trades = g.n; d.resultManual = false;
+    const r = g.closed ? Math.round(g.pnl * 100) / 100 : null;
+    const n = g.n || null;
+    if (d.result === r && d.trades === n && !force) return;
+    d.result = r; d.trades = n; d.resultManual = false;
     persistDay(); renderJournalDay();
   }
   // Desglose de hoy por sesión, debajo del resultado: dónde se ganó y dónde se devolvió.
@@ -9607,6 +9620,14 @@ tbody tr:last-child td{border-bottom:0}
     if (ft.instr && rec.instrument !== ft.instr) { quitados.push("instrumento"); ft.instr = ""; }
     if (ft.ses && (tradeSes(rec) || "__sin") !== ft.ses) { quitados.push("sesión"); ft.ses = ""; }
     if (ft.range !== "all" && !inRange(tradeCalc(Object.assign({}, rec)))) { quitados.push("rango de fechas"); ft.range = "all"; }
+    /* El buscador es un filtro como los demás, y esta función existe justamente
+       para que guardar una operación no la deje escondida: con «MNQ» escrito y
+       una operación de MES recién guardada, se anunciaba que ya se veía y
+       seguía fuera de la tabla. */
+    if (ft.q) {
+      const terms = normQ(ft.q).trim().split(/\s+/).filter(Boolean);
+      if (terms.length && !qMatch(tradeCalc(Object.assign({}, rec)), terms)) { quitados.push("búsqueda"); ft.q = ""; }
+    }
     if (!quitados.length) return;
     try { renderFutures(); } catch (e) { }
     flash(`se quitó el filtro de ${quitados.join(" y ")} para que veas la operación`);
@@ -9824,7 +9845,14 @@ tbody tr:last-child td{border-bottom:0}
   }
   function futFiltered() {
     const key = coll("trades").rev + "|" + (autoFeesOn() ? 1 : 0) + "|" +
-      [state.today, ft.range, ft.month, ft.day, ft.setup, ft.instr, ft.ses, ft.acct, ft.q].join("~");  // inRange mira state.today
+      [state.today, ft.range, ft.month, ft.day, ft.setup, ft.instr, ft.ses, ft.acct, ft.q].join("~") +
+      /* La búsqueda lee NOMBRES que no viven en la operación: el del setup y el
+         de la cuenta. Renombrar un setup cambiaba a quién encuentra «breakout»
+         sin cambiar ninguna operación ni ningún filtro, así que la memoria
+         seguía devolviendo la lista anterior. Sólo cuenta cuando hay búsqueda:
+         sin ella, los nombres no entran en el filtro y añadirlos a la clave
+         tiraría la memoria en cada cambio de playbook por nada. */
+      (ft.q ? "|" + coll("playbooks").rev + "|" + (state.settings.accounts || []).map(a => a.id + ":" + (a.name || "")).join(",") : "");  // inRange mira state.today
     if (_filtMemo.key === key) return _filtMemo.val;
     let l = tradesOf("futuros").filter(inRange);
     if (ft.setup) l = l.filter(t => t.setupId === ft.setup);
@@ -10252,6 +10280,14 @@ tbody tr:last-child td{border-bottom:0}
     renderDay(); renderBreakdown(list); renderJournalTable(list);
     renderScorecard(list, s); renderRDist(list); renderProto(s); renderErrores(list); renderSesChart(list); renderHourChart(list); renderDowChart(list); renderConsistency(list, s);
     renderFutAccounts();
+    /* Y SE RECONCILIA LA SELECCIÓN CON LO QUE QUEDÓ EN PANTALLA. `pintaSel()`
+       se programa desde un escuchador de CLICK en fase de captura, así que
+       cubría cambiar de pestaña o de sub-vista pero no un filtro que se mueve
+       sin un clic: escribir en el buscador dispara `input`, y elegir en un
+       `<select>` con el teclado dispara `change`. En esos casos la barra de
+       selección sobrevivía citando filas que el filtro acababa de esconder.
+       Engancharlo al repintado lo cubre por construcción, venga de donde venga. */
+    try { pintaSel(); } catch (e) { }
   }
   function bulkAssignAccount() {
     const opts = acctOptions();
@@ -13376,7 +13412,27 @@ tbody tr:last-child td{border-bottom:0}
     /* Cambiar de pestaña o de sub-vista con la selección abierta dejaba la
        barra viva sobre una lista invisible, y el siguiente «Borrar» actuaba
        sobre filas que ya no estaban en pantalla. */
-    if (sel.lista) { const A = listaDe(sel.lista); if (A && !selFilas(A).length) { sel.lista = null; sel.ids = new Set(); sel.confirmando = false; } }
+    /* Y UN FILTRO QUE OCULTA ALGUNAS FILAS TAMBIÉN CUENTA. La guarda de arriba
+       sólo salta cuando desaparece la lista ENTERA, así que seleccionar tres
+       filas y luego acotar el filtro —de instrumento, de setup, o el buscador—
+       dejaba esos ids en `sel.ids` mientras sus filas ya no estaban en
+       pantalla: «Borrar» se llevaba operaciones que no se estaban viendo, y el
+       resumen de la confirmación describía un conjunto distinto del que iba a
+       borrar. La promesa es «en masa sólo se borra lo que está EN PANTALLA»
+       (test/borrar.mjs), así que la selección se recorta a las filas visibles.
+       Si se cae alguna, se desarma la confirmación: la frase que el usuario
+       leyó ya no es la que se ejecutaría. */
+    if (sel.lista) {
+      const A = listaDe(sel.lista);
+      if (A) {
+        const vis = new Set(selFilas(A).map(el => claveDe(A, el)));
+        if (!vis.size) { sel.lista = null; sel.ids = new Set(); sel.confirmando = false; }
+        else if ([...sel.ids].some(id => !vis.has(id))) {
+          sel.ids = new Set([...sel.ids].filter(id => vis.has(id)));
+          sel.confirmando = false;
+        }
+      }
+    }
     for (const L of borrables()) {
       const host = $(L.host); if (!host) continue;
       const activa = sel.lista === L.id;
