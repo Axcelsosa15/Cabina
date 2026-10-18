@@ -11984,18 +11984,25 @@ tbody tr:last-child td{border-bottom:0}
   $("idCat").addEventListener("change", e => { idf.cat = e.target.value; renderIdeas(); });
   $("idStatus").addEventListener("change", e => { idf.status = e.target.value; renderIdeas(); });
   const IDEA_FIELDS = [
+    /* Cuatro bloques y el orden es un filtro: qué es, qué cuesta, si se sostiene
+       y qué sigue. El bloque 03 va antes que el 04 a propósito — el próximo paso
+       sólo tiene sentido después de haber escrito qué mataría la idea. */
+    { type: "seccion", n: "01", label: "La idea", help: "qué es y en qué estado está" },
     { key: "name", label: "Nombre", w: 4, ph: "Vender puts cubiertos sobre ETFs que quiero comprar" },
     { key: "status", label: "Estado", type: "select", options: IDEA_STATUS },
     { key: "category", label: "Categoría", type: "select", options: IDEA_CATS.map(c => [c, c]) },
     { key: "market", label: "Mercado(s)", ph: "Opciones · ETFs" },
     { key: "risk", label: "Riesgo", type: "select", options: RISKS },
+    { type: "seccion", n: "02", label: "Lo que cuesta", help: "capital, tiempo y retorno esperado" },
     { key: "capital", label: "Capital mínimo ($)", type: "number", step: "100" },
     { key: "time", label: "Tiempo por semana (h)", type: "number", step: "0.5" },
     { key: "returnExp", label: "Retorno esperado", ph: "1–2% mensual sobre el colateral" },
+    { type: "seccion", n: "03", label: "Si se sostiene", help: "mecanismo, ventaja real y qué la mataría" },
     { key: "how", label: "Cómo funciona · mecanismo concreto", type: "textarea", w: 6, rows: 3 },
     { key: "why", label: "Por qué debería funcionar (edge real, no narrativa)", type: "textarea", w: 6, rows: 2 },
     { key: "requirements", label: "Requisitos · qué necesito antes", type: "textarea", w: 6, rows: 2, ph: "Aprobación de opciones nivel 2; $3,000 de colateral; 20 trades en paper" },
     { key: "killCriteria", label: "Criterio de descarte", type: "textarea", w: 6, rows: 2, ph: "Si en 8 semanas no supera al DCA simple, se descarta" },
+    { type: "seccion", n: "04", label: "Qué sigue", help: "una idea sin próximo paso es un deseo" },
     { key: "source", label: "Fuente", w: 3, ph: "libro, canal, backtest propio…" },
     { key: "next", label: "Próximo paso (una acción)", w: 3, ph: "Abrir cuenta en Tastytrade el lunes" },
     { key: "notes", label: "Notas", type: "textarea", w: 6, rows: 2 },
@@ -12634,7 +12641,7 @@ tbody tr:last-child td{border-bottom:0}
   function openPosition(p, marketId) {
     const isNew = !p;
     openEditor({ title: isNew ? "Nueva posición · " + marketName(marketId) : "Editar posición",
-      fields: [{ key: "asset", label: "Activo", w: 2 }, { key: "accountId", label: "Cuenta de inversión", type: "select", options: [["", "Sin asignar"]].concat(investmentAccounts().map(a => [a.id, a.name])) }, { key: "date", label: "Fecha de entrada", type: "date" }, { key: "qty", label: "Cantidad", type: "number", step: "0.0001" }, { key: "entry", label: "Precio de entrada", type: "number", step: "0.01" }, { key: "fees", label: "Comisiones $", type: "number", step: "0.01" }, { key: "current", label: "Precio actual (lo actualizas tú)", type: "number", step: "0.01" }, { key: "thesis", label: "Tesis", type: "textarea", w: 6, rows: 2 }, { key: "exitPlan", label: "Salida planeada · cuándo vendo", type: "textarea", w: 6, rows: 2, ph: "Objetivo, stop mental o fecha. Sin plan de salida no hay posición." }],
+      fields: [{ type: "seccion", n: "01", label: "Lo que compraste", help: "la entrada, tal como fue" }, { key: "asset", label: "Activo", w: 2 }, { key: "accountId", label: "Cuenta de inversión", type: "select", options: [["", "Sin asignar"]].concat(investmentAccounts().map(a => [a.id, a.name])) }, { key: "date", label: "Fecha de entrada", type: "date" }, { key: "qty", label: "Cantidad", type: "number", step: "0.0001" }, { key: "entry", label: "Precio de entrada", type: "number", step: "0.01" }, { key: "fees", label: "Comisiones $", type: "number", step: "0.01" }, { type: "seccion", n: "02", label: "Lo que vale hoy", help: "el precio lo escribes tú" }, { key: "current", label: "Precio actual (lo actualizas tú)", type: "number", step: "0.01" }, { type: "seccion", n: "03", label: "Por qué y hasta cuándo", help: "se escribe sin saber el resultado" }, { key: "thesis", label: "Tesis", type: "textarea", w: 6, rows: 2 }, { key: "exitPlan", label: "Salida planeada · cuándo vendo", type: "textarea", w: 6, rows: 2, ph: "Objetivo, stop mental o fecha. Sin plan de salida no hay posición." }],
       values: p || { date: todayISO(), qty: 1, accountId: defaultInvestmentAccountId() },
       validate: v => !v.asset ? "Falta el activo" : v.qty == null || v.entry == null ? "Falta cantidad o precio" : null,
       onSave: v => {
