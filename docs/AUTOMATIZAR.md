@@ -15,8 +15,13 @@ solas desde la plataforma». Eso exige API, y la API no está disponible aquí:
   **prop firm y de evaluación no cualifican**. Los datos en tiempo real son otro
   coste aparte (licencia CME, del orden de $290–$500/mes), aunque para leer
   *historial* de ejecuciones eso no haría falta.
-- **Apex Trader Funding** no publica export ni API documentados. Lo que aparece
-  buscando «Apex» es *Apex Clearing*, que es otra empresa.
+- **Las firmas de prop** no publican export ni API documentados, y buscarlas por
+  su nombre es una trampa: al menos una comparte nombre con una empresa de
+  *clearing* distinta, cuya documentación de export no sirve para nada aquí.
+  Los nombres de las firmas no se escriben en este repositorio: `test/lanzamiento.mjs`
+  lo vigila en todos los ficheros versionados, y la primera versión de este
+  documento lo incumplió y cerró la compuerta en CI. Queda dicho porque es la
+  clase de detalle que se vuelve a olvidar.
 
 > **Cuidado con estas cifras:** salen de un blog de un proveedor con interés
 > comercial y de hilos de la comunidad, no de una página oficial de Tradovate.
@@ -132,7 +137,10 @@ ya la vigilaría.
 - [Tradovate · suscripciones de mercado y acceso por API](https://community.tradovate.com/t/whats-the-deal-with-market-subscriptions-and-api-access-to-charts-do-we-need-another-payment/11039.md)
 - [PickMyTrade · Tradovate API Access Without $1,000 Minimum: 2026 Options](https://blog.pickmytrade.trade/tradovate-api-access-without-1000-minimum-2026-options/) *(proveedor comercial)*
 - [CrossTrade · GET Fill History](https://crosstrade.io/docs/api/tradovate/get-fill-history) *(API de un envoltorio, no de Tradovate)*
-- [TraderFyles · How to Export Trade History from Apex Clearing](https://traderfyles.helpscoutdocs.com/article/31-how-to-export-trade-history-from-apex-clearing) *(Apex Clearing, no Apex Trader Funding)*
+*(La búsqueda sobre firmas de prop sólo devolvió guías de una empresa de
+clearing homónima, que no aplican. No se enlazan: no aportan nada y nombrarlas
+obliga a escribir el nombre de la firma, que es justo lo que `lanzamiento`
+prohíbe.)*
 - [Supabase · Scheduling Edge Functions](https://supabase.com/docs/guides/functions/schedule-functions)
 - [Preventing Supabase Free Tier Pausing](https://runhooks.app/blog/preventing-supabase-free-tier-pausing/) *(proveedor comercial)*
 - [Schedule Supabase Edge Functions Without pg_cron](https://runhooks.app/blog/schedule-supabase-edge-functions-without-pg-cron/) *(proveedor comercial)*
