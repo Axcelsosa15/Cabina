@@ -552,6 +552,35 @@ tbody tr:last-child td{border-bottom:0}
   .ed .fld.w3 { grid-column: span 3; } .ed .fld.w6 { grid-column: span 6; }
   .ed .fld input, .ed .fld select, .ed .fld textarea { width: 100%; }
   .ed .fld .help { font-size: 11px; color: var(--dim); margin-top:3px; font-family: var(--font-mono); }
+  /* ---------- secciones del editor ---------- */
+  .ed .edsec { grid-column: 1/-1; display: flex; align-items: baseline; gap: var(--s3);
+               margin: var(--s4) 0 calc(var(--s1) * -1); padding-bottom: var(--s2);
+               border-bottom: 1px solid var(--line-strong); flex-wrap: wrap; }
+  .ed .edsec:first-child { margin-top: 0; }
+  .ed .edsec-n { font-family: var(--font-mono); font-size: var(--t-meta); font-weight: 700;
+                 letter-spacing: .1em; color: var(--accent); }
+  .ed .edsec h3 { font-family: var(--font-mono); font-size: var(--t-section); font-weight: 700;
+                  letter-spacing: .09em; text-transform: uppercase; color: var(--text); margin: 0; }
+  .ed .edsec-h { font-size: var(--t-meta); color: var(--dim); font-family: var(--font-mono); }
+  /* LO QUE ARRIESGAS, ANTES DE GUARDAR. Es el único número del formulario que se
+     puede saber sin el resultado, y el que decide si la operación cabe en la
+     regla. Lo calcula el MISMO `calcularTradeApp` que luego deriva el P&L: no hay
+     una segunda aritmética del dinero en el editor. */
+  .ed .edrisk[hidden] { display: none; }
+  .ed .edrisk { grid-column: 1/-1; display: flex; gap: var(--s5); flex-wrap: wrap;
+                padding: var(--s3) var(--s4); border: 1px solid var(--line-strong);
+                border-radius: var(--r-md); background: var(--surface-2); }
+  .ed .edrisk > div { display: flex; flex-direction: column; gap: 2px; }
+  .ed .edrisk .k { font-family: var(--font-mono); font-size: var(--t-meta); letter-spacing: .09em;
+                   text-transform: uppercase; color: var(--dim); }
+  .ed .edrisk .v { font-family: var(--font-mono); font-size: 17px; font-weight: 600;
+                   font-variant-numeric: tabular-nums; color: var(--text); }
+  .ed .edrisk .s { font-size: var(--t-meta); color: var(--dim); font-family: var(--font-mono); }
+  /* La ayuda reserva su línea aunque el campo no la tenga: sin esto, un campo con
+     ayuda y otro sin ella en la misma fila dejan la fila siguiente desalineada, y
+     la rejilla entera parece bailar al rellenarla. */
+  .ed .fld:not(.chk) { display: flex; flex-direction: column; }
+  .ed .fld:not(.chk) .help { margin-top: auto; }
   .ed .fld.chk { display: flex; align-items: center; gap:8px; padding-top:16px; }
   .ed .fld.chk input { width: 16px; height: 16px; margin: 0; }
   .ed .fld.chk label { font-size: 13.5px; }
@@ -4607,6 +4636,13 @@ tbody tr:last-child td{border-bottom:0}
       const v = cfg.values[f.key];
       const w = f.w ? " w" + f.w : "";
       if (f.type === "nota") return `<p class="ednota${w}">${esc(f.label)}</p>`;
+      /* UNA SECCIÓN POR MOMENTO DE LA OPERACIÓN. Catorce campos en una rejilla
+         plana obligan a leerlos todos para encontrar el que toca, y mezclan lo
+         que se escribe ANTES de entrar con lo que sólo existe DESPUÉS de salir.
+         La sección no añade datos: ordena los que ya había y dice en una línea
+         qué se contesta en ella. */
+      if (f.type === "riesgo") return `<div class="edrisk" id="edRiesgo" hidden></div>`;
+      if (f.type === "seccion") return `<div class="edsec"><span class="edsec-n">${esc(f.n || "")}</span><h3>${esc(f.label)}</h3>${f.help ? `<span class="edsec-h">${esc(f.help)}</span>` : ""}</div>`;
       if (f.type === "checkbox") return `<div class="fld chk${w}"><input type="checkbox" id="ef_${f.key}" ${v ? "checked" : ""}><label for="ef_${f.key}">${esc(f.label)}</label></div>`;
       let ctl;
       if (f.type === "select") ctl = `<select id="ef_${f.key}">${f.options.map(o => `<option value="${esc(o[0])}" ${String(v ?? "") === String(o[0]) ? "selected" : ""}>${esc(o[1])}</option>`).join("")}</select>`;
@@ -4618,8 +4654,53 @@ tbody tr:last-child td{border-bottom:0}
     const za = $("edAvisos"); if (za) { za.hidden = true; za.innerHTML = ""; }
     if (cfg.after) { try { cfg.after($("edFields"), cfg.values); } catch (e) { } }
     try { edRevisarPrecios(); } catch (e) { }
+    try { edPintaRiesgo(); } catch (e) { }
     ov.classList.add("open");
     const first = $("edFields").querySelector("input,select,textarea"); if (first) first.focus();
+  }
+  /* ═══════════ LO QUE ARRIESGAS, MIENTRAS LO ESCRIBES ═══════════
+     El riesgo en dólares es el único número de esta ficha que existe ANTES del
+     resultado, y es el que decide si la operación cabe en la regla dura. Estaba
+     sólo en la cabeza de quien rellenaba el formulario: entrada, stop y
+     contratos por separado, y la multiplicación a ojo.
+
+     NO HAY UNA SEGUNDA ARITMÉTICA AQUÍ. Se construye el mismo objeto que se va a
+     guardar y se le pide a `tradeCalc` —la misma puerta que deriva el P&L,
+     la R y el riesgo del journal— para que lo que ves al escribir y lo que queda
+     guardado no puedan discrepar nunca. Si el símbolo no tiene multiplicador, el
+     dinero no se inventa: se dice que falta. */
+  function edPintaRiesgo() {
+    const z = $("edRiesgo"); if (!z) return;
+    const val = k => { const e = $("ef_" + k); return e ? e.value : ""; };
+    const borrador = { instrument: val("instrument"), direction: val("direction"),
+      entry: val("entry"), stop: val("stop"), target: val("target"),
+      qty: val("qty"), fees: val("fees") };
+    if (enBlanco(borrador.entry) || enBlanco(borrador.stop)) {
+      z.hidden = false;
+      z.innerHTML = `<div><span class="k">Riesgo de esta operación</span><span class="v">—</span><span class="s">escribe entrada y stop</span></div>`;
+      return;
+    }
+    let r; try { r = tradeCalc(Object.assign({ type: "futuros" }, borrador)); } catch (e) { z.hidden = true; z.innerHTML = ""; return; }
+    const cel = (k, v, sub) => `<div><span class="k">${esc(k)}</span><span class="v">${v}</span><span class="s">${esc(sub)}</span></div>`;
+    const puntos = Math.abs(Number(borrador.entry) - Number(borrador.stop));
+    const nC = r.contratos == null ? 1 : r.contratos;
+    const partes = [
+      cel("Riesgo", r.riskUsd == null ? "—" : money(r.riskUsd),
+          r.riskUsd == null ? (r.multUnknown ? "sin multiplicador para ese símbolo" : "no se puede calcular")
+                            : `${puntos} pt × ${plu(nC, "contrato", "contratos")}`),
+      cel("R planificada", r.rPlanned == null ? "—" : (r.rPlanned >= 0 ? "+" : "") + r.rPlanned.toFixed(2) + "R",
+          r.rPlanned == null ? "falta el objetivo" : "objetivo ÷ stop"),
+    ];
+    /* El tope diario es una regla que YA existe: si el riesgo se la come, se dice
+       aquí y no después de guardar, que es cuando ya da igual. */
+    const rg = ruleByRole("maxLoss");
+    if (rg && rg.value > 0 && r.riskUsd != null) {
+      const frac = r.riskUsd / rg.value;
+      partes.push(cel("Del tope diario", pct(frac),
+        frac >= 1 ? "esta sola operación agota el tope" : `tope ${money(rg.value)}`));
+    }
+    z.hidden = false;
+    z.innerHTML = partes.join("");
   }
   /* Revisión en vivo del precio mientras escribes. No bloquea el guardado —un
      contrato sintético no tiene rejilla y hay rellenos raros de verdad— pero un
@@ -4678,8 +4759,8 @@ tbody tr:last-child td{border-bottom:0}
      re-suscribirse en cada openEditor iba acumulando un listener por apertura. */
   (function () {
     const fe = $("edFields"); if (!fe) return;
-    fe.addEventListener("input", () => { try { edRevisarPrecios(); } catch (e) { } });
-    fe.addEventListener("change", () => { try { edRevisarPrecios(); } catch (e) { } });
+    fe.addEventListener("input", () => { try { edRevisarPrecios(); } catch (e) { } try { edPintaRiesgo(); } catch (e) { } });
+    fe.addEventListener("change", () => { try { edRevisarPrecios(); } catch (e) { } try { edPintaRiesgo(); } catch (e) { } });
     /* Delegado en el contenedor, no en cada botón: el contenido se repinta y un
        listener por nodo se pierde con él. */
     const za = $("edAvisos");
@@ -9059,16 +9140,24 @@ tbody tr:last-child td{border-bottom:0}
   function tradeFields(type) {
     const pbs = coll("playbooks").items.filter(p => p.type === type).map(p => [p.id, p.name]);
     if (type === "futuros") return [
+      /* EL ORDEN ES EL DE LA OPERACIÓN, NO EL DE LA BASE DE DATOS. Primero qué y
+         cuándo; después el plan, que se escribe antes de entrar; después cómo
+         salió, que no existe hasta que sale; y al final la revisión. Mezclarlos
+         era lo que hacía que el formulario pidiera el resultado al lado de la
+         invalidación, que es justo lo que la invalidación existe para evitar. */
+      { type: "seccion", n: "01", label: "Qué y cuándo", help: "identifica la operación" },
       { key: "date", label: "Fecha", type: "date" },
       { key: "time", label: "Hora de entrada (ET)", type: "time", help: "se guarda en 24 h y se muestra en 12 h" },
       { key: "accountId", label: "Cuenta", type: "select", options: [["", "sin cuenta"]].concat(acctOptions()), help: "de aquí salen la consistencia y el colchón" },
       { key: "instrument", label: "Instrumento", ph: "MNQ", help: "MNQ, NQ, MES, ES… fija el multiplicador" },
       { key: "setupId", label: "Setup del playbook", type: "select", options: [["", "sin setup"]].concat(pbs) },
       { key: "direction", label: "Dirección", type: "select", options: [["long", "long"], ["short", "short"]] },
-      { key: "qty", label: "Contratos", type: "number", step: "1" },
-      { key: "entry", label: "Entrada", type: "number", step: "0.25" },
-      { key: "stop", label: "Stop", type: "number", step: "0.25" },
-      { key: "target", label: "Objetivo", type: "number", step: "0.25" },
+      { type: "seccion", n: "02", label: "El plan", help: "se escribe antes de entrar" },
+      { key: "qty", label: "Contratos", type: "number", step: "1", help: "vacío = 1 contrato" },
+      { key: "entry", label: "Entrada", type: "number", step: "0.25", help: "con el stop fija el riesgo" },
+      { key: "stop", label: "Stop", type: "number", step: "0.25", help: "sin stop no hay plan que ejecutar" },
+      { key: "target", label: "Objetivo", type: "number", step: "0.25", w: 3, help: "opcional · con el stop da la R planificada" },
+      { type: "riesgo" },
       /* LA INVALIDACIÓN, ANTES DE ENTRAR. Es el único campo de esta ficha que tiene
          que existir antes del resultado: convierte «¿lo hice bien?» —que después de
          perder nadie contesta con honradez— en «¿pasó lo que escribí?», que es un
@@ -9078,6 +9167,7 @@ tbody tr:last-child td{border-bottom:0}
       { key: "invalida", label: "Invalidación · salgo si…", type: "text", w: 6,
         ph: "cierre de 5m por debajo del mínimo del pullback",
         help: "escríbela ANTES de entrar: qué tendría que pasar para que la idea deje de valer" },
+      { type: "seccion", n: "03", label: "Cómo salió", help: "sólo existe después de cerrar" },
       { key: "exit", label: "Salida real", type: "number", step: "0.25", help: "vacío = operación abierta" },
       /* Los cuatro de abajo son OPCIONALES y van juntos a propósito: son lo único
          que el P&L no puede contener. Sin ellos no se puede saber si una salida
@@ -9092,6 +9182,7 @@ tbody tr:last-child td{border-bottom:0}
                   ["manual", "cerré a mano"], ["tiempo", "se agotó el tiempo"], ["noticia", "noticia / evento"],
                   ["nervios", "nervios"]],
         help: "opcional · separa las salidas por regla de las salidas por impulso" },
+      { type: "seccion", n: "04", label: "La revisión", help: "hechos, no opiniones · todo opcional" },
       { key: "plan", label: "¿Respetaste tu invalidación?", type: "select", w: 4,
         options: [["", "sin anotar"], ["cumpli", "sí · salí cuando se cumplió, o en el stop"],
                   ["no_hizo_falta", "no se cumplió · salí según plan"],
@@ -9115,10 +9206,12 @@ tbody tr:last-child td{border-bottom:0}
     return [
       { key: "date", label: "Fecha", type: "date" },
       { key: "accountId", label: "Cuenta de inversión", type: "select", options: [["", "Sin asignar"]].concat(investmentAccounts().map(a => [a.id, a.name])) },
+      { type: "seccion", n: "01", label: "Qué y cuándo", help: "identifica la operación" },
       { key: "market", label: "Mercado", type: "select", options: marketsMerged().filter(m => m.id !== "futuros").map(m => [m.id, m.name]) },
       { key: "asset", label: "Activo", ph: "VTI, BTC, O, T-bill 3m…" },
       { key: "setupId", label: "Estrategia del playbook", type: "select", options: [["", "sin estrategia"]].concat(pbs) },
       { key: "op", label: "Operación", type: "select", options: [["compra", "compra"], ["venta", "venta"], ["dividendo", "cobro · dividendo, cupón, prima o alquiler"], ["aporte", "aporte DCA"], ["otro", "otro"]] },
+      { type: "seccion", n: "02", label: "Los números", help: "lo que mueve la cartera" },
       { key: "qty", label: "Cantidad", type: "number", step: "0.0001" },
       { key: "price", label: "Precio unitario", type: "number", step: "0.01" },
       { key: "fees", label: "Comisiones $", type: "number", step: "0.01" },
@@ -9131,6 +9224,7 @@ tbody tr:last-child td{border-bottom:0}
          tomaste». Aquí ni eso: en inversión el error caro es el contrario
          —vender por miedo—, así que no hay aviso previo, sólo esta casilla, y
          después se calcula lo que costó desviarse. */
+      { type: "seccion", n: "03", label: "La revisión", help: "hechos, no opiniones · todo opcional" },
       { key: "offPlan", label: "¿Fue según tu plan?", type: "select",
         options: [["", "sí, seguí el plan"], ["1", "no · me desvié del plan"]],
         help: "marcar una desviación no es castigo: es lo único que permite medir después cuánto te cuesta tocar" },
@@ -10597,9 +10691,14 @@ tbody tr:last-child td{border-bottom:0}
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:56px" role="img" aria-label="Evolución de la cuenta"><line class="zero" x1="0" x2="${W}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}"></line><path class="s1" d="${path}"></path></svg>`;
   }
   const ACCT_FIELDS = [
+    /* Tres bloques, y el orden importa: quién es la cuenta, cuánto aguanta, y qué
+       firmaste. El contrato de la firma iba mezclado con el tamaño y el estado, y
+       son cosas distintas: lo de arriba lo decides tú, lo de abajo te lo imponen. */
+    { type: "seccion", n: "01", label: "La cuenta", help: "quién la lleva y en qué estado está" },
     { key: "firm", label: "Firma", w: 2, ph: "Nombre de tu firma" },
     { key: "name", label: "Nombre de la cuenta", w: 2, ph: "Evaluación 50K" },
     { key: "kind", label: "Tipo", w: 2, ph: "Evaluación / Fondeada" },
+    { type: "seccion", n: "02", label: "Cuánto aguanta", help: "tamaño, drawdown y consistencia" },
     { key: "size", label: "Tamaño de la cuenta ($)", type: "number", step: "1000" },
     { key: "dd", label: "Drawdown máximo ($)", type: "number", step: "100" },
     { key: "ddKind", label: "Tipo de drawdown", type: "select", options: [], help: "bloqueado: sigue al pico y se congela · puro: sigue siempre · estático: fijo" },
@@ -10615,6 +10714,7 @@ tbody tr:last-child td{border-bottom:0}
        Vacío significa «heredo el protocolo», no «cero». Por eso ninguno lleva
        valor por defecto: un 0 puesto por la app diría «no puedes perder nada»,
        que es una regla que ninguna firma escribe y que bloquearía la cuenta. */
+    { type: "seccion", n: "03", label: "El contrato de la firma", help: "lo que te imponen, no lo que eliges" },
     { key: "r_maxLoss", label: "Pérdida máx. del día ($)", type: "number", step: "10", w: 2,
       help: "el de ESTA firma · vacío = hereda el del protocolo" },
     { key: "r_maxGain", label: "Tope de ganancia ($)", type: "number", step: "10", w: 2,
