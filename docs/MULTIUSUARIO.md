@@ -128,19 +128,32 @@ sólo puede **decir qué versión cree que hay**, en el WHERE.
 aislamiento entre usuarios pasaría a depender de que la función esté bien escrita en
 vez de de la política. Un UPDATE condicional ya es atómico y no cambia quién ve qué.
 
-### Los seis estados del rótulo, de más grave a menos
+### Los ocho estados del rótulo, de más grave a menos
 
 | | qué significa |
 |---|---|
 | **CONFLICTO · n** | otro dispositivo cambió el documento; lo de aquí NO se guardó y no se guardará solo |
 | sesión caducada | todo lo que escribas a partir de ahora se rechaza |
+| SIN GUARDAR · n | una escritura falló y no entró en la cola: está en la pantalla y en ningún sitio más |
 | sin conexión | no hay red; lo que ves puede no estar al día |
-| SIN GUARDAR · n | una escritura falló por otra razón |
+| PENDIENTES · n | escrituras a salvo en este dispositivo que todavía no han llegado a la cuenta |
 | guardando… | hay algo en vuelo |
+| sin actualizar | lo tuyo se guarda, pero las LECTURAS fallan: la pantalla va vieja |
 | sincronizado | la base tiene lo que hay en la pantalla |
 
 CONFLICTO va primero porque es el único estado en el que existen dos versiones de un
-dato del usuario y una se pierde si no decide.
+dato del usuario y una se pierde si no decide. SIN GUARDAR va antes que «sin conexión»
+porque con la cola la mayoría de los fallos de red quedan a salvo y el que no queda es
+el único que urge.
+
+**«sin actualizar» es la mitad del rótulo que faltaba.** Todo lo demás habla de lo que
+SALE. De lo que ENTRA no se decía nada, y el silencio era literal: `attachDb` llama a
+`onSnapshot(cb)` sin manejador de error, así que cada lectura fallida se tiraba sin
+rastro. Con la base rechazando todas las lecturas —una RLS mal puesta, una tabla que
+falta— el rótulo decía «sincronizado» encima de una cabina vacía, y la app no volvía a
+intentarlo: el tope de 20 s se gastaba igual aunque la lectura hubiera fallado. Ahora
+un fallo de lectura no gasta la ventana (los dos primeros reintentan en el tic
+siguiente) y dos fallos seguidos cambian el rótulo. `test/retro.mjs` §3 y §4 lo fijan.
 
 **`LOCAL_CHANGES` no existe en esta app, y no se inventa.** Aquí una edición se
 escribe en cuanto se hace (con 400–500 ms de `debounce`), no se acumula en una cola
