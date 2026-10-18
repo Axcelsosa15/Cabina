@@ -340,7 +340,7 @@ tbody tr:last-child td{border-bottom:0}
   .toolbar { display: flex; align-items: center; gap:12px; flex-wrap: wrap; margin-bottom:16px; }
   .toolbar .sp { flex: 1; }
   /* un nombre de setup largo no debe estirar la barra ni romper el ancho de la página */
-  .toolbar select, .toolbar input[type="text"] { max-width: min(100%, 260px); }
+  .toolbar select, .toolbar input[type="text"], .toolbar input[type="search"] { max-width: min(100%, 260px); }
   /* `overflow: hidden` a secas RECORTABA la última opción sin dejar llegar a
      ella: en Futuros, a 430 px, «Pre-sesión» se salía 32 px y no había forma de
      pulsarla — ni arrastrando. El recorte seguía siendo necesario para que los
@@ -359,7 +359,12 @@ tbody tr:last-child td{border-bottom:0}
   .note-p { font-size: 13.5px; color: var(--muted); margin: 0 0 12px; max-width: 68ch; }
 
   /* ---------- controls ---------- */
-  input[type="number"], input[type="text"], input[type="date"], textarea, select { background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding:8px 8px; color: var(--text); font-family: var(--font-mono); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  input[type="number"], input[type="text"], input[type="date"], input[type="search"], textarea, select { background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding:8px 8px; color: var(--text); font-family: var(--font-mono); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  /* Sin esto el buscador se pinta con el estilo nativo del navegador: una caja
+     blanca en una interfaz oscura. */
+  input[type="search"] { -webkit-appearance: none; appearance: none; }
+  input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; width: 11px; height: 11px; cursor: pointer;
+    background: linear-gradient(45deg, transparent 45%, var(--muted) 45%, var(--muted) 55%, transparent 55%), linear-gradient(-45deg, transparent 45%, var(--muted) 45%, var(--muted) 55%, transparent 55%); }
   input[type="number"] { -moz-appearance: textfield; }
   input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   textarea { width: 100%; min-height: 72px; resize: vertical; font-family: var(--font-ui); font-size: 13.5px; line-height: 1.45; }
@@ -511,6 +516,13 @@ tbody tr:last-child td{border-bottom:0}
   .twrap { overflow-x: auto; }
   table.t { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
   table.t th { text-align: left; font-weight: 500; color: var(--muted); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; padding:4px 8px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  /* Ordenar es del encabezado, no un control nuevo: el botón hereda la
+     tipografía del th y sólo gana el cursor, el color al pasar y la flecha. */
+  table.t th .sortth { background: none; border: 0; padding: 0; margin: 0; font: inherit;
+    letter-spacing: inherit; text-transform: inherit; color: var(--muted); white-space: nowrap; cursor: pointer; }
+  table.t th .sortth:hover { color: var(--text); }
+  table.t th .sortth.on { color: var(--text); }
+  table.t th.r .sortth { width: 100%; text-align: right; }
   table.t td { padding:8px; border-bottom: 1px solid var(--line); vertical-align: top; }
   /* En un teléfono la tabla del año a año se salía 18 px y la última columna
      quedaba cortada a media cifra. 8→5 px por lado en cinco columnas devuelven
@@ -1584,7 +1596,7 @@ tbody tr:last-child td{border-bottom:0}
     .clock { margin-left: 0; width: 100%; gap:8px 12px; }
     .clock .time { font-size: 18px; }
     .toolbar { gap:8px; }
-    .toolbar select, .toolbar input[type="text"] { flex: 1 1 44%; max-width: none; min-width: 0; }
+    .toolbar select, .toolbar input[type="text"], .toolbar input[type="search"] { flex: 1 1 44%; max-width: none; min-width: 0; }
     .toolbar .btn.primary { flex: 1 1 100%; }
     .toolbar .seg { flex: 1 1 100%; }
     .toolbar .seg button { flex: 1; }
@@ -1737,7 +1749,7 @@ tbody tr:last-child td{border-bottom:0}
   }
   @media (max-width: 520px) {
     /* con 16 px de tipo los desplegables no caben de dos en dos */
-    .toolbar select, .toolbar input[type="text"] { flex: 1 1 100%; }
+    .toolbar select, .toolbar input[type="text"], .toolbar input[type="search"] { flex: 1 1 100%; }
     .acct .fields, .rform { grid-template-columns: 1fr 1fr; }
   }
   @media (max-width: 359px) {
@@ -2282,6 +2294,7 @@ tbody tr:last-child td{border-bottom:0}
     <select id="ftSetup" aria-label="Filtrar por setup"><option value="">todos los setups</option></select>
     <select id="ftInstr" aria-label="Instrumento"><option value="">todos los instrumentos</option></select>
     <select id="ftSes" aria-label="Sesión"><option value="">todas las sesiones</option></select>
+    <input id="ftQ" type="search" aria-label="Buscar operaciones" placeholder="buscar instrumento, etiqueta, lección…" autocomplete="off">
     <button type="button" class="btn ghost sm selbtn" id="selbtn-jrTable" title="Selecciona varias operaciones y bórralas de una vez">Seleccionar</button>
     <button type="button" class="btn primary" id="ftNew">+ Nueva operación</button>
   </div>
@@ -8572,7 +8585,9 @@ tbody tr:last-child td{border-bottom:0}
   function marketName(id) { const m = marketsMerged().find(x => x.id === id); return m ? m.name : (id || "—"); }
 
   /* =============================== FUTUROS (journal estilo TradeZella) =============================== */
-  const ft = { view: "resumen", range: "all", setup: "", instr: "", acct: "", ses: "", month: state.today.slice(0, 7), day: null };
+  const ft = { view: "resumen", range: "all", setup: "", instr: "", acct: "", ses: "", month: state.today.slice(0, 7), day: null,
+    // Búsqueda libre y orden de la tabla del journal.
+    q: "", sortKey: "date", sortDir: "desc" };
 
   /* ══════════════════ CAPA DE DATOS — PUERTA ÚNICA ══════════════════
      Cabina y Futuros no son dos sistemas: son dos VISTAS sobre esto.
@@ -8954,6 +8969,11 @@ tbody tr:last-child td{border-bottom:0}
   $("ftRange").addEventListener("change", e => { ft.range = e.target.value; renderFutures(); });
   $("ftSetup").addEventListener("change", e => { ft.setup = e.target.value; renderFutures(); });
   $("ftInstr").addEventListener("change", e => { ft.instr = e.target.value; renderFutures(); });
+  // renderFutures reconstruye la barra, así que se devuelve el foco y el caret.
+  $("ftQ").addEventListener("input", e => {
+    const caret = e.target.selectionStart; ft.q = e.target.value; jrTope = JR_TRAMO; renderFutures();
+    const el = $("ftQ"); if (el) { el.focus(); try { el.setSelectionRange(caret, caret); } catch (err) { } }
+  });
   $("ftSes").addEventListener("change", e => { ft.ses = e.target.value; renderFutures(); });
   /* Los dos selectores — el de Futuros y el de Cabina — escriben en el MISMO
      sitio. Por eso no hace falta que uno avise al otro: los dos repintan desde
@@ -9728,6 +9748,7 @@ tbody tr:last-child td{border-bottom:0}
     { k: "setup", lb: "Setup", txt: v => { const q = coll("playbooks").get(v); return q ? q.name : v; } },
     { k: "instr", lb: "Instrumento", txt: v => v },
     { k: "ses", lb: "Sesión", txt: v => v === "__sin" ? "sin hora" : sesShort(v) },
+    { k: "q", lb: "Búsqueda", txt: v => `«${v}»` },
   ];
   function activeFilters() { return FT_FILTROS.filter(f => { const v = ft[f.k]; return v && v !== (f.off || ""); }); }
   function renderFtFilters() {
@@ -9749,15 +9770,29 @@ tbody tr:last-child td{border-bottom:0}
      operación, se recalcula. Devolver siempre el mismo array mientras nada
      cambie es lo que permite que futStats acierte en su memoria. */
   const _filtMemo = { key: null, val: null };
+  /* Búsqueda libre: sin acentos y en minúsculas, para que «leccion» encuentre
+     «lección» y «nq» encuentre «NQ». Varios términos son un AND, no un OR: así
+     «mnq revenge» acota de verdad en vez de ensanchar. */
+  function normQ(v) { return String(v == null ? "" : v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+  function qMatch(t, terms) {
+    const pb = coll("playbooks").get(t.setupId);
+    const hay = normQ([t.instrument, t.tags, t.lesson, t.quality, t.note,
+      t.direction === "short" ? "corto short s" : "largo long l",
+      pb ? pb.name : "", acctLabel(t.accountId) || "", t.date, t.time || "",
+      t.exit == null ? "abierta" : ""].join(" "));
+    return terms.every(term => hay.indexOf(term) >= 0);
+  }
   function futFiltered() {
     const key = coll("trades").rev + "|" + (autoFeesOn() ? 1 : 0) + "|" +
-      [state.today, ft.range, ft.month, ft.day, ft.setup, ft.instr, ft.ses, ft.acct].join("~");  // inRange mira state.today
+      [state.today, ft.range, ft.month, ft.day, ft.setup, ft.instr, ft.ses, ft.acct, ft.q].join("~");  // inRange mira state.today
     if (_filtMemo.key === key) return _filtMemo.val;
     let l = tradesOf("futuros").filter(inRange);
     if (ft.setup) l = l.filter(t => t.setupId === ft.setup);
     if (ft.instr) l = l.filter(t => t.instrument === ft.instr);
     if (ft.ses) l = l.filter(t => (tradeSes(t) || "__sin") === ft.ses);
     if (ft.acct) l = l.filter(acctMatch);
+    const terms = normQ(ft.q).trim().split(/\s+/).filter(Boolean);
+    if (terms.length) l = l.filter(t => qMatch(t, terms));
     _filtMemo.key = key; _filtMemo.val = l;
     return l;
   }
@@ -10119,6 +10154,9 @@ tbody tr:last-child td{border-bottom:0}
     const sf = $("ftSetup"); sf.innerHTML = `<option value="">todos los setups</option>` + coll("playbooks").items.filter(p => p.type === "futuros").map(p => `<option value="${p.id}" ${ft.setup === p.id ? "selected" : ""}>${esc(p.name)}</option>`).join("");
     const instrs = [...new Set(all.map(t => t.instrument).filter(Boolean))].sort();
     $("ftInstr").innerHTML = `<option value="">todos los instrumentos</option>` + instrs.map(i => `<option value="${esc(i)}" ${ft.instr === i ? "selected" : ""}>${esc(i)}</option>`).join("");
+    // El input no se reconstruye, pero su valor puede venir de un chip borrado
+    // («Ver todo» pone ft.q = ""), así que se refleja el estado en cada render.
+    { const qi = $("ftQ"); if (qi && qi.value !== ft.q) qi.value = ft.q; }
     // el selector solo ofrece sesiones con operaciones: un filtro que vacía la vista no ayuda
     const conOps = new Set(all.map(t => tradeSes(t) || "__sin"));
     if (ft.ses && !conOps.has(ft.ses)) ft.ses = "";
@@ -10395,7 +10433,51 @@ tbody tr:last-child td{border-bottom:0}
      El click está delegado en #jrTable, así que las filas nuevas funcionan solas. */
   const JR_TRAMO = 250;
   let jrTope = JR_TRAMO;
+  /* El orden vive AQUÍ, no en futFiltered(): la curva de equity, el drawdown,
+     las rachas y el calendario leen esa misma lista y dependen de que venga en
+     orden cronológico. Ordenar en el filtro los habría corrompido en silencio.
+     Clave → cómo se lee el valor de la fila. */
+  const JR_ORDEN = {
+    date: t => (t.date || "") + " " + (t.time || ""),
+    time: t => t.time || "",
+    ses: t => tradeSes(t) || "",
+    acct: t => normQ(acctLabel(t.accountId) || ""),
+    instrument: t => normQ(t.instrument),
+    setup: t => { const p = coll("playbooks").get(t.setupId); return normQ(p ? p.name : ""); },
+    qty: t => t.qty,
+    rPlanned: t => t.rPlanned,
+    rReal: t => t.rReal,
+    pnlEff: t => t.pnlEff,
+    quality: t => normQ(t.quality),
+    proto: t => [t.cStruct, t.cPull, t.cWindow, t.cSize].filter(Boolean).length
+  };
+  function jrOrdena(list) {
+    const leer = JR_ORDEN[ft.sortKey] || JR_ORDEN.date;
+    const dir = ft.sortDir === "asc" ? 1 : -1;
+    return list.slice().sort((a, b) => {
+      const va = leer(a), vb = leer(b);
+      // Una operación abierta no tiene R ni P&L. Va al final en los DOS
+      // sentidos: arriba sólo sería ruido, y en «peores primero» mentiría.
+      const na = va == null || va === "", nb = vb == null || vb === "";
+      if (na && nb) return 0;
+      if (na) return 1;
+      if (nb) return -1;
+      if (va < vb) return -dir;
+      if (va > vb) return dir;
+      // Desempate estable, o el mismo filtro daría dos órdenes distintos.
+      return (b.date || "").localeCompare(a.date || "") || String(b.id).localeCompare(String(a.id));
+    });
+  }
+  function jrSetOrden(key) {
+    // El mismo encabezado invierte; uno nuevo empieza descendente, que es lo
+    // útil de entrada: lo más reciente, la mayor pérdida, la mejor calificación.
+    if (ft.sortKey === key) ft.sortDir = ft.sortDir === "asc" ? "desc" : "asc";
+    else { ft.sortKey = key; ft.sortDir = "desc"; }
+    jrTope = JR_TRAMO;
+    renderFutures();
+  }
   function renderJournalTable(list) {
+    list = jrOrdena(list);
     const total = list.length;
     if (jrTope > JR_TRAMO && jrTope > total) jrTope = Math.max(JR_TRAMO, total);
     const visibles = total > jrTope ? list.slice(0, jrTope) : list;
@@ -10406,7 +10488,21 @@ tbody tr:last-child td{border-bottom:0}
     list = visibles;
     if (!list.length) { wrap.innerHTML = `<p class="empty">Sin operaciones de futuros en este rango. La primera fila es una entrada real con entrada, stop y salida — no una idea.</p>`; return; }
     const pbName = id => { const p = coll("playbooks").get(id); return p ? p.name : ""; };
-    wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Hora</th><th>Sesión</th><th>Cuenta</th><th>Instr.</th><th>Setup</th><th>Dir</th><th class="r">Ctos</th><th class="r">Entrada</th><th class="r">Stop</th><th class="r">Salida</th><th class="r">R plan</th><th class="r">R</th><th class="r">P&amp;L</th><th>Cal.</th><th>Prot.</th><th>Img</th><th>Etiquetas</th><th>Lección</th><th></th></tr></thead><tbody>${list.map(t => {
+    // [etiqueta, clave de orden o null si no se ordena, alineada a la derecha]
+    const cols = [["Fecha", "date", 0], ["Hora", "time", 0], ["Sesión", "ses", 0], ["Cuenta", "acct", 0],
+      ["Instr.", "instrument", 0], ["Setup", "setup", 0], ["Dir", null, 0], ["Ctos", "qty", 1],
+      ["Entrada", null, 1], ["Stop", null, 1], ["Salida", null, 1], ["R plan", "rPlanned", 1],
+      ["R", "rReal", 1], ["P&amp;L", "pnlEff", 1], ["Cal.", "quality", 0], ["Prot.", "proto", 0],
+      ["Img", null, 0], ["Etiquetas", null, 0], ["Lección", null, 0]];
+    const th = cols.map(([lb, key, right]) => {
+      const cls = right ? ' class="r"' : "";
+      if (!key) return `<th${cls}>${lb}</th>`;
+      const on = ft.sortKey === key;
+      const flecha = on ? (ft.sortDir === "asc" ? " ▲" : " ▼") : "";
+      return `<th${cls}><button type="button" class="sortth${on ? " on" : ""}" data-sort="${key}"`
+        + ` title="Ordenar por ${lb}" aria-label="Ordenar por ${lb}">${lb}${flecha}</button></th>`;
+    }).join("");
+    wrap.innerHTML = `<table class="t"><thead><tr>${th}<th></th></tr></thead><tbody>${list.map(t => {
       const proto = [t.cStruct, t.cPull, t.cWindow, t.cSize].filter(Boolean).length;
       return `<tr data-id="${t.id}"><td><span class="dim">${dowOf(t.date)}</span> ${(t.date || "").slice(5)}</td><td>${esc(t.time ? h12(t.time) : "—")}</td><td>${sesTag(t)}</td><td class="ui">${esc(acctLabel(t.accountId)) || '<span class="dim">—</span>'}</td><td>${esc(t.instrument)}</td><td class="ui">${esc(pbName(t.setupId)) || '<span class="dim">—</span>'}</td><td class="${t.direction === "short" ? "neg" : "pos"}">${t.direction === "short" ? "S" : "L"}</td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.entry ?? "—"}</td><td class="r">${t.stop ?? "—"}</td><td class="r">${t.exit ?? `<button type="button" class="hitstop" data-act="hitstop" title="Marcar que tocó el stop"${t.stop == null ? " disabled" : ""}>abierta${t.stop != null ? " · tocó el stop" : ""}</button>`}</td><td class="r dim">${t.rPlanned == null ? "—" : t.rPlanned.toFixed(1)}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="r ${t.pnlEff > 0 ? "pos" : t.pnlEff < 0 ? "neg" : ""}">${t.pnlEff == null ? (t.multUnknown ? `<span class="chip warn" title="No hay valor de punto para ${esc(String(t.instrument || ""))}. Escribe el resultado a mano en «Resultado $» o usa un instrumento conocido.">falta $/punto</span>` : "—") : money(t.pnlEff)}</td><td>${esc(t.quality || "")}</td><td class="${proto === 4 ? "pos" : proto <= 2 ? "neg" : ""}">${proto}/4</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.tags || "")}</td><td class="notes">${esc(t.lesson || "")}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button></td></tr>`;
     }).join("")}</tbody></table>${total > visibles.length
@@ -10428,6 +10524,8 @@ tbody tr:last-child td{border-bottom:0}
   }
   $("jrTable").addEventListener("click", e => {
     if (e.target.closest("#jrMas")) { jrTope += JR_TRAMO; renderFutures(); return; }
+    const so = e.target.closest("button[data-sort]");
+    if (so) { jrSetOrden(so.dataset.sort); return; }
     if (e.target.classList.contains("thumb")) { openLightbox(e.target.src, e.target.alt); return; }
     const hs = e.target.closest("button[data-act='hitstop']");
     if (hs) { hitStop(hs.closest("tr").dataset.id); return; }
