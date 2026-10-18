@@ -15350,8 +15350,6 @@ html{scroll-padding-top:24px}
    El color es `--dim`, el tercer nivel del propio sistema, no un gris inventado
    para la ocasión: ya está medido en tokens.mjs y no hay un cuarto nivel que
    mantener. La clase la pone el render; esta hoja sólo decide cómo se ve. */
-.tile.sin-dato{background:#111820}
-.tile.sin-dato:hover{background:#141c25}
 .tile.sin-dato .v{color:var(--dim);font-weight:400;font-size:20px;letter-spacing:0}
 .tile.sin-dato .v.dual{font-size:16px}
 .tile.sin-dato .s{color:var(--dim)}
@@ -15435,6 +15433,21 @@ a:hover{color:#a4f2e6}
 .tab:not([data-tab="estudio"]) .panel .body{padding:var(--s4);min-width:0}
 .tab:not([data-tab="estudio"]) .tiles{border-radius:var(--r-md);overflow:hidden}
 .tab:not([data-tab="estudio"]) .tile{background:var(--surface-2);padding:var(--s3) var(--s4)}
+/* EL TILE SIN DATO, UN ESCALÓN POR DETRÁS. Tenía su propio fondo desde que se
+   marcaron los guiones, pero escrito como `.tile.sin-dato` — especificidad
+   (0,2,0) — y la línea de aquí arriba es (0,3,0), así que desde que existe esta
+   capa el fondo NO se aplicaba: medido, el tile vacío y el lleno compartían
+   rgb(24,29,38). La regla seguía en el archivo pareciendo trabajo hecho.
+
+   Se reescribe dentro de esta capa, y con el token en vez del hex de antes
+   (#111820, elegido a ojo para encajar en el degradado que esta capa ya quitó).
+   --surface es el escalón que el sistema ya usa para «más al fondo que el
+   contenido de un panel»; no hace falta un cuarto gris.
+
+   El :hover que la acompañaba NO se rescata: esta misma capa dejó muerto el
+   hover de todos los tiles a propósito — un tile no se pulsa — y devolvérselo
+   sólo a los vacíos sería justo al revés. Lo vigila test/vacios.mjs §4. */
+.tab:not([data-tab="estudio"]) .tile.sin-dato{background:var(--surface)}
 .tab:not([data-tab="estudio"]) .tile .k,
 .tab:not([data-tab="estudio"]) .tile .l{color:var(--muted)}
 .tab:not([data-tab="estudio"]) .tile .v{font-variant-numeric:tabular-nums;letter-spacing:-.035em}
