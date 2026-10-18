@@ -130,7 +130,7 @@ const claves = id => de(id).senales.map(s => s.clave).join(',');
 console.log('\n═══ LAS DERIVADAS: nadie pregunta nada ═══');
 const CASOS = [
   ['E1_sinstop',   2, 'sin_stop',        'sin stop escrito: no habia plan que ejecutar'],
-  ['E2_ventana',   2, 'fuera_ventana',   'entrada a las 12:00, fuera de NY AM'],
+  ['E2_ventana',   2, 'fuera_ventana',   'entrada a las 12:00, fuera de la ventana operativa'],
   ['E3_antes',     2, 'salio_antes',     'salio antes de que se cumpliera su invalidacion'],
   ['E4_sininval',  2, 'sin_invalidacion','operacion nueva que dejo la invalidacion en blanco'],
   ['E5_calidadC',  2, 'calidad_c',       'el propio trader la marco fuera del protocolo'],
