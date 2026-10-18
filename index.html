@@ -3131,6 +3131,14 @@ tbody tr:last-child td{border-bottom:0}
     } else if (d.checks && Object.keys(d.checks).length && !Object.keys(d.checksBy).length) {
       d.checksBy.nyam = d.checks;
     }
+    /* UN DÍA GUARDADO ANTES DE QUE `resultManual` EXISTIERA no dice de dónde
+       salió su resultado, y esa diferencia decide si el journal puede pisarlo.
+       Con una cifra escrita, la suposición NO DESTRUCTIVA es «a mano»: conserva
+       el número y hace que el día ofrezca el «usar el journal» que ya existe en
+       `renderDaySync()`, en vez de que el historial lo sustituya por lo que
+       digan unas operaciones que quizá nunca se registraron. Sin cifra no hay
+       nada que conservar, así que cuenta como derivado. */
+    if (d.resultManual === undefined) d.resultManual = d.result != null;
     return d;
   }
 
@@ -6451,15 +6459,37 @@ tbody tr:last-child td{border-bottom:0}
     (state.history || []).forEach(d => { if (d && d.date) map.set(d.date, migrateDay(Object.assign({}, d))); });
     const t = state.day;
     if (t && t.date && (t.result != null || t.closed || t.broke)) map.set(t.date, Object.assign({}, t));
+    /* Las operaciones ABIERTAS cuentan para «cuántas», no para el resultado:
+       es la misma regla que `syncDayFromTrades()` usa en el día de hoy, y antes
+       aquí se contaban sólo las cerradas, así que un día pasado con una
+       operación abierta decía «—» operaciones teniendo una. */
     const byDay = {};
     coll("trades").items.filter(x => x.type === "futuros").forEach(x => {
-      const c = tradeCalc(Object.assign({}, x)); if (c.pnlEff == null) return;
-      const o = byDay[c.date] || (byDay[c.date] = { pnl: 0, n: 0 }); o.pnl += c.pnlEff; o.n++;
+      const c = tradeCalc(Object.assign({}, x));
+      const o = byDay[c.date] || (byDay[c.date] = { pnl: 0, n: 0, closed: 0 });
+      o.n++;
+      if (c.pnlEff != null) { o.pnl += c.pnlEff; o.closed++; }
     });
+    const derivado = o => ({
+      result: o && o.closed ? Math.round(o.pnl * 100) / 100 : null,
+      trades: o ? o.n : null,
+    });
+    /* EL JOURNAL MANDA EN UN DÍA DERIVADO, TAMBIÉN HACIA ATRÁS. Esto sólo
+       rellenaba huecos (`if (cur.result == null)`), así que un día pasado se
+       quedaba con su cifra guardada para siempre: le borrabas las operaciones y
+       seguía diciendo «+$100», y le editabas la salida de una y seguía diciendo
+       la vieja. Dos pantallas de la misma app contando cosas distintas del
+       mismo día, que es el fallo que ya se corrigió para HOY en
+       `syncDayFromTrades()` y que aquí seguía vivo.
+
+       La regla es la misma que allí —gana el journal, salvo que lo hayas
+       escrito a mano— y `resultManual` es la frontera. Se recorre el mapa
+       ENTERO y no sólo los días con operaciones, porque el caso que importa es
+       justamente el día al que ya no le queda ninguna. */
+    map.forEach(cur => { if (!cur.resultManual) Object.assign(cur, derivado(byDay[cur.date])); });
     Object.keys(byDay).forEach(date => {
-      const o = byDay[date]; const cur = map.get(date);
-      if (cur) { if (cur.result == null) cur.result = Math.round(o.pnl * 100) / 100; if (cur.trades == null) cur.trades = o.n; }
-      else map.set(date, { date, result: Math.round(o.pnl * 100) / 100, trades: o.n, broke: false, note: "", closed: false, synthetic: true });
+      if (map.has(date)) return;
+      map.set(date, Object.assign({ date, broke: false, note: "", closed: false, synthetic: true }, derivado(byDay[date])));
     });
     return [...map.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
   }
@@ -14040,13 +14070,23 @@ tbody tr:last-child td{border-bottom:0}
        desplegable, sin ningún aviso: parecía al día. */
     estudio:    ["estudio", () => renderEstudio()],
     credo:      ["credo", () => renderCredo()],
+    /* EL DETALLE DE UN MERCADO CALCULA DESDE LAS OPERACIONES. `posCalc()` y
+       `posLotes()` sacan los lotes y el resultado de la posición de
+       `coll("trades")` —las compras y ventas de inversión viven ahí, con las de
+       futuros—, así que registrar o borrar una operación de inversión dejaba
+       esa vista con los números viejos. Las métricas (`invMetr`) y la lista
+       (`invOps`) sí se repintaban; el detalle, que es donde se mira una
+       posición concreta, no. Zona propia y no `Z.invest` entero: la lista de
+       mercados no lee operaciones, y meter `invest` repintaría las métricas
+       dos veces por cada cambio. */
+    invDetalle: ["detalle de inversión", () => renderMarketDetail()],
   };
   /* Al cambiar la CUENTA SELECCIONADA no cambian los datos, cambia el punto de
      vista: se repinta lo que depende de qué cuenta se está mirando. */
   const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia, Z.edge];
   const FANOUT_TRADES = [Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
                          Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion, Z.edge,
-                         Z.estudio];
+                         Z.estudio, Z.invDetalle];
   function pinta(lista) {
     /* Una actualización de datos no debe echar al usuario del campo donde está
        escribiendo ni devolver la página al inicio. Algunos renders reconstruyen
@@ -14217,8 +14257,16 @@ tbody tr:last-child td{border-bottom:0}
 
   coll("playbooks").subscribe(() => fanout([Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.edge]));
   coll("ideas").subscribe(() => fanout([Z.ideas, Z.contadores]));
-  coll("markets").subscribe(() => fanout([Z.invest, Z.destinos]));
-  coll("positions").subscribe(() => fanout([Z.invest, Z.contadores]));
+  /* `Z.invOps` EN LAS DOS. La lista de operaciones de inversión no se pintaba
+     con ninguna de ellas, y lee las dos: el nombre del mercado por
+     `marketName()`, y el número de posiciones por cuenta en
+     `renderInvestmentAccountControls()`, que `renderInvestOps()` invoca. Así
+     que renombrar un mercado dejaba el nombre viejo en la lista, y abrir o
+     cerrar una posición dejaba la cuenta diciendo «2 posiciones» con una. Es
+     la misma clase de fallo que el nombre de cuenta en la clave del buscador:
+     el render lee un dato que vive en OTRA colección y nadie lo repintaba. */
+  coll("markets").subscribe(() => fanout([Z.invest, Z.destinos, Z.invOps]));
+  coll("positions").subscribe(() => fanout([Z.invest, Z.contadores, Z.invOps]));
   coll("watch").subscribe(() => fanout([Z.invest]));
   /* También Z.respaldo: crear una tesis cambia lo que se lleva una copia, y el
      resumen del panel se quedaba clavado hasta que otra cosa lo repintara. */

@@ -46,6 +46,7 @@ Postgres local; el estado actual del proyecto Supabase real queda explícitament
 | [docs/MULTIUSUARIO.md](docs/MULTIUSUARIO.md) | cuentas, sesiones y aislamiento |
 | [docs/ERRORES.md](docs/ERRORES.md) | las cuatro categorías de error |
 | [docs/LANZAMIENTO.md](docs/LANZAMIENTO.md) | lo que falta decidir para abrirlo al público |
+| [docs/AUTOMATIZAR.md](docs/AUTOMATIZAR.md) | qué automatizar y qué no, con las puertas que están cerradas y por qué |
 | [PROTOCOLOS.md](PROTOCOLOS.md) | procedimientos de trabajo, y el fallo que produjo cada uno |
 
 ## Arranque rápido
@@ -61,7 +62,7 @@ npm run compuerta    # todas las pruebas + la tabla de la cadena (lo que corre C
 | | |
 |---|---|
 | suites | **44**, 1.294 aserciones de navegador y guardianes en 41 archivos + 357 del motor |
-| compuerta | **23 PASS · 0 FAIL · 3 UNKNOWN** de 26 filas (las 3 son fronteras de plataforma) |
+| compuerta | **26 PASS · 0 FAIL · 3 UNKNOWN** de 29 filas (las 3 son fronteras de plataforma) |
 | despliegue | GitHub Pages, sólo tras `pruebas` en verde, con comparación byte a byte |
 
 ## Darle Cabina a otra persona
