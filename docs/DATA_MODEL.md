@@ -25,19 +25,6 @@ versión vieja) pasa por ahí.
 - `meta` — título y parámetros sueltos. `meta.mx` guarda los de Métricas/Edge;
   `meta.acct` la cuenta seleccionada.
 - `checks[]` — la pre-sesión: `{ id, t, s, gate }`.
-- `window` — **la ventana operativa**: `{ start, end, days[] }`. `start` y `end` en
-  minutos desde medianoche ET; `days` son los días de la semana en que se puede
-  entrar (`0` = domingo). Es la regla del usuario, no un hecho del mercado: la tabla
-  `SESSIONS` (Asia, Londres, NY AM, Lunch…) no se mueve con ella y la sesión de una
-  operación no cambia nunca. Lo que sí sigue a la ventana es el permiso de la
-  pre-sesión y la señal `fuera_ventana`, que significa «fuera de la ventana que TÚ
-  pusiste»: cambiarla **rejuzga** las operaciones viejas con la regla de hoy. Si
-  algún día hace falta no rejuzgar el pasado, se versiona por fecha de vigencia como
-  `accounts[].rulesets[]`. Por defecto `{ 510, 660, [1,2,3,4,5] }` — 8:30–11:00 AM ET
-  de lunes a viernes, que es lo que estaba fijo en el código. **Su ausencia significa
-  «nunca se tocó»** y se lee como el defecto sin escribir nada encima (protocolo 17);
-  una lista de días **vacía** sí se respeta: es una pausa deliberada. Una ventana
-  invertida no se guarda y la cabina dice qué choca. Prueba: `test/ventana.mjs`.
 - `rules[]` — reglas duras: `{ id, kind: "num"|"fixed", role, value, … }`. `role`
   (`maxLoss`, `maxGain`, `maxContracts`, `maxLosses`, `instrument`) es lo que lee la app.
 - `updatedAt` — el sello de la última edición. Lo pone `persistSettings` **al pedir

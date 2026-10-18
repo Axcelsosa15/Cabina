@@ -26,7 +26,7 @@ Postgres local; el estado actual del proyecto Supabase real queda explícitament
 
 | | |
 |---|---|
-| **Cabina** | la sesión del día: pre-sesión, niveles, resultado, reglas que bloquean, y **la ventana operativa** —horas y días— editable: las sesiones del mercado no se mueven con ella |
+| **Cabina** | la sesión del día: pre-sesión, niveles, resultado, reglas que bloquean |
 | **Futuros** | journal, cuentas de prop firm (drawdown estático/trailing, consistencia, payouts, contrato de la firma **versionado por fecha de vigencia**), radiografía de la ventaja, supervivencia de la cuenta por Monte Carlo |
 | **Métricas / Edge** | expectancy, win rate, R:R, tamaño de posición, Kelly (referencia), profit factor, Sharpe, max drawdown, break-even, riesgo de ruina — netos de comisión. [docs/METRICAS.md](docs/METRICAS.md) |
 | **Inversiones** | posiciones, lotes, dividendos, TIR de la cartera |
