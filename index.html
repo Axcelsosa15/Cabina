@@ -4351,6 +4351,25 @@ tbody tr:last-child td{border-bottom:0}
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && state.nube && state.db && state.db.refresca) state.db.refresca();
   });
+  /* VOLVER A LA PESTAÑA NO BASTA.
+     `refresca()` sólo se disparaba al volver a la pestaña, al recuperar la red y
+     al resolver un conflicto. Con la cabina abierta Y VISIBLE en dos
+     dispositivos, `visibilitychange` no vuelve a dispararse nunca: el segundo
+     dispositivo no se enteraba de nada, indefinidamente, con el rótulo diciendo
+     «sincronizado». Y MULTIUSUARIO.md ya prometía lo contrario — «lo de otro
+     dispositivo, al volver a la pestaña (como mucho cada 20 s)».
+
+     El tope de 20 s de `refresca()` sigue siendo la autoridad: este tic sólo le
+     da la ocasión de cumplirse. Va cada 10 s y no cada 20 para que el tope
+     —y no la casualidad de cuándo cae el tic— decida; con 20 exactos, un tic
+     que llegue a los 19,99 s se descarta y la recarga se va a los 40.
+     Oculta la pestaña, no sale ni una petición: el coste es una comparación. */
+  setInterval(() => {
+    if (document.visibilityState !== "visible") return;
+    if (!state.nube || !state.db || !state.db.refresca) return;
+    if (nube.sinRed || nube.caducada) return;   // no insistir contra algo que ya sabemos caído
+    state.db.refresca();
+  }, 10000);
 
   /* Los enlaces del correo (confirmar cuenta, recuperar contraseña) vuelven con
      la sesión en el hash. Se recoge y se BORRA de la barra de direcciones antes
@@ -6229,6 +6248,27 @@ tbody tr:last-child td{border-bottom:0}
   function syncDayFromTrades(force) {
     const d = state.day; if (!d || d.closed) return;
     const g = futDayAgg(d.date);
+    /* SIN NINGUNA OPERACIÓN, EL DÍA DERIVADO VUELVE A VACÍO.
+       `if (!g.closed) return` era la única guarda, y no distingue dos
+       situaciones muy distintas: «todavía no he cerrado nada» y «ya no queda
+       nada porque lo borré». Con la segunda, la función volvía sin tocar nada y
+       la Cabina conservaba el resultado anterior: borrar la última operación del
+       día dejaba la Cabina diciendo «+$100 · 1 operación» sobre un journal
+       vacío. Dos pantallas de la misma app contando cosas distintas del mismo
+       día — y la que se mira por la mañana es la que mentía.
+
+       Se vuelve a `null`, no a 0, y es la diferencia que importa: «$0» dice que
+       operaste y acabaste en tablas; vacío dice que no hay nada, que es la
+       verdad, y es como se ve un día recién empezado (`newDay`).
+
+       Con operaciones pero ninguna cerrada, la guarda original sigue siendo
+       correcta y queda intacta más abajo. */
+    if (!g.n) {
+      if (d.resultManual && !force) return;
+      if (d.result == null && d.trades == null) return;
+      d.result = null; d.trades = null; d.resultManual = false;
+      persistDay(); renderJournalDay(); return;
+    }
     if (!g.closed) return;
     if (d.resultManual && !force) return;
     const r = Math.round(g.pnl * 100) / 100;
