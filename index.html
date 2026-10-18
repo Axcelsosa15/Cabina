@@ -590,6 +590,18 @@ tbody tr:last-child td{border-bottom:0}
   .sestag.live { color: var(--good); border-color: rgba(91,196,137,.45); background: var(--good-soft); }
   .sestag.warn { color: var(--warn); border-color: rgba(224,164,88,.45); background: var(--warn-soft); }
   .seschips { display: flex; gap:8px; flex-wrap: wrap; margin-bottom:12px; }
+  /* ---------- la ventana operativa ---------- */
+  .winbox { margin-bottom:12px; }
+  .winline { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .winlbl { font-family: var(--font-mono); font-size:10.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color: var(--dim); }
+  .winval { font-family: var(--font-mono); font-size:12px; font-weight:600; color: var(--text); font-variant-numeric: tabular-nums; }
+  .winedit { display:flex; flex-direction:column; gap:10px; padding:12px; border:1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface-2); }
+  .winhoras { display:flex; gap:12px; flex-wrap:wrap; }
+  .winhoras label { display:inline-flex; align-items:center; gap:6px; font-size:12px; color: var(--muted); }
+  .winhoras input { width: 130px; }
+  .windays { margin-bottom:0; }
+  .windays .seschip { min-width:36px; justify-content:center; cursor:pointer; }
+  .winedit .hint { margin:0; }
   .seschip { display: inline-flex; align-items: center; gap:8px; padding:8px 12px; border-radius: var(--r-pill); border: 1px solid var(--line-strong); background: var(--bg); color: var(--muted); font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .03em; white-space: nowrap; }
   .seschip:hover { border-color: var(--muted); color: var(--text); }
   .seschip .st { font-weight: 500; font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
@@ -2079,6 +2091,18 @@ tbody tr:last-child td{border-bottom:0}
     <section class="panel" id="panelCheck">
       <header><h2>Pre-sesión</h2><span class="meta" id="checkMeta">0 / 0 · hoy</span></header>
       <div class="body">
+        <div class="winbox">
+          <div class="winline view-only"><span class="winlbl">Ventana operativa</span><span class="winval" id="winView">—</span></div>
+          <div class="winedit edit-only">
+            <span class="winlbl">Ventana operativa</span>
+            <div class="winhoras">
+              <label>Desde <input type="time" id="winStart" step="300" aria-label="Hora de apertura de tu ventana (ET)"></label>
+              <label>Hasta <input type="time" id="winEnd" step="300" aria-label="Hora de cierre de tu ventana (ET)"></label>
+            </div>
+            <div class="seschips windays" id="winDays" role="group" aria-label="Días operativos"></div>
+            <p class="hint">Hora de Nueva York. Es tu regla, no la del mercado: las sesiones del día (Asia, Londres, NY AM…) no se mueven, y una operación vieja no cambia de sesión. Lo que cambia es el permiso de hoy y la señal «fuera de ventana», también en lo ya registrado.</p>
+          </div>
+        </div>
         <div class="seschips view-only" id="sesChips" role="tablist" aria-label="Sesión que se prepara"></div>
         <ul class="check" id="checkList"></ul>
         <button type="button" class="add edit-only" id="addCheck">+ Añadir paso</button>
@@ -2612,8 +2636,9 @@ tbody tr:last-child td{border-bottom:0}
 </div>
 
 <footer>
-  <span>Ventana operativa: NY AM Kill Zone 8:30–11:00 AM ET</span>
-  <span>Lunch 11:00 AM–1:30 PM ET: sin entradas</span>
+  <!-- Se escriben desde renderWindow(): la ventana es configurable. -->
+  <span id="footerWindow">Ventana operativa: 8:30–11:00 AM ET</span>
+  <span id="footerWindowDays">lun–vie · fuera de ahí, sin entradas</span>
   <span id="footerStore"></span>
   <!-- Visible en las seis pestañas y en un teléfono: test/lanzamiento.mjs lo mide. -->
   <span class="aviso">Cabina es una herramienta de registro y análisis, no asesoramiento financiero. Operar futuros conlleva un riesgo alto de pérdida.</span>
@@ -2793,6 +2818,27 @@ tbody tr:last-child td{border-bottom:0}
       { id: "nochange", kind: "fixed", name: "Sin cambios al protocolo en sesión", why: "El sistema se revisa con datos, no en caliente.", role: "" },
     ],
     accounts: [],
+    /* ═══════════ LA VENTANA OPERATIVA ═══════════
+       `start` y `end` en minutos desde medianoche ET; `days` son los días de la
+       semana en que se puede entrar (0 = domingo), como los numera `DOWS`.
+
+       Es TU regla, no un hecho del mercado, y por eso vive aquí y no en
+       `SESSIONS`. Esa tabla sigue describiendo el mercado —NY AM es la Kill Zone
+       de 8:30 a 11:00 ET opere quien opere— y la sesión a la que pertenece una
+       operación NO se mueve al cambiar esto: «Por sesión de mercado» seguirá
+       comparando lo mismo antes y después. Lo que sí se mueve es el permiso del
+       día y la señal `fuera_ventana`, que significa «fuera de la ventana que tú
+       pusiste»: cambiarla rejuzga las operaciones viejas con la regla de hoy.
+       Es deliberado y es el precio de que la ventana sea tuya; si algún día hace
+       falta no rejuzgar el pasado, esto se versiona por fecha de vigencia como
+       el contrato de una cuenta prop (ver `rulesets`), no se congela a medias.
+
+       El valor por defecto es exactamente lo que hasta ahora estaba fijo en el
+       código: 8:30–11:00 AM ET, de lunes a viernes. Una configuración guardada
+       antes de este campo no lo lleva, y esa ausencia significa «nunca se tocó»:
+       se lee como el valor por defecto y no se escribe nada encima hasta que
+       alguien la edite. */
+    window: { start: 8 * 60 + 30, end: 11 * 60, days: [1, 2, 3, 4, 5] },
     customized: false,
   };
   /* ═══════════ EL CICLO DE VIDA DE UNA CUENTA PROP ═══════════
@@ -2897,6 +2943,48 @@ tbody tr:last-child td{border-bottom:0}
      minuto a minuto sobre la misma tabla de sesiones, así nunca se desincroniza
      del reloj; el resultado se cachea hasta que cambia el minuto. */
   const DOWS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  /* ---------- la ventana operativa, leída ----------
+     Un solo sitio del que sale la ventana para todo: el permiso de la pre-sesión,
+     el pie de página y la señal `fuera_ventana`. Si la configuración todavía no
+     cargó —o es una vieja sin el campo— se lee el valor por defecto, que es la
+     ventana que estaba fija en el código hasta ahora. */
+  const DIAS_NOM = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+  const DIAS_ABR = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  const DIAS_LETRA = ["D", "L", "M", "X", "J", "V", "S"];
+  function winCfg() {
+    const w = state && state.settings && state.settings.window;
+    return w && Number.isFinite(Number(w.start)) && Array.isArray(w.days) ? w : DEFAULT_SETTINGS.window;
+  }
+  function winDays() { return winCfg().days; }
+  function inWin(min) { const w = winCfg(); return min >= w.start && min < w.end; }
+  function winDia(n) { return winDays().includes(DOWS.indexOf(n.dow)); }
+  /* 510 → «8:30 AM». Mismo formato que el reloj de arriba, que ya usa fmtHM. */
+  function hhmmET(min) {
+    const m = ((Math.round(Number(min)) % 1440) + 1440) % 1440;
+    const h = Math.floor(m / 60), mm = String(m % 60).padStart(2, "0");
+    return `${((h + 11) % 12) + 1}:${mm} ${h < 12 ? "AM" : "PM"}`;
+  }
+  function winHoras() { const w = winCfg(); return `${hhmmET(w.start)}–${hhmmET(w.end)} ET`; }
+  /* Los días, dichos como los diría una persona: «lun–vie» cuando son seguidos,
+     la lista cuando no, y «ningún día» cuando no queda ninguno marcado — que es
+     un estado legítimo (una pausa), no un hueco que rellenar con el valor por
+     defecto. */
+  function winDiasTexto() {
+    const d = winDays().slice().sort((a, b) => a - b);
+    if (!d.length) return "ningún día";
+    if (d.length === 7) return "todos los días";
+    const seguidos = d.every((x, i) => i === 0 || x === d[i - 1] + 1);
+    if (seguidos && d.length > 2) return `${DIAS_ABR[d[0]]}–${DIAS_ABR[d[d.length - 1]]}`;
+    return d.map(x => DIAS_ABR[x]).join(", ");
+  }
+  /* El próximo día operativo a partir de hoy, para no decir «el lunes» cuando el
+     lunes no es tuyo. Devuelve null si no hay ninguno marcado. */
+  function winProxDia(n) {
+    const d = winDays(); if (!d.length) return null;
+    const hoy = DOWS.indexOf(n.dow);
+    for (let i = 1; i <= 7; i++) { const x = (hoy + i) % 7; if (d.includes(x)) return DIAS_NOM[x]; }
+    return null;
+  }
   let sesCache = { key: "", val: null };
   function sessionInfo(n) {
     const key = n.dow + ":" + n.min;
@@ -3315,9 +3403,28 @@ tbody tr:last-child td{border-bottom:0}
     if (v) return { rules: v.rules, version: v, origen: "por_fecha" };
     return { rules: (a && a.rules) || {}, version: null, origen: vs.length ? "sin_version_vigente" : "contrato_plano" };
   }
+  /* La ventana operativa que llega de fuera (nube, respaldo, import). Lo que no
+     se entienda cae al valor por defecto, que es la ventana que la cabina ha
+     tenido siempre. Dos cosas que NO se arreglan solas de forma silenciosa:
+     - una lista de días VACÍA se respeta (significa «hoy no opero ningún día»,
+       una pausa deliberada); lo que cae al defecto es que no venga lista.
+     - una ventana invertida o de duración cero sí se corrige, porque dejaría la
+       cabina sin ninguna hora operativa para siempre sin decirlo. */
+  function normWindow(w) {
+    const d = DEFAULT_SETTINGS.window;
+    const min = (v, def) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= 0 && n <= 1440 ? n : def; };
+    const start = min(w && w.start, d.start);
+    let end = min(w && w.end, d.end);
+    if (end <= start) end = Math.min(1440, start + 30);
+    const days = Array.isArray(w && w.days)
+      ? [...new Set(w.days.map(Number).filter(x => Number.isInteger(x) && x >= 0 && x <= 6))].sort((a, b) => a - b)
+      : d.days.slice();
+    return { start, end, days };
+  }
   function normalize(s) {
     const out = clone(DEFAULT_SETTINGS);
     if (!s || typeof s !== "object") return out;
+    if (s.window && typeof s.window === "object") out.window = normWindow(s.window);
     if (s.meta && typeof s.meta === "object") Object.assign(out.meta, s.meta);
     if (Array.isArray(s.checks)) out.checks = s.checks.filter(c => c && c.id).map(c => ({ id: String(c.id), t: String(c.t || ""), s: String(c.s || ""), gate: !!c.gate }));
     if (Array.isArray(s.rules)) out.rules = s.rules.filter(r => r && r.id).map(r => ({ id: String(r.id), kind: r.kind === "fixed" ? "fixed" : "num", name: String(r.name || ""), why: String(r.why || ""), value: Number(r.value) || 0, prefix: String(r.prefix || ""), unit: String(r.unit || ""), allow: String(r.allow == null ? "" : r.allow), role: ROLE_KEYS.includes(r.role) ? r.role : (ROLE_SEED[String(r.id)] || "") }));
@@ -4601,6 +4708,57 @@ tbody tr:last-child td{border-bottom:0}
   $("titleEdit").addEventListener("input", e => { state.settings.meta.title = e.target.value; persistSettings(); $("titleView").textContent = e.target.value; });
   $("subEdit").addEventListener("input", e => { state.settings.meta.subtitle = e.target.value; persistSettings(); $("subView").textContent = e.target.value; });
 
+  /* ---------- la ventana operativa ----------
+     Un `<input type="time">` habla en "HH:MM"; dentro todo son minutos ET. */
+  function hmValue(min) { const m = ((Math.round(Number(min)) % 1440) + 1440) % 1440; return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; }
+  function renderWindow() {
+    const w = winCfg(), horas = winHoras(), dias = winDiasTexto();
+    const vista = $("winView"); if (vista) vista.textContent = `${horas} · ${dias}`;
+    const fw = $("footerWindow"); if (fw) fw.textContent = `Ventana operativa: ${horas}`;
+    const fd = $("footerWindowDays"); if (fd) fd.textContent = `${dias} · fuera de ahí, sin entradas`;
+    const a = $("winStart"), b = $("winEnd");
+    if (a && document.activeElement !== a) a.value = hmValue(w.start);
+    if (b && document.activeElement !== b) b.value = hmValue(w.end);
+    const dd = $("winDays");
+    if (dd) dd.innerHTML = DIAS_LETRA.map((l, i) => {
+      const on = w.days.includes(i);
+      return `<button type="button" class="seschip${on ? " on" : ""}" data-dia="${i}" aria-pressed="${on}" title="${esc(DIAS_NOM[i])}">${l}</button>`;
+    }).join("");
+  }
+  /* Las horas se guardan según se escriben; lo único que no se deja pasar es una
+     ventana vacía o del revés, porque dejaría la cabina sin ninguna hora
+     operativa. En vez de corregirla a la espalda del usuario, se rechaza el
+     valor y la casilla vuelve a lo que había. */
+  function setWin(campo, hhmm) {
+    const m = String(hhmm || "").match(/^(\d{1,2}):(\d{2})$/); if (!m) return "esa hora no se entiende: no se guardó";
+    const min = Number(m[1]) * 60 + Number(m[2]);
+    const w = winCfg(), next = { start: w.start, end: w.end, days: w.days.slice() };
+    next[campo] = min;
+    /* Se dice QUÉ choca con qué y en qué orden se arregla. Mover el cierre por
+       su cuenta para «hacer sitio» sería inventar una ventana que nadie pidió. */
+    if (next.end <= next.start) return campo === "start"
+      ? `${hhmmET(min)} es posterior al cierre (${hhmmET(w.end)}): cambia primero la hora de «hasta»`
+      : `${hhmmET(min)} es anterior a la apertura (${hhmmET(w.start)}): cambia primero la hora de «desde»`;
+    state.settings.window = next; persistSettings();
+    return "";
+  }
+  ["winStart", "winEnd"].forEach(id => {
+    const el = $(id); if (!el) return;
+    el.addEventListener("change", e => {
+      const err = setWin(id === "winStart" ? "start" : "end", e.target.value);
+      if (err) preFlash(err);
+      renderWindow(); updateGoBox();
+    });
+  });
+  const winDaysEl = $("winDays");
+  if (winDaysEl) winDaysEl.addEventListener("click", e => {
+    const b = e.target.closest("button[data-dia]"); if (!b) return;
+    const i = Number(b.dataset.dia), w = winCfg();
+    const days = w.days.includes(i) ? w.days.filter(x => x !== i) : [...w.days, i].sort((x, y) => x - y);
+    state.settings.window = { start: w.start, end: w.end, days };
+    persistSettings(); renderWindow(); updateGoBox();
+  });
+
   /* ---------- checklist ---------- */
   /* ---------- qué sesión se está preparando ----------
      Por defecto sigue al reloj; en cuanto tocas una pestaña, manda tu elección
@@ -4708,18 +4866,26 @@ tbody tr:last-child td{border-bottom:0}
     const missing = checks.filter(c => !marks[c.id]);
     const done = n - missing.length;
     const gateMissing = missing.filter(c => c.gate);
-    const t = etNow(); const weekend = t.dow === "Sat" || t.dow === "Sun";
-    const OPEN = 8 * 60 + 30, CLOSE = 11 * 60;
-    const inWindow = !weekend && t.min >= OPEN && t.min < CLOSE;
+    /* DOS MOTIVOS DISTINTOS PARA NO OPERAR, Y SE DICEN POR SEPARADO. `cerrado`
+       es un hecho del mercado; `diaOff` es tu ventana: el mercado abre pero hoy
+       no es tuyo. Antes eran lo mismo («weekend») porque la ventana estaba fija
+       de lunes a viernes. */
+    const t = etNow();
+    const w = winCfg();
+    const cerrado = marketClosed(t);
+    const diaOff = !winDia(t);
+    const OPEN = w.start, CLOSE = w.end;
+    const inWindow = !cerrado && !diaOff && t.min >= OPEN && t.min < CLOSE;
     const toOpen = OPEN - t.min;
+    const prox = winProxDia(t);
     const hhmm = m => m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
     const next = missing.length ? missing[0].t : "";
     let cls = "go view-only", txt;
     if (!n) txt = "Sin pasos en la lista. Pulsa Editar y escribe los tuyos.";
-    else if (done === n) { cls += " ready"; txt = inWindow ? "Lista completa y ventana abierta. Permiso para operar con las reglas duras." : weekend ? "Lista completa. Mercado cerrado: hoy no hay sesión." : toOpen > 0 ? `Lista completa. Faltan ${hhmm(toOpen)} para la apertura.` : "Lista completa. Fuera de la ventana operativa: sin entradas nuevas."; }
+    else if (done === n) { cls += " ready"; txt = inWindow ? "Lista completa y ventana abierta. Permiso para operar con las reglas duras." : cerrado ? "Lista completa. Mercado cerrado: hoy no hay sesión." : diaOff ? `Lista completa. Hoy no es día operativo${prox ? `: tu ventana vuelve el ${prox}` : " y no tienes ningún día marcado"}.` : toOpen > 0 ? `Lista completa. Faltan ${hhmm(toOpen)} para la apertura.` : "Lista completa. Fuera de la ventana operativa: sin entradas nuevas."; }
     else if (inWindow) { cls += " blocked"; txt = gateMissing.length ? `Ventana abierta y falta un paso que bloquea: ${gateMissing[0].t}. Hoy no se entra.` : `Ventana abierta con la lista a medias: faltan ${missing.length} ${missing.length === 1 ? "paso" : "pasos"}. Termínala o no se entra.`; }
     else if (gateMissing.length && done >= n - 2) { cls += " blocked"; txt = `Falta: ${gateMissing[0].t}. Sin ese check no hay sesión.`; }
-    else if (weekend) txt = `Mercado cerrado. Faltan ${missing.length} ${missing.length === 1 ? "paso" : "pasos"} para tener la lista lista para el lunes.`;
+    else if (cerrado || diaOff) txt = `${cerrado ? "Mercado cerrado" : "Hoy no es día operativo"}. Faltan ${missing.length} ${missing.length === 1 ? "paso" : "pasos"} para tener la lista lista ${prox ? `para el ${prox}` : "para cuando marques un día"}.`;
     else if (toOpen > 0 && toOpen <= 180) { cls += toOpen <= 30 && missing.length > 2 ? " blocked" : ""; txt = `Faltan ${missing.length} ${missing.length === 1 ? "paso" : "pasos"} y ${hhmm(toOpen)} para la apertura. Siguiente: ${next}`; }
     else txt = `Faltan ${missing.length} ${missing.length === 1 ? "paso" : "pasos"}. Siguiente: ${next}`;
     if (go.className !== cls) go.className = cls;
@@ -6091,7 +6257,7 @@ tbody tr:last-child td{border-bottom:0}
     try { await state.db.doc("days/" + date).delete(); siSeGuardo("days/" + date); } catch (err) { noSeGuardo("days/" + date, motivoDb(err), "el borrado del dia"); }
     if (date === state.today) { state.day = newDay(state.today); renderChecklist(); renderJournalDay(); }
   });
-  function renderSettings() { renderMeta(); renderChecklist(); renderRules(); renderAccounts(); if (typeof renderFutAccounts === "function") { try { renderFutAccounts(); } catch (e) { } } }
+  function renderSettings() { renderMeta(); renderWindow(); renderChecklist(); renderRules(); renderAccounts(); if (typeof renderFutAccounts === "function") { try { renderFutAccounts(); } catch (e) { } } }
   const _renderHistory = renderHistory; renderHistory = function () { _renderHistory(); if (typeof renderCalendar === "function" && $("cal")) { try { renderCalendar(); } catch {} } if (typeof renderCabCalendar === "function") { try { renderCabCalendar(); } catch {} } };
   function renderAll() { renderSettings(); renderJournalDay(); renderSessionStrip(); renderHistory(); renderLevels(); if (typeof renderBackup === "function") { try { renderBackup(); } catch (e) { } } }
 
@@ -9332,7 +9498,11 @@ tbody tr:last-child td{border-bottom:0}
        no hay señal de hora. */
     const m = t.source === "quick_add" ? null : minOfTime(t.time);
     if (!enBlanco(t.entry) && enBlanco(t.stop)) s.push("sin_stop");
-    if (m != null && sesAt(m).id !== "nyam") s.push("fuera_ventana");
+    /* Contra TU ventana (ajustable), no contra la sesión NY AM fija. La sesión
+       de mercado de una operación no cambia nunca; esta señal sí, y a propósito:
+       dice «entraste fuera de la ventana que tú pusiste». Ver `window` en
+       DEFAULT_SETTINGS. */
+    if (m != null && !inWin(m)) s.push("fuera_ventana");
     if (t.plan === "antes") s.push("salio_antes");
     if (Object.prototype.hasOwnProperty.call(t, "invalida") && enBlanco(t.invalida)) s.push("sin_invalidacion");
     /* Una casilla SIN marcar no es «leíste mal»: es «sabías que faltaba y entraste».
