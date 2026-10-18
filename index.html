@@ -3732,6 +3732,24 @@ tbody tr:last-child td{border-bottom:0}
       f.textContent = "Enviando " + plu(enVuelo, "un cambio", "cambios") + " a tu cuenta. No cierres la pestaña todavía.";
       return;
     }
+    /* NO SE PUEDE DECIR «SINCRONIZADO» CUANDO SÓLO LO ESTÁ LA MITAD. Lo tuyo
+       puede estar guardado y la pantalla ir vieja a la vez, si lo que falla son
+       las LECTURAS. Dos fallos seguidos son ya 20-40 s sin dato nuevo: deja de
+       ser un parpadeo y pasa a ser una pantalla que miente. Va después de
+       «guardando…», que es urgente y dura segundos, y justo antes de
+       «sincronizado», que es la frase que esto desmiente. */
+    const sal = state.nube && state.db && state.db.salud ? state.db.salud() : null;
+    if (sal && sal.fallos >= 2) {
+      const min = sal.ok ? Math.floor((Date.now() - sal.ok) / 60000) : -1;
+      el.textContent = "sin actualizar"; el.className = "save-state nosave"; f.className = "nosave";
+      f.textContent = "Lo que cambias SÍ se está guardando, pero no se puede LEER de tu cuenta"
+        + (sal.motivo ? " (" + sal.motivo + ")" : "") + ": "
+        + (min < 0 ? "en esta sesión no ha llegado nada"
+          : min < 1 ? "lo último llegó hace menos de un minuto"
+            : "lo último llegó hace " + plu(min, "minuto", "minutos"))
+        + ". Lo que ves puede estar viejo, y lo que cambies en otro dispositivo no va a aparecer aquí. Se reintenta solo.";
+      return;
+    }
     if (state.nube) {
       el.textContent = "sincronizado"; el.className = "save-state cloud";
       f.textContent = "Guardado en tu cuenta" + (nube.ses && nube.ses.email ? " (" + nube.ses.email + ")" : "")
@@ -3880,6 +3898,30 @@ tbody tr:last-child td{border-bottom:0}
       try { r = fn(); } catch (e) { if (mal) mal(e); return; }
       if (r && typeof r.then === "function") r.then(ok, e => { if (mal) mal(e); }); else ok(r);
     }
+    /* LA OTRA MITAD DEL RÓTULO. Todo lo que sabía decir era sobre lo que SALE:
+       guardado, en cola, sin guardar, conflicto. De lo que ENTRA no sabía nada,
+       y era un agujero del mismo tamaño: `attachDb` llama a `onSnapshot(cb)`
+       SIN segundo argumento, así que el `mal` de `cuando()` llegaba `undefined`
+       y CADA lectura fallida se tiraba en silencio —ni rótulo, ni consola, ni
+       nada—. Con el tic periódico hay una ronda de lecturas cada 20 s, así que
+       una racha de fallos deja la pantalla congelada con datos viejos mientras
+       el rótulo sigue diciendo «sincronizado»: exactamente la mentira que ese
+       rótulo existe para no contar. Se cuenta aquí, en el único punto por el
+       que pasan TODAS las lecturas, y lo dice `setStoreLabel()`. */
+    const lect = { ok: 0, fallos: 0, motivo: "" };
+    function leeOk() {
+      const habia = lect.fallos;
+      lect.ok = Date.now(); lect.fallos = 0; lect.motivo = "";
+      if (habia) setStoreLabel();   // sólo si había algo que desmentir
+    }
+    function leeMal(e) {
+      lect.fallos++; lect.motivo = motivoDb(e);
+      /* Un fallo suelto no debe gastar la ventana de 20 s: que el siguiente tic
+         reintente. Del tercero en adelante se vuelve al ritmo normal, para no
+         convertir una base caída en una petición cada 10 s para siempre. */
+      if (lect.fallos <= 2) ultima = 0;
+      setStoreLabel();
+    }
     function ordena(q, filas) {
       let a = filas.slice();
       if (q.orden) {
@@ -3902,7 +3944,7 @@ tbody tr:last-child td{border-bottom:0}
         async delete() { await be.borra(p); avisa(p, null); },
         onSnapshot(cb, err) {
           return suscribe({ path: p,
-            carga() { cuando(() => be.leeDoc(p), d => cb(snapDoc(d)), err); },
+            carga() { cuando(() => be.leeDoc(p), d => { leeOk(); cb(snapDoc(d)); }, e => { leeMal(e); if (err) err(e); }); },
             cambia(d) { cb(snapDoc(d)); } });
         },
       };
@@ -3927,7 +3969,10 @@ tbody tr:last-child td{border-bottom:0}
                el usuario ve la pantalla de conflicto. Se descarta la respuesta
                que ya quedó atrás. */
             seq: 0,
-            carga() { const mio = ++s.seq; cuando(() => be.leeFilas(q), a => { if (mio !== s.seq) return; s.filas = new Map(a.map(r => [r.path, r.data])); s.emite(); }, err); },
+            /* `leeOk()` se avisa aunque la respuesta llegue tarde y se
+               descarte: la lectura funcionó, y lo que mide la salud es la red,
+               no cuál de dos respuestas ganó la carrera. */
+            carga() { const mio = ++s.seq; cuando(() => be.leeFilas(q), a => { leeOk(); if (mio !== s.seq) return; s.filas = new Map(a.map(r => [r.path, r.data])); s.emite(); }, e => { leeMal(e); if (err) err(e); }); },
             cambia(d, p) { if (d == null) s.filas.delete(p); else s.filas.set(p, d); s.emite(); } };
           return suscribe(s);
         },
@@ -3945,6 +3990,8 @@ tbody tr:last-child td{border-bottom:0}
     }
     return { doc, collection: n => Object.assign(consulta({ coll: String(n) }), { doc: id => doc(n + "/" + id) }),
       refresca, escribeVarios, vaciar: be.vaciar || null,
+      /* Sólo lectura: el rótulo pregunta, no toca. */
+      salud: () => ({ ok: lect.ok, fallos: lect.fallos, motivo: lect.motivo }),
       /* Sólo el almacén de la cuenta tiene cola: sin cuenta se escribe en
          localStorage y no hay red que pueda fallar. */
       drena: be.drena ? (f => be.drena(f)) : null, enCola: be.enCola || null };
@@ -13981,12 +14028,25 @@ tbody tr:last-child td{border-bottom:0}
     destinos:   ["destinos de la calculadora", () => { fillQtDest(); renderQtNote(); }],
     escenarios: ["escenarios", () => renderScenarios()],
     riesgosGuardados: ["riesgos guardados", () => renderRiskSaved()],
+    /* ESTUDIO LEE LAS OPERACIONES, así que es una zona como las demás. No lo
+       era: `renderEstudio()` colgaba de `coll("research")` y del clic en el
+       BOTÓN de su pestaña, y `test/estudio.mjs` ya dejó escrito que ese botón
+       era el único hilo que lo salvaba. Dos caminos lo rompen sin tocar nada
+       raro: llegar a Estudio por la paleta —su acción «Ir a» hace
+       `showTab("estudio")`, que no pasa por el botón— y, con el tic de la nube,
+       una operación que cambia en otro dispositivo mientras estás MIRANDO
+       Estudio. En los dos casos la pestaña seguía listando la operación
+       borrada, contándola en sus métricas y ofreciendo su instrumento en el
+       desplegable, sin ningún aviso: parecía al día. */
+    estudio:    ["estudio", () => renderEstudio()],
+    credo:      ["credo", () => renderCredo()],
   };
   /* Al cambiar la CUENTA SELECCIONADA no cambian los datos, cambia el punto de
      vista: se repinta lo que depende de qué cuenta se está mirando. */
   const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia, Z.edge];
   const FANOUT_TRADES = [Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
-                         Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion, Z.edge];
+                         Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion, Z.edge,
+                         Z.estudio];
   function pinta(lista) {
     /* Una actualización de datos no debe echar al usuario del campo donde está
        escribiendo ni devolver la página al inicio. Algunos renders reconstruyen
@@ -14153,7 +14213,7 @@ tbody tr:last-child td{border-bottom:0}
     try { localStorage.removeItem(CREDO_VISTO); } catch { }
     renderCredo();
   });
-  coll("credo").subscribe(() => renderCredo());
+  coll("credo").subscribe(() => fanout([Z.credo]));
 
   coll("playbooks").subscribe(() => fanout([Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.edge]));
   coll("ideas").subscribe(() => fanout([Z.ideas, Z.contadores]));
@@ -15449,7 +15509,7 @@ tbody tr:last-child td{border-bottom:0}
     await estudioGuardarEscenas("Captura quitada.");
     if (im.id && im.data == null && assetsReady()) { try { await pb.assets.delete(im.id); } catch (err) { } }
   });
-  coll("research").subscribe(()=>renderEstudio());document.addEventListener("keydown",e=>{if(e.key==="Escape")estudioCerrar();});renderEstudio();
+  coll("research").subscribe(()=>fanout([Z.estudio]));document.addEventListener("keydown",e=>{if(e.key==="Escape")estudioCerrar();});renderEstudio();
 
   /* ── TILES SIN DATO ──────────────────────────────────────
      Con una cuenta nueva, 23 de los 27 tiles de la aplicación muestran «—»:
