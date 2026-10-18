@@ -110,11 +110,16 @@ ya la vigilaría.
 - **Detección automática de bróker** (fase 4 de `IMPORTAR.md`). Es la que más se
   luce y la única que no se puede hacer sin los ficheros. El propio documento ya
   dice por dónde no empezar.
-- **Cualquier cosa que reescriba tu historial sin que la veas.** Sigue abierta la
-  decisión de los días pasados a los que borras operaciones: `historyMerged()`
-  conserva el resultado guardado y no mira `resultManual`, así que «arreglarlo»
-  automáticamente pisaría los días que apuntaste a mano. Una automatización que
-  decide sola sobre historial es la que menos margen de error tiene.
+- **Cualquier cosa que reescriba tu historial sin que la veas.** Esta era la
+  decisión que quedaba abierta, y la resolución no fue «recalcular» ni «no
+  tocar», que eran las dos malas: `historyMerged()` aplica ahora la misma regla
+  que `syncDayFromTrades()` usa en el día de hoy —gana el journal en un día
+  DERIVADO, y lo escrito a mano no se toca— con `resultManual` como frontera.
+  Un día guardado antes de que ese campo existiera no sabe declararse, así que
+  `migrateDay()` lo cuenta como escrito a mano: conserva tu cifra y te ofrece
+  el «usar el journal» que ya existía. `test/historial.mjs` fija las dos
+  mitades, y las dos secciones que protegen lo escrito a mano pasan también
+  contra el código anterior, que es la prueba de que el arreglo es quirúrgico.
 - **Un trabajo programado que lea tus datos desde GitHub Actions.** Haría falta
   una clave de servicio en los secretos del repositorio, y eso amplía el radio
   de lo que se pierde si se filtra, a cambio de poco. `test/seguridad.mjs` ya
@@ -128,7 +133,11 @@ ya la vigilaría.
    → descargar). Desbloquea la automatización número 1.
 2. **Si el proyecto Supabase está activo o pausado.** Decide si la sincronización
    entre dispositivos hace algo hoy, y si tiene sentido pensar en el servidor.
-3. **Los días pasados.** Recalcular o respetar lo escrito a mano.
+   No se puede comprobar desde aquí: la política de red deniega `supabase.co`.
+   Lo que sí hace la app desde #39 es decírtelo —un proyecto pausado hace fallar
+   las lecturas y el rótulo pasa a «sin actualizar»—.
+
+Y una que ya no lo está: **los días pasados**, resuelta arriba.
 
 ## Fuentes
 

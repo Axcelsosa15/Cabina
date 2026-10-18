@@ -260,6 +260,19 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      comisión, y sin que una operación de inversión entre en ninguna. */
   dice('edge', 'suite', 'Las métricas de edge dan lo que da la cuenta a mano', 'index.html');
   dice('lanzamiento', 'suite', 'Aviso legal, privacidad y metadatos de producto a la vista', 'index.html');
+  /* ESTAS DOS SUITES CORRÍAN SIN QUE NINGUNA FILA LAS MIRARA. El corredor
+     ejecuta las 49 y sale distinto de cero con cualquiera roja, así que CI las
+     cubría; la compuerta, no: sus filas citan suites una por una, y una suite
+     nueva no entra en ninguna por el hecho de existir. Es decir, la compuerta
+     podía abrirse con `conexiones` o `retro` en rojo.
+
+     Y el modo de fallo es el peor de los dos posibles: no es que la fila diga
+     verde cuando la suite está roja —`verde()` pone FAIL si la línea de la
+     suite no aparece en la salida— es que no había fila ninguna, y lo que no
+     tiene fila no se cuenta. Se añaden las dos. */
+  dice('conexiones', 'suite', 'Todo lector se repinta cuando su dato cambia', 'index.html');
+  dice('retro', 'suite', 'Lo que la app dice de sí misma no miente', 'index.html');
+  dice('historial', 'suite', 'El historial sigue al journal sin pisar lo escrito a mano', 'index.html');
 }
 
 /* ── LO QUE LA PLATAFORMA NO PERMITE COMPROBAR ───────────────────────────────
