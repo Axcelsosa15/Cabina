@@ -4112,6 +4112,19 @@ tbody tr:last-child td{border-bottom:0}
        para poder escribir condicionalmente: sin entrada aquí, la escritura tiene
        que leer primero, y eso es correcto aunque cueste una ronda. */
     const vers = new Map();
+    /* QUIÉN TIENE DERECHO A PUBLICAR VERSIONES EN `vers`.
+       `leeFilas` escribía la `version` de cada fila en cuanto llegaba la página,
+       así que una lectura rezagada dejaba una versión vieja aunque su snapshot
+       se descartara después: la siguiente edición mandaba su PATCH condicionado
+       con la versión antigua y salía una pantalla de CONFLICTO sin que nadie
+       hubiera cambiado nada. El número de secuencia de `carga()` no lo cubría —
+       corre cuando `leeFilas` ya había escrito.
+       Una generación por colección: sólo la lectura más reciente publica, y una
+       ESCRITURA también la invalida, porque su versión es la autoritativa y una
+       lectura que salió antes no debe pisarla al volver. */
+    const genLee = new Map();
+    const collDe = p => p.slice(0, p.lastIndexOf("/"));
+    const invalidaLecturas = p => { const c = collDe(p); genLee.set(c, (genLee.get(c) || 0) + 1); };
     const err = (code, extra) => Object.assign(new Error(code), { code }, extra || {});
 
     /* ── SI LA MIGRACIÓN NO ESTÁ APLICADA ──────────────────────────────────────
@@ -4233,6 +4246,7 @@ tbody tr:last-child td{border-bottom:0}
       /* Por páginas: la API corta en 1000 filas, y una colección que se quedara
          en la fila 1000 sin decirlo haría un respaldo incompleto que parece entero. */
       async leeFilas(q) {
+        const mia = (genLee.get(q.coll) || 0) + 1; genLee.set(q.coll, mia);
         const orden = q.orden ? `data->>${q.orden.f}.${q.orden.dir === "desc" ? "desc" : "asc"},path.asc` : "path.asc";
         const tope = q.lim || Infinity, out = [];
         while (out.length < tope) {
@@ -4244,10 +4258,12 @@ tbody tr:last-child td{border-bottom:0}
             nube.occ = false; setStoreLabel();
             a = (await nubeFetch(`${T}?select=path,data&coll=eq.${enc(q.coll)}&order=${orden}&limit=${n}&offset=${out.length}`)) || [];
           }
-          for (const f of a) if (f.version != null) vers.set(f.path, f.version);
           out.push(...a);
           if (a.length < n) break;
         }
+        // Sólo la lectura vigente publica: si entró otra lectura o una escritura
+        // mientras esta viajaba, sus versiones ya están obsoletas.
+        if (genLee.get(q.coll) === mia) { for (const f of out) if (f.version != null) vers.set(f.path, f.version); }
         return out;
       },
       /* LA ÚNICA PUERTA POR LA QUE SALE UNA ESCRITURA A LA CUENTA. Si entra, se
@@ -4277,12 +4293,12 @@ tbody tr:last-child td{border-bottom:0}
         if (esperada == null) { await this.leeDoc(p); esperada = vers.get(p); }
         if (esperada != null) {
           const fila = await parchea(p, d, esperada);
-          if (fila) { vers.set(p, fila.version); return; }
+          if (fila) { vers.set(p, fila.version); invalidaLecturas(p); return; }
           /* 0 filas. Dos causas, y se distinguen porque la respuesta al usuario es
              distinta: alguien lo cambió, o alguien lo borró. */
           const sigue = await nubeFetch(`${T}?select=version&path=eq.${enc(p)}`);
           if (sigue && sigue[0]) {
-            vers.set(p, sigue[0].version);
+            vers.set(p, sigue[0].version); invalidaLecturas(p);
             throw err("conflicto", { path: p, esperada, actual: sigue[0].version });
           }
           vers.delete(p);
@@ -4294,7 +4310,7 @@ tbody tr:last-child td{border-bottom:0}
         try {
           const r = await nubeFetch(`${T}?select=version`, { method: "POST", headers: { prefer: "return=representation" },
             body: { user_id: nube.ses ? nube.ses.uid : null, path: p, data: d } });
-          if (Array.isArray(r) && r[0]) vers.set(p, r[0].version);
+          if (Array.isArray(r) && r[0]) { vers.set(p, r[0].version); invalidaLecturas(p); }
         } catch (e) {
           /* 23505 es la violación de clave única de Postgres, y 409 su traducción
              HTTP: el documento apareció mientras leíamos. */
@@ -4323,12 +4339,12 @@ tbody tr:last-child td{border-bottom:0}
            un update perdido. */
         const r = await nubeFetch(`${T}?path=eq.${enc(p)}&version=eq.${esperada}&select=version`,
           { method: "DELETE", headers: { prefer: "return=representation" } });
-        if (Array.isArray(r) && r.length) { vers.delete(p); return; }
+        if (Array.isArray(r) && r.length) { vers.delete(p); invalidaLecturas(p); return; }
         /* 0 filas. Si la fila sigue ahí, es que cambió de versión: conflicto, y el
            borrado no se hace. Si no está, alguien se adelantó y el resultado que se
            pedía ya se cumplió: eso no es un conflicto, es el trabajo hecho. */
         const sigue = await nubeFetch(`${T}?select=version&path=eq.${enc(p)}`);
-        if (sigue && sigue[0]) { vers.set(p, sigue[0].version); throw err("conflicto", { path: p, esperada, actual: sigue[0].version }); }
+        if (sigue && sigue[0]) { vers.set(p, sigue[0].version); invalidaLecturas(p); throw err("conflicto", { path: p, esperada, actual: sigue[0].version }); }
         vers.delete(p);
       },
       /* Para las pruebas y para el diálogo de conflicto: qué versión se leyó. */
@@ -9852,7 +9868,11 @@ tbody tr:last-child td{border-bottom:0}
          seguía devolviendo la lista anterior. Sólo cuenta cuando hay búsqueda:
          sin ella, los nombres no entran en el filtro y añadirlos a la clave
          tiraría la memoria en cada cambio de playbook por nada. */
-      (ft.q ? "|" + coll("playbooks").rev + "|" + (state.settings.accounts || []).map(a => a.id + ":" + (a.name || "")).join(",") : "");  // inRange mira state.today
+      /* acctLabel() cae a `firm` cuando la cuenta no tiene nombre —y el editor
+         permite crearla así—, así que la clave lleva la etiqueta EFECTIVA, no
+         sólo `name`: renombrar la firma de una cuenta sin nombre cambiaba a
+         quién encuentra la búsqueda sin mover la clave. */
+      (ft.q ? "|" + coll("playbooks").rev + "|" + (state.settings.accounts || []).map(a => a.id + ":" + (acctLabel(a.id) || "")).join(",") : "");  // inRange mira state.today
     if (_filtMemo.key === key) return _filtMemo.val;
     let l = tradesOf("futuros").filter(inRange);
     if (ft.setup) l = l.filter(t => t.setupId === ft.setup);
@@ -13268,7 +13288,13 @@ tbody tr:last-child td{border-bottom:0}
     state.history = d.history;
     state.day = Object.assign(newDay(state.today), { result: d.history[0] ? d.history[0].result : 0, trades: d.history[0] ? d.history[0].trades : 0, note: "Sesión de ejemplo. Nada de esto se guarda.", closed: false, levels: d.demoLevels });
     state.day.checksBy = { nyam: {} }; state.settings.checks.forEach((c, i) => { if (i < 6) state.day.checksBy.nyam[c.id] = true; });
-    ft.day = null; ft.month = state.today.slice(0, 7); ft.range = "all"; ft.setup = ""; ft.instr = "";
+    /* Se limpian los filtros por la LISTA DECLARATIVA, no uno a uno. Enumerarlos
+       aquí es lo que falló al añadir el buscador: entrar en demo con un término
+       personal escrito dejaba el journal y sus métricas vacíos sobre unas
+       operaciones de ejemplo que sí existían. FT_FILTROS es la única lista, así
+       que el próximo filtro que se añada queda cubierto aquí sin tocar nada. */
+    ft.day = null; ft.month = state.today.slice(0, 7);
+    FT_FILTROS.forEach(f => { ft[f.k] = f.off || ""; });
     coll("playbooks").items = d.pbs; coll("trades").items = d.trades;
     coll("positions").items = d.positions; coll("watch").items = d.watch;
     coll("ideas").items = d.ideas; coll("scenarios").items = d.scenarios;

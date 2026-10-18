@@ -178,7 +178,19 @@ ok(q === '', 'se quitó la búsqueda para que la operación nueva se vea', JSON.
 const tras = await ids();
 ok(tras.length === antesN + 1, 'y la tabla la incluye', `${antesN} → ${tras.length}`);
 
-console.log('\n═══ 7 · ningún error de página ═══');
+console.log('\n═══ 7 · entrar en demo limpia también la búsqueda ═══');
+/* El demo limpia los filtros para que el ejemplo se vea. Los enumeraba a mano,
+   así que al añadir el buscador quedó fuera: con un término personal escrito,
+   el journal del demo y sus métricas salían vacíos sobre operaciones que sí
+   existían. Ahora se limpian por FT_FILTROS, la única lista. */
+await buscar('zzzz-no-existe');
+ok(await n() === 0, 'control: la búsqueda vacía la tabla', await n());
+await p.click('#demoToggle'); await quieto(p);
+ok(await p.inputValue('#ftQ') === '', 'entrar en demo limpió la búsqueda', JSON.stringify(await p.inputValue('#ftQ')));
+const enDemo = await n();
+ok(enDemo > 0, 'y el journal del demo muestra sus operaciones', enDemo);
+
+console.log('\n═══ 8 · ningún error de página ═══');
 ok(errs.length === 0, 'sin errores de JavaScript', errs.join(' | ') || 'ninguno');
 
 await b.close();
