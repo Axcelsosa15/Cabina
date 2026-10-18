@@ -10037,19 +10037,38 @@ tbody tr:last-child td{border-bottom:0}
     const tot = s.closed || 1;
     const hist = historyMerged(); const brokeN = hist.filter(d => d.broke).length;
     const ac = ft.acct ? acctById(ft.acct) : null; const cons = ac ? consistency(ac) : null;
+    /* ═══════════ EL COLOR ES UN HECHO, NO UNA OPINIÓN ═══════════
+       El verde y el rojo se reservan para el SIGNO del dinero y para los
+       límites que existen de verdad. Un número no se pinta de verde porque
+       supere un umbral que alguien escribió aquí dentro.
+
+       Llevaban color cuatro métricas que no lo merecían: profit factor (verde
+       por encima de 1.5), win rate (verde por encima del 50%), días verdes
+       (verde por encima del 55%) y concentración (verde por debajo del 40%
+       cuando no hay cuenta). Esos cuatro umbrales no salen de ninguna parte, y
+       pintarlos daba un veredicto que la cabina no tiene cómo sostener —
+       justo debajo del badge que dice «ANECDOTA · n=18: por debajo de 20 esto
+       es ruido, no una medición». Una win rate del 61% con mal payoff pierde
+       dinero, y la cabina la felicitaba.
+
+       Lo que SÍ conserva color, porque el signo es un hecho del dato:
+       P&L neto, expectativa, R acumulada, drawdown, y los pares de media y de
+       mejor/peor día. Y la concentración en ROJO cuando pasa el límite REAL de
+       la cuenta prop — ahí el umbral no lo inventó nadie, lo firmó la firma.
+       Estar por debajo no es «bueno»: es estar dentro, y eso no se celebra. */
     $("ftTiles").innerHTML = `
       <div class="tile"><span class="lab">P&amp;L neto</span><div class="v ${s.pnl > 0 ? "good" : s.pnl < 0 ? "bad" : ""}">${s.closed ? money(s.pnl) : "—"}</div><div class="s">${plu(s.n, "operación", "operaciones")} · ${plu(s.closed, "cerrada", "cerradas")}</div></div>
-      <div class="tile"><span class="lab">Profit factor</span><div class="v ${s.pf == null ? "" : s.pf >= 1.5 ? "good" : s.pf >= 1 ? "warn" : "bad"}">${pfTxt}</div><div class="s">${s.pfRazon ? esc(s.pfRazon) : "ganado ÷ perdido"}</div></div>
-      <div class="tile"><span class="lab">Win rate</span><div class="v ${s.wr == null ? "" : s.wr >= .5 ? "good" : s.wr >= .4 ? "warn" : "bad"}">${s.wr == null ? "—" : pct(s.wr)}</div><div class="bar3"><i style="width:${s.wins / tot * 100}%;background:var(--good)"></i><i style="width:${s.be / tot * 100}%;background:var(--dim)"></i><i style="width:${s.losses / tot * 100}%;background:var(--bad)"></i></div><div class="s">${s.wins} W · ${s.be} BE · ${s.losses} L</div></div>
+      <div class="tile"><span class="lab">Profit factor</span><div class="v">${pfTxt}</div><div class="s">${s.pfRazon ? esc(s.pfRazon) : "ganado ÷ perdido"}</div></div>
+      <div class="tile"><span class="lab">Win rate</span><div class="v">${s.wr == null ? "—" : pct(s.wr)}</div><div class="bar3"><i style="width:${s.wins / tot * 100}%;background:var(--good)"></i><i style="width:${s.be / tot * 100}%;background:var(--dim)"></i><i style="width:${s.losses / tot * 100}%;background:var(--bad)"></i></div><div class="s">${s.wins} W · ${s.be} BE · ${s.losses} L</div></div>
       <div class="tile"><span class="lab">Ganancia / pérdida media</span><div class="v dual"><span class="pos">${s.avgWin != null ? money(s.avgWin) : "—"}</span> <span style="color:var(--dim)">/</span> <span class="neg">${s.avgLoss != null ? money(-s.avgLoss) : "—"}</span></div><div class="s">ratio ${wl}</div></div>
       <div class="tile"><span class="lab">Expectativa</span><div class="v ${s.expect == null ? "" : s.expect > 0 ? "good" : "bad"}">${s.expect == null ? "—" : money(s.expect)}</div><div class="s">${s.avgR == null ? "por operación" : (s.avgR >= 0 ? "+" : "") + s.avgR.toFixed(2) + "R por operación"}</div></div>
 
       
-      <div class="tile"><span class="lab">Días verdes</span><div class="v ${s.dayWr == null ? "" : s.dayWr >= .55 ? "good" : s.dayWr >= .45 ? "warn" : "bad"}">${s.dayWr == null ? "—" : pct(s.dayWr)}</div><div class="s">${s.greenDays} de ${s.days} · protocolo ${s.proto == null ? "—" : pct(s.proto)}</div></div>
+      <div class="tile"><span class="lab">Días verdes</span><div class="v">${s.dayWr == null ? "—" : pct(s.dayWr)}</div><div class="s">${s.greenDays} de ${s.days} · protocolo ${s.proto == null ? "—" : pct(s.proto)}</div></div>
       <div class="tile"><span class="lab">Máx. drawdown</span><div class="v ${s.maxDD < 0 ? "bad" : ""}">${s.closed ? money(s.maxDD) : "—"}</div><div class="s">peor caída desde un máximo</div></div>
       <div class="tile"><span class="lab">R acumulada</span><div class="v ${s.totalR > 0 ? "good" : s.totalR < 0 ? "bad" : ""}">${s.closed ? (s.totalR >= 0 ? "+" : "") + s.totalR.toFixed(1) + "R" : "—"}</div><div class="s">${s.avgR == null ? "sin stops registrados" : "media " + (s.avgR >= 0 ? "+" : "") + s.avgR.toFixed(2) + "R"}</div></div>
       <div class="tile"><span class="lab">Mejor / peor día</span><div class="v dual"><span class="pos">${s.bestDay != null ? money(s.bestDay) : "—"}</span> <span style="color:var(--dim)">/</span> <span class="neg">${s.worstDay != null ? money(s.worstDay) : "—"}</span></div><div class="s">${plu(s.days, "día operado", "días operados")}</div></div>
-      <div class="tile"><span class="lab">Concentración</span><div class="v ${s.bestShare == null ? "" : cons ? (s.bestShare > cons.L ? "bad" : "good") : (s.bestShare > .4 ? "warn" : "good")}">${s.bestShare == null ? "—" : pct(s.bestShare)}</div><div class="s">${cons ? `mejor día ÷ ganancia · límite ${pct(cons.L)}` : "mejor día ÷ ganancia total"}</div></div>`;
+      <div class="tile"><span class="lab">Concentración</span><div class="v ${s.bestShare != null && cons && s.bestShare > cons.L ? "bad" : ""}">${s.bestShare == null ? "—" : pct(s.bestShare)}</div><div class="s">${cons ? `mejor día ÷ ganancia · límite ${pct(cons.L)}` : "mejor día ÷ ganancia total"}</div></div>`;
     const sf2 = $("ftAcct"); sf2.innerHTML = `<option value="">todas las cuentas</option>` + acctOptions().map(([v, l]) => `<option value="${esc(v)}" ${ft.acct === v ? "selected" : ""}>${esc(l)}</option>`).join("") + `<option value="__none" ${ft.acct === "__none" ? "selected" : ""}>sin cuenta asignada</option>`;
     const noAcct = all.filter(t => !t.accountId || !acctById(t.accountId)).length;
     $("ftSync").className = "synced" + (noAcct ? " manual" : "");
