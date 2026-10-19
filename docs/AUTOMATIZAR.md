@@ -93,17 +93,30 @@ por casualidad.
 Las dos últimas las encontró el cruce a máquina, no una lectura a ojo. Eso es la
 medida de si valía la pena.
 
-### 3 · Cola de operaciones sin revisar · local, sin coste externo
+### 3 · Cola de operaciones sin revisar · hecha
 
-Estudio ya tiene el tipo de documento `trade-review` y el formulario para
-rellenarlo. Lo que **no** existe es nada que diga *qué operaciones cerradas se
-quedaron sin revisar*: la revisión depende de que te acuerdes, y acordarse no
-escala — es el mismo razonamiento que ya está escrito en la fase 5 de
-`IMPORTAR.md` para las operaciones incompletas.
+Estudio ya tenía el tipo de documento `trade-review` y el formulario para
+rellenarlo. Lo que **no** existía era nada que dijera *qué operaciones cerradas
+se quedaron sin revisar*: la revisión dependía de que te acordaras, y acordarse
+no escala — el mismo razonamiento que la fase 5 de `IMPORTAR.md` aplica a las
+operaciones incompletas.
 
-Es la mejor segunda candidata: no necesita nube, ni API, ni dinero, ni permiso
-de nadie. Entra como una zona más del registro y la comprobación de conexiones
-ya la vigilaría.
+En la lista de operaciones de Estudio hay ahora un interruptor **«Sólo sin
+revisar (N)»** y una marca en cada tarjeta cerrada que no tiene revisión. Tres
+decisiones que no son obvias y que `test/revisiones.mjs` fija:
+
+- **Las abiertas no entran.** No hay nada que revisar en ellas, y contarlas
+  haría del contador ruido permanente.
+- **El contador se cuenta sobre los demás filtros**, no sobre lo que el propio
+  interruptor deja ver: si no, al activarlo el número pasaría a ser el de la
+  lista y dejaría de decir «cuántas de las que estás mirando te faltan».
+- **Quedarse sin cola es un éxito y se dice como tal.** Revisar la última
+  mientras filtras vacía la lista, y ahí poner «no hay operaciones con esos
+  filtros» convertiría el momento en un mensaje de error.
+
+Y el interruptor entra en «Limpiar filtros», que es el fallo que la revisión
+cazó en el modo demo con `ft.q`: un filtro que no entra en el reinicio deja la
+lista recortada con todos los controles a cero.
 
 ### 4 · Lo que NO conviene automatizar todavía
 

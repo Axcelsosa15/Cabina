@@ -2068,7 +2068,7 @@ tbody tr:last-child td{border-bottom:0}
 <div class="study-bottom" style="margin:12px 0 18px">
 <section class="study-panel"><h3>Tu journal · laboratorio de trades</h3><p class="study-note">Selecciona una operación real de FUTUROS para revisarla. Las métricas se leen del trade existente; esta herramienta no crea operaciones duplicadas.</p>
 <div class="study-field"><label for="studyTradeAccount">Cuenta</label><select id="studyTradeAccount"><option value="">Todas las cuentas</option></select></div>
-<div class="study-field" style="margin-top:9px"><label for="studyTradeSearch">Buscar operaciones</label><input id="studyTradeSearch" type="search" placeholder="ID, instrumento, dirección o fecha…" autocomplete="off"></div><div class="study-field" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px"><div><label for="studyTradeInstrument">Instrumento</label><select id="studyTradeInstrument"><option value="">Todos</option></select></div><div><label for="studyTradeDirection">Dirección</label><select id="studyTradeDirection"><option value="">Todas</option></select></div></div><div class="study-field" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px"><div><label for="studyTradeFrom">Desde</label><input id="studyTradeFrom" type="date"></div><div><label for="studyTradeTo">Hasta</label><input id="studyTradeTo" type="date"></div></div><button type="button" class="btn ghost sm" id="studyTradeClear" style="margin-top:8px">Limpiar filtros</button>
+<div class="study-field" style="margin-top:9px"><label for="studyTradeSearch">Buscar operaciones</label><input id="studyTradeSearch" type="search" placeholder="ID, instrumento, dirección o fecha…" autocomplete="off"></div><div class="study-field" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px"><div><label for="studyTradeInstrument">Instrumento</label><select id="studyTradeInstrument"><option value="">Todos</option></select></div><div><label for="studyTradeDirection">Dirección</label><select id="studyTradeDirection"><option value="">Todas</option></select></div></div><div class="study-field" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px"><div><label for="studyTradeFrom">Desde</label><input id="studyTradeFrom" type="date"></div><div><label for="studyTradeTo">Hasta</label><input id="studyTradeTo" type="date"></div></div><button type="button" class="btn ghost sm" id="studyTradeSinRevisar" aria-pressed="false" style="margin-top:8px;width:100%">Sólo sin revisar</button><button type="button" class="btn ghost sm" id="studyTradeClear" style="margin-top:8px">Limpiar filtros</button>
 <div id="studyTradeList" style="display:grid;gap:7px;margin-top:12px" aria-live="polite"><p class="study-note">Cargando operaciones del journal…</p></div>
 </section>
 <section class="study-panel"><h3 id="studyTradeTitle">Selecciona una operación</h3>
@@ -15360,6 +15360,19 @@ tbody tr:last-child td{border-bottom:0}
     if(!rows.length){root.innerHTML='<p class="study-note">No hay operaciones para comparar.</p>';return;}
     root.innerHTML='<div class="twrap"><table class="t" style="min-width:520px"><thead><tr><th>Instrumento</th><th>Dirección</th><th class="r">Trades</th><th class="r">Win rate*</th><th class="r">P&amp;L disponible</th><th class="r">R promedio*</th></tr></thead><tbody>'+rows.map(g=>'<tr><td>'+estudioEsc(g.instrument)+'</td><td>'+estudioEsc(g.direction)+'</td><td class="r">'+g.count+'</td><td class="r">'+(g.pnl.length?(g.wins/g.pnl.length*100).toFixed(1)+'% ('+g.pnl.length+')':'—')+'</td><td class="r">'+(g.pnl.length?estudioEsc(estudioDinero(g.pnl.reduce((a,v)=>a+v,0))):'—')+'</td><td class="r">'+(g.r.length?(g.r.reduce((a,v)=>a+v,0)/g.r.length).toFixed(2)+'R ('+g.r.length+')':'—')+'</td></tr>').join('')+'</tbody></table></div><p class="study-note" style="margin-top:8px">* El porcentaje usa únicamente operaciones con P&amp;L registrado; R promedio usa únicamente operaciones con R registrado. El número entre paréntesis indica el tamaño de cada muestra disponible.</p>';
   }
+  /* ══════════════ LA COLA DE LO QUE FALTA REVISAR ══════════════
+     La revisión por operación existía y el formulario estaba, pero NADA decía
+     qué operaciones cerradas se habían quedado sin revisar: dependía de que te
+     acordaras, y acordarse no escala. Es el mismo razonamiento que la fase 5 de
+     `docs/IMPORTAR.md` ya aplica a las operaciones incompletas.
+
+     Las ABIERTAS no entran en la cola: todavía no hay nada que revisar, y
+     meterlas convertiría el contador en ruido permanente. */
+  const estudioRevisada = id => coll("research").items
+    .some(d => d && d.type === "trade-review" && String(d.tradeId) === String(id));
+  const estudioSinRevisar = t => t && t.pnlEff != null && !estudioRevisada(t.id);
+  let estudioSoloSinRevisar = false;
+
   function renderEstudioTrades(){
     const list=$("studyTradeList"),account=$("studyTradeAccount");if(!list||!account)return;
     const trades=estudioTrades().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
@@ -15377,13 +15390,32 @@ tbody tr:last-child td{border-bottom:0}
     const q=estudioNorm(($("studyTradeSearch")||{}).value||"");
     const from=$("studyTradeFrom").value,to=$("studyTradeTo").value;
     const filtered=trades.filter(t=>(!account.value||String(t.accountId||"")===account.value)&&(!instrument.value||String(t.instrument||"")===instrument.value)&&(!direction.value||String(t.direction||"")===direction.value)&&(!from||String(t.date||"").slice(0,10)>=from)&&(!to||String(t.date||"").slice(0,10)<=to)&&(!q||estudioNorm([t.id,t.instrument,t.direction,t.date,t.accountId].join(" ")).includes(q)));
-    renderEstudioTradeMetrics(filtered);
-    renderEstudioTradeBreakdown(filtered);
-    if(!filtered.length){list.innerHTML='<div class="study-empty"><b>'+(trades.length?"No hay operaciones con esos filtros":"Todavía no hay trades en FUTUROS")+'</b><p class="study-note">'+(trades.length?"Cambia la cuenta o la búsqueda.":"Registra una operación en FUTUROS y vuelve a ESTUDIO.")+'</p></div>';$("studyTradeReviewForm").hidden=true;$("studyTradeTitle").textContent="Selecciona una operación";$("studyTradeMeta").textContent=trades.length?"No hay operaciones para mostrar con estos filtros.":"Registra un trade en FUTUROS para comenzar."; $("studyTradeStats").textContent="";return;}
-    list.innerHTML=filtered.map(t=>'<button type="button" class="study-card" style="width:100%;text-align:left;cursor:pointer;border-color:'+(String(t.id)===estudioTradeSeleccionado?'#70e0cf':'')+'" data-study-trade="'+estudioEsc(t.id)+'"><div class="study-card-head"><span class="study-kind">'+estudioEsc(t.instrument||"Instrumento sin indicar")+'</span><span class="study-state">'+estudioEsc(t.direction||"Dirección no indicada")+'</span></div><h3 style="font-size:14px;margin:8px 0">'+estudioEsc(estudioTradeFecha(t))+'</h3><div class="study-card-foot"><span>'+estudioEsc(String(t.qty==null?"—":t.qty)+" contratos")+'</span><b>'+estudioEsc(estudioDinero(t.pnlEff))+'</b></div></button>').join("");
+    /* EL CONTADOR SE CUENTA SOBRE LOS DEMÁS FILTROS, no sobre lo que el propio
+       interruptor deja ver: si se contara después, al activarlo el número
+       pasaría a ser el de la lista y dejaría de decir «cuántas de las que
+       estás mirando te faltan». */
+    const pendientes = filtered.filter(estudioSinRevisar);
+    const btnSR = $("studyTradeSinRevisar");
+    if (btnSR) {
+      btnSR.textContent = pendientes.length ? "Sólo sin revisar (" + pendientes.length + ")"
+        : filtered.length ? "Todas revisadas" : "Sólo sin revisar";
+      btnSR.setAttribute("aria-pressed", String(estudioSoloSinRevisar));
+      /* Se desactiva cuando no hay nada que mostrar, pero NUNCA mientras está
+         pulsado: dejar un filtro activo con el botón apagado es cómo se queda
+         uno mirando una lista vacía sin ver por qué. */
+      btnSR.disabled = !pendientes.length && !estudioSoloSinRevisar;
+    }
+    const visibles = estudioSoloSinRevisar ? pendientes : filtered;
+    renderEstudioTradeMetrics(visibles);
+    renderEstudioTradeBreakdown(visibles);
+    /* QUEDARSE SIN COLA ES EL ÉXITO, no un filtro que no encuentra nada, y
+       decirlo con «no hay operaciones con esos filtros» convierte el momento en
+       el que acabas de revisar la última en un mensaje de error. */
+    if(!visibles.length){list.innerHTML='<div class="study-empty"><b>'+(estudioSoloSinRevisar&&filtered.length?"No queda ninguna sin revisar":trades.length?"No hay operaciones con esos filtros":"Todavía no hay trades en FUTUROS")+'</b><p class="study-note">'+(estudioSoloSinRevisar&&filtered.length?"Las "+filtered.filter(t=>t.pnlEff!=null).length+" cerradas de esta vista tienen su revisión. Suelta el filtro para verlas.":trades.length?"Cambia la cuenta o la búsqueda.":"Registra una operación en FUTUROS y vuelve a ESTUDIO.")+'</p></div>';$("studyTradeReviewForm").hidden=true;$("studyTradeTitle").textContent="Selecciona una operación";$("studyTradeMeta").textContent=trades.length?"No hay operaciones para mostrar con estos filtros.":"Registra un trade en FUTUROS para comenzar."; $("studyTradeStats").textContent="";return;}
+    list.innerHTML=visibles.map(t=>'<button type="button" class="study-card" style="width:100%;text-align:left;cursor:pointer;border-color:'+(String(t.id)===estudioTradeSeleccionado?'#70e0cf':'')+'" data-study-trade="'+estudioEsc(t.id)+'"><div class="study-card-head"><span class="study-kind">'+estudioEsc(t.instrument||"Instrumento sin indicar")+'</span><span class="study-state">'+estudioEsc(t.direction||"Dirección no indicada")+'</span>'+(estudioSinRevisar(t)?'<span class="study-state" style="color:#f0c479;border-color:#5b4a31">sin revisar</span>':'')+'</div><h3 style="font-size:14px;margin:8px 0">'+estudioEsc(estudioTradeFecha(t))+'</h3><div class="study-card-foot"><span>'+estudioEsc(String(t.qty==null?"—":t.qty)+" contratos")+'</span><b>'+estudioEsc(estudioDinero(t.pnlEff))+'</b></div></button>').join("");
     list.querySelectorAll("[data-study-trade]").forEach(b=>b.addEventListener("click",()=>{estudioTradeSeleccionado=b.dataset.studyTrade;renderEstudioTrades();estudioCargarReview(estudioTradeSeleccionado);}));
-    if(filtered.length&&!filtered.some(t=>String(t.id)===estudioTradeSeleccionado)){estudioTradeSeleccionado=String(filtered[0].id);renderEstudioTrades();estudioCargarReview(estudioTradeSeleccionado);}
-    else if(estudioTradeSeleccionado&&filtered.some(t=>String(t.id)===estudioTradeSeleccionado))estudioCargarReview(estudioTradeSeleccionado);
+    if(visibles.length&&!visibles.some(t=>String(t.id)===estudioTradeSeleccionado)){estudioTradeSeleccionado=String(visibles[0].id);renderEstudioTrades();estudioCargarReview(estudioTradeSeleccionado);}
+    else if(estudioTradeSeleccionado&&visibles.some(t=>String(t.id)===estudioTradeSeleccionado))estudioCargarReview(estudioTradeSeleccionado);
     else {$("studyTradeReviewForm").hidden=true;$("studyTradeTitle").textContent="Selecciona una operación";$("studyTradeMeta").textContent="No hay operaciones para mostrar con estos filtros.";$("studyTradeStats").textContent="";}
   }
   function estudioCargarReview(tradeId){
@@ -15402,7 +15434,11 @@ tbody tr:last-child td{border-bottom:0}
   $("studyTradeDirection").addEventListener("change",renderEstudioTrades);
   $("studyTradeFrom").addEventListener("change",renderEstudioTrades);
   $("studyTradeTo").addEventListener("change",renderEstudioTrades);
-  $("studyTradeClear").addEventListener("click",()=>{$("studyTradeAccount").value="";$("studyTradeSearch").value="";$("studyTradeInstrument").value="";$("studyTradeDirection").value="";$("studyTradeFrom").value="";$("studyTradeTo").value="";renderEstudioTrades();});
+  $("studyTradeSinRevisar").addEventListener("click",()=>{estudioSoloSinRevisar=!estudioSoloSinRevisar;renderEstudioTrades();});
+  /* EL INTERRUPTOR ENTRA EN «LIMPIAR FILTROS». Es un filtro, y un filtro que no
+     entra en el reinicio deja la lista recortada con todos los controles a cero:
+     exactamente el fallo que la revisión cazó en el modo demo con `ft.q`. */
+  $("studyTradeClear").addEventListener("click",()=>{estudioSoloSinRevisar=false;$("studyTradeAccount").value="";$("studyTradeSearch").value="";$("studyTradeInstrument").value="";$("studyTradeDirection").value="";$("studyTradeFrom").value="";$("studyTradeTo").value="";renderEstudioTrades();});
   $("studyTradeSearch").addEventListener("input",renderEstudioTrades);
   $("studyTradeReviewForm").addEventListener("submit",async e=>{
     e.preventDefault();
