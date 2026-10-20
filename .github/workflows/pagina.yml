@@ -71,6 +71,9 @@ jobs:
           cp index.html sitio/index.html
           cp .nojekyll sitio/.nojekyll
           cp og.png sitio/og.png
+          # robots.txt mantiene la cabina fuera de los buscadores. Si no se copia
+          # aquí, Pages sirve un 404 y los rastreadores entran como si no existiera.
+          cp robots.txt sitio/robots.txt
           ls -la sitio
 
       # EL FALLO QUE ESTE PASO EXISTE PARA IMPEDIR, Y QUE YA OCURRIÓ UNA VEZ:
@@ -123,6 +126,11 @@ jobs:
                   exit 1
                 fi
                 echo "✅ ${url%/}/og.png responde"
+                if ! curl -fsS -H 'Cache-Control: no-cache' "${url%/}/robots.txt?cabina_verify=${GITHUB_RUN_ID}" | grep -q 'Disallow: /'; then
+                  echo "::error::${url%/}/robots.txt no sirve la regla: los buscadores pueden rastrear la cabina"
+                  exit 1
+                fi
+                echo "✅ ${url%/}/robots.txt mantiene la cabina fuera de los buscadores"
                 exit 0
               fi
               echo "Propagación pendiente ($i/36): esperado=$esperado servido=$recibido"

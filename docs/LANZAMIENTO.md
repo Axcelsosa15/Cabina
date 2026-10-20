@@ -23,15 +23,30 @@ prueba de que un usuario no ve la data de otro) está hecha y verificada.
 
 ---
 
-## El interruptor — quitado
+## El interruptor — puesto otra vez (2026-10-20)
 
 La cabecera de `index.html` llevó `<meta name="robots" content="noindex, nofollow">`
-hasta que se decidió la licencia. **Ya no está: la página es indexable.** Publicar
-indexable un producto sin licencia es publicarlo con todos los derechos reservados; con
-la AGPL-3.0 puesta, eso dejó de ser cierto.
+hasta que se decidió la licencia. Se quitó entonces, porque publicar indexable un
+producto sin licencia es publicarlo con todos los derechos reservados, y con la
+AGPL-3.0 puesta eso dejó de ser cierto.
 
-`test/lanzamiento.mjs` exigía que, mientras la línea existiera, este documento la
-explicara. Al no estar, deja de exigirlo.
+**Vuelve a estar, ampliado, por decisión del dueño el 2026-10-20**:
+`noindex, nofollow, noarchive, nosnippet, noimageindex`, más un `robots.txt` con
+`Disallow: /` que el despliegue publica y verifica. El motivo ya no es la licencia
+—que sigue siendo AGPL-3.0— sino que la cabina es una herramienta personal y no una
+página que deba encontrarse en un buscador.
+
+Qué NO es esto: una medida de seguridad. Quien tenga la URL entra igual y ve la
+cabina vacía. Lo que separa la data de una persona de la de otra siguen siendo las
+políticas de la base ([`MULTIUSUARIO.md`](MULTIUSUARIO.md)), no la visibilidad de la
+página. Y los buscadores obedecen estas reglas por convención: un rastreador que no
+quiera obedecerlas, no lo hará.
+
+Lo ya indexado no desaparece solo. Para retirarlo hay que pedir la eliminación en
+Google Search Console, y el `noindex` evita que vuelva a entrar.
+
+`test/lanzamiento.mjs` exige que, mientras la línea exista, este documento la
+explique. Existe, y esto es la explicación.
 
 ---
 

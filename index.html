@@ -8,6 +8,13 @@
      imagen. Las fuentes de Google son el único recurso externo. test/seguridad.mjs. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src https://lazniuuedlhqomfyykvf.supabase.co; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- PRIVACIDAD. Fuera de los buscadores por decisión del dueño (2026-10-20): la
+     cabina es una herramienta personal, no una página que deba encontrarse. robots.txt
+     impide el rastreo; este meta impide que se indexe lo ya rastreado y retira de
+     Google lo que ya esté dentro. No es una medida de seguridad: quien tenga la URL
+     entra igual. Lo que protege la data siguen siendo las políticas de la base. -->
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+
 <title>Cabina · cockpit de sesión</title>
 <meta name="description" content="Cabina: trading, inversiones y estudio profundo de mercados, macroeconomía y riesgo.">
 <!-- Lo que ve quien recibe el enlace. La imagen vive DENTRO del repositorio
