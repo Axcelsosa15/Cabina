@@ -273,6 +273,7 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
   dice('conexiones', 'suite', 'Todo lector se repinta cuando su dato cambia', 'index.html');
   dice('retro', 'suite', 'Lo que la app dice de sí misma no miente', 'index.html');
   dice('historial', 'suite', 'El historial sigue al journal sin pisar lo escrito a mano', 'index.html');
+  dice('revisiones', 'suite', 'Lo que falta revisar se enseña, no se recuerda', 'index.html');
 }
 
 /* ── LO QUE LA PLATAFORMA NO PERMITE COMPROBAR ───────────────────────────────
