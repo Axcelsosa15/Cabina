@@ -2439,6 +2439,24 @@ tbody tr:last-child td{border-bottom:0}
         <header><h2>Operaciones</h2><span class="meta" id="jrMeta"></span></header>
         <div class="body"><div class="twrap" id="jrTable"></div></div>
       </section>
+      <!-- IMPORTAR · fase 1 de docs/IMPORTAR.md: el mapeador MANUAL. Sin
+           detección del bróker (fase 4) y sin emparejado de ejecuciones
+           (fase 2): una fila, una operación, y eso se dice en pantalla. -->
+      <section class="panel" id="panelImportar">
+        <header><h2>Importar operaciones</h2><span class="meta" id="impMeta">—</span></header>
+        <div class="body">
+          <p class="hint">Un CSV del bróker. No sale del navegador: se lee aquí. <strong>Tú dices qué columna es qué</strong> —esta cabina no conoce la cabecera de ningún bróker, y adivinarla es cómo se importan doce meses al día equivocado—. Nada se escribe antes de que veas la tabla exacta que va a entrar.</p>
+          <div class="bkbtns">
+            <button type="button" class="btn" id="impFileBtn">Elegir archivo…</button>
+            <button type="button" class="btn ghost" id="impPaste">Pegar el texto</button>
+            <button type="button" class="btn ghost" id="impClear" hidden>Descartar el fichero</button>
+            <button type="button" class="btn ghost" id="impUndo" hidden>Deshacer la importación</button>
+          </div>
+          <div id="impMapa"></div>
+          <p class="synced" id="impNote"></p>
+          <input type="file" id="impFile" accept="text/csv,.csv,.txt,text/plain" hidden aria-hidden="true">
+        </div>
+      </section>
     </div>
   </div>
 </div>
@@ -9783,7 +9801,14 @@ tbody tr:last-child td{border-bottom:0}
      auto-juicio que esto existe para evitar. Por eso no es 1, ni 4, ni entra en la
      esperanza de su setup. Las señales de HECHO —nervios, tamaño, revancha— sí
      cuentan, porque no dependen de cuándo se escribieron. */
-  function verificable(t) { return !enBlanco(t.entry) && t.source !== "quick_add"; }
+  /* Y LO IMPORTADO TAMPOCO ES VERIFICABLE, por el mismo motivo exacto. Una
+     operación que entra por CSV trae su entrada —así que pasaba la primera
+     mitad de esta prueba— pero su plan no se escribió nunca: el bróker no
+     exporta stop, ni setup, ni plan. Clasificarla como pérdida limpia o sucia
+     sería juzgar un plan que no existe, y con el resultado ya delante. Cae a
+     `sin_datos`, que es la verdad. Si luego se completa a mano, se completa
+     viendo el P&L, que es el auto-juicio que esto evita. */
+  function verificable(t) { return !enBlanco(t.entry) && t.source !== "quick_add" && !/^import:/.test(String(t.source || "")); }
   function senalesDe(t, previa) {
     const s = [];
     /* La hora de + Rápido es la de APUNTARLA, no la de entrar: se registra después
@@ -9791,7 +9816,19 @@ tbody tr:last-child td{border-bottom:0}
        ventana» o «revancha» acusaría a quien apunta por la noche. Sin hora fiable,
        no hay señal de hora. */
     const m = t.source === "quick_add" ? null : minOfTime(t.time);
-    if (!enBlanco(t.entry) && enBlanco(t.stop)) s.push("sin_stop");
+    /* `sin_stop` ES UNA OMISIÓN, Y LO IMPORTADO NO PUDO OMITIRLO. Ningún export
+       de bróker trae el stop —`IMPORTAR.md` lo dice, y es justo la razón de ser
+       de su fase 5—, así que marcarlo aquí convertiría cada fila de un CSV en un
+       error de EJECUCIÓN («sabías qué hacer y no lo hiciste») y envenenaría la
+       pestaña entera: con cien operaciones importadas, cien pérdidas de
+       categoría 2 que nadie cometió. El campo falta POR CONSTRUCCIÓN, no por
+       descuido, y ésa es toda la diferencia.
+       Lo que SÍ se mantiene son las señales de HECHO —hora fuera de ventana,
+       tamaño por encima del tope, revancha—: la hora de un CSV es la del
+       bróker, no la de apuntarlo, así que dicen algo cierto. Y en «+ Rápido»
+       esto no se toca: allí estuviste delante y pudiste escribir el stop. */
+    const importada = /^import:/.test(String(t.source || ""));
+    if (!importada && !enBlanco(t.entry) && enBlanco(t.stop)) s.push("sin_stop");
     /* Contra TU ventana (ajustable), no contra la sesión NY AM fija. La sesión
        de mercado de una operación no cambia nunca; esta señal sí, y a propósito:
        dice «entraste fuera de la ventana que tú pusiste». Ver `window` en
@@ -10799,7 +10836,7 @@ tbody tr:last-child td{border-bottom:0}
     [1, "Análisis", "warn", "Bien ejecutada, en un setup sin ventaja en limpio. Se estudia el setup o se retira."],
     [4, "Sistema", "good", "Hiciste todo bien en un setup con ventaja. Nada que arreglar en la operación."],
     ["1o4", "Análisis o sistema", "", `Limpia, pero su setup no llega a ${MUESTRA_MIN} operaciones limpias: todavía no se puede decidir.`],
-    ["sin_datos", "Sin datos", "", "Registrada con «+ Rápido» o sin entrada: su plan no quedó escrito antes del resultado, así que no hay con qué juzgarla."],
+    ["sin_datos", "Sin datos", "", "Registrada con «+ Rápido», importada de un CSV o sin entrada: su plan no quedó escrito antes del resultado, así que no hay con qué juzgarla."],
   ];
   function renderErrores(list) {
     const wrap = $("erWrap"); if (!wrap) return;
@@ -14080,13 +14117,19 @@ tbody tr:last-child td{border-bottom:0}
        mercados no lee operaciones, y meter `invest` repintaría las métricas
        dos veces por cada cambio. */
     invDetalle: ["detalle de inversión", () => renderMarketDetail()],
+    /* EL IMPORTADOR LEE LAS OPERACIONES: su botón de deshacer cuenta las que
+       siguen en la colección con el `importId` del último lote, y si se borran
+       tres a mano el botón tiene que ofrecer las que quedan. Sin esta zona el
+       recuento se quedaba en el del momento de importar, que es la clase de
+       número que `test/conexiones.mjs` existe para cazar. */
+    importar:   ["importador", () => renderImportar()],
   };
   /* Al cambiar la CUENTA SELECCIONADA no cambian los datos, cambia el punto de
      vista: se repinta lo que depende de qué cuenta se está mirando. */
   const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia, Z.edge];
   const FANOUT_TRADES = [Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
                          Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion, Z.edge,
-                         Z.estudio, Z.invDetalle];
+                         Z.estudio, Z.invDetalle, Z.importar];
   function pinta(lista) {
     /* Una actualización de datos no debe echar al usuario del campo donde está
        escribiendo ni devolver la página al inicio. Algunos renders reconstruyen
@@ -14719,6 +14762,399 @@ tbody tr:last-child td{border-bottom:0}
      cuando se evalúa aquella línea, y `FUT.csv = CSV` allí sería un
      ReferenceError que tumbaría la página entera antes de pintar nada. */
   FUT.csv = CSV;
+
+  /* ═══════════════ IMPORTAR OPERACIONES · fase 1 de docs/IMPORTAR.md ═══════════════
+
+     El mapeador MANUAL. Lo que esta fase hace, y lo que a propósito NO hace,
+     porque la diferencia es justo donde un importador se equivoca:
+
+       SÍ   subir un CSV o pegarlo, ver las primeras filas, decir a mano qué
+            columna es qué, ver la tabla exacta que se va a escribir, y
+            escribirla. Funciona con cualquier bróker desde el primer día
+            precisamente porque no sabe nada de ninguno.
+       NO   detectar la plataforma por su cabecera. Ésa es la fase 4, y
+            `IMPORTAR.md` dice por dónde NO empezar: un mapeo escrito de
+            memoria, sin un CSV real delante, falla con el primer fichero de
+            verdad. Aquí no hay ni una firma de ninguna plataforma.
+       NO   emparejar ejecuciones. Ésa es la fase 2. AQUÍ UNA FILA ES UNA
+            OPERACIÓN, y se dice en pantalla: con un export de ÓRDENES —una
+            fila por compra y otra por venta— esto produce el doble de
+            operaciones con la mitad del P&L, que es el fallo clásico del
+            asunto. Con un export de idas y vueltas ya emparejadas es correcto.
+
+     QUÉ QUEDA PROBADO SIN EL FICHERO DE LA FASE 0, Y QUÉ NO. Que el mapeador
+     hace lo que dice —que la columna elegida se lee por esa columna, que una
+     fila ilegible no entra y se enseña, que nada se escribe antes de la vista
+     previa— se prueba con CSV sintéticos y está en `test/mapeador.mjs`. Lo que
+     NO se puede dar por bueno hasta que haya un `.csv` REAL en `test/fixtures/`
+     es el control que `IMPORTAR.md` le pone a esta fase: que las cifras cuadren
+     con la plataforma del bróker al céntimo. Eso sigue pendiente, y sigue
+     siendo del dueño de la cuenta.
+
+     LA REGLA DURA DEL CAMINO: nada se escribe antes de la vista previa, y lo
+     que se previsualiza es lo que se escribe, no una aproximación. */
+  const IMP_CAMPOS = [
+    ["date",       "Fecha",          "fecha", true,  "la del cierre si el fichero trae las dos"],
+    ["time",       "Hora",           "hora",  false, "se puede apuntar a la misma columna que la fecha si viene todo junto"],
+    ["instrument", "Instrumento",    "texto", true,  "tal cual lo escriba el bróker"],
+    ["direction",  "Lado",           "lado",  true,  "compra/venta, buy/sell, long/short"],
+    ["qty",        "Contratos",      "num",   true,  "sin signo: el lado ya dice la dirección"],
+    ["entry",      "Entrada",        "num",   true,  ""],
+    ["exit",       "Salida",         "num",   false, "sin ella la operación entra ABIERTA"],
+    ["fees",       "Comisión",       "num",   false, "sin signo, por la operación entera"],
+    ["pnl",        "P&L del bróker", "num",   false, "si viene, gana: es un hecho, no un cálculo"],
+  ];
+  const IMP_OBLIG = IMP_CAMPOS.filter(c => c[3]).map(c => c[0]);
+  const impCampo = k => IMP_CAMPOS.find(x => x[0] === k);
+  const impLabel = k => { const c = impCampo(k); return c ? c[1] : k; };
+  const impCol = (lectura, i) => lectura.filas.map(f => (f[i] == null ? "" : f[i]));
+  const impHayFecha = celdas => celdas.some(c => /^\s*\d{1,4}[/.\-]\d{1,2}[/.\-]\d{1,4}/.test(String(c == null ? "" : c)));
+  const impHaySep = celdas => celdas.some(c => /[.,]/.test(String(c == null ? "" : c)));
+
+  /* El separador decimal y el orden de la fecha se deciden POR COLUMNA mirando
+     todas sus filas —la regla de la fase 0.5— y «no se puede saber» es una
+     respuesta: sale en `ambiguas`, bloquea la importación y lo decide quien
+     importa. Elegir aquí el formato de casa es cómo se meten doce meses de
+     operaciones en el día equivocado sin un solo error en pantalla.
+
+     «NO HAY NADA QUE DECIDIR» NO ES «ES AMBIGUO», y confundirlos convierte el
+     aviso en ruido que se aprende a ignorar. Una columna de contratos con «1»
+     y «2» no tiene ningún separador: `csvDecimal` devuelve "" porque no hay
+     nada que decidir, y tratarlo como ambiguo pediría una decisión imposible
+     en el 90 % de los ficheros. Sólo es ambiguo cuando ALGUNA celda trae un
+     signo y aun así no se resuelve. Lo mismo con la fecha: si ninguna celda
+     tiene forma de fecha, el problema no es el orden —es que esa columna no son
+     fechas—, y eso lo dirá cada fila con su motivo. */
+  function impPlan(lectura, mapa, elegido) {
+    elegido = elegido || {};
+    const decimal = {}, ambiguas = [];
+    IMP_CAMPOS.forEach(([k, , tipo]) => {
+      if (tipo !== "num") return;
+      const i = mapa[k]; if (i == null || i < 0) return;
+      const celdas = impCol(lectura, i);
+      const auto = csvDecimal(celdas);
+      decimal[k] = elegido["dec_" + k] || auto;
+      if (!decimal[k] && impHaySep(celdas)) ambiguas.push({ campo: k, que: "dec_" + k, label: impLabel(k) });
+    });
+    let orden = "";
+    const idf = mapa.date;
+    if (idf != null && idf >= 0) {
+      const celdas = impCol(lectura, idf);
+      orden = elegido.orden || csvOrdenFecha(celdas);
+      if (!orden && impHayFecha(celdas)) ambiguas.push({ campo: "date", que: "orden", label: impLabel("date") });
+    }
+    return { decimal, orden, ambiguas };
+  }
+
+  /* Una fila que no se puede leer ENTERA no entra, y se enseña con el motivo y
+     su número de fila: tirarla en silencio es perder una operación, y meterla a
+     medias es peor que perderla.
+
+     Y UNA CELDA CON ALGO DENTRO QUE NO SE PUEDE LEER ES UN PROBLEMA, NO UN
+     HUECO. Es la distinción que decide si el P&L de la cuenta sale bien: si
+     «Salida» trae «abc», esa operación no está abierta —está mal leída—, y
+     dejarla entrar como abierta le quita su resultado a la cuenta sin decir
+     nada. Vacío significa vacío; ilegible significa para. */
+  function impFila(fila, mapa, plan, nFila) {
+    const problemas = [];
+    const cel = k => { const i = mapa[k]; return i == null || i < 0 ? "" : String(fila[i] == null ? "" : fila[i]).trim(); };
+    const corta = s => (s.length > 18 ? s.slice(0, 18) + "…" : s);
+    const num = k => {
+      const raw = cel(k);
+      if (!raw) { if (impCampo(k)[3]) problemas.push("sin " + impLabel(k).toLowerCase()); return null; }
+      const v = csvNumero(raw, plan.decimal[k]);
+      if (v == null) problemas.push(impLabel(k) + " no es un número («" + corta(raw) + "»)");
+      return v;
+    };
+    const op = { date: null, time: null, instrument: "", direction: null, qty: null, entry: null, exit: null, fees: null, pnl: null };
+    const rawF = cel("date");
+    op.date = csvFecha(rawF, plan.orden);
+    if (!op.date) problemas.push(rawF ? "la fecha no se pudo leer («" + corta(rawF) + "»)" : "sin fecha");
+    const rawH = cel("time");
+    if (rawH) { op.time = csvHora(rawH); if (!op.time) problemas.push("la hora no se pudo leer («" + corta(rawH) + "»)"); }
+    op.instrument = cel("instrument");
+    if (!op.instrument) problemas.push("sin instrumento");
+    const rawL = cel("direction");
+    op.direction = csvLado(rawL);
+    if (!op.direction) problemas.push(rawL ? "el lado no se entiende («" + corta(rawL) + "»)" : "sin lado");
+    const q = num("qty");
+    if (q != null) { op.qty = Math.abs(q); if (!op.qty) problemas.push("contratos en 0"); }
+    op.entry = num("entry");
+    op.exit = num("exit");
+    const f = num("fees");
+    if (f != null) op.fees = Math.abs(f);      // magnitud sin signo, invariante de siempre
+    op.pnl = num("pnl");                        // el signo SÍ se conserva: es el resultado
+    return { ok: !problemas.length, op, problemas, n: nFila };
+  }
+
+  /* Dos campos pueden compartir columna, y exactamente dos: FECHA y HORA. Un
+     «2026-09-14 10:05:00» en una sola columna es lo normal en medio mundo, y
+     obligar a partirlo a mano sería pedirle al usuario que arregle el fichero.
+     Cualquier otra repetición es un error de mapeo —la misma columna no es a la
+     vez la entrada y la salida— y se dice en vez de producir operaciones
+     absurdas. */
+  function impRepetidas(lectura, mapa) {
+    const porCol = {};
+    IMP_CAMPOS.forEach(([k]) => { const i = mapa[k]; if (i == null || i < 0) return; (porCol[i] || (porCol[i] = [])).push(k); });
+    return Object.keys(porCol).filter(i => {
+      const ks = porCol[i];
+      if (ks.length < 2) return false;
+      return !(ks.length === 2 && ks.includes("date") && ks.includes("time"));
+    }).map(i => ({ col: Number(i), nombre: lectura.cabecera[i] || "columna " + (Number(i) + 1), campos: porCol[i].map(impLabel) }));
+  }
+
+  function impPrevio(lectura, mapa, elegido) {
+    const faltan = IMP_OBLIG.filter(k => mapa[k] == null || mapa[k] < 0).map(impLabel);
+    const repetidas = impRepetidas(lectura, mapa);
+    const plan = impPlan(lectura, mapa, elegido);
+    const ops = [], rechazadas = [];
+    const puede = !faltan.length && !repetidas.length && !plan.ambiguas.length;
+    if (puede) {
+      /* `n` empieza en 2 a propósito: la fila 1 del fichero es la cabecera, y un
+         número de fila que no cuadra con lo que se ve al abrir el CSV en una
+         hoja de cálculo no sirve para encontrar nada. */
+      lectura.filas.forEach((f, i) => {
+        const r = impFila(f, mapa, plan, i + 2);
+        if (r.ok) ops.push(r.op); else rechazadas.push(r);
+      });
+    }
+    return { plan, ops, rechazadas, faltan, repetidas, listo: puede && ops.length > 0 };
+  }
+
+  /* Puras: entra texto y un mapeo, sale estructura. No tocan el almacén ni la
+     pantalla, así que `test/mapeador.mjs` las puede probar sin navegador. Lo
+     que se expone es el mapeador, no el escritor: escribir pasa por la vista
+     previa y por el botón, nunca por aquí. */
+  FUT.imp = { campos: IMP_CAMPOS, obligatorios: IMP_OBLIG, plan: impPlan, fila: impFila,
+              repetidas: impRepetidas, previo: impPrevio };
+
+  /* ── LA PANTALLA ──────────────────────────────────────────────────────────
+     Tres decisiones que son decisiones, no detalles:
+
+       · LOS DESPLEGABLES EMPIEZAN TODOS EN «— ninguna —». Ni uno se rellena
+         por parecido de nombre. Una columna llamada «Price» puede ser la
+         entrada o la salida, y acertar nueve de cada diez veces es peor que no
+         intentarlo: la décima entra sin que nadie la mire, porque el
+         desplegable ya venía relleno y relleno se lee como comprobado.
+       · LA CUENTA LA ELIGE QUIEN IMPORTA. El CSV no la trae y no se deduce, y
+         una operación sin cuenta no entra en el drawdown de ninguna.
+       · EL BOTÓN DE IMPORTAR NO EXISTE MIENTRAS FALTE ALGO, y lo que falta se
+         dice con su nombre. No hay camino «importa y ya veremos». */
+  const imp = { lectura: null, nombre: "", mapa: {}, elegido: {}, cuenta: "", lote: null };
+  function impSay(msg, mal) {
+    const el = $("impNote"); if (!el) return;
+    el.className = "synced" + (mal ? " bad" : "");
+    el.innerHTML = msg ? `<span class="dotg"></span><span>${esc(msg)}</span>` : "";
+  }
+  function impCargar(txt, nombre) {
+    const l = csvLee(String(txt == null ? "" : txt));
+    if (!l.filas.length) { impSay((l.avisos[0] || "El fichero no trae ninguna fila de datos.") + " No hay nada que importar.", true); return; }
+    imp.lectura = l; imp.nombre = nombre || "texto pegado"; imp.mapa = {}; imp.elegido = {};
+    if (!imp.cuenta) imp.cuenta = (FUT.selectedAccountId && FUT.selectedAccountId()) || defaultAccountId() || "";
+    renderImportar();
+    impSay(`${imp.nombre}: ${plu(l.filas.length, "fila", "filas")} de datos y ${plu(l.cabecera.length, "columna", "columnas")}, separadas por «${l.sep === "\t" ? "tabulador" : l.sep}». ${l.avisos.join(" ")} Ahora di qué columna es qué.`);
+  }
+  const IMP_ORDENES = [["dmy", "día/mes/año"], ["mdy", "mes/día/año"], ["ymd", "año-mes-día"]];
+  function impSel(id, valor, opciones, vacio) {
+    return `<select data-imp="${esc(id)}">` + (vacio ? `<option value=""${valor ? "" : " selected"}>${esc(vacio)}</option>` : "")
+      + opciones.map(([v, t]) => `<option value="${esc(v)}"${String(v) === String(valor) ? " selected" : ""}>${esc(t)}</option>`).join("") + "</select>";
+  }
+  function renderImportar() {
+    const cont = $("impMapa"); if (!cont) return;
+    /* EL DESHACER SE MIDE SOBRE LO QUE SIGUE EN LA COLECCIÓN, no sobre un
+       contador guardado al importar: si se borran tres a mano, el botón tiene
+       que ofrecer deshacer las que quedan, no mentir con el total. Por eso esto
+       lee `coll("trades")` y por eso es una zona del registro de repintado. */
+    const lote = imp.lote ? coll("trades").items.filter(t => t && t.importId === imp.lote) : [];
+    const bU = $("impUndo"), bC = $("impClear");
+    if (bU) { bU.hidden = !lote.length; bU.textContent = `Deshacer la importación (${lote.length})`; }
+    if (bC) bC.hidden = !imp.lectura;
+    const meta = $("impMeta");
+    if (!imp.lectura) {
+      cont.innerHTML = "";
+      if (meta) meta.textContent = lote.length ? plu(lote.length, "operación importada", "operaciones importadas") + " en esta sesión" : "ningún fichero cargado";
+      return;
+    }
+    const L = imp.lectura;
+    const cols = L.cabecera.map((h, i) => [String(i), (h || "(columna " + (i + 1) + ")") + " · ej. «" + String((L.filas[0] || [])[i] || "").slice(0, 14) + "»"]);
+    const p = impPrevio(L, imp.mapa, imp.elegido);
+    if (meta) meta.textContent = `${imp.nombre} · ${plu(L.filas.length, "fila", "filas")}`;
+    const ctas = acctOptions();
+    let h = '<div class="impwrap" style="margin-top:14px">';
+    h += '<p class="csub" style="margin:0 0 10px"><strong>Una fila, una operación.</strong> Esta fase no empareja ejecuciones: si tu fichero trae una fila por compra y otra por venta —un export de órdenes— saldrán el doble de operaciones con la mitad del resultado. Úsalo con un export que ya venga emparejado (ida y vuelta por fila).</p>';
+    h += '<div class="impgrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">';
+    IMP_CAMPOS.forEach(([k, label, , oblig, ayuda]) => {
+      const v = imp.mapa[k] == null || imp.mapa[k] < 0 ? "" : String(imp.mapa[k]);
+      h += `<div><label class="lab">${esc(label)}${oblig ? ' <span style="color:#e0604f">*</span>' : ""}</label>`
+        + impSel("col_" + k, v, cols, "— ninguna —")
+        + (ayuda ? `<p class="help" style="margin:4px 0 0">${esc(ayuda)}</p>` : "") + "</div>";
+    });
+    h += `<div><label class="lab">Cuenta <span style="color:#e0604f">*</span></label>`
+      + (ctas.length ? impSel("cuenta", imp.cuenta, ctas, "— elige —")
+         : '<p class="help" style="margin:4px 0 0">No hay ninguna cuenta registrada. Créala en Futuros → Cuentas: sin cuenta, una operación no entra en el drawdown de nada.</p>')
+      + "</div></div>";
+    /* Lo ambiguo se pregunta, no se adivina, y se dice POR QUÉ es ambiguo: sin
+       el motivo parece un formulario más y se contesta a boleo. */
+    if (p.plan.ambiguas.length) {
+      h += '<div class="impamb" style="margin-top:14px;padding:12px;border:1px solid #5b4a31;border-radius:10px">';
+      h += '<p class="csub" style="margin:0 0 10px;color:#f0c479">Esto no se puede decidir mirando el fichero, y adivinarlo cambia los números sin dar ningún error. Dilo tú:</p>';
+      h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">';
+      p.plan.ambiguas.forEach(a => {
+        if (a.que === "orden") {
+          h += `<div><label class="lab">Orden de la fecha</label>${impSel("orden", imp.elegido.orden || "", IMP_ORDENES, "— elige —")}`
+            + '<p class="help" style="margin:4px 0 0">Todas las fechas valen como día y como mes (ningún día pasa de 12), así que el fichero no lo resuelve.</p></div>';
+        } else {
+          h += `<div><label class="lab">Decimal de «${esc(a.label)}»</label>${impSel(a.que, imp.elegido[a.que] || "", [[".", "punto · 1234.56"], [",", "coma · 1234,56"]], "— elige —")}`
+            + '<p class="help" style="margin:4px 0 0">Todos los grupos son de tres cifras: «1,500» puede ser mil quinientos o uno coma cinco.</p></div>';
+        }
+      });
+      h += "</div></div>";
+    }
+    if (p.repetidas.length) {
+      h += '<p class="synced bad" style="margin-top:12px"><span class="dotg"></span><span>'
+        + esc(p.repetidas.map(r => `«${r.nombre}» está puesta como ${r.campos.join(" y ")}`).join("; "))
+        + '. La misma columna no puede ser dos cosas, salvo fecha y hora si vienen juntas.</span></p>';
+    }
+    const faltanTodo = p.faltan.concat(imp.cuenta ? [] : ["Cuenta"]);
+    if (faltanTodo.length) {
+      h += `<p class="csub" style="margin-top:12px">Falta por decir: <strong>${esc(faltanTodo.join(", "))}</strong>.</p>`;
+    } else if (!p.plan.ambiguas.length && !p.repetidas.length) {
+      /* LA VISTA PREVIA ES LO QUE SE VA A ESCRIBIR, no una aproximación: sale de
+         las mismas `p.ops` que escribe el botón. */
+      h += `<h3 style="margin:18px 0 8px;font-size:14px">Lo que va a entrar</h3>`;
+      h += '<div class="twrap"><table><thead><tr><th>Fecha</th><th>Hora</th><th>Instrumento</th><th>Lado</th><th>Ctr.</th><th>Entrada</th><th>Salida</th><th>Comisión</th><th>P&amp;L bróker</th></tr></thead><tbody>';
+      p.ops.slice(0, 12).forEach(o => {
+        h += `<tr><td>${esc(dmy(o.date))}</td><td>${esc(o.time || "—")}</td><td>${esc(o.instrument)}</td>`
+          + `<td>${o.direction === "long" ? "compra" : "venta"}</td><td class="mono">${esc(String(o.qty))}</td>`
+          + `<td class="mono">${esc(String(o.entry))}</td><td class="mono">${o.exit == null ? "abierta" : esc(String(o.exit))}</td>`
+          + `<td class="mono">${o.fees == null ? "—" : esc(money(o.fees))}</td><td class="mono">${o.pnl == null ? "—" : esc(money(o.pnl))}</td></tr>`;
+      });
+      h += "</tbody></table></div>";
+      if (p.ops.length > 12) h += `<p class="csub" style="margin:8px 0 0">…y ${plu(p.ops.length - 12, "operación más", "operaciones más")}. Se importan todas.</p>`;
+      if (imp.mapa.pnl != null && imp.mapa.pnl >= 0) h += '<p class="csub" style="margin:8px 0 0">El P&amp;L del bróker entra en el mismo campo que un P&amp;L escrito a mano y gana sobre el cálculo. Si ese número ya viene neto de comisión, dilo en Métricas → «Mis P&amp;L escritos a mano ya son netos», o la comisión se contará dos veces.</p>';
+      /* LO QUE NO ENTRA SE VE, con su número de fila y su motivo. Descartar en
+         silencio es perder una operación sin saberlo, que es exactamente lo
+         que este fichero existe para no hacer. */
+      if (p.rechazadas.length) {
+        h += `<h3 style="margin:18px 0 8px;font-size:14px;color:#e0604f">${plu(p.rechazadas.length, "fila que NO entra", "filas que NO entran")}</h3>`;
+        h += '<p class="csub" style="margin:0 0 8px">No se descartan a tus espaldas y no se arreglan a medias: se quedan fuera y aquí está por qué. Arréglalas en el fichero y vuelve a cargarlo, o impórtalas a mano.</p><ul class="csub" style="margin:0;padding-left:18px">';
+        p.rechazadas.slice(0, 15).forEach(r => { h += `<li>fila ${r.n}: ${esc(r.problemas.join("; "))}</li>`; });
+        h += "</ul>";
+        if (p.rechazadas.length > 15) h += `<p class="csub" style="margin:8px 0 0">…y ${plu(p.rechazadas.length - 15, "fila más", "filas más")}.</p>`;
+      }
+      h += '<div class="bkbtns" style="margin-top:14px">';
+      h += p.ops.length
+        ? `<button type="button" class="btn primary" id="impGo">Importar ${plu(p.ops.length, "operación", "operaciones")}</button>`
+        : '<p class="csub" style="margin:0">Ninguna fila de este fichero se puede importar con este mapeo.</p>';
+      h += "</div>";
+    }
+    h += "</div>";
+    cont.innerHTML = h;
+    const go = $("impGo");
+    if (go) go.addEventListener("click", () => impConfirma(p));
+  }
+  /* Nada se escribe antes de aquí, y aquí se escribe lo que se vio. La palabra
+     tecleada es la misma puerta que usa el respaldo: meter operaciones en el
+     journal de golpe cambia el P&L de una cuenta, y eso no se hace con un clic
+     que se puede dar sin mirar. */
+  function impConfirma(p) {
+    const resumen = `${plu(p.ops.length, "operación", "operaciones")} a ${acctLabel(imp.cuenta) || "la cuenta elegida"}.\n`
+      + `Desde ${imp.nombre}.\n`
+      + (p.rechazadas.length ? `${plu(p.rechazadas.length, "fila se queda fuera", "filas se quedan fuera")} (están listadas arriba con su motivo).\n` : "")
+      + `Entran SIN stop, sin setup y sin plan: eso no lo trae ningún CSV, y sin stop no hay R. La cabina las marcará como lo que son.\n`
+      + `Se puede deshacer entero mientras no cierres la página.`;
+    openEditor({
+      title: "Importar al journal de futuros",
+      fields: [
+        { key: "resumen", label: "Qué va a entrar", type: "textarea", w: 6, rows: 5 },
+        { key: "ok", label: "Escribe IMPORTAR para confirmar", w: 6, ph: "IMPORTAR" },
+      ],
+      values: { resumen },
+      validate: v => (String(v.ok || "").trim().toUpperCase() === "IMPORTAR" ? null : "Escribe IMPORTAR para confirmar"),
+      onSave: async () => {
+        impSay("Importando…");
+        try {
+          const n = await impEscribe(p);
+          impSay(`${plu(n, "operación importada", "operaciones importadas")} a ${acctLabel(imp.cuenta)}. Revisa el journal: les falta el stop.`);
+          flash(plu(n, "operación importada", "operaciones importadas"));
+          imp.lectura = null; imp.nombre = ""; imp.mapa = {}; imp.elegido = {};
+          renderImportar();
+        } catch (e) { impSay("No se pudo importar: " + ((e && e.message) || "error desconocido") + ".", true); }
+      },
+    });
+    const sv = $("edSave"); sv.textContent = "Importar";
+    const obs = new MutationObserver(() => { if (!ov.classList.contains("open")) { sv.textContent = "Guardar"; obs.disconnect(); } });
+    obs.observe(ov, { attributes: true, attributeFilter: ["class"] });
+  }
+  async function impEscribe(p) {
+    const lote = uid("imp");
+    let n = 0;
+    for (const o of p.ops) {
+      const rec = {
+        id: uid("t"), type: "futuros", accountId: imp.cuenta,
+        date: o.date, instrument: o.instrument, direction: o.direction, qty: o.qty, entry: o.entry,
+        /* `source` dice DE DÓNDE vino y `importId` de QUÉ importación. Con eso el
+           deshacer no tiene que acordarse de nada, y la fase 3 —la huella de
+           deduplicación— tiene dónde colgarse cuando llegue. */
+        source: "import:manual", importId: lote,
+        createdAt: Date.now(), updatedAt: Date.now(),
+      };
+      if (o.time) rec.time = o.time;
+      if (o.exit != null) rec.exit = o.exit;
+      if (o.fees != null) rec.fees = o.fees;
+      if (o.pnl != null) rec.pnl = o.pnl;
+      await coll("trades").set(rec.id, rec);
+      n++;
+    }
+    imp.lote = lote;
+    return n;
+  }
+  $("impFileBtn").addEventListener("click", () => { const f = $("impFile"); f.value = ""; f.click(); });
+  $("impFile").addEventListener("change", async e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    impSay(`Leyendo ${f.name}…`);
+    try { const txt = await f.text(); impCargar(txt, f.name); }
+    catch (err) { impSay("No se pudo leer el archivo.", true); }
+  });
+  $("impPaste").addEventListener("click", () => {
+    openEditor({ title: "Pegar un CSV del bróker", fields: [{ key: "c", label: "Pega aquí el contenido, con su fila de cabecera", type: "textarea", w: 6, rows: 10 }], values: { c: "" },
+      validate: v => (String(v.c || "").trim() ? null : "Pega algo primero"),
+      onSave: v => { const txt = String(v.c || ""); setTimeout(() => impCargar(txt, "texto pegado"), 40); } });
+    const sv = $("edSave"); sv.textContent = "Leer";
+    const obs = new MutationObserver(() => { if (!ov.classList.contains("open")) { sv.textContent = "Guardar"; obs.disconnect(); } });
+    obs.observe(ov, { attributes: true, attributeFilter: ["class"] });
+  });
+  $("impClear").addEventListener("click", () => { imp.lectura = null; imp.nombre = ""; imp.mapa = {}; imp.elegido = {}; renderImportar(); impSay("Fichero descartado. No se escribió nada."); });
+  $("impUndo").addEventListener("click", () => {
+    const pend = imp.lote ? coll("trades").items.filter(t => t && t.importId === imp.lote) : [];
+    if (!pend.length) { renderImportar(); return; }
+    openEditor({ title: "Deshacer la importación",
+      fields: [{ key: "nota", type: "nota", w: 6, label: `Se borran ${plu(pend.length, "operación", "operaciones")} del journal: las de la última importación de esta sesión. Lo que hayas escrito encima de ellas —stop, setup, notas— se va con ellas.` },
+               { key: "ok", label: "Escribe BORRAR para confirmar", w: 6, ph: "BORRAR" }],
+      values: { ok: "" },
+      validate: v => (String(v.ok || "").trim().toUpperCase() === "BORRAR" ? null : "Escribe BORRAR para confirmar"),
+      onSave: async () => {
+        for (const t of pend) await coll("trades").remove(t.id);
+        imp.lote = null;
+        renderImportar();
+        impSay(`${plu(pend.length, "operación borrada", "operaciones borradas")}. El journal vuelve a estar como antes de importar.`);
+      } });
+    const sv = $("edSave"); sv.textContent = "Borrar";
+    const obs = new MutationObserver(() => { if (!ov.classList.contains("open")) { sv.textContent = "Guardar"; obs.disconnect(); } });
+    obs.observe(ov, { attributes: true, attributeFilter: ["class"] });
+  });
+  /* Un solo escuchador para todos los desplegables del mapeo: se repintan
+     enteros en cada cambio —la vista previa depende de todos a la vez— y
+     colgarle uno a cada `<select>` los dejaría huérfanos al repintar. */
+  $("impMapa").addEventListener("change", e => {
+    const s = e.target.closest("select[data-imp]"); if (!s) return;
+    const k = s.dataset.imp, v = s.value;
+    if (k === "cuenta") imp.cuenta = v;
+    else if (k.startsWith("col_")) { const campo = k.slice(4); if (v === "") delete imp.mapa[campo]; else imp.mapa[campo] = Number(v); }
+    else if (v === "") delete imp.elegido[k];
+    else imp.elegido[k] = v;
+    renderImportar();
+  });
 
   /* =============================== COPIA DE SEGURIDAD Y TRASPASO ===============================
      Un archivo JSON con todo lo que guarda la cabina. Dos usos: respaldo, y llevar

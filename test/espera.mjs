@@ -90,6 +90,7 @@ export const arrancada = async (pg, sel = '.acct') => {
 
    Los diferidos que hay hoy en index.html:
        40 ms   bkConfirmImport tras leer un archivo o pegar JSON
+       40 ms   impCargar tras pegar un CSV del bróker (el modal se cierra antes)
        60 ms   openTrade al pulsar «Ver operación» desde una tesis
       100 ms   openPlaybook al crear una versión nueva
      1200 ms   location.reload() tras restaurar un respaldo

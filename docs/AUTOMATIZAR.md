@@ -60,21 +60,35 @@ silencioso en uno visible, que es el requisito previo de cualquier automatizaci�
 
 ## Por orden de lo que dan contra lo que cuestan
 
-### 1 · Terminar el importador · fases 1–2 de `IMPORTAR.md`
+### 1 · El importador · fase 1 hecha, fase 2 pendiente
 
 Lo que elimina: teclear catorce campos por operación. Es, con diferencia, el
-trabajo repetitivo más grande que queda.
+trabajo repetitivo más grande que había.
 
-Lo que ya está hecho: la **fase 0.5**, leer bytes. Separador, BOM, comillas con
+Lo que está hecho: la **fase 0.5** (leer bytes: separador, BOM, comillas con
 comas dentro, «1.234,56» contra «1,500», paréntesis como negativo — la capa que
-corrompe datos en silencio, con funciones puras y `test/csv.mjs` detrás.
+corrompe datos en silencio) y la **fase 1**, el mapeador manual, en Futuros →
+Diario. Subir o pegar un CSV, decir a mano qué columna es qué, ver la tabla
+exacta que va a entrar, importarla y poder deshacerla entera.
 
-Lo que falta: el mapeador (fase 1) y, para Tradovate, el emparejado de
-ejecuciones (fase 2). `IMPORTAR.md` ya decidió empezar por **NinjaTrader**
-porque su export de *Trades* viene ya emparejado y la fase 1 sola produce
-operaciones correctas.
+**Y aquí va el error que costó más que cualquier otro de esta tanda:** este
+documento daba la fase 1 por bloqueada por la fase 0, y no lo estaba. La fase 0
+bloquea la *detección* del bróker y bloquea el *control* de la fase 1 —que las
+cifras cuadren al céntimo—, pero un mapeador manual no sabe nada de ningún
+bróker por definición, así que no podía estar esperando el fichero de ninguno.
+Ocho días de la pieza más grande del producto parados por una lectura
+equivocada de un documento propio. La lección no es «leer mejor»: es que
+**«bloqueado» hay que escribirlo diciendo qué, exactamente, queda bloqueado**.
 
-> **Bloqueado por:** fase 0. Un `.csv` real en `test/fixtures/`.
+Lo que falta: el **emparejado de ejecuciones** (fase 2), que es lo que hace
+falta para Tradovate —su export son órdenes, una fila por compra y otra por
+venta—. Con un export de *Trades* de NinjaTrader, que ya viene emparejado, la
+fase 1 sola produce operaciones correctas.
+
+> **Sigue bloqueado por la fase 0:** la fidelidad. `test/mapeador.mjs` prueba el
+> mapeador con CSV sintéticos; que las cifras cuadren con la plataforma del
+> bróker exige un `.csv` real, y la compuerta lo lleva como fila UNKNOWN para
+> que su verde no prometa más de lo que comprueba.
 
 ### 2 · La comprobación de conexiones · hecha
 
@@ -143,7 +157,11 @@ lista recortada con todos los controles a cero.
 
 1. **Un CSV real** exportado de NinjaTrader (Control Center → Trade Performance →
    pestaña Trades → exportar) o de Tradovate (Account → ajustes → Orders → rango
-   → descargar). Desbloquea la automatización número 1.
+   → descargar). Ya no bloquea *tener* importador —la fase 1 está hecha y
+   funciona con cualquier fichero—, bloquea dos cosas: dar por **fiel** lo que
+   importa (que las cifras cuadren al céntimo con tu plataforma) y la
+   **detección automática**, que es la que te ahorraría elegir las columnas cada
+   vez. Diez minutos tuyos.
 2. **Si el proyecto Supabase está activo o pausado.** Decide si la sincronización
    entre dispositivos hace algo hoy, y si tiene sentido pensar en el servidor.
    No se puede comprobar desde aquí: la política de red deniega `supabase.co`.

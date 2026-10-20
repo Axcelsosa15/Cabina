@@ -84,7 +84,20 @@ const verde = nombre => {
   if (!l) return { ok: false, porque: `no aparece «${nombre}» en la salida de la suite` };
   return { ok: l.includes('✅'), porque: l.trim().replace(/\s+/g, ' ') };
 };
+/* DOS FILAS NO PUEDEN CITAR LA MISMA SUITE, y esto lo vigila porque la
+   compuerta se pasó una corrida entera diciendo 0 FAIL con una de sus filas
+   apuntando a otra cosa: se escribió un `test/importar.mjs` nuevo encima del
+   que ya existía, y la fila de «la frontera de importacion» se quedó
+   describiendo una suite que no era la suya. Ninguna fila se puso roja, porque
+   las dos encontraban su línea verde en la salida. Una compuerta que no se
+   entera de eso no es una compuerta: es una tabla bonita. */
+const citadas = new Set();
 const dice = (nombre, etiqueta, que, capa) => {
+  if (citadas.has(nombre)) {
+    fila(capa, que, 'FAIL', `dos filas citan la suite «${nombre}»: una de las dos está describiendo algo que no vigila. Renombra el fichero de pruebas o arregla la fila.`);
+    return false;
+  }
+  citadas.add(nombre);
   const v = verde(nombre);
   fila(capa, que, v.ok ? 'PASS' : 'FAIL', `${etiqueta}: ${v.porque}`);
   return v.ok;
@@ -274,6 +287,23 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
   dice('retro', 'suite', 'Lo que la app dice de sí misma no miente', 'index.html');
   dice('historial', 'suite', 'El historial sigue al journal sin pisar lo escrito a mano', 'index.html');
   dice('revisiones', 'suite', 'Lo que falta revisar se enseña, no se recuerda', 'index.html');
+  /* EL MAPEADOR MANUAL, fase 1 de docs/IMPORTAR.md. Vigila dos cosas distintas:
+     que el mapeo lea lo que se le dice y pare donde no se puede saber, y que lo
+     importado NO se juzgue como si hubiera tenido un plan — sin eso, cada fila
+     de un CSV entra en la pestaña de errores como un fallo de ejecución que
+     nadie cometió. Lo que esta fila NO certifica es el control de la fase 1:
+     que las cifras cuadren con la plataforma del bróker al céntimo. Eso exige
+     un `.csv` real y está abajo, entre las fronteras. */
+  /* LA SUITE SE LLAMA `mapeador`, Y NO `importar`, POR UNA RAZÓN QUE COSTÓ UNA
+     CORRIDA ENTERA DE LA COMPUERTA: `test/importar.mjs` ya existía —es la
+     frontera por donde entra un respaldo escrito por otra persona, fila de la
+     capa «persistencia», arriba— y escribir el mapeador encima con ese mismo
+     nombre dejó a aquella fila vigilando esta suite. La compuerta siguió
+     diciendo 0 FAIL con una de sus filas apuntando a otra cosa, que es
+     exactamente lo que las filas existen para que no pase. Dos filas no pueden
+     citar la misma suite, y el nombre de un fichero de pruebas es parte de la
+     interfaz de la compuerta. */
+  dice('mapeador', 'suite', 'Un CSV entra por donde se le dice, o no entra', 'index.html');
 }
 
 /* ── LO QUE LA PLATAFORMA NO PERMITE COMPROBAR ───────────────────────────────
@@ -283,6 +313,12 @@ fila('pages', 'GitHub Pages sirve la página', 'UNKNOWN',
   'el despliegue ocurre DESPUÉS de esta compuerta (pagina.yml, cuando pruebas sale verde), y es ese flujo el que pide la URL publicada y comprueba que responde con la cabina');
 fila('pages', 'El CDN de GitHub sirve el payload verificado', 'UNKNOWN',
   'humo.mjs verifica el MISMO payload en el MISMO protocolo, no el CDN de GitHub ni su configuración');
+/* Y UNA FRONTERA QUE NO ES DE LA PLATAFORMA: es del dueño de la cuenta. Se pone
+   aquí, y no se calla, porque `mapeador.mjs` en verde puede leerse como «el
+   importador está comprobado» y no lo está del todo: lo que falta es
+   exactamente lo que ninguna prueba sintética puede dar. */
+fila('index.html', 'Las cifras importadas cuadran con la plataforma del bróker', 'UNKNOWN',
+  'el control que docs/IMPORTAR.md pone a la fase 1 exige un .csv REAL en test/fixtures/ y la fase 0 sigue sin hacerse; los CSV de mapeador.mjs son sintéticos y prueban el mapeador, no la fidelidad al bróker');
 
 /* ── LA TABLA ── */
 const C = { PASS: '✅', FAIL: '❌', UNKNOWN: '—' };
