@@ -128,32 +128,19 @@ sólo puede **decir qué versión cree que hay**, en el WHERE.
 aislamiento entre usuarios pasaría a depender de que la función esté bien escrita en
 vez de de la política. Un UPDATE condicional ya es atómico y no cambia quién ve qué.
 
-### Los ocho estados del rótulo, de más grave a menos
+### Los seis estados del rótulo, de más grave a menos
 
 | | qué significa |
 |---|---|
 | **CONFLICTO · n** | otro dispositivo cambió el documento; lo de aquí NO se guardó y no se guardará solo |
 | sesión caducada | todo lo que escribas a partir de ahora se rechaza |
-| SIN GUARDAR · n | una escritura falló y no entró en la cola: está en la pantalla y en ningún sitio más |
 | sin conexión | no hay red; lo que ves puede no estar al día |
-| PENDIENTES · n | escrituras a salvo en este dispositivo que todavía no han llegado a la cuenta |
+| SIN GUARDAR · n | una escritura falló por otra razón |
 | guardando… | hay algo en vuelo |
-| sin actualizar | lo tuyo se guarda, pero las LECTURAS fallan: la pantalla va vieja |
 | sincronizado | la base tiene lo que hay en la pantalla |
 
 CONFLICTO va primero porque es el único estado en el que existen dos versiones de un
-dato del usuario y una se pierde si no decide. SIN GUARDAR va antes que «sin conexión»
-porque con la cola la mayoría de los fallos de red quedan a salvo y el que no queda es
-el único que urge.
-
-**«sin actualizar» es la mitad del rótulo que faltaba.** Todo lo demás habla de lo que
-SALE. De lo que ENTRA no se decía nada, y el silencio era literal: `attachDb` llama a
-`onSnapshot(cb)` sin manejador de error, así que cada lectura fallida se tiraba sin
-rastro. Con la base rechazando todas las lecturas —una RLS mal puesta, una tabla que
-falta— el rótulo decía «sincronizado» encima de una cabina vacía, y la app no volvía a
-intentarlo: el tope de 20 s se gastaba igual aunque la lectura hubiera fallado. Ahora
-un fallo de lectura no gasta la ventana (los dos primeros reintentan en el tic
-siguiente) y dos fallos seguidos cambian el rótulo. `test/retro.mjs` §3 y §4 lo fijan.
+dato del usuario y una se pierde si no decide.
 
 **`LOCAL_CHANGES` no existe en esta app, y no se inventa.** Aquí una edición se
 escribe en cuanto se hace (con 400–500 ms de `debounce`), no se acumula en una cola
@@ -195,140 +182,12 @@ dispositivos, porque sin la columna no la hay. Al aplicar la migración vuelve s
 |---|---|---|
 | `test/db.mjs` | **Postgres 16 real, local.** Aplica las migraciones del repositorio tal cual sobre un arnés con lo mínimo de `auth` y `storage` y corre `concurrencia.sql`, `aislamiento.sql` y `capturas.sql`. Demuestra el DDL, el trigger, el UPDATE condicional y la RLS entre dos usuarios | **PASS** |
 | `test/conflicto.mjs` | la app real contra el doble: A gana, B ve conflicto, la base conserva lo de A. Contra el upsert anterior se pone roja | **PASS** |
-| el proyecto Supabase real | que el proyecto **tenga** la migración aplicada y que la RLS aísle de verdad a dos usuarios con sesión. Corrido con `aislamiento.sql` en el editor SQL el 11/10/2026: **8 de 8**, ver abajo | **PASS** |
-| el proyecto Supabase real, lo que falta | que el `auth.uid()` de GoTrue real (no el sustituto de la prueba) se comporte igual, que PostgREST devuelva `[]` con 0 filas en vez de error, y que el Storage aplique las políticas igual | **UNKNOWN** |
+| el proyecto Supabase real | que el proyecto **tenga** la migración aplicada, que el `auth.uid()` de GoTrue se comporte como el sustituto, que PostgREST devuelva `[]` con 0 filas, y que el Storage aplique las políticas igual | **UNKNOWN** |
 
-El UNKNOWN no es un hueco por rellenar: desde CI la política de red deniega
+El UNKNOWN no es un hueco por rellenar: desde este entorno la política de red deniega
 `supabase.co` (403 al CONNECT, medido con `curl`). Lo corre el dueño:
 `supabase/pruebas/concurrencia.sql` en el editor SQL del proyecto, con el sabotaje que
 el propio fichero describe.
-
-#### Medido contra el proyecto real · 11/10/2026
-
-Una parte del UNKNOWN sí se pudo cerrar desde fuera, con la clave publicable que va en
-`index.html` — la que tiene cualquier visitante. Contra `cabina_docs`, **sin sesión**:
-
-| Como `anon` | Respuesta |
-|---|---|
-| `GET` (leer) | **401** · `42501 permission denied for table cabina_docs` |
-| `POST` (insertar) | **401** · `42501` |
-| `PATCH` (modificar) | **401** · `42501` |
-| `GET /rest/v1/` (el esquema) | **401** · ni los nombres de tabla salen |
-
-Es más fuerte que la RLS: al rol `anon` no se le ha concedido **ningún** privilegio
-sobre la tabla, así que no se llega a evaluar ninguna política. Un desconocido con el
-enlace no saca nada, y eso importa desde que la página es indexable.
-
-`DELETE` **no se probó a propósito**: comprobarlo significa ejecutar un borrado real
-contra la tabla de producción. Por el mismo GRANT debería estar igual de denegado.
-
-**Lo que esto no demostraba** era lo otro: que un usuario CON sesión no pueda leer las
-filas de otro. Eso lo gobiernan las políticas RLS y hacen falta dos cuentas para verlo.
-Se cerró el mismo día.
-
-#### Aislamiento entre dos usuarios con sesión · 11/10/2026
-
-`supabase/pruebas/aislamiento.sql`, corrido entero en el editor SQL del proyecto real.
-El bloque termina a propósito en `raise exception`, así que la transacción se deshace
-y el veredicto viaja en el mensaje del error:
-
-```
-ERROR: P0001: RESULTADO A_ve_lo_suyo=2 B_lee_de_A=0 B_modifica_de_A=0 B_borra_de_A=0
-               B_escribe_como_A_bloqueado=true B_ve_solo_lo_suyo=1
-               anonimo_bloqueado=true A_intacto=1
-CONTEXT: PL/pgSQL function inline_code_block line 58 at RAISE
-```
-
-Las ocho cifras son las esperadas. Leído de izquierda a derecha: A ve sus dos
-documentos; B no lee ninguno de A, no modifica ninguno, no borra ninguno, no consigue
-escribir uno a nombre de A, y ve exactamente el suyo; sin sesión no se ve nada; y lo de
-A queda intacto después de todos los intentos.
-
-Comprobado después, con una consulta de solo lectura, que la transacción no dejó nada:
-
-| | |
-|---|---|
-| usuarios de prueba que quedaron | **0** |
-| documentos en `cabina_docs` | **1** (el real, el de antes) |
-| filas con basura de la prueba | **0** |
-| políticas RLS sobre la tabla | **4** |
-| RLS activa en la tabla | **true** |
-
-Esto era la comprobación que había que hacer **antes** de darle el enlace a nadie. Ya
-está hecha.
-
-## La cola durable · lo que pasa al cerrar la pestaña sin red
-
-Hasta el 11/10/2026 una escritura que fallaba se anotaba en `sinGuardar`, un `Map`
-**en memoria**. El rótulo lo decía —eso ya estaba bien— y al recargar la operación
-había desaparecido sin dejar rastro. Apuntar una operación en el metro y cerrar la
-pestaña la perdía.
-
-### Por qué el código decía que no, y en qué tenía razón
-
-El comentario de «los seis estados» rechazaba la cola con este argumento: *elegir una
-segunda fuente de verdad es una decisión de producto; dos copias que divergen es un
-problema peor que el que se arregla*. Eso es **cierto de una cola que drena con
-upsert**. Sería last-write-wins por la puerta de atrás y se llevaría por delante el
-control de concurrencia de la fase 2 — justo lo que más costó montar.
-
-Por eso esta cola no es una segunda fuente de verdad: es un **buffer de envío**.
-Drena por `escribeOcc` y `borraOcc`, la misma puerta que todo lo demás, así que un
-conflicto al drenar sigue siendo un conflicto y se le pregunta al usuario. La base
-manda igual que antes. Lo único que cambia es que un cambio que no pudo salir
-sobrevive a cerrar la pestaña.
-
-### Las cinco reglas
-
-| | regla | qué rotura tapa |
-|---|---|---|
-| 1 | Cada registro lleva su `uid` y sólo se drena el del dueño de la sesión | En un navegador compartido, B entra y lo pendiente de A se escribe en la cuenta de B. **La RLS no para esto**: la petición iría firmada con el token de B y sería legítima para Postgres. Se para en el cliente o no se para |
-| 2 | Una entrada por documento | El almacén escribe documentos enteros, no parches: la última escritura gana. Guardar las cuarenta anteriores para reproducirlas en orden no añade nada y hace el drenaje lento |
-| 3 | Sólo sale de la cola con éxito confirmado | Ni por antigüedad, ni al caducar la sesión, ni al cambiar de pantalla |
-| 4 | No se reintenta lo que nunca va a entrar | Un conflicto, un 401 o un 400 de validación no mejoran insistiendo: se quedan marcados y visibles. Reintentar un 400 en bucle es cómo se funde una batería |
-| 5 | Sin IndexedDB (modo privado) la cola vive en memoria y el rótulo **no** promete que sobreviva | Prometer una durabilidad que no hay es peor que no tenerla |
-
-Reintento con espera creciente desde 5 s y techo de 5 min: sin techo, una pestaña
-olvidada con el wifi caído pide cada cinco segundos durante horas.
-
-### El rótulo, con dos cuentas que antes eran una
-
-«Pendiente en la cola» y «se pierde si recargas» no son lo mismo, y mezclarlos era la
-mentira nueva que esto podía introducir. Se cuentan por separado:
-
-- **SIN GUARDAR · N** — lo que falló y **no** entró en la cola. Está en la pantalla y
-  en ningún sitio más. Va antes que «sin conexión», porque es lo único que urge.
-- **sin conexión · N en cola** — hay red caída pero lo escrito está a salvo en el
-  dispositivo.
-- **PENDIENTES · N** — hay red, y queda trabajo por enviar. No es un error; es trabajo
-  a salvo que todavía no ha salido. Decir «sincronizado» con cosas sin enviar sería la
-  misma mentira de siempre.
-
-### La prueba, y sus dos sabotajes
-
-`test/cola.mjs`, 31 aserciones. Las dos que deciden:
-
-1. Sin red → escribir → **cerrar la pestaña** → volver → vuelve la red → la operación
-   llega a la base. Contra el código anterior no llega nunca.
-2. Mientras estaba en cola, otro dispositivo escribió ese documento → al drenar sale
-   **CONFLICTO** y lo del otro **sigue en la base**.
-
-Los dos sabotajes se corrieron el 11/10/2026:
-
-| sabotaje | qué se puso rojo |
-|---|---|
-| `alFallar` no guarda nada (el comportamiento anterior) | 12 aserciones, entre ellas «al volver la red LLEGA A LA BASE», que devolvió `original` |
-| el drenaje usa `POST ?on_conflict` en vez de `escribeOcc` | 4 aserciones; la base dijo `lo que escribí sin red` donde debía decir `lo que escribió el otro teléfono` |
-
-La segunda es la que importa: es el atajo fácil, pasa la primera mitad de la suite y
-falla exactamente en la aserción escrita para cazarlo.
-
-### Lo que esta cola NO hace
-
-- **No fusiona.** Si otro dispositivo tocó el documento, decide el usuario. Igual que antes.
-- **No es tiempo real.** Sigue sin haber Realtime; lo de otro dispositivo llega al volver a la pestaña.
-- **No sobrevive a vaciar los datos del navegador.** Es almacenamiento del sitio, como localStorage.
-- **No cubre las capturas.** Una imagen que falle al subir sigue sin cola; el documento sí, la imagen no.
 
 ### Lo que sigue sin resolverse
 
@@ -387,8 +246,6 @@ veces la suite se puso roja; el árbol quedó limpio después de cada una.
 | la propiedad de las capturas deja de mirar la carpeta (`with check` sin la carpeta) | `test/db.mjs` → `capturas.sql` | `A_fuera_de_su_carpeta_bloqueado=false` y `B_sube_en_carpeta_de_A_bloqueado=false` |
 | la base deja que el cliente fije la versión (`coalesce(new.version, …)` en el trigger) | `test/db.mjs` → `concurrencia.sql` | `B_no_piso_a_A=false` y `cliente_no_decide_version=false`: last-write-wins otra vez, exactamente |
 | la versión de reglas anclada se ignora y manda la vigente hoy | `test/versiones.mjs` | 21 rojos: el pasado vuelve a juzgarse con las reglas de ahora |
-| la cola no guarda nada al fallar una escritura (lo de antes) | `test/cola.mjs` | 12 rojos: «al volver la red LLEGA A LA BASE» devuelve `original` |
-| el drenaje usa upsert incondicional en vez de `escribeOcc` | `test/cola.mjs` | 4 rojos: la base pierde lo del otro dispositivo y el rótulo dice «sincronizado» |
 
 **Dos de los sabotajes del encargo no tienen dónde aplicarse**, y eso no se disimula:
 una fila mala de CSV y una operación duplicada. No hay importador de CSV ni huella de
@@ -403,8 +260,14 @@ Para abrir las cuentas, en este orden:
 1. **GitHub Pages activado** (Settings → Pages → Source: GitHub Actions). Sin eso no
    hay página pública donde entrar.
 2. **Supabase → Authentication → URL Configuration**: *Site URL* =
-   `https://axcelsosa15.github.io/Cabina/`, y la misma URL en *Redirect URLs*. Sin
-   esto, los enlaces de confirmar y de recuperar vuelven a `localhost`.
+   `https://axcelsosa15.github.io/Cabina/`, y `https://axcelsosa15.github.io/Cabina/**` en *Redirect URLs*.
+   Sin esto, los enlaces de confirmar y de recuperar vuelven a `localhost`.
+
+   **Esto pasó de verdad el 2026-10-08.** El dueño intentó crear una cuenta y el
+   enlace del correo le llevó a `http://localhost:3000` — el valor de fábrica del
+   *Site URL*. La app no tiene la culpa: envía su `redirect_to` correcto, pero
+   Supabase lo descarta si no está en la lista blanca y cae al *Site URL*. Por eso
+   hay que poner LOS DOS campos, no sólo uno.
 3. **Activar la protección de contraseñas filtradas** y poner el **mínimo en 8**
    (Authentication → contraseñas). Con login por contraseña no es opcional. El
    proyecto viejo la tenía apagada.

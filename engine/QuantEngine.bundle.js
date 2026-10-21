@@ -498,6 +498,23 @@ function dimensionar(params, opciones) {
   if (balance === null || balance <= 0) return Err("BALANCE_INVALIDO", "El balance debe ser mayor que cero.", { balance });
   if (entrada === null || stop === null) return Err("FALTA_STOP", "Se necesita entrada y stop para dimensionar.");
 
+  /* EL MISMO CONTROL QUE valuarOperacion, Y FALTABA AQUI.
+     `toCents` redondea al centavo, asi que un tick de 0,001 USD vale CERO
+     centavos. Alla arriba eso devuelve TICK_SIN_VALOR; aqui no habia nada, y
+     `riesgoPorContratoCents` salia 0. La division de abajo daba Infinity y la
+     funcion respondia `ok: true` con **contratos: Infinity** y riesgoReal null:
+     una funcion de dimensionamiento de posicion diciendo «compra infinitos
+     contratos» y marcandolo como exito. `resolveContract` no lo filtra porque
+     solo exige tickValue > 0, y 0,001 lo cumple.
+     Hoy la app llama a dimensionar() sin `overrides`, asi que con los contratos
+     de serie no se alcanza; pero el motor es publico (window.QuantEngine) y la
+     asimetria entre las dos funciones era una trampa esperando a que alguien
+     anada contratos a medida. */
+  const tickCents = toCents(c.tickValue);
+  if (tickCents === null || tickCents === 0) {
+    return Err("TICK_SIN_VALOR", `El tick de ${c.symbol} no tiene valor monetario representable.`, { tickValue: c.tickValue });
+  }
+
   const res = Ok(null);
   const ticksRiesgo = Math.abs(Math.round(entrada / c.tickSize) - Math.round(stop / c.tickSize));
   if (ticksRiesgo === 0) return Err("RIESGO_CERO", "Entrada y stop coinciden: no hay riesgo que dimensionar.");
@@ -510,7 +527,7 @@ function dimensionar(params, opciones) {
   if (pct > 0.05) addWarn(res, "RIESGO_ALTO", `Arriesgar ${roundTo(pct * 100, 2)}% por operacion es agresivo: 10 perdidas seguidas se llevan ${roundTo((1 - Math.pow(1 - pct, 10)) * 100, 1)}% de la cuenta.`, { pct });
 
   const riesgoPermitidoCents = toCents(balance * pct);
-  const riesgoPorContratoCents = ticksRiesgo * toCents(c.tickValue);
+  const riesgoPorContratoCents = ticksRiesgo * tickCents;
   const bruto = riesgoPermitidoCents / riesgoPorContratoCents;
   let contratos = Math.floor(bruto);
   if (cfg.maxContratos) contratos = Math.min(contratos, toPosInt(cfg.maxContratos) ?? contratos);
@@ -529,7 +546,9 @@ function dimensionar(params, opciones) {
     riesgoPorContrato: fromCents(riesgoPorContratoCents),
     /* lo que se deja en la mesa por no poder fraccionar un contrato */
     desaprovechado: fromCents(riesgoPermitidoCents - riesgoRealCents),
-    riesgoPctReal: roundTo(riesgoRealCents / toCents(balance), 6),
+    /* Un balance por debajo de medio centavo da toCents(balance) === 0, y el
+       porcentaje seria una division por cero. Se dice null, que es la verdad. */
+    riesgoPctReal: toCents(balance) ? roundTo(riesgoRealCents / toCents(balance), 6) : null,
     fraccional: roundTo(bruto, 4),
   });
   return res;
@@ -965,7 +984,27 @@ function construirCurva(operaciones, opciones) {
     const mov = movPorDia[fecha] || 0;
     equity += mov;
 
-    if (!intradia) {
+    /* UN MOVIMIENTO CAMBIA EL CAPITAL, ASI QUE HAY QUE VOLVER A MEDIR.
+       `base` decide CUANDO se muestrea el pico —en cada operacion o al cierre
+       del dia—, no SI un retiro cuenta contra el suelo. Faltaba aqui, y los dos
+       modos no decian lo mismo.
+
+       Que fallo: cuenta de 25.000 con drawdown de 1.500. Gana 100 el dia 5, asi
+       que el pico sube a 25.100 y el suelo a 23.600. El dia 6 no opera y retira
+       1.600: el capital queda en 23.500, CIEN DOLARES POR DEBAJO DEL SUELO. La
+       cuenta esta quemada. Medido: con `base:"cierre"` salia `quemadaEn` y peor
+       colchon -100; con `base:"intradia"` —EL MODO POR DEFECTO de la app—
+       `quemadaEn` era null y el peor colchon +1.500, el maximo posible. La
+       propia fila del dia ya imprimia cierre 23.500 contra suelo 23.600; lo que
+       nadie miraba era el colchon. Un dia de solo retiro era INVISIBLE para el
+       vigilante en intradia: su `fecha` entra en el recorrido por `movPorDia`,
+       pero `porDia[fecha]` esta vacio, el bucle de operaciones no corre y
+       `registrarRiesgo` no se llamaba ni una vez. Es el caso normal: se cobra
+       los dias que no se opera.
+
+       El semaforo lee esto (`dd.breached` -> FAILED), asi que la app daba por
+       sana una cuenta que la firma ya habia cerrado. */
+    if (!intradia || mov !== 0) {
       if (equity > pico) { pico = equity; picoFecha = fecha; }
       registrarRiesgo(fecha, equity);
     }
@@ -1357,16 +1396,46 @@ function barridoDeRiesgo(opciones, tamanos) {
   const baseRiesgo = toNum(opciones && opciones.riesgoPorOperacion);
   if (baseRiesgo === null || baseRiesgo <= 0) return Err("SIN_RIESGO", "Falta el valor en USD de 1R.");
   const filas = [];
+  let nCaminos = 0;
   for (const mult of lista) {
     const r = simularCuenta(Object.assign({}, opciones, { riesgoPorOperacion: baseRiesgo * mult }));
     if (!r.ok) return r;
+    nCaminos = r.value.caminos;
     filas.push({ multiplicador: mult, riesgo: roundTo(baseRiesgo * mult, 2),
                  pPasar: r.value.pPasar, pQuemar: r.value.pQuemar,
                  diasPasarMediana: r.value.diasPasarMediana });
   }
+
+  /* NO SE RECOMIENDA UN TAMANO DE POSICION SOBRE RUIDO.
+     Antes: `optimo` era simplemente el mayor pPasar. Pero pPasar es una
+     estimacion de Monte Carlo y este mismo fichero ya lo dice veinte lineas mas
+     arriba: con pocos caminos la resolucion no da para afirmar diferencias
+     pequenas. Elegir por una diferencia menor que el propio error estandar es
+     exactamente eso.
+
+     Que fallo, medido (la app llama a esto con caminos=1200, error +-1,4 puntos;
+     con semilla 34, objetivo 7000, 30 dias y 800 caminos, error +-1,8):
+
+       2x    pPasar 0.5288   pQuemar 0.46
+       1.5x  pPasar 0.5250   pQuemar 0.42
+
+     El criterio viejo marcaba 2x como `best` en la tabla. Gana por 0,38 puntos
+     de pPasar —la quinta parte del error estandar, o sea nada— y quema CUATRO
+     PUNTOS mas a menudo. La fila buena estaba justo al lado, con su pQuemar a la
+     vista, y la app resaltaba la otra.
+
+     Asi que entre los tamanos cuyo pPasar NO se distingue del mejor (dentro de
+     un error estandar) se elige el que menos quema; a igualdad, el menor, que es
+     el orden en que llega la lista. Esto no cambia que `optimo` sea el mejor
+     tamano: deja de romper un empate inventandose precision que el metodo no
+     tiene. Con una ventaja positiva pPasar decrece con el tamano, no hay empate
+     y sale el mismo de antes. */
+  const mejorP = filas.reduce((m, f) => (f.pPasar > m ? f.pPasar : m), -1);
+  const banda = nCaminos > 0 ? Math.sqrt(Math.max(mejorP * (1 - mejorP), 0) / nCaminos) : 0;
+  const empatados = filas.filter(f => f.pPasar >= mejorP - banda);
   let optimo = null;
-  for (const f of filas) if (!optimo || f.pPasar > optimo.pPasar) optimo = f;
-  return Ok({ filas, optimo });
+  for (const f of empatados) if (!optimo || f.pQuemar < optimo.pQuemar) optimo = f;
+  return Ok({ filas, optimo, bandaPPasar: roundTo(banda, 5), nEmpatados: empatados.length });
 }
 
 /* =========================================================================
@@ -1601,8 +1670,24 @@ function analizarExcursion(operaciones, opciones) {
   const conMFE = filas.filter(f => f.capturaMFE !== null);
   const ganadoras = conMAE.filter(f => f.ganadora);
 
-  const vdMae = veredicto(conMAE.length);
-  const vdMfe = veredicto(conMFE.length);
+  /* EL VEREDICTO SE CALCULA SOBRE LA MUESTRA QUE DE VERDAD SE USA.
+     Aqui habia `vdMae = veredicto(conMAE.length)` y `vdMfe = veredicto(conMFE.length)`,
+     calculados ANTES de saber sobre que operaciones se iba a medir cada cosa.
+     `salida` ya lo hacia bien —se calcula su propio `vdG` sobre `ganMFE`— y
+     `vdMfe` se quedo sin usar: el fosil del fallo.
+
+     Que fallo, medido: 30 operaciones con MAE de las que solo SEIS son
+     ganadoras. El cuantil p95 del uso del stop se calcula sobre esas seis, pero
+     el veredicto venia de las 30:
+
+       stop  -> n=6, fiable=TRUE,  razon "n=30: utilizable"   recorteSugerido 0.8
+       salida-> n=6, fiable=false, razon "n=6: esto es ruido"
+
+     Dos campos del MISMO objeto, de las MISMAS seis operaciones, con veredictos
+     opuestos. Y el equivocado era el que aconseja apretar el stop un 80%: la app
+     dejaba de atenuar la tarjeta y se callaba la nota de cautela (las dos miran
+     `fiable`), asi que presentaba como fiable un cambio de gestion de riesgo
+     sacado de seis operaciones. */
 
   /* ---- ¿cuanto podria apretar el stop? ----
      El cuantil alto del MAE de las GANADORAS es la respuesta directa: si el
@@ -1612,6 +1697,7 @@ function analizarExcursion(operaciones, opciones) {
      siendo el stop por definicion, y meterlas contaminaria la conclusion. */
   let stop = null;
   if (ganadoras.length >= 5) {
+    const vdStop = veredicto(ganadoras.length);
     const usos = ganadoras.map(f => f.usoDelStop);
     const q = cuantil(usos, cfg.supervivencia);
     const sobra = Math.max(0, 1 - q);
@@ -1623,8 +1709,8 @@ function analizarExcursion(operaciones, opciones) {
       margenSobrante: roundTo(sobra, 4),
       /* cuanto se podria apretar conservando ese % de las ganadoras */
       recorteSugerido: sobra > 0.15 ? roundTo(sobra, 4) : 0,
-      fiable: vdMae.fiable,
-      veredicto: vdMae,
+      fiable: vdStop.fiable,
+      veredicto: vdStop,
     };
   }
 
