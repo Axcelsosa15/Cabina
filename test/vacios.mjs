@@ -85,6 +85,7 @@ const leerTiles = (p) => p.evaluate(() => [...document.querySelectorAll('.tile')
       lab: (l?.textContent || '').trim(),
       val: (v?.textContent || '').trim(),
       marcado: t.classList.contains('sin-dato'),
+      fondo: getComputedStyle(t).backgroundColor,
       peso: cv ? cv.fontWeight : null,
       color: cv ? cv.color : null,
       labColor: l ? getComputedStyle(l).color : null,
@@ -193,13 +194,13 @@ console.log('\n§4 · el guión ya no pesa como una cifra');
   /* Dos grupos, cada uno con lo suyo: el primer intento metía los pesos de uno
      y los colores del otro en los mismos conjuntos y la salida decía «1
      colores» sin aclarar de qué. Un test ilegíble no lo puede verificar nadie. */
-  const marcado = { peso: new Set(), color: new Set() };
-  const conDato = { peso: new Set(), color: new Set() };
+  const marcado = { peso: new Set(), color: new Set(), fondo: new Set() };
+  const conDato = { peso: new Set(), color: new Set(), fondo: new Set() };
   for (const tab of TABS) {
     await irA(p, tab);
     for (const t of await leerTiles(p)) {
       const g = t.marcado ? marcado : conDato;
-      g.peso.add(t.peso); g.color.add(t.color);
+      g.peso.add(t.peso); g.color.add(t.color); g.fondo.add(t.fondo);
     }
   }
   ok(marcado.peso.size === 1 && marcado.peso.has('400'),
@@ -211,6 +212,18 @@ console.log('\n§4 · el guión ya no pesa como una cifra');
     'una cifra real no comparte el peso del guión', [...conDato.peso].join(' '));
   ok(conDato.color.size > 0 && !conDato.color.has(dim),
     'una cifra real no comparte el color del guión', [...conDato.color].join(' '));
+
+  /* EL FONDO, Y POR QUÉ ESTA LÍNEA EXISTE. Durante un tiempo NO estuvo aquí, y
+     ese hueco costó exactamente lo que se paga por no medir algo: una capa de
+     estilo posterior añadió `.tab:not([data-tab="estudio"]) .tile` —(0,3,0)—
+     que le ganaba a `.tile.sin-dato` —(0,2,0)— y el fondo del tile vacío dejó
+     de aplicarse. Las otras tres aserciones de §4 siguieron en verde, porque
+     miran el VALOR y no el TILE, y la regla se quedó en el archivo con aspecto
+     de trabajo hecho. Lo que no se mide se muere en silencio. */
+  ok(marcado.fondo.size === 1 && conDato.fondo.size === 1
+     && [...marcado.fondo][0] !== [...conDato.fondo][0],
+    'el tile sin dato queda un escalón por detrás del que trae número',
+    `vacío ${[...marcado.fondo].join(' ')} vs con dato ${[...conDato.fondo].join(' ')}`);
   await ctx.close();
 }
 
@@ -284,6 +297,17 @@ if (fallos.length) { for (const f of fallos) console.log(`  · ${f}`); process.e
         significa nada en pantalla— y §4 con 2 fallos: peso 800 y color
         rgb(232, 236, 242), o sea el guión otra vez con la tinta de una cifra.
         Sin §4 este archivo habría dado por bueno el defecto original. exit 1.
+
+   6. (Añadido después, con §4 ya ampliada.) Devolver al fondo la especificidad
+      que tenía cuando se fusionó: `.tile.sin-dato` en vez de
+      `.tab:not([data-tab="estudio"]) .tile.sin-dato`. No es un sabotaje
+      inventado — es el estado REAL en que la regla vivió en main sin que nadie
+      lo notara.
+      → UN solo fallo, y dice el defecto con sus propias cifras: «el tile sin
+        dato queda un escalón por detrás del que trae número — vacío
+        rgb(24, 29, 38) vs con dato rgb(24, 29, 38)». exit 1. Las otras cuatro
+        aserciones de §4 siguen verdes, que es justo por lo que el defecto pudo
+        vivir ahí.
 
    Un sabotaje que pasa no prueba nada sobre el código: prueba que el sabotaje
    era inerte. Los cinco se verificaron rojos. */
