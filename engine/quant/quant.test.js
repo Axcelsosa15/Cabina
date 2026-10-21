@@ -193,6 +193,31 @@ ok(!Q.dimensionar({ simbolo: "MNQ", balance: 1000, entrada: 20000, stop: 20000 }
 }
 ok(Q.dimensionar({ simbolo: "MNQ", balance: 25000, entrada: 20000, stop: 19990, riesgoPct: 8 }).warnings.some(w => w.code === "RIESGO_ALTO"), "avisa riesgo agresivo");
 
+/* UN TICK QUE NO LLEGA AL CENTAVO. `toCents(0.001)` es 0, asi que
+   `riesgoPorContratoCents` valia 0 y la division daba Infinity: dimensionar()
+   respondia ok:true con **contratos: Infinity**. valuarOperacion ya lo
+   rechazaba con TICK_SIN_VALOR; las dos tienen que decir lo mismo. */
+{
+  const ov = { XYZ: { tickSize: 0.01, tickValue: 0.001 } };
+  const d = Q.dimensionar({ simbolo: "XYZ", balance: 50000, entrada: 100, stop: 99, riesgoPct: 1 }, { overrides: ov });
+  ok(!d.ok, "un tick que no llega al centavo NO dimensiona");
+  /* `d.error` es null cuando el fallo NO ocurre, asi que se lee con `?.`: sin
+     eso el sabotaje revienta la suite entera con un TypeError en vez de dejar
+     una asercion roja, y se pierden las 300 de abajo. */
+  const cod = d.ok ? null : (d.error || {}).code;
+  ok(cod === "TICK_SIN_VALOR", "y lo dice con TICK_SIN_VALOR, igual que valuarOperacion");
+  const v2 = Q.valuarOperacion({ simbolo: "XYZ", direccion: "long", entrada: 100, salida: 101, stop: 99, contratos: 1 }, { overrides: ov });
+  const cod2 = v2.ok ? null : (v2.error || {}).code;
+  ok(cod2 !== null && cod2 === cod, "las dos funciones dan el MISMO codigo para el mismo contrato");
+}
+/* Un balance por debajo de medio centavo hacia toCents(balance) === 0 y el
+   porcentaje real salia de una division por cero. */
+{
+  const d = Q.dimensionar({ simbolo: "MNQ", balance: 0.001, entrada: 21000, stop: 20990, riesgoPct: 1 });
+  ok(d.ok && d.value.contratos === 0, "un balance diminuto da cero contratos, no un error");
+  ok(d.ok && d.value.riesgoPctReal === null, "y el porcentaje real es null, no una division por cero");
+}
+
 /* ═══ estadistica ═══ */
 grupo("estadistica");
 eq(Q.momentos([1, 2, 3, 4, 5]).media, 3, "media");
@@ -307,6 +332,32 @@ eq(Q.sueloPara("trailing", 25000, 25000, 0), null, "drawdown cero devuelve null,
   const c = Q.construirCurva([{ fecha: "2026-09-01", pnl: 100 }], { saldoInicial: 25000, ddMaximo: 1000, movimientos: [{ fecha: "2026-09-01", tipo: "retiro", monto: 500 }] }).value;
   eq(c.equity, 24600, "los retiros bajan el equity");
 }
+{ /* UN RETIRO CUENTA CONTRA EL SUELO EN LOS DOS MODOS.
+     `base` elige cuando se muestrea el pico, no si el dinero que sacas puede
+     quemarte la cuenta. En intradia el riesgo se medía SOLO dentro del bucle de
+     operaciones, asi que un dia de solo retiro —el caso normal: se cobra los
+     dias que no se opera— no se medía ni una vez. */
+  const ops = [{ fecha: "2026-01-05", orden: 0, pnl: 100 }];
+  const retiro = [{ fecha: "2026-01-06", tipo: "retiro", monto: 1600 }];
+  const cfg = b => ({ saldoInicial: 25000, ddTipo: "trailing_lock", ddMaximo: 1500, base: b, movimientos: retiro });
+  const intra = Q.construirCurva(ops, cfg("intradia")).value;
+  const cierre = Q.construirCurva(ops, cfg("cierre")).value;
+  /* Gana 100 -> pico 25.100 -> suelo 23.600. Retira 1.600 -> equity 23.500.
+     Cien dolares por debajo del suelo: la firma ya cerro la cuenta. */
+  eq(intra.equity, 23500, "el retiro deja el capital en 23.500");
+  ok(intra.quemadaEn, "intradia ve que el retiro rompio el suelo");
+  ok(cierre.quemadaEn, "y cierre tambien");
+  ok(intra.peorMomento.colchon < 0, "el peor colchon en intradia es negativo, no el maximo");
+  eq(intra.peorMomento.colchon, cierre.peorMomento.colchon, "los dos modos dicen lo mismo del retiro");
+}
+{ /* CONTROL: un retiro que NO rompe el suelo no enciende nada. */
+  const c = Q.construirCurva([{ fecha: "2026-01-05", pnl: 100 }],
+    { saldoInicial: 25000, ddTipo: "trailing_lock", ddMaximo: 1500, base: "intradia",
+      movimientos: [{ fecha: "2026-01-06", tipo: "retiro", monto: 200 }] }).value;
+  eq(c.equity, 24900, "retiro pequeno: el capital baja a 24.900");
+  ok(!c.quemadaEn, "un retiro que deja colchon no quema la cuenta");
+  ok(c.peorMomento.colchon > 0, "y el peor colchon sigue siendo positivo");
+}
 eq(Q.construirCurva([], { saldoInicial: 25000, ddMaximo: 1000 }).value.nDias, 0, "curva vacia no revienta");
 {
   const c = Q.construirCurva(Array.from({ length: 80 }, (_, i) => ({ fecha: `2026-${String(Math.floor(i / 28) + 1).padStart(2, "0")}-${String((i % 28) + 1).padStart(2, "0")}`, pnl: (i % 4 === 0 ? -150 : 80) })), { saldoInicial: 25000, ddMaximo: 3000 }).value;
@@ -382,6 +433,25 @@ ok(!Q.simularCuenta({ rMultiples: [1, -1, 1, -1, 1, -1], riesgoPorOperacion: 0 }
 {
   const b = Q.barridoDeRiesgo({ rMultiples: [2, -1, -1, 2, -1, 3, -1, -1, 1, -1, 2, -1], riesgoPorOperacion: 100, saldoInicial: 25000, ddMaximo: 1000, objetivoGanancia: 1500, caminos: 400, semilla: 9 }, [0.5, 1, 2]);
   ok(b.ok && b.value.filas.length === 3 && b.value.optimo, "el barrido devuelve la curva y su optimo");
+}
+{ /* EL OPTIMO NO SE ELIGE SOBRE RUIDO.
+     pPasar es una estimacion de Monte Carlo. Entre tamanos cuyo pPasar no se
+     distingue (dentro de un error estandar) hay que elegir el que menos quema,
+     no el que saca una decima mas por azar. Con esta semilla el criterio viejo
+     —maximo pPasar— marcaba 2x: ganaba por 0,38 puntos, la quinta parte del
+     error estandar, y quemaba cuatro puntos mas a menudo que 1,5x. */
+  const rs = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, -0.5];
+  const b = Q.barridoDeRiesgo({ rMultiples: rs, riesgoPorOperacion: 250, operacionesPorDia: 3,
+    saldoInicial: 25000, ddTipo: "trailing_lock", ddMaximo: 1500,
+    objetivoGanancia: 7000, diasMax: 30, caminos: 800, semilla: 34 }, [0.25, 0.5, 0.75, 1, 1.5, 2, 3]);
+  ok(b.ok, "el barrido corre");
+  const v = b.value;
+  ok(v.bandaPPasar > 0, "el barrido publica la banda de ruido que uso");
+  const mejorP = Math.max(...v.filas.map(f => f.pPasar));
+  const empatados = v.filas.filter(f => f.pPasar >= mejorP - v.bandaPPasar);
+  ok(empatados.length >= 2, "con esta semilla hay dos tamanos estadisticamente empatados");
+  for (const f of empatados) ok(v.optimo.pQuemar <= f.pQuemar, `el optimo no quema mas que ${f.multiplicador}x, que empata con el`);
+  eq(v.optimo.multiplicador, 1.5, "elige 1,5x y no 2x, que ganaba por ruido y quemaba mas");
 }
 
 /* ═══ cumplimiento ═══ */
@@ -728,6 +798,27 @@ grupo("excursión · conclusiones agregadas");
   eq(a.devueltas.acabaronEnPerdida, 20, "y 20 acabaron en pérdida");
   near(a.devueltas.tasa, 20 / 30, 1e-4, "dos de cada tres ganancias se devolvieron");
   near(a.devueltas.rMedioDevuelto, 4, 1e-6, "devolviendo 4R de media (de +3R a -1R)");
+}
+{ /* EL VEREDICTO DEL STOP, SOBRE LAS GANADORAS Y NO SOBRE TODAS.
+     El cuantil p95 del uso del stop se mide SOLO sobre ganadoras (a proposito:
+     en una perdedora el MAE acaba siendo el stop por definicion). El veredicto
+     tiene que hablar de esa muestra, no del total con MAE. */
+  const ops = [];
+  for (let i = 0; i < 6; i++) ops.push({ simbolo: "MNQ", direccion: "long", entrada: 100, stop: 90, salida: 120, mae: 98, mfe: 125 });
+  for (let i = 0; i < 24; i++) ops.push({ simbolo: "MNQ", direccion: "long", entrada: 100, stop: 90, salida: 90, mae: 90, mfe: 101 });
+  const a = Q.analizarExcursion(ops).value;
+  eq(a.conMAE, 30, "hay 30 operaciones con MAE");
+  eq(a.stop.n, 6, "pero el stop se concluye de SEIS ganadoras");
+  ok(!a.stop.fiable, "asi que no se marca fiable");
+  ok(/n=6/.test(a.stop.veredicto.razon), "y la razon habla de 6, no de 30");
+  eq(a.stop.fiable, a.salida.fiable, "stop y salida no se contradicen sobre la misma muestra");
+}
+{ /* CONTROL: con ganadoras de sobra, si es fiable. */
+  const ops = [];
+  for (let i = 0; i < 35; i++) ops.push({ simbolo: "MNQ", direccion: "long", entrada: 100, stop: 90, salida: 120, mae: 98, mfe: 125 });
+  const a = Q.analizarExcursion(ops).value;
+  eq(a.stop.n, 35, "35 ganadoras");
+  ok(a.stop.fiable, "con 35 el veredicto del stop si es fiable");
 }
 eq(Q.analizarExcursion([]).value.n, 0, "lista vacía no revienta");
 {

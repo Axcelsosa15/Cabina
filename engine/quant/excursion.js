@@ -73,8 +73,24 @@ export function analizarExcursion(operaciones, opciones) {
   const conMFE = filas.filter(f => f.capturaMFE !== null);
   const ganadoras = conMAE.filter(f => f.ganadora);
 
-  const vdMae = veredicto(conMAE.length);
-  const vdMfe = veredicto(conMFE.length);
+  /* EL VEREDICTO SE CALCULA SOBRE LA MUESTRA QUE DE VERDAD SE USA.
+     Aqui habia `vdMae = veredicto(conMAE.length)` y `vdMfe = veredicto(conMFE.length)`,
+     calculados ANTES de saber sobre que operaciones se iba a medir cada cosa.
+     `salida` ya lo hacia bien —se calcula su propio `vdG` sobre `ganMFE`— y
+     `vdMfe` se quedo sin usar: el fosil del fallo.
+
+     Que fallo, medido: 30 operaciones con MAE de las que solo SEIS son
+     ganadoras. El cuantil p95 del uso del stop se calcula sobre esas seis, pero
+     el veredicto venia de las 30:
+
+       stop  -> n=6, fiable=TRUE,  razon "n=30: utilizable"   recorteSugerido 0.8
+       salida-> n=6, fiable=false, razon "n=6: esto es ruido"
+
+     Dos campos del MISMO objeto, de las MISMAS seis operaciones, con veredictos
+     opuestos. Y el equivocado era el que aconseja apretar el stop un 80%: la app
+     dejaba de atenuar la tarjeta y se callaba la nota de cautela (las dos miran
+     `fiable`), asi que presentaba como fiable un cambio de gestion de riesgo
+     sacado de seis operaciones. */
 
   /* ---- ¿cuanto podria apretar el stop? ----
      El cuantil alto del MAE de las GANADORAS es la respuesta directa: si el
@@ -84,6 +100,7 @@ export function analizarExcursion(operaciones, opciones) {
      siendo el stop por definicion, y meterlas contaminaria la conclusion. */
   let stop = null;
   if (ganadoras.length >= 5) {
+    const vdStop = veredicto(ganadoras.length);
     const usos = ganadoras.map(f => f.usoDelStop);
     const q = cuantil(usos, cfg.supervivencia);
     const sobra = Math.max(0, 1 - q);
@@ -95,8 +112,8 @@ export function analizarExcursion(operaciones, opciones) {
       margenSobrante: roundTo(sobra, 4),
       /* cuanto se podria apretar conservando ese % de las ganadoras */
       recorteSugerido: sobra > 0.15 ? roundTo(sobra, 4) : 0,
-      fiable: vdMae.fiable,
-      veredicto: vdMae,
+      fiable: vdStop.fiable,
+      veredicto: vdStop,
     };
   }
 
