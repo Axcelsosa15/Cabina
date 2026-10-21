@@ -62,7 +62,7 @@ npm run compuerta    # todas las pruebas + la tabla de la cadena (lo que corre C
 
 | | |
 |---|---|
-| suites | **45**, 1.337 aserciones de navegador y guardianes en 42 archivos + 357 del motor |
+| suites | **54**, 1.508 aserciones de navegador y guardianes en 51 archivos + 383 del motor |
 | compuerta | **28 PASS · 0 FAIL · 4 UNKNOWN** de 32 filas (3 fronteras de plataforma y 1 que depende de un CSV real del bróker) |
 | despliegue | GitHub Pages, sólo tras `pruebas` en verde, con comparación byte a byte |
 
