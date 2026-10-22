@@ -273,6 +273,12 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      comisión, y sin que una operación de inversión entre en ninguna. */
   dice('edge', 'suite', 'Las métricas de edge dan lo que da la cuenta a mano', 'index.html');
   dice('lanzamiento', 'suite', 'Aviso legal, privacidad y metadatos de producto a la vista', 'index.html');
+  /* El inglés se aplica sobre el DOM ya pintado, así que su modo de fallar no es
+     «falta una traducción» —eso se ve— sino traducir un dato del usuario o
+     inventarle una preferencia que no eligió. La fila existe porque una suite
+     nueva no entra en ninguna por el hecho de existir, y sin ella la compuerta
+     podría abrirse con el idioma en rojo. */
+  dice('idioma', 'suite', 'El inglés no toca los datos ni inventa la preferencia', 'index.html');
   /* ESTAS DOS SUITES CORRÍAN SIN QUE NINGUNA FILA LAS MIRARA. El corredor
      ejecuta las 49 y sale distinto de cero con cualquiera roja, así que CI las
      cubría; la compuerta, no: sus filas citan suites una por una, y una suite
