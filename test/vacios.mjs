@@ -38,7 +38,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SEMILLA, conCuentas, arrancada, quieto } from './espera.mjs';
+import { SEMILLA, conCuentas, arrancada, quieto, asentado } from './espera.mjs';
 
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
@@ -76,7 +76,11 @@ const abrir = async (conSemilla) => {
 /* Lee cada tile VISIBLE de la pestaña activa con su valor, su marca y el estilo
    computado de la cifra. Un tile dentro de un panel oculto no se mira: no está
    en pantalla y su estilo computado no dice nada de lo que ve nadie. */
-const leerTiles = (p) => p.evaluate(() => [...document.querySelectorAll('.tile')]
+/* `asentado` PRIMERO: este lector mide estilo computado, y medirlo con una
+   transición en vuelo devuelve un color a medio camino. Va aquí, en el
+   instrumento, y no en cada punto de muestreo, para que ninguna lectura futura
+   pueda olvidarlo. Protocolo 24. */
+const leerTiles = async (p) => { await asentado(p); return p.evaluate(() => [...document.querySelectorAll('.tile')]
   .filter(t => t.offsetParent || t.offsetHeight > 0)
   .map(t => {
     const v = t.querySelector('.v'), l = t.querySelector('.lab');
@@ -90,7 +94,7 @@ const leerTiles = (p) => p.evaluate(() => [...document.querySelectorAll('.tile')
       color: cv ? cv.color : null,
       labColor: l ? getComputedStyle(l).color : null,
     };
-  }));
+  })); };
 
 const irA = async (p, tab) => {
   await p.evaluate(n => document.querySelector(`.tabbtn[data-tab="${n}"]`)?.click(), tab);
