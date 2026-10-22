@@ -71,10 +71,35 @@ jobs:
         run: npx playwright install chromium
 
       - name: Dependencias del sistema para Chromium
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: |
+          # SE ESPERA EL LOCK, NO SE DUERME A CIEGAS.
+          #
+          # Qué falló: la corrida de `c4b6557` en main agotó los tres intentos
+          # con «E: Unable to acquire the dpkg frontend lock». La imagen del
+          # runner arranca `unattended-upgrades`, que puede retener ese lock
+          # varios minutos; los sleeps de 20/40/60 s suman ~2 min y se quedaron
+          # cortos. Consecuencia: el paso de la compuerta quedó SKIPPED, main se
+          # puso rojo sin que corriera UNA SOLA prueba, y `pagina.yml` no
+          # desplegó. Un rojo que no mide nada es el peor tipo de rojo: cuesta
+          # lo mismo que uno real y no dice nada.
+          #
+          # Dormir no es esperar: se pregunta por el lock y sólo se intenta
+          # cuando está libre. Lo que NO cambia es el final — si apt no
+          # responde, el paso sigue fallando duro y no se desactiva nada. La
+          # suite no corre con dependencias a medias.
+          espera_lock() {
+            for _ in $(seq 1 72); do
+              if ! sudo fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock >/dev/null 2>&1; then
+                return 0
+              fi
+              sleep 5
+            done
+            echo "::warning::el lock de dpkg sigue tomado tras 6 min; se intenta de todos modos"
+          }
           for i in 1 2 3; do
-            if timeout 120 npx playwright install-deps chromium; then exit 0; fi
+            espera_lock
+            if timeout 180 npx playwright install-deps chromium; then exit 0; fi
             echo "::warning::intento $i de apt fallado o colgado; reintento en $((i * 20)) s"
             sleep $((i * 20))
           done
