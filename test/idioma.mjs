@@ -128,6 +128,43 @@ console.log('\n═══ 3 · un dato del usuario NO se traduce, ni aunque sea i
      existe es una clave del diccionario y no texto libre. */
   const marcados = await p.evaluate(() => [...document.querySelectorAll('[data-i18n-es]')].length);
   ok(marcados > 0, 'hay cromo marcado con su español original', `${marcados} nodos`);
+
+  /* LA ASERCIÓN QUE FALTABA, Y EL FALLO QUE DEJÓ PASAR.
+     Lo de arriba comprueba el dato GUARDADO; el daño real es un dato
+     RENDERIZADO sobrescrito en pantalla. Un <h2> del día tenía el texto
+     estático «Día» —una clave del diccionario—, quedó marcado, y después un
+     render le puso la fecha dentro: el elemento sobrevive, sólo cambia su nodo
+     de texto, así que la marca seguía puesta y la pasada siguiente escribía
+     «Día» encima de «jue 17/09/26».
+     Se mide recorriendo todo nodo marcado y exigiendo que su texto sea el
+     español guardado o su traducción. Cualquier otra cosa significa que un dato
+     ocupa un nodo que la capa de idioma cree suyo. */
+  /* LA ASERCIÓN QUE FALTABA, Y EL FALLO QUE DEJÓ PASAR.
+     Lo de arriba comprueba el dato GUARDADO. El daño real es otro: un dato
+     RENDERIZADO sobrescrito en pantalla. Un <h2> del día tenía el texto
+     estático «Día» —una clave del diccionario—, quedó marcado, y después un
+     render le puso la fecha dentro: el ELEMENTO sobrevive y sólo cambia su nodo
+     de texto, así que la marca seguía puesta y la pasada siguiente escribía
+     «Día» encima de «jue 17/09/26».
+
+     POR QUÉ SE MIDE LA FECHA Y NO «el texto coincide con el diccionario». En
+     modo español el fallo es INVISIBLE a esa comprobación: el dato ya fue
+     destruido y sustituido por el cromo, así que el nodo coincide con su
+     español guardado y la aserción pasaría tan contenta. Lo que hay que medir
+     es que el DATO siga ahí. Se busca una fecha —un dato que ningún
+     diccionario contiene— y se exige que sobreviva al viaje de ida y vuelta. */
+  const FECHA = /\d{1,2}\/\d{1,2}\/\d{2}/;
+  const conFecha = () => p.evaluate(() => [...document.querySelectorAll('h1, h2, h3')]
+    .map(e => { const n = [...e.childNodes].find(x => x.nodeType === 3 && x.data.trim()); return n ? n.data.trim() : ''; })
+    .filter(t => /\d{1,2}\/\d{1,2}\/\d{2}/.test(t)));
+  const fechasAntes = await conFecha();
+  ok(fechasAntes.length > 0, 'hay al menos una fecha renderizada que vigilar', fechasAntes.join(' | ') || 'NINGUNA');
+  await pulsa(p);                 /* a inglés */
+  await pulsa(p);                 /* y de vuelta */
+  const fechasDespues = await conFecha();
+  ok(JSON.stringify(fechasDespues) === JSON.stringify(fechasAntes),
+    'las fechas renderizadas sobreviven al viaje de ida y vuelta',
+    `antes=[${fechasAntes.join(' | ')}] despues=[${fechasDespues.join(' | ')}]`);
   await ctx.close();
 }
 

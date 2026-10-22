@@ -4140,32 +4140,71 @@ tbody tr:last-child td{border-bottom:0}
         if (!n) continue;
         /* El español original se guarda la primera vez que se ve el nodo, para
            que volver a español sea exacto y no una traducción inversa. */
+        const cur = n.data.trim();
         if (el.dataset.i18nEs === undefined) {
-          const t = n.data.trim();
-          if (!(t in I18N_EN)) continue;   /* no es cromo conocido: no se toca */
-          el.dataset.i18nEs = t;
+          if (!(cur in I18N_EN)) continue;   /* no es cromo conocido: no se toca */
+          el.dataset.i18nEs = cur;
+        } else if (cur !== el.dataset.i18nEs && cur !== (I18N_EN[el.dataset.i18nEs] || el.dataset.i18nEs)) {
+          /* EL NODO DEJÓ DE SER CROMO Y AHORA LLEVA UN DATO. SE SUELTA.
+             Qué falló: la coincidencia con el diccionario se comprobaba sólo la
+             PRIMERA vez que se veía el nodo, y después se confiaba en el
+             dataset para siempre. Un <h2> del día tenía el texto estático
+             «Día», quedó marcado, y luego un render le puso la fecha dentro —
+             el ELEMENTO sobrevive, sólo cambia su nodo de texto, así que la
+             marca seguía puesta. La pasada siguiente escribía «Día» encima de
+             «jue 17/09/26»: la capa de idioma reescribiendo un dato, que es
+             exactamente lo que la guarda existía para impedir.
+             Medido, no deducido: salió al quitar el observador, que lo tapaba
+             reaplicando. Ahora la coincidencia se comprueba en CADA pasada —si
+             el texto no es ni el español guardado ni su traducción, el nodo es
+             de otro y se olvida la marca. */
+          delete el.dataset.i18nEs;
+          continue;
         }
         const es = el.dataset.i18nEs;
         const quiere = lang === "en" ? (I18N_EN[es] || es) : es;
         if (n.data.trim() !== quiere) n.data = n.data.replace(n.data.trim(), quiere);
       }
-      document.documentElement.setAttribute("lang", lang);
+      /* TODA ESCRITURA VA GUARDADA, Y ESTA ES LA LÍNEA QUE LO ENSEÑÓ.
+         Asignar textContent reemplaza el nodo de texto AUNQUE la cadena sea
+         idéntica, así que esto escribía en cada llamada. Con un observador
+         detrás, eso es un generador perpetuo de mutaciones: `quieto()` —que
+         usan 25 archivos de prueba— espera 30-60 ms SIN mutaciones, y nunca
+         los tenía. Cada espera quemaba su tope entero y volvía con la página a
+         medio pintar. La compuerta pasó de 588 s a 1365 s y cerró con 6 filas
+         en rojo. La bandera `i18nEscribiendo` evitaba MI bucle y no las
+         mutaciones que ven los DEMÁS observadores: proteger el bucle propio no
+         es proteger el reloj del resto. */
+      if (document.documentElement.getAttribute("lang") !== lang) document.documentElement.setAttribute("lang", lang);
       const b = document.getElementById("idiomaBtn");
-      if (b) { b.textContent = lang === "en" ? "ES" : "EN"; b.setAttribute("aria-pressed", lang === "en" ? "true" : "false"); }
+      if (b) {
+        const et = lang === "en" ? "ES" : "EN", ap = lang === "en" ? "true" : "false";
+        if (b.textContent !== et) b.textContent = et;
+        if (b.getAttribute("aria-pressed") !== ap) b.setAttribute("aria-pressed", ap);
+      }
     } finally { i18nEscribiendo = false; }
   }
+  /* NO HAY OBSERVADOR, Y ES A PROPÓSITO.
+     La primera versión colgaba un MutationObserver de document.body con
+     subtree:true. Con 72 funciones de render eso recorría 271 nodos en cada
+     mutación, y junto con las escrituras sin guarda de arriba dejaba la app sin
+     un instante de calma. El coste no se paga en el idioma: se paga en TODA
+     prueba que espera a que la página se asiente.
+
+     Los disparadores concretos bastan porque lo que se traduce es cromo
+     ESTÁTICO —el markup que los renders no regeneran— más `#tabnav .tabbtn`.
+     `showTab()` es el embudo único de las ocho pestañas, así que traducir al
+     arrancar y al final de showTab cubre los repintados reales con coste
+     acotado y conocido.
+
+     LO QUE ESTO NO CUBRE, dicho en lugar de disimulado: el cromo que un render
+     GENERA (los botones de `pbNav`, las cabeceras de tabla que se construyen en
+     JS) vuelve a español al regenerarse. Son pocos y se arreglan en su sitio de
+     render, no con un observador que vigile el árbol entero. */
   function i18nArranca() {
     traduce(idioma());
     const b = document.getElementById("idiomaBtn");
     if (b) b.addEventListener("click", () => { const v = idioma() === "en" ? "es" : "en"; idiomaGuarda(v); traduce(v); });
-    try {
-      const ob = new MutationObserver(() => {
-        if (i18nEscribiendo) return;
-        clearTimeout(i18nArranca._t);
-        i18nArranca._t = setTimeout(() => traduce(idioma()), 30);
-      });
-      ob.observe(document.body, { childList: true, subtree: true });
-    } catch (e) { }
   }
 
   /* `occ`: ¿la base tiene la columna `version`, o sea, hay control de concurrencia?
@@ -5081,6 +5120,9 @@ tbody tr:last-child td{border-bottom:0}
     if (name !== "cabina" && state.editing) setEditing(false);
     try { if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name); } catch {}
     redrawCharts();
+    /* El idioma, después de que la pestaña entrante haya pintado: su cromo
+       estático acaba de entrar en el layout y aún está en español. */
+    if (typeof traduce === "function") traduce(idioma());
     /* Esperar a que la pestaña entrante participe en el layout antes de
        restaurar su posición. Mantener el bloqueo durante el ajuste evita que
        el scroll transitorio sobrescriba el valor guardado. */
