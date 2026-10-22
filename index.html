@@ -2030,6 +2030,7 @@ tbody tr:last-child td{border-bottom:0}
     <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
     <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
     <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
+    <button type="button" class="editbtn" id="idiomaBtn" aria-pressed="false" title="Language / Idioma">EN</button>
   </div>
 </div>
 <nav class="tabnav" id="tabnav" aria-label="Secciones">
@@ -3859,6 +3860,369 @@ tbody tr:last-child td{border-bottom:0}
   const BIENV_KEY = "cabina:bienvenida:v1";
   function bienvVista() { try { return !!localStorage.getItem(BIENV_KEY); } catch (e) { return true; } }
   function bienvMarca() { try { localStorage.setItem(BIENV_KEY, "1"); } catch (e) { } }
+  /* ═══ IDIOMA · ESPAÑOL ES LA FUENTE, INGLÉS ES UNA CAPA ═════════════════════
+
+     Vive en el navegador y no en la cuenta, por la misma razón que BIENV_KEY:
+     la pregunta es «en qué idioma quiere leer ESTA persona en ESTE
+     dispositivo», y eso no es un dato de la cuenta — sin cuenta todavía no hay
+     ninguna, y la app funciona entera sin ella.
+
+     PROTOCOLO 17 · LA AUSENCIA SIGNIFICA ALGO. Que no haya clave guardada
+     significa «no lo ha elegido», no «español». La diferencia importa: si al
+     arrancar escribiéramos "es", todo navegador que abriera Cabina una vez
+     quedaría afirmando una preferencia que nadie expresó, y el día que haya un
+     tercer idioma o una detección por navegador no habría forma de distinguir
+     «quiere español» de «nunca eligió». Así que NO SE ESCRIBE AL ARRANCAR: sólo
+     cuando se pulsa el botón. `test/idioma.mjs` lo afirma en los dos sentidos.
+
+     EL ESPAÑOL NO ESTÁ EN EL DICCIONARIO, ESTÁ EN EL MARKUP. El diccionario
+     tiene únicamente entradas `en`, con el texto español COMO CLAVE. Dos
+     consecuencias buscadas:
+       · una traducción que falte degrada a español, no a una clave cruda en
+         pantalla («futures.tab» mirando al usuario es peor que «Futuros»);
+       · no hay dos copias del español que puedan desincronizarse.
+
+     POR QUÉ SE EXIGE COINCIDENCIA EXACTA CON EL DICCIONARIO, y es la guarda que
+     protege los datos: un nodo sólo se toca si su texto está LITERALMENTE en el
+     diccionario. Una nota del día, el nombre de un setup o el símbolo de un
+     instrumento no pueden coincidir con una de las 214 claves, así que ningún
+     dato escrito por el usuario puede ser traducido por accidente. Lo contrario
+     —traducir por selector y confiar en que el selector no atrape datos— es un
+     fallo esperando a que alguien llame «Pre-sesión» a un setup.
+
+     SE REEMPLAZA EL PRIMER NODO DE TEXTO, NO textContent. El botón de Futuros es
+     `Futuros<span class="n" id="nFut"></span>`: escribir textContent le borraría
+     el contador. Se busca el primer hijo de tipo texto y se cambia sólo ése.
+
+     SE REAPLICA TRAS LOS RENDERS. Hay 72 funciones de render y `renderAll` sólo
+     llama a cinco, así que no hay un único punto donde colgarse: un observador
+     del DOM lo cubre entero. Lleva bandera para no reaccionar a su propia
+     escritura, que sería un bucle. */
+  const IDIOMA_KEY = "cabina:idioma:v1";
+  /* null = no elegido. Nunca se devuelve "es" por defecto: eso lo decide quien
+     pregunta, y así la ausencia sigue siendo visible. */
+  function idiomaLee() { try { const v = localStorage.getItem(IDIOMA_KEY); return v === "en" || v === "es" ? v : null; } catch (e) { return null; } }
+  function idiomaGuarda(v) { try { localStorage.setItem(IDIOMA_KEY, v); } catch (e) { } }
+  /* El idioma EFECTIVO: lo elegido, y si no hay nada, español. */
+  function idioma() { return idiomaLee() || "es"; }
+  const I18N_EN = {
+    "+ Añadir cuenta": "+ Add account",
+    "+ Añadir mercado": "+ Add market",
+    "+ Añadir paso": "+ Add step",
+    "+ Añadir regla": "+ Add rule",
+    "+ Cuenta": "+ Account",
+    "+ Nueva forma": "+ New idea",
+    "+ Nueva operación": "+ New trade",
+    "+ Nueva operación de inversión": "+ New investment trade",
+    "+ Nuevo setup": "+ New setup",
+    "+ Registrar": "+ Log",
+    "+ Registrar cuenta": "+ Log account",
+    "+ Rápido": "+ Quick",
+    "1R en la simulación vale": "1R in the simulation is worth",
+    "Ahora no": "Not now",
+    "Antes de operar": "Before trading",
+    "Antítesis / riesgos / limitaciones": "Counter-thesis / risks / limitations",
+    "Análisis": "Analysis",
+    "Aportes por mes": "Contributions per month",
+    "Asignación por mercado": "Allocation by market",
+    "Añadir detalles": "Add details",
+    "Año a año": "Year over year",
+    "Años": "Years",
+    "Bajo el agua": "Underwater",
+    "Borrar": "Delete",
+    "Buscar operaciones": "Search trades",
+    "Cabina": "Cabina",
+    "Calculadora": "Calculator",
+    "Cancelar": "Cancel",
+    "Capitalización": "Compounding",
+    "Cargar una cuenta prop": "Load a prop account",
+    "Cargar una plantilla": "Load a template",
+    "Cartera · todos los mercados": "Portfolio · all markets",
+    "Cerrar sesión": "Sign out",
+    "Cerrar sesión de hoy": "Close today's session",
+    "Comparativa por instrumento y dirección": "Comparison by instrument and direction",
+    "Concepto": "Concept",
+    "Conceptos": "Concepts",
+    "Consistencia": "Consistency",
+    "Consumo del colchón": "Cushion used",
+    "Contraseña": "Password",
+    "Contraseña nueva": "New password",
+    "Contrato": "Contract",
+    "Copia de seguridad y traspaso": "Backup and transfer",
+    "Crear cuenta": "Create account",
+    "Cuenta": "Account",
+    "Cuenta de trading": "Trading account",
+    "Cuentas": "Accounts",
+    "Cuentas de inversión": "Investment accounts",
+    "Cuentas prop": "Prop accounts",
+    "Curva de equity": "Equity curve",
+    "Curva de equity y drawdown": "Equity curve and drawdown",
+    "Cómo fue la sesión": "How the session went",
+    "Datos de la cuenta": "Account details",
+    "Descargar copia": "Download backup",
+    "Descartar el fichero": "Discard the file",
+    "Desde": "From",
+    "Desde plantilla": "From template",
+    "Desglose": "Breakdown",
+    "Deshacer la importación": "Undo the import",
+    "Diario": "Journal",
+    "Dirección": "Direction",
+    "Distribución de R": "R distribution",
+    "Dominado / revisado": "Mastered / reviewed",
+    "Día": "Day",
+    "Edge": "Edge",
+    "Editar": "Edit",
+    "El protocolo, ¿paga?": "Does the protocol pay?",
+    "Elegir archivo…": "Choose file…",
+    "Eliminar": "Remove",
+    "Email": "Email",
+    "En curso": "In progress",
+    "En revisión": "Under review",
+    "Entrar": "Sign in",
+    "Escenarios guardados": "Saved scenarios",
+    "Escribir mis reglas": "Write my rules",
+    "Estado": "Status",
+    "Estado de revisión": "Review status",
+    "Estudio": "Study",
+    "Etiquetas (separadas por coma)": "Tags (comma separated)",
+    "Evidencia a favor / hechos observados": "Supporting evidence / observed facts",
+    "Expectativa móvil": "Rolling expectancy",
+    "Exportar": "Export",
+    "Exportar JSON": "Export JSON",
+    "Flashcard": "Flashcard",
+    "Flashcard: pregunta": "Flashcard: question",
+    "Flashcard: respuesta": "Flashcard: answer",
+    "Flashcards": "Flashcards",
+    "Formas de hacer dinero": "Ways to make money",
+    "Fuente": "Source",
+    "Fuentes": "Sources",
+    "Futuros": "Futures",
+    "Gestionar cuentas": "Manage accounts",
+    "Guardar": "Save",
+    "Guardar contraseña": "Save password",
+    "Guardar documento": "Save document",
+    "Guardar escenario": "Save scenario",
+    "Guardar escenario actual": "Save current scenario",
+    "Guardar pre-sesión": "Save pre-session",
+    "Guardar revisión": "Save review",
+    "Hasta": "To",
+    "Historial de pre-sesiones": "Pre-session history",
+    "Importar": "Import",
+    "Importar operaciones": "Import trades",
+    "Inflación anual (%) · opcional": "Annual inflation (%) · optional",
+    "Ingresos cobrados": "Payouts received",
+    "Instrumento": "Instrument",
+    "Instrumento, dirección y resultado": "Instrument, direction and result",
+    "Interpretación / conclusión provisional": "Interpretation / provisional conclusion",
+    "Interés compuesto": "Compound interest",
+    "Inversiones": "Investments",
+    "Lección y siguiente acción": "Lesson and next action",
+    "Leídas": "Read",
+    "Limpiar filtros": "Clear filters",
+    "Listo": "Done",
+    "Mis P&L escritos a mano ya son netos": "My hand-written P&L is already net",
+    "Métricas / Edge": "Metrics / Edge",
+    "Niveles del día": "Levels for the day",
+    "Nota del día": "Note for the day",
+    "Nota · qué hice bien, qué rompí, qué cambia mañana": "Note · what I did well, what I broke, what changes tomorrow",
+    "Nuevo documento de estudio": "New study document",
+    "Olvidé mi contraseña": "I forgot my password",
+    "Operaciones": "Trades",
+    "Operaciones de inversión": "Investment trades",
+    "Operación": "Trade",
+    "Operación por operación": "Trade by trade",
+    "P&L diario": "Daily P&L",
+    "Parámetros": "Parameters",
+    "Pasos que más te saltas": "Steps you skip most",
+    "Pegar el texto": "Paste the text",
+    "Pendiente": "Pending",
+    "Plan / tesis original": "Plan / original thesis",
+    "Playbook": "Playbook",
+    "Por día de la semana": "By day of week",
+    "Por estudiar": "To study",
+    "Por hora de entrada": "By entry hour",
+    "Por sesión de mercado": "By market session",
+    "Pre-sesión": "Pre-session",
+    "Pregunta de investigación / resumen": "Research question / summary",
+    "Protocolo de investigación": "Research protocol",
+    "Rachas y disciplina": "Streaks and discipline",
+    "Radiografía cuantitativa": "Quantitative breakdown",
+    "Reabrir": "Reopen",
+    "Registro rápido": "Quick log",
+    "Reglas duras": "Hard rules",
+    "Rendimiento anual (%)": "Annual return (%)",
+    "Rendimiento mensual (%)": "Monthly return (%)",
+    "Rendimiento por posición": "Return by position",
+    "Research brief / tesis": "Research brief / thesis",
+    "Research briefs": "Research briefs",
+    "Resolver conflicto": "Resolve conflict",
+    "Resultado": "Result",
+    "Resumen": "Summary",
+    "Retiro mensual (% de la ganancia)": "Monthly withdrawal (% of profit)",
+    "Revelar respuesta": "Reveal answer",
+    "Revisado": "Reviewed",
+    "Revisión de ejecución": "Execution review",
+    "Riesgo de ruina · prop": "Risk of ruin · prop",
+    "Riesgo y drawdown": "Risk and drawdown",
+    "Salir y volver a mis datos": "Exit and return to my data",
+    "Salud de la cartera": "Portfolio health",
+    "Seguir sin cuenta": "Continue without an account",
+    "Selecciona una operación": "Select a trade",
+    "Seleccionar": "Select",
+    "Sesión de hoy": "Today's session",
+    "Siguiente ↗": "Next ↗",
+    "Simular 10.000 caminos": "Simulate 10,000 paths",
+    "Stop (puntos)": "Stop (points)",
+    "Subir lo de este navegador": "Upload what's in this browser",
+    "Sólo sin revisar": "Unreviewed only",
+    "Tamaño de posición": "Position size",
+    "Tasa libre de riesgo anual (%)": "Annual risk-free rate (%)",
+    "Tipo": "Type",
+    "Todas": "All",
+    "Todas las cuentas": "All accounts",
+    "Todo": "All",
+    "Todos": "All",
+    "Tu cuenta": "Your account",
+    "Tu journal · laboratorio de trades": "Your journal · trade lab",
+    "Título *": "Title *",
+    "URL de la fuente": "Source URL",
+    "Una regla por línea. Las tuyas, con tus palabras.": "One rule per line. Yours, in your words.",
+    "Usar mis números del journal": "Use my journal numbers",
+    "Ver demo": "View demo",
+    "Ver el texto": "View the text",
+    "Veredicto": "Verdict",
+    "activos": "active",
+    "anual": "annual",
+    "archivados": "archived",
+    "diaria": "daily",
+    "el riesgo del cálculo de tamaño": "the risk from position sizing",
+    "en prueba": "in testing",
+    "este año": "this year",
+    "este mes": "this month",
+    "lo escribo a mano": "I write it by hand",
+    "mensual": "monthly",
+    "mi regla de pérdida máx. diaria": "my max daily loss rule",
+    "mi riesgo medio real por operación": "my real average risk per trade",
+    "pérdida diaria máx. de la cuenta": "account max daily loss",
+    "todas las categorías": "all categories",
+    "todas las cuentas": "all accounts",
+    "todas las estrategias": "all strategies",
+    "todas las sesiones": "all sessions",
+    "todo el historial": "all history",
+    "todos": "all",
+    "todos los estados": "all statuses",
+    "todos los instrumentos": "all instruments",
+    "todos los setups": "all setups",
+    "¿De qué tipo fueron tus pérdidas?": "What kind were your losses?",
+    "¿Funciona el sistema?": "Does the system work?",
+    "¿Preparar paga?": "Prepare payout?",
+    "Últimas 14 sesiones": "Last 14 sessions",
+    "últimos 30 días": "last 30 days",
+    "últimos 90 días": "last 90 days",
+    "＋ Nuevo documento": "＋ New document",
+    "Cockpit de sesión": "Session cockpit"
+  };
+  /* Dónde puede haber cromo. No decide qué se traduce —eso lo decide la
+     coincidencia con el diccionario— sino dónde se busca, para no recorrer el
+     árbol entero en cada repintado. */
+  const I18N_SEL = '#tabnav .tabbtn, h1, h2, h3, label, button, option, summary, th';
+  let i18nEscribiendo = false;
+  /* EL ESPAÑOL ORIGINAL VIVE EN UN WeakMap, NO EN UN ATRIBUTO, Y ESO ES EL
+     ARREGLO DE UN FALLO MEDIDO.
+     La primera versión lo guardaba en `el.dataset.i18nEs`. Eso son ~267
+     ESCRITURAS en el DOM cada vez que aparece cromo nuevo, y `traduce()` corre
+     al final de showTab() — o sea DESPUÉS de que la pestaña se marque activa,
+     justo en la ventana donde `sistema.mjs` muestrea estilo computado. Las
+     escrituras forzaban recálculo de estilo y reiniciaban transiciones, y la
+     prueba leía colores a medio interpolar: la CI reportó rgb(12,18,24) en los
+     campos numéricos, un valor que NO ESTÁ en la hoja de estilo —están
+     #0c1219 (12,18,25) y #0c1118 (12,17,24)— o sea un punto entre los dos.
+     Pasó aquí y falló en CI, que es más rápida y cae dentro de la transición.
+     Con el WeakMap, el idioma por defecto —español, que es la ausencia de
+     preferencia— no escribe NADA en el DOM. Una función que nadie encendió no
+     debe dejar huella en el árbol. Y de paso el HTML del usuario no se llena de
+     atributos que sólo le sirven a la capa de idioma. */
+  const i18nOrig = new WeakMap();
+  function i18nNodoTexto(el) {
+    for (const n of el.childNodes) if (n.nodeType === 3 && n.data.trim()) return n;
+    return null;
+  }
+  function traduce(lang) {
+    if (i18nEscribiendo) return;
+    i18nEscribiendo = true;
+    try {
+      for (const el of document.querySelectorAll(I18N_SEL)) {
+        const n = i18nNodoTexto(el);
+        if (!n) continue;
+        /* El español original se guarda la primera vez que se ve el nodo, para
+           que volver a español sea exacto y no una traducción inversa. */
+        const cur = n.data.trim();
+        if (!i18nOrig.has(el)) {
+          if (!(cur in I18N_EN)) continue;   /* no es cromo conocido: no se toca */
+          i18nOrig.set(el, cur);
+        } else if (cur !== i18nOrig.get(el) && cur !== (I18N_EN[i18nOrig.get(el)] || i18nOrig.get(el))) {
+          /* EL NODO DEJÓ DE SER CROMO Y AHORA LLEVA UN DATO. SE SUELTA.
+             Qué falló: la coincidencia con el diccionario se comprobaba sólo la
+             PRIMERA vez que se veía el nodo, y después se confiaba en el
+             dataset para siempre. Un <h2> del día tenía el texto estático
+             «Día», quedó marcado, y luego un render le puso la fecha dentro —
+             el ELEMENTO sobrevive, sólo cambia su nodo de texto, así que la
+             marca seguía puesta. La pasada siguiente escribía «Día» encima de
+             «jue 17/09/26»: la capa de idioma reescribiendo un dato, que es
+             exactamente lo que la guarda existía para impedir.
+             Medido, no deducido: salió al quitar el observador, que lo tapaba
+             reaplicando. Ahora la coincidencia se comprueba en CADA pasada —si
+             el texto no es ni el español guardado ni su traducción, el nodo es
+             de otro y se olvida la marca. */
+          i18nOrig.delete(el);
+          continue;
+        }
+        const es = i18nOrig.get(el);
+        const quiere = lang === "en" ? (I18N_EN[es] || es) : es;
+        if (n.data.trim() !== quiere) n.data = n.data.replace(n.data.trim(), quiere);
+      }
+      /* TODA ESCRITURA VA GUARDADA, Y ESTA ES LA LÍNEA QUE LO ENSEÑÓ.
+         Asignar textContent reemplaza el nodo de texto AUNQUE la cadena sea
+         idéntica, así que esto escribía en cada llamada. Con un observador
+         detrás, eso es un generador perpetuo de mutaciones: `quieto()` —que
+         usan 25 archivos de prueba— espera 30-60 ms SIN mutaciones, y nunca
+         los tenía. Cada espera quemaba su tope entero y volvía con la página a
+         medio pintar. La compuerta pasó de 588 s a 1365 s y cerró con 6 filas
+         en rojo. La bandera `i18nEscribiendo` evitaba MI bucle y no las
+         mutaciones que ven los DEMÁS observadores: proteger el bucle propio no
+         es proteger el reloj del resto. */
+      if (document.documentElement.getAttribute("lang") !== lang) document.documentElement.setAttribute("lang", lang);
+      const b = document.getElementById("idiomaBtn");
+      if (b) {
+        const et = lang === "en" ? "ES" : "EN", ap = lang === "en" ? "true" : "false";
+        if (b.textContent !== et) b.textContent = et;
+        if (b.getAttribute("aria-pressed") !== ap) b.setAttribute("aria-pressed", ap);
+      }
+    } finally { i18nEscribiendo = false; }
+  }
+  /* NO HAY OBSERVADOR, Y ES A PROPÓSITO.
+     La primera versión colgaba un MutationObserver de document.body con
+     subtree:true. Con 72 funciones de render eso recorría 271 nodos en cada
+     mutación, y junto con las escrituras sin guarda de arriba dejaba la app sin
+     un instante de calma. El coste no se paga en el idioma: se paga en TODA
+     prueba que espera a que la página se asiente.
+
+     Los disparadores concretos bastan porque lo que se traduce es cromo
+     ESTÁTICO —el markup que los renders no regeneran— más `#tabnav .tabbtn`.
+     `showTab()` es el embudo único de las ocho pestañas, así que traducir al
+     arrancar y al final de showTab cubre los repintados reales con coste
+     acotado y conocido.
+
+     LO QUE ESTO NO CUBRE, dicho en lugar de disimulado: el cromo que un render
+     GENERA (los botones de `pbNav`, las cabeceras de tabla que se construyen en
+     JS) vuelve a español al regenerarse. Son pocos y se arreglan en su sitio de
+     render, no con un observador que vigile el árbol entero. */
+  function i18nArranca() {
+    traduce(idioma());
+    const b = document.getElementById("idiomaBtn");
+    if (b) b.addEventListener("click", () => { const v = idioma() === "en" ? "es" : "en"; idiomaGuarda(v); traduce(v); });
+  }
+
   /* `occ`: ¿la base tiene la columna `version`, o sea, hay control de concurrencia?
      `true` mientras no se demuestre lo contrario; pasa a false si la base dice que
      la columna no existe, y el pie deja de prometer lo que no hay. */
@@ -4772,6 +5136,9 @@ tbody tr:last-child td{border-bottom:0}
     if (name !== "cabina" && state.editing) setEditing(false);
     try { if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name); } catch {}
     redrawCharts();
+    /* El idioma, después de que la pestaña entrante haya pintado: su cromo
+       estático acaba de entrar en el layout y aún está en español. */
+    if (typeof traduce === "function") traduce(idioma());
     /* Esperar a que la pestaña entrante participe en el layout antes de
        restaurar su posición. Mantener el bloqueo durante el ajuste evita que
        el scroll transitorio sobrescriba el valor guardado. */
@@ -16202,6 +16569,11 @@ tbody tr:last-child td{border-bottom:0}
         .observe(c, { childList: true, subtree: true, characterData: true });
     }
   })();
+
+  /* El idioma se aplica al final del arranque, cuando el markup estatico ya
+     esta y los primeros renders han corrido: traducir antes dejaria el cromo a
+     medias hasta el primer repintado. */
+  i18nArranca();
 
 })();
 </script>
