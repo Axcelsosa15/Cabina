@@ -81,9 +81,16 @@ queda es configuración en GitHub y en Supabase, y sólo el dueño puede hacerla
   destruir el cambio del otro ([docs/MULTIUSUARIO.md](docs/MULTIUSUARIO.md))
 - el inglés sólo cubre el **cromo estático** (215 cadenas: pestañas, encabezados,
   labels, botones, opciones). Los ~1.377 literales de texto que el JavaScript
-  genera —mensajes, avisos y errores— siguen en español. Esa fase toca las 824
-  aserciones escritas contra texto español en las 55 suites, así que va aparte y
-  con su propio plan. El cromo que un render GENERA (los botones de `pbNav`, las
+  genera —mensajes, avisos y errores— siguen en español, y traducirlos es una
+  fase aparte por su VOLUMEN, no por riesgo sobre las pruebas: medido, de 808
+  literales españoles en las suites sólo **57** aparecen también en
+  `index.html`, y varios de esos son coincidencias de subcadena («sin clave»,
+  «guardado»). Con el español como defecto —que es la ausencia de preferencia—
+  una aserción sobre texto español no cambia de resultado, porque las pruebas
+  corren en el defecto. (Una versión anterior de esta línea decía «824
+  aserciones»: ese número contaba etiquetas de `console.log` de las propias
+  pruebas y datos de la semilla, no comparaciones contra la interfaz. Protocolo
+  14, y esta vez contra quien lo escribió.) El cromo que un render GENERA (los botones de `pbNav`, las
   cabeceras de tabla construidas en JS) vuelve a español al regenerarse: se
   arregla en su sitio de render, no con un observador del árbol entero
 - capturas sin cuenta
