@@ -202,16 +202,46 @@ export function barridoDeRiesgo(opciones, tamanos) {
   const baseRiesgo = toNum(opciones && opciones.riesgoPorOperacion);
   if (baseRiesgo === null || baseRiesgo <= 0) return Err("SIN_RIESGO", "Falta el valor en USD de 1R.");
   const filas = [];
+  let nCaminos = 0;
   for (const mult of lista) {
     const r = simularCuenta(Object.assign({}, opciones, { riesgoPorOperacion: baseRiesgo * mult }));
     if (!r.ok) return r;
+    nCaminos = r.value.caminos;
     filas.push({ multiplicador: mult, riesgo: roundTo(baseRiesgo * mult, 2),
                  pPasar: r.value.pPasar, pQuemar: r.value.pQuemar,
                  diasPasarMediana: r.value.diasPasarMediana });
   }
+
+  /* NO SE RECOMIENDA UN TAMANO DE POSICION SOBRE RUIDO.
+     Antes: `optimo` era simplemente el mayor pPasar. Pero pPasar es una
+     estimacion de Monte Carlo y este mismo fichero ya lo dice veinte lineas mas
+     arriba: con pocos caminos la resolucion no da para afirmar diferencias
+     pequenas. Elegir por una diferencia menor que el propio error estandar es
+     exactamente eso.
+
+     Que fallo, medido (la app llama a esto con caminos=1200, error +-1,4 puntos;
+     con semilla 34, objetivo 7000, 30 dias y 800 caminos, error +-1,8):
+
+       2x    pPasar 0.5288   pQuemar 0.46
+       1.5x  pPasar 0.5250   pQuemar 0.42
+
+     El criterio viejo marcaba 2x como `best` en la tabla. Gana por 0,38 puntos
+     de pPasar —la quinta parte del error estandar, o sea nada— y quema CUATRO
+     PUNTOS mas a menudo. La fila buena estaba justo al lado, con su pQuemar a la
+     vista, y la app resaltaba la otra.
+
+     Asi que entre los tamanos cuyo pPasar NO se distingue del mejor (dentro de
+     un error estandar) se elige el que menos quema; a igualdad, el menor, que es
+     el orden en que llega la lista. Esto no cambia que `optimo` sea el mejor
+     tamano: deja de romper un empate inventandose precision que el metodo no
+     tiene. Con una ventaja positiva pPasar decrece con el tamano, no hay empate
+     y sale el mismo de antes. */
+  const mejorP = filas.reduce((m, f) => (f.pPasar > m ? f.pPasar : m), -1);
+  const banda = nCaminos > 0 ? Math.sqrt(Math.max(mejorP * (1 - mejorP), 0) / nCaminos) : 0;
+  const empatados = filas.filter(f => f.pPasar >= mejorP - banda);
   let optimo = null;
-  for (const f of filas) if (!optimo || f.pPasar > optimo.pPasar) optimo = f;
-  return Ok({ filas, optimo });
+  for (const f of empatados) if (!optimo || f.pQuemar < optimo.pQuemar) optimo = f;
+  return Ok({ filas, optimo, bandaPPasar: roundTo(banda, 5), nEmpatados: empatados.length });
 }
 
 /* =========================================================================

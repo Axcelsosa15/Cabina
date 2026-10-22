@@ -90,6 +90,7 @@ export const arrancada = async (pg, sel = '.acct') => {
 
    Los diferidos que hay hoy en index.html:
        40 ms   bkConfirmImport tras leer un archivo o pegar JSON
+       40 ms   impCargar tras pegar un CSV del bróker (el modal se cierra antes)
        60 ms   openTrade al pulsar «Ver operación» desde una tesis
       100 ms   openPlaybook al crear una versión nueva
      1200 ms   location.reload() tras restaurar un respaldo
@@ -170,3 +171,37 @@ export const enDisco = (pg, prueba, tope = 6000) =>
 /* Tras guardar en un editor hay dos oleadas: se cierra el overlay y se repinta
    lo que dependa del dato. Más calma y más tope que un simple cambio de vista. */
 export const trasGuardar = (pg) => quieto(pg, 60, 3000);
+
+/* UNA TRANSICIÓN CSS NO ES UNA MUTACIÓN DEL DOM.
+
+   Qué falló: `vacios.mjs` §4 leía `getComputedStyle(tile).backgroundColor`
+   justo después de `quieto`, y `quieto` observa el DOM con un
+   MutationObserver. Un cambio de clase ya ocurrió cuando el observador se
+   calla, pero `.tile` lleva `transition:background .14s` — así que el fondo
+   sigue INTERPOLÁNDOSE mientras se mide. La aserción exige un solo color por
+   grupo y recibía dos: el de destino y uno a medio camino.
+
+   Dio verde en una máquina cargada (más tiempo de reloj entre el clic y la
+   lectura: la transición acababa) y rojo en CI (más rápida: la pillaba a
+   medias). El mismo valor cambiaba entre corridas —rgb(20,25,32),
+   rgb(22,26,35)— que es la huella de una interpolación, no de un token.
+
+   Se espera a las animaciones del propio elemento en vez de dormir un número
+   mágico: sin nada corriendo resuelve de inmediato. Se descartan las de
+   duración infinita (un spinner no se acaba nunca) y hay tope por si una
+   queda colgada, porque una espera sin tope convierte un fallo en un cuelgue. */
+export const asentado = (pg, sel = '.tile', tope = 1500) =>
+  pg.evaluate(([s, t]) => {
+    const anims = [...document.querySelectorAll(s)]
+      .flatMap(e => (e.getAnimations ? e.getAnimations() : []))
+      .filter(a => {
+        const fin = a.effect && a.effect.getComputedTiming
+          ? a.effect.getComputedTiming().endTime : null;
+        return typeof fin === 'number' && Number.isFinite(fin);
+      });
+    if (!anims.length) return null;
+    return Promise.race([
+      Promise.all(anims.map(a => a.finished.catch(() => {}))),
+      new Promise(res => setTimeout(res, t)),
+    ]).then(() => null);
+  }, [sel, tope]);

@@ -37,7 +37,8 @@ npm run compuerta      # todas + la tabla de la cadena (CI)
 | `sync.mjs` | diez escenarios: tras cada escritura, Cabina y Futuros dan el mismo número sin recargar |
 | `cuentas.mjs` | login, sesión, token caducado, escritura con el `user_id` correcto |
 | `capturas.mjs` | subir, ver, aislar, borrar y respaldar capturas del bucket privado |
-| `importar.mjs` | la frontera de importación: nada de basura dentro, nada legítimo perdido |
+| `importar.mjs` | la frontera de importación de **respaldos**: nada de basura dentro, nada legítimo perdido |
+| `mapeador.mjs` | importar un **CSV del bróker** (fase 1 de `docs/IMPORTAR.md`): la columna elegida se lee por esa columna, lo ilegible no entra, nada se escribe antes de la vista previa, y lo importado no se juzga como si hubiera tenido un plan |
 | `integridad.mjs` | los sellos del respaldo: una copia truncada o dañada no pasa por entera |
 | `sello.mjs` | un documento viejo no pisa uno nuevo, ni en la configuración ni en una ficha |
 | `conflicto.mjs` | dos dispositivos sobre el mismo documento: el que llega tarde no pisa y ve conflicto; el diálogo enseña las dos versiones y no elige |

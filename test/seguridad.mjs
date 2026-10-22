@@ -46,6 +46,34 @@ PROHIBIDO.forEach(([pat, nom]) => {
      n ? `${n} apariciones EN CODIGO` : (enProsa ? `0 en codigo (${enProsa} en comentarios)` : '0'));
 });
 
+console.log('\n═══ ENLACES CON DATOS DEL USUARIO · esc() no mira el esquema ═══');
+/* esc() escapa & < > " ' y NADA MAS. Un href cuyo esquema no sea http o https
+   ejecuta codigo al pulsarlo, y la CSP de esta pagina no lo impide: script-src
+   lleva 'unsafe-inline'. Lo que la CSP limita es con quien habla ese codigo, y
+   ahi esta justo el proyecto Supabase donde vive la cabina.
+
+   Se comprueba la CLASE, no el caso: cualquier href que interpole algo tiene que
+   pasar por la lista blanca. El unico que hay hoy es el enlace «contrato» de una
+   firma, y su url viene de rules.url, que la frontera de importacion copia con un
+   String().trim(). Un respaldo ajeno podia traer un enlace que corriera con la
+   sesion de quien lo importara. Si manana aparece un segundo href sin guardar,
+   esta prueba se pone roja antes de que lo haga un usuario. */
+/* Se mira la LINEA entera, no el atributo: la guardia vive en el ternario que
+   decide si se pinta el enlace, delante del literal. La primera version de esta
+   prueba miraba solo dentro de href="..." y se puso roja con el codigo ya
+   arreglado. El instrumento estaba mal, no el fichero. */
+const hrefsConDatos = sinComentarios.split('\n').filter(l => /href="\$\{/.test(l));
+const sinGuardia = hrefsConDatos.filter(l => !/urlNavegable/.test(l)).map(l => l.trim().slice(0, 90));
+ok(hrefsConDatos.length > 0, 'se encontro el href con datos que hay que vigilar',
+   `${hrefsConDatos.length} href interpolado(s)`);
+ok(sinGuardia.length === 0, 'todo href interpolado pasa por la lista blanca de esquema',
+   sinGuardia.length ? sinGuardia.join(' | ') : 'todos guardados');
+/* Y la lista blanca es BLANCA: dice que vale, no que no vale. Una lista negra se
+   olvida de un esquema; y el peligroso escrito literalmente pondria roja la
+   seccion de arriba, con razon. */
+const decl = (sinComentarios.match(/function urlNavegable\([^)]*\)\s*\{[^}]*\}/) || [''])[0];
+ok(/\^https\?:/.test(decl), 'la guardia ancla el esquema permitido al principio', decl ? 'anclada en ^https?:' : 'no se encontro la funcion');
+
 console.log('\n═══ RECURSOS EXTERNOS · la cadena de suministro del navegador ═══');
 const externos = Array.from(html.matchAll(/(?:src|href)="(https?:\/\/[^"]+)"/g)).map(m => m[1]);
 const hosts = Array.from(new Set(externos.map(u => { try { return new URL(u).host; } catch { return u; } })));

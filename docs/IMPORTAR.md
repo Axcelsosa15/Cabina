@@ -1,7 +1,12 @@
 # Importar operaciones desde el bróker
 
-Estado: **especificación, nada implementado.** Este documento existe para que la
-fase 1 se pueda empezar sin volver a decidir nada.
+Estado: **fases 0.5 y 1 hechas; 2, 3, 4 y 5 no.** La fase 0 —un CSV real— sigue
+sin hacerse, y hay que ser exacto sobre qué bloquea de verdad: bloquea la
+**detección** (fase 4) y bloquea el **control** de la fase 1 —que las cifras
+cuadren con la plataforma del bróker al céntimo—, pero no bloqueaba
+*construir* el mapeador manual, que por definición no sabe nada de ningún
+bróker. Dar por bloqueada la fase 1 fue un error de lectura de este mismo
+documento, y costó tiempo; queda escrito para no repetirlo.
 
 El `README.md` ya nombraba el hueco: no hay esquema canónico de operación
 importada, ni mapeos por bróker, ni el camino de importación, ni huella de
@@ -147,11 +152,14 @@ Cada fase es útil por sí sola y se puede soltar sin la siguiente.
 Exportar un CSV real de **cada** plataforma que uses de verdad y guardarlo en el
 repositorio como fixture anónimo.
 
-> **Control:** hay al menos un `.csv` real en `test/fixtures/`. Sin esto, todo lo
-> de abajo se diseña a ciegas y se rehace.
+> **Control:** hay al menos un `.csv` real en `test/fixtures/`. Sin esto, la
+> detección se diseña a ciegas y el importador no se puede dar por fiel.
 >
-> **Sigue sin hacerse a 12/10/2026.** La fase 0.5 (abajo) se adelantó porque no
-> depende de ella; el resto sí.
+> **Sigue sin hacerse a 20/10/2026.** Se adelantaron la fase 0.5 y la fase 1,
+> que no dependen de ella: la primera porque leer bytes no cambia según el
+> bróker, y la segunda porque un mapeador manual no sabe nada de ninguno. Lo que
+> esta fase sigue bloqueando es la **detección automática** (fase 4) y el
+> **control** de la fase 1.
 
 ### Fase 0.5 — Leer bytes *(hecha, 12/10/2026)*
 
@@ -196,21 +204,64 @@ convierte una venta en su contraria).
 > recuento se saltaba la cabecera y acertaba por casualidad—; hizo falta uno donde
 > comas y `;` empatan y la coma gana por ir primera en la lista.
 
-**Lo que esto NO desbloquea:** nada de lo de abajo. La fase 0 sigue bloqueando el
-mapeo, el emparejado y la detección exactamente igual. Esto es el suelo sobre el
-que se apoyan, no un atajo para saltárselos.
+**Lo que esto NO desbloquea:** el emparejado (fase 2) ni la detección (fase 4).
+Esto es el suelo sobre el que se apoyan, no un atajo para saltárselos.
 
-### Fase 1 — El mapeador manual
+*(La primera versión de esta línea decía que la fase 0 seguía bloqueando también
+el mapeo. No era cierto, y esa frase es la que hizo dar por imposible la fase 1
+durante ocho días: un mapeador manual no necesita saber cómo exporta nadie.
+Corregido el 20/10/2026, con la fase 1 hecha.)*
 
-Subir cualquier CSV, ver las primeras filas, decir a mano qué columna es qué,
-previsualizar e importar. Sin detección, sin emparejado: una fila, una
-operación, y se asume que el CSV ya trae idas y vueltas.
+### Fase 1 — El mapeador manual *(hecha, 20/10/2026)*
+
+Subir cualquier CSV o pegarlo, ver las primeras filas, decir a mano qué columna
+es qué, previsualizar e importar. Sin detección, sin emparejado: una fila, una
+operación, y **se dice en pantalla**, porque con un export de órdenes produce el
+doble de operaciones con la mitad del P&L.
 
 Funciona con **todos** los brókers desde el primer día, porque no sabe nada de
-ninguno.
+ninguno. Vive en Futuros → Diario, y las decisiones que no son obvias:
+
+- **Ningún desplegable viene relleno por parecido de nombre.** Una columna
+  «Price» puede ser la entrada o la salida, y acertar nueve de cada diez veces
+  es peor que no intentarlo: la décima entra sin que nadie la mire, porque un
+  desplegable relleno se lee como comprobado.
+- **«No hay nada que decidir» no es «es ambiguo».** Una columna de contratos con
+  `1` y `2` no tiene separador decimal: preguntarlo convertiría el aviso en
+  ruido permanente y el día que importe también se ignoraría. Sólo se pregunta
+  cuando alguna celda trae un signo y aun así no se resuelve.
+- **Una celda con algo dentro que no se puede leer es un problema, no un
+  hueco.** Si «Salida» trae `abc`, esa operación no está abierta: está mal
+  leída, y dejarla entrar como abierta le quita su resultado a la cuenta sin un
+  solo error en pantalla.
+- **Fecha y hora pueden compartir columna** —un `15/09/2026 10:05` es lo normal—
+  y ninguna otra pareja puede.
+- **Lo que no entra se enseña** con su número de fila (contando la cabecera, que
+  es el número que se ve al abrir el CSV en una hoja de cálculo) y su motivo.
+- **Se deshace entero** mientras no se cierre la página: cada operación lleva
+  `source: "import:manual"` e `importId`, y el deshacer borra su lote y sólo el
+  suyo. Ese `importId` es donde se colgará la huella de la fase 3.
+
+Y una consecuencia que había que resolver con ella, porque sin resolverla el
+importador habría estropeado lo mejor que tiene la app: **una operación
+importada no se juzga como si hubiera tenido un plan.** Ningún bróker exporta el
+stop, así que la señal «sin stop escrito» —categoría 2, *sabías qué hacer y no
+lo hiciste*— se disparaba en todas: cien operaciones importadas, cien errores de
+ejecución que nadie cometió. El campo falta **por construcción**, no por
+descuido. La pérdida importada cae en «Sin datos», que es la verdad, y la
+escrita a mano sin stop sigue siendo un error de ejecución: la excepción está
+acotada y `test/mapeador.mjs` lo fija con las dos mitades.
 
 > **Control:** importar el fixture de la fase 0 y que las cifras cuadren con la
-> plataforma del bróker al céntimo. Prueba en `test/importar.mjs`.
+> plataforma del bróker al céntimo. **SIGUE PENDIENTE**, y es lo único que
+> queda de esta fase: `test/mapeador.mjs` (43 aserciones) prueba el mapeador con
+> CSV **sintéticos** —que la columna elegida se lee por esa columna, que lo
+> ilegible no entra, que nada se escribe antes de la vista previa— y eso no es
+> lo mismo que fidelidad a un bróker de verdad. La compuerta lo lleva como una
+> fila UNKNOWN a propósito, para que un verde no se lea como más de lo que es.
+> Los CSV de la prueba van dentro del propio fichero y **no** en
+> `test/fixtures/`: un fixture sintético ahí se confundiría con el real y daría
+> la fase 0 por cerrada sin estarlo.
 
 ### Fase 2 — Emparejado de ejecuciones
 

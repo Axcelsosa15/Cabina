@@ -104,7 +104,27 @@ export function construirCurva(operaciones, opciones) {
     const mov = movPorDia[fecha] || 0;
     equity += mov;
 
-    if (!intradia) {
+    /* UN MOVIMIENTO CAMBIA EL CAPITAL, ASI QUE HAY QUE VOLVER A MEDIR.
+       `base` decide CUANDO se muestrea el pico —en cada operacion o al cierre
+       del dia—, no SI un retiro cuenta contra el suelo. Faltaba aqui, y los dos
+       modos no decian lo mismo.
+
+       Que fallo: cuenta de 25.000 con drawdown de 1.500. Gana 100 el dia 5, asi
+       que el pico sube a 25.100 y el suelo a 23.600. El dia 6 no opera y retira
+       1.600: el capital queda en 23.500, CIEN DOLARES POR DEBAJO DEL SUELO. La
+       cuenta esta quemada. Medido: con `base:"cierre"` salia `quemadaEn` y peor
+       colchon -100; con `base:"intradia"` —EL MODO POR DEFECTO de la app—
+       `quemadaEn` era null y el peor colchon +1.500, el maximo posible. La
+       propia fila del dia ya imprimia cierre 23.500 contra suelo 23.600; lo que
+       nadie miraba era el colchon. Un dia de solo retiro era INVISIBLE para el
+       vigilante en intradia: su `fecha` entra en el recorrido por `movPorDia`,
+       pero `porDia[fecha]` esta vacio, el bucle de operaciones no corre y
+       `registrarRiesgo` no se llamaba ni una vez. Es el caso normal: se cobra
+       los dias que no se opera.
+
+       El semaforo lee esto (`dd.breached` -> FAILED), asi que la app daba por
+       sana una cuenta que la firma ya habia cerrado. */
+    if (!intradia || mov !== 0) {
       if (equity > pico) { pico = equity; picoFecha = fecha; }
       registrarRiesgo(fecha, equity);
     }
