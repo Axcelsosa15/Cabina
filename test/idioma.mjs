@@ -123,11 +123,20 @@ console.log('\n═══ 3 · un dato del usuario NO se traduce, ni aunque sea i
   });
   ok(nota === 'Pre-sesión', 'el dato guardado sigue en las palabras del usuario', JSON.stringify(nota));
 
-  /* Y la guarda estructural: ningún nodo marcado como cromo puede contener un
-     texto que el usuario escribiera. Se comprueba que todo `data-i18n-es` que
-     existe es una clave del diccionario y no texto libre. */
-  const marcados = await p.evaluate(() => [...document.querySelectorAll('[data-i18n-es]')].length);
-  ok(marcados > 0, 'hay cromo marcado con su español original', `${marcados} nodos`);
+  /* LA CAPA DE IDIOMA NO DEJA HUELLA EN EL DOM, Y ESTO VIGILA EL ARREGLO.
+     La primera versión guardaba el español original en `el.dataset.i18nEs`:
+     ~267 escrituras en el árbol cada vez que aparecía cromo nuevo. Como
+     `traduce()` corre al final de showTab() —después de que la pestaña se marque
+     activa, justo donde `sistema.mjs` muestrea estilo computado— esas
+     escrituras forzaban recálculo y reiniciaban transiciones, y la CI leyó
+     rgb(12,18,24) en los campos numéricos: un color que NO ESTÁ en la hoja de
+     estilo, o sea un punto a medio interpolar entre #0c1219 y #0c1118. Aquí
+     pasaba y en CI fallaba, que es más rápida y cae dentro de la transición.
+     Ahora el original vive en un WeakMap y el idioma por defecto —español, que
+     es la ausencia de preferencia— no escribe NADA. Una función que nadie
+     encendió no debe dejar huella en el árbol. */
+  const huella = await p.evaluate(() => document.querySelectorAll('[data-i18n-es]').length);
+  ok(huella === 0, 'en español la capa de idioma no deja atributos en el DOM', `${huella} atributos`);
 
   /* LA ASERCIÓN QUE FALTABA, Y EL FALLO QUE DEJÓ PASAR.
      Lo de arriba comprueba el dato GUARDADO; el daño real es un dato

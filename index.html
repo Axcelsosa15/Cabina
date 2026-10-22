@@ -4127,6 +4127,22 @@ tbody tr:last-child td{border-bottom:0}
      árbol entero en cada repintado. */
   const I18N_SEL = '#tabnav .tabbtn, h1, h2, h3, label, button, option, summary, th';
   let i18nEscribiendo = false;
+  /* EL ESPAÑOL ORIGINAL VIVE EN UN WeakMap, NO EN UN ATRIBUTO, Y ESO ES EL
+     ARREGLO DE UN FALLO MEDIDO.
+     La primera versión lo guardaba en `el.dataset.i18nEs`. Eso son ~267
+     ESCRITURAS en el DOM cada vez que aparece cromo nuevo, y `traduce()` corre
+     al final de showTab() — o sea DESPUÉS de que la pestaña se marque activa,
+     justo en la ventana donde `sistema.mjs` muestrea estilo computado. Las
+     escrituras forzaban recálculo de estilo y reiniciaban transiciones, y la
+     prueba leía colores a medio interpolar: la CI reportó rgb(12,18,24) en los
+     campos numéricos, un valor que NO ESTÁ en la hoja de estilo —están
+     #0c1219 (12,18,25) y #0c1118 (12,17,24)— o sea un punto entre los dos.
+     Pasó aquí y falló en CI, que es más rápida y cae dentro de la transición.
+     Con el WeakMap, el idioma por defecto —español, que es la ausencia de
+     preferencia— no escribe NADA en el DOM. Una función que nadie encendió no
+     debe dejar huella en el árbol. Y de paso el HTML del usuario no se llena de
+     atributos que sólo le sirven a la capa de idioma. */
+  const i18nOrig = new WeakMap();
   function i18nNodoTexto(el) {
     for (const n of el.childNodes) if (n.nodeType === 3 && n.data.trim()) return n;
     return null;
@@ -4141,10 +4157,10 @@ tbody tr:last-child td{border-bottom:0}
         /* El español original se guarda la primera vez que se ve el nodo, para
            que volver a español sea exacto y no una traducción inversa. */
         const cur = n.data.trim();
-        if (el.dataset.i18nEs === undefined) {
+        if (!i18nOrig.has(el)) {
           if (!(cur in I18N_EN)) continue;   /* no es cromo conocido: no se toca */
-          el.dataset.i18nEs = cur;
-        } else if (cur !== el.dataset.i18nEs && cur !== (I18N_EN[el.dataset.i18nEs] || el.dataset.i18nEs)) {
+          i18nOrig.set(el, cur);
+        } else if (cur !== i18nOrig.get(el) && cur !== (I18N_EN[i18nOrig.get(el)] || i18nOrig.get(el))) {
           /* EL NODO DEJÓ DE SER CROMO Y AHORA LLEVA UN DATO. SE SUELTA.
              Qué falló: la coincidencia con el diccionario se comprobaba sólo la
              PRIMERA vez que se veía el nodo, y después se confiaba en el
@@ -4158,10 +4174,10 @@ tbody tr:last-child td{border-bottom:0}
              reaplicando. Ahora la coincidencia se comprueba en CADA pasada —si
              el texto no es ni el español guardado ni su traducción, el nodo es
              de otro y se olvida la marca. */
-          delete el.dataset.i18nEs;
+          i18nOrig.delete(el);
           continue;
         }
-        const es = el.dataset.i18nEs;
+        const es = i18nOrig.get(el);
         const quiere = lang === "en" ? (I18N_EN[es] || es) : es;
         if (n.data.trim() !== quiere) n.data = n.data.replace(n.data.trim(), quiere);
       }
