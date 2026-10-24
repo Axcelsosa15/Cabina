@@ -64,5 +64,16 @@ await p.keyboard.press('Enter'); await p.waitForTimeout(250);
 ok(await p.evaluate(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros'), 'un resultado de operación navega a Futuros');
 await p.keyboard.press('Escape');
 
+// La búsqueda de cuentas también incluye la firma, no solo el nombre visible.
+await p.evaluate(() => FUT.createAccount({
+  id: 'search-firm-test', name: 'Search Account', firm: 'FirmQ',
+  size: 50000, dd: 2000, ddKind: 'estatico', status: 'fondeada'
+}));
+await p.keyboard.press('Control+k'); await p.waitForTimeout(250);
+await p.fill('#cmdQ', 'FirmQ'); await p.waitForTimeout(250);
+const resultadosFirma = await p.locator('#cmdList').innerText();
+ok(resultadosFirma.includes('Search Account'), 'la búsqueda global encuentra cuentas por firma', resultadosFirma.replace(/\\s+/g, ' ').slice(0, 120));
+await p.keyboard.press('Escape');
+
 console.log('\n  errores JS:', errs.length, errs.join(' | '));
 await b.close(); process.exit(errs.length?1:0);

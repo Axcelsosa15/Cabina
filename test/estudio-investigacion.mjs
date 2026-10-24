@@ -45,10 +45,13 @@ await p.click('#studyReaderClose'); await quieto(p);
 await p.fill('#studyFrom', '2026-10-21'); await p.fill('#studyTo', '2026-10-25'); await quieto(p);
 ok(!(await p.locator('#studyGrid').innerText()).includes('Research alpha'), 'filtra por fecha consultada');
 await p.fill('#studyFrom', ''); await p.fill('#studyTo', '2026-10-25'); await quieto(p);
+ok((await p.locator('#studyGrid').innerText()).includes('Research alpha') && !(await p.locator('#studyGrid').innerText()).includes('Research beta'),
+   'el filtro de fecha consultada no sustituye la fecha de publicación');
 
 await p.click('#studyNew');
 await p.fill('#studyTitle', 'Research beta');
 await p.fill('#studyQuestion', 'Una nota enlazada');
+await p.fill('#studyPublishedAt', '2026-10-20');
 await p.selectOption('#studyLinkType', 'research'); await quieto(p);
 await p.selectOption('#studyLinkTarget', doc1Id);
 await p.click('#studyLinkAdd');

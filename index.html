@@ -14950,7 +14950,7 @@ tbody tr:last-child td{border-bottom:0}
     const q = sinTildes(cmdQ.value.trim());
     const acciones = cmdAcciones();
     const entidades = cmdResultados(q);
-    cmdVis = q ? acciones.filter(a => sinTildes(a.t + " " + a.g).includes(q)).concat(entidades) : acciones;
+    cmdVis = q ? acciones.filter(a => sinTildes(a.t + " " + a.g + " " + (a.s || "")).includes(q)).concat(entidades) : acciones;
     if (cmdSel >= cmdVis.length) cmdSel = Math.max(0, cmdVis.length - 1);
     if (!cmdVis.length) { cmdList.innerHTML = `<p class="cmd-none">Nada que coincida con «${esc(cmdQ.value.trim())}».</p>`; return; }
     let html = "", grupo = null;
@@ -16330,7 +16330,7 @@ tbody tr:last-child td{border-bottom:0}
   function estudioEsc(x){return esc(String(x==null?"":x));}
   function estudioLista(){return coll("research").items.slice().sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));}
   function estudioTexto(d){return[d.title,d.question,d.evidence,d.catalysts,d.counter,d.conclusion,d.url,d.author,d.publishedAt,d.consultedAt,d.nextReview,(d.tags||[]).join(" "),(Array.isArray(d.links)?d.links:[]).map(estudioLinkLabel).join(" ")].join(" ");}
-  function estudioVisible(){const q=estudioNorm($("studySearch").value.trim()),hoy=todayISO(),desde=$("studyFrom").value,hasta=$("studyTo").value;return estudioLista().filter(d=>{if(d.type==="trade-review")return false;const ok=estudioFiltro==="all"||(estudioFiltro==="todo"?d.status==="todo":estudioFiltro==="review"?!!d.nextReview&&d.nextReview<=hoy:d.type===estudioFiltro),fecha=d.consultedAt||d.publishedAt||"";return ok&&(!desde||!!fecha&&fecha>=desde)&&(!hasta||!!fecha&&fecha<=hasta)&&(!q||estudioNorm(estudioTexto(d)).includes(q));});}
+  function estudioVisible(){const q=estudioNorm($("studySearch").value.trim()),hoy=todayISO(),desde=$("studyFrom").value,hasta=$("studyTo").value;return estudioLista().filter(d=>{if(d.type==="trade-review")return false;const ok=estudioFiltro==="all"||(estudioFiltro==="todo"?d.status==="todo":estudioFiltro==="review"?!!d.nextReview&&d.nextReview<=hoy:d.type===estudioFiltro),fecha=d.consultedAt||"";return ok&&(!desde||!!fecha&&fecha>=desde)&&(!hasta||!!fecha&&fecha<=hasta)&&(!q||estudioNorm(estudioTexto(d)).includes(q));});}
   function estudioFecha(v){try{if(typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v)){const a=v.split("-").map(Number);return new Intl.DateTimeFormat("es-US",{month:"short",day:"numeric",year:"numeric"}).format(new Date(a[0],a[1]-1,a[2],12));}return new Intl.DateTimeFormat("es-US",{month:"short",day:"numeric",year:"numeric"}).format(new Date(Number(v)||v));}catch{return"Sin fecha";}}
   function estudioLinkLabel(l){
     if(!l||!l.id)return"Vínculo sin destino";
@@ -17223,6 +17223,12 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
      que hay que ver, y partirlo lo escondería. */
   .save-state.nosave { flex: 1 1 100%; }
 }
+
+    @media (max-width: 720px) {
+      #studyReader .study-dialog-body { grid-template-columns: minmax(0,1fr) !important; }
+      #studyReaderContext { border-left: 0 !important; border-top: 1px solid var(--line); padding: 14px 0 0 !important; }
+      #studyReader .study-dialog { max-height: calc(100dvh - 20px); overflow-y: auto; }
+    }
 </style>
 
 </body>
