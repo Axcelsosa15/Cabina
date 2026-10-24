@@ -62,6 +62,7 @@ const resultadosZXQ = await p.locator('#cmdList').innerText();
 ok(resultadosZXQ.toLowerCase().includes('zxq') && resultadosZXQ.toLowerCase().includes('operaciones'), 'la búsqueda global encuentra operaciones por instrumento', resultadosZXQ.replace(/\s+/g, ' ').slice(0, 120));
 await p.keyboard.press('Enter'); await p.waitForTimeout(250);
 ok(await p.evaluate(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros'), 'un resultado de operación navega a Futuros');
+ok(await p.locator('#ov').evaluate(el => el.classList.contains('open')), 'el resultado abre el editor real de la operación');
 await p.keyboard.press('Escape');
 
 // La búsqueda de cuentas también incluye la firma, no solo el nombre visible.
