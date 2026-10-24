@@ -234,7 +234,7 @@ ninguno. Vive en Futuros → Diario, y las decisiones que no son obvias:
   es el número que se ve al abrir el CSV en una hoja de cálculo) y su motivo.
 - **Se deshace entero** mientras no se cierre la página: cada operación lleva
   `source: "import:manual"` e `importId`, y el deshacer borra su lote y sólo el
-  suyo. Ese `importId` es donde se colgará la huella de la fase 3.
+  suyo. El `importId` identifica el lote que se puede deshacer. La huella idempotente de cada ejecución permite reconocer fills ya importados al volver a cargar rangos que se solapan.
 
 Y una consecuencia que había que resolver con ella, porque sin resolverla el
 importador habría estropeado lo mejor que tiene la app: **una operación
@@ -284,10 +284,20 @@ suficiente, el importador bloquea la escritura en vez de inventar una apertura.
 > inválidas y el camino CSV → operación → historial de ejecuciones. La suite no
 > demuestra aún fidelidad a un bróker real: eso requiere la fase 0.
 
-### Fase 3 — Huella, reimportación y reconciliación incremental · parcial
+### Fase 3 — Huella, reimportación y reconciliación incremental · implementada, pendiente de CSV real
 
-> **Control:** importar el mismo fichero dos veces produce cero operaciones
-> nuevas la segunda. Importar un rango que se solapa produce sólo lo nuevo.
+La huella de cada ejecución usa el ID del bróker cuando está disponible; si no,
+normaliza cuenta, instrumento, fecha/hora, lado, cantidad y precio. Reimportar
+el mismo archivo no duplica ejecuciones. Al importar rangos solapados, Cabina
+conserva lo ya registrado, añade sólo los fills nuevos y reconcilia cierres con
+las posiciones abiertas reconstruidas desde el ledger. Los casos ambiguos o sin
+ledger suficiente se bloquean antes de escribir, en lugar de inventar una
+apertura o un cierre.
+
+> **Control automatizado:** las pruebas de importación, emparejado e historial
+> cubren duplicados, rangos solapados, cierres parciales, reversión, aislamiento
+> por cuenta/instrumento y deshacer. La reconciliación contra cifras reales del
+> bróker sigue pendiente de la fase 0; no se considera validada con CSV sintéticos.
 
 ### Fase 4 — Detección automática
 
