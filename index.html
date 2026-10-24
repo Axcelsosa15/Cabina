@@ -39,6 +39,34 @@
   body { margin: 0; background: #0B0E13; color: #E8ECF2; }
   img { max-width: 100%; }
   [hidden] { display: none !important; }
+
+  /* Preferencias de densidad y módulos visibles por pestaña. */
+  body[data-density="compact"] .panel > header { padding: 10px 14px; min-height: 0; gap: 8px; }
+  body[data-density="compact"] .panel > .body { padding: 12px 14px; }
+  body[data-density="compact"] .panel { margin-bottom: 10px; }
+  body[data-density="compact"] .study-shell { padding-bottom: 14px; }
+  body[data-density="compact"] .study-hero { padding: 12px 0 14px; gap: 12px; }
+  body[data-density="compact"] .study-bottom { gap: 8px; margin-block: 8px 12px; }
+  body[data-density="compact"] .study-grid { gap: 8px; }
+  body[data-density="compact"] .study-panel { padding: 12px; }
+  body[data-density="compact"] .study-toolbar { gap: 8px; margin-block: 8px; }
+  .user-view-hidden { display: none !important; }
+  .view-prefs[hidden] { display: none !important; }
+  .view-prefs { position: fixed; inset: 0; z-index: 10050; display: grid; place-items: center; padding: 16px; }
+  .view-prefs-backdrop { position: absolute; inset: 0; background: rgba(3,7,12,.78); backdrop-filter: blur(8px); }
+  .view-prefs-dialog { position: relative; width: min(620px,100%); max-height: min(82vh,760px); overflow: auto; border: 1px solid var(--line,#303946); border-radius: 12px; background: var(--surface,#111720); box-shadow: 0 24px 80px #0009; }
+  .view-prefs-head,.view-prefs-foot,.view-prefs-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; }
+  .view-prefs-head { border-bottom: 1px solid var(--line,#303946); }
+  .view-prefs-head h2 { margin: 0; font-size: 16px; }
+  .view-prefs-tools { flex-wrap: wrap; justify-content: flex-start; border-bottom: 1px solid var(--line,#303946); }
+  .view-prefs-tools label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+  .view-prefs-list { padding: 8px 16px 14px; display: grid; gap: 2px; }
+  .view-prefs-item { display: flex; align-items: center; gap: 10px; padding: 10px 8px; border-bottom: 1px solid color-mix(in srgb,var(--line,#303946) 60%,transparent); font-size: 13px; }
+  .view-prefs-item input { accent-color: #70e0cf; }
+  .view-prefs-item span { flex: 1; min-width: 0; }
+  .view-prefs-foot { border-top: 1px solid var(--line,#303946); justify-content: flex-end; }
+  .view-prefs-note { margin: 0; padding: 0 16px 12px; color: var(--muted,#a5adbb); font-size: 11px; }
+  @media (prefers-reduced-motion: reduce) { .view-prefs-backdrop { backdrop-filter: none; } }
 </style>
 <style id="cabina-study-design">
 :root{--study-glow:rgba(79,179,160,.13)}
@@ -2060,6 +2088,7 @@ tbody tr:last-child td{border-bottom:0}
     <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
     <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
     <button type="button" class="editbtn" id="idiomaBtn" aria-pressed="false" title="Language / Idioma">EN</button>
+    <button type="button" class="editbtn" id="viewPrefsOpen" aria-haspopup="dialog" aria-controls="viewPrefs" title="Personalizar módulos visibles y densidad">Vista</button>
   </div>
 </div>
 <nav class="tabnav" id="tabnav" aria-label="Secciones">
@@ -2086,6 +2115,22 @@ tbody tr:last-child td{border-bottom:0}
 <div class="editbar">
   <span>Modo edición: añade, borra y reescribe cuentas, reglas y pasos. Los cambios se guardan solos.</span>
   <button type="button" class="editbtn" id="editDone" style="margin-left:auto">Listo</button>
+</div>
+
+<div class="view-prefs" id="viewPrefs" hidden>
+  <div class="view-prefs-backdrop" data-view-close></div>
+  <section class="view-prefs-dialog" role="dialog" aria-modal="true" aria-labelledby="viewPrefsTitle" tabindex="-1">
+    <header class="view-prefs-head"><h2 id="viewPrefsTitle">Personalizar vista</h2><button type="button" class="editbtn" id="viewPrefsClose" aria-label="Cerrar preferencias">×</button></header>
+    <div class="view-prefs-tools">
+      <strong style="font-size:12px">Densidad</strong>
+      <label><input type="radio" name="viewDensity" value="compact"> Compacta</label>
+      <label><input type="radio" name="viewDensity" value="comfortable"> Cómoda</label>
+      <button type="button" class="editbtn" id="viewPrefsReset">Restaurar esta pestaña</button>
+    </div>
+    <p class="view-prefs-note" id="viewPrefsNote">Elige qué módulos aparecen en la pestaña actual. Tus preferencias se guardan en este navegador y no alteran los datos de trading.</p>
+    <div class="view-prefs-list" id="viewPrefsList"></div>
+    <footer class="view-prefs-foot"><button type="button" class="editbtn" id="viewPrefsDone">Listo</button></footer>
+  </section>
 </div>
 
 <!-- ======================= ESTUDIO ======================= -->
@@ -5188,6 +5233,104 @@ tbody tr:last-child td{border-bottom:0}
   window.addEventListener("resize", () => debounce("resize", redrawCharts, 220));
   $("tabnav").addEventListener("click", e => { const b = e.target.closest(".tabbtn"); if (b) showTab(b.dataset.tab); });
   window.addEventListener("hashchange", () => showTab(location.hash.slice(1)));
+
+  /* Preferencias de vista: sólo controlan presentación, nunca los datos del journal. */
+  const VIEW_PREF_KEY = "cabina-view-prefs:v1";
+  const viewPrefsRoot = document.getElementById("viewPrefs");
+  const viewPrefsList = document.getElementById("viewPrefsList");
+  let viewPrefsReturnFocus = null;
+  function readViewPrefs() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(VIEW_PREF_KEY) || "{}");
+      return { density: raw.density === "compact" ? "compact" : "comfortable", hidden: raw.hidden && typeof raw.hidden === "object" ? raw.hidden : {} };
+    } catch { return { density: "comfortable", hidden: {} }; }
+  }
+  function writeViewPrefs(prefs) {
+    try { localStorage.setItem(VIEW_PREF_KEY, JSON.stringify(prefs)); return true; }
+    catch { const note = document.getElementById("viewPrefsNote"); if (note) note.textContent = "No se pudieron guardar las preferencias en este navegador. La vista actual sigue funcionando hasta recargar."; return false; }
+  }
+  function viewCandidates(tabName) {
+    const tab = Array.from(document.querySelectorAll(".tab")).find(el => el.dataset.tab === tabName);
+    if (!tab) return [];
+    const selectors = ".panel, .study-panel, .deck, .study-toolbar, #studyGrid";
+    return Array.from(tab.querySelectorAll(selectors)).filter(el => {
+      if (el.classList.contains("panel") && el.closest(".panel") !== el) return false;
+      if (el.classList.contains("study-panel") && el.closest(".study-panel") !== el) return false;
+      if (el.classList.contains("deck") && el.closest(".deck") !== el) return false;
+      if (el.classList.contains("study-toolbar") && el.closest(".study-toolbar") !== el) return false;
+      return true;
+    });
+  }
+  function viewKey(el, tabName, index) {
+    if (el.id) return el.id;
+    const cls = Array.from(el.classList).filter(c => ["panel","study-panel","deck","study-toolbar"].includes(c)).join("-") || el.tagName.toLowerCase();
+    return tabName + ":" + cls + ":" + index;
+  }
+  function viewLabel(el, index) {
+    const h = el.querySelector(":scope > header h1, :scope > header h2, :scope > header h3, :scope > h1, :scope > h2, :scope > h3, .deck-t, h3");
+    const label = (h?.textContent || el.getAttribute("aria-label") || "").replace(/\\s+/g, " ").trim();
+    return label || ("Módulo " + (index + 1));
+  }
+  function applyViewPrefs() {
+    const prefs = readViewPrefs();
+    document.body.dataset.density = prefs.density;
+    for (const tab of document.querySelectorAll(".tab")) {
+      const name = tab.dataset.tab || "cabina";
+      const hidden = new Set(Array.isArray(prefs.hidden[name]) ? prefs.hidden[name] : []);
+      viewCandidates(name).forEach((el, i) => {
+        const key = viewKey(el, name, i);
+        el.classList.toggle("user-view-hidden", hidden.has(key));
+      });
+    }
+  }
+  function renderViewPrefs() {
+    if (!viewPrefsRoot || !viewPrefsList) return;
+    const tabName = state.tab || "cabina";
+    const prefs = readViewPrefs();
+    document.querySelectorAll('input[name="viewDensity"]').forEach(r => { r.checked = r.value === prefs.density; });
+    viewPrefsList.replaceChildren();
+    const candidates = viewCandidates(tabName);
+    const hidden = new Set(Array.isArray(prefs.hidden[tabName]) ? prefs.hidden[tabName] : []);
+    if (!candidates.length) {
+      const p = document.createElement("p"); p.className = "view-prefs-note"; p.textContent = "Esta pestaña no tiene módulos configurables."; viewPrefsList.append(p); return;
+    }
+    candidates.forEach((el, i) => {
+      const key = viewKey(el, tabName, i);
+      const label = document.createElement("label"); label.className = "view-prefs-item";
+      const input = document.createElement("input"); input.type = "checkbox"; input.checked = !hidden.has(key); input.dataset.viewPrefKey = key; input.setAttribute("aria-label", "Mostrar " + viewLabel(el, i));
+      const text = document.createElement("span"); text.textContent = viewLabel(el, i);
+      const stateLabel = document.createElement("small"); stateLabel.textContent = input.checked ? "Visible" : "Oculto"; stateLabel.style.color = "var(--muted,#a5adbb)";
+      input.addEventListener("change", () => {
+        const current = readViewPrefs(); const list = new Set(Array.isArray(current.hidden[tabName]) ? current.hidden[tabName] : []);
+        if (input.checked) list.delete(key); else list.add(key);
+        current.hidden[tabName] = Array.from(list); writeViewPrefs(current); applyViewPrefs(); stateLabel.textContent = input.checked ? "Visible" : "Oculto";
+      });
+      label.append(input, text, stateLabel); viewPrefsList.append(label);
+    });
+    document.getElementById("viewPrefsNote").textContent = "Pestaña: " + (document.querySelector('#tabnav .tabbtn.active')?.textContent || tabName).replace(/\\s+/g," ").trim() + ". Los módulos ocultos conservan sus datos y vuelven al activar Mostrar.";
+  }
+  function openViewPrefs() {
+    viewPrefsReturnFocus = document.activeElement;
+    applyViewPrefs(); renderViewPrefs(); viewPrefsRoot.hidden = false;
+    document.body.style.overflow = "hidden"; viewPrefsRoot.querySelector(".view-prefs-dialog").focus();
+  }
+  function closeViewPrefs() {
+    viewPrefsRoot.hidden = true; document.body.style.overflow = "";
+    if (viewPrefsReturnFocus && typeof viewPrefsReturnFocus.focus === "function") viewPrefsReturnFocus.focus();
+  }
+  document.getElementById("viewPrefsOpen").addEventListener("click", openViewPrefs);
+  document.getElementById("viewPrefsClose").addEventListener("click", closeViewPrefs);
+  document.getElementById("viewPrefsDone").addEventListener("click", closeViewPrefs);
+  viewPrefsRoot.querySelectorAll("[data-view-close]").forEach(el => el.addEventListener("click", closeViewPrefs));
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !viewPrefsRoot.hidden) closeViewPrefs(); });
+  document.querySelectorAll('input[name="viewDensity"]').forEach(r => r.addEventListener("change", () => {
+    if (!r.checked) return; const prefs = readViewPrefs(); prefs.density = r.value; writeViewPrefs(prefs); applyViewPrefs();
+  }));
+  document.getElementById("viewPrefsReset").addEventListener("click", () => {
+    const prefs = readViewPrefs(); delete prefs.hidden[state.tab || "cabina"]; writeViewPrefs(prefs); applyViewPrefs(); renderViewPrefs();
+  });
+  applyViewPrefs();
+
 
   /* =============================== GENERIC EDITOR =============================== */
   const ov = $("ov"); let edCfg = null, edReturnFocus = null;
