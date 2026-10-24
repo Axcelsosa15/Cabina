@@ -162,7 +162,7 @@ await trasGuardar(p);
 const guardada = await p.evaluate(() => {
   const t = (FUT.trades() || []).find(x => x.source === 'import:ejecuciones');
   return {
-    source: t && t.source, qty: t && t.qty, exit: t && t.exit,
+    id: t && t.id, source: t && t.source, qty: t && t.qty, exit: t && t.exit,
     ledger: t && t.executionLedger && t.executionLedger.length,
     ids: t && t.executionIds && t.executionIds.length,
     visible: document.querySelector('#jrTable .execs details summary')?.textContent || ''
@@ -191,8 +191,8 @@ const descargaCSV = p.waitForEvent('download');
 await p.click('#execExport');
 const archivoCSV = await descargaCSV;
 const contenidoCSV = readFileSync(await archivoCSV.path(), 'utf8');
-ok(/Fecha/.test(contenidoCSV) && /fill-open/.test(contenidoCSV) && /fill-close/.test(contenidoCSV),
-   'el CSV exportado conserva cabeceras e IDs de todas las ejecuciones visibles',
+ok(/Fecha/.test(contenidoCSV) && /fill-open/.test(contenidoCSV) && /fill-close/.test(contenidoCSV) && !!guardada.id && contenidoCSV.includes(guardada.id),
+   'el CSV conserva cabeceras, IDs de ejecución y las operaciones vinculadas',
    contenidoCSV.slice(0, 220).replace(/\\r?\\n/g, ' | '));
 await p.fill('#execQ', 'sin-coincidencias');
 await quieto(p);
