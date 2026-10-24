@@ -5264,10 +5264,12 @@ tbody tr:last-child td{border-bottom:0}
   function viewKey(el, tabName, index) {
     if (el.id) return el.id;
     const cls = Array.from(el.classList).filter(c => ["panel","study-panel","deck","study-toolbar"].includes(c)).join("-") || el.tagName.toLowerCase();
-    return tabName + ":" + cls + ":" + index;
+    if (cls === "deck" || cls === "study-toolbar") return tabName + ":" + cls;
+    const label = viewLabel(el, index).toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return tabName + ":" + cls + ":" + (label || index);
   }
   function viewLabel(el, index) {
-    const h = el.querySelector(":scope > header h1, :scope > header h2, :scope > header h3, :scope > h1, :scope > h2, :scope > h3, .deck-t, h3");
+    const h = el.querySelector(":scope > header h1, :scope > header h2, :scope > header h3, :scope > h1, :scope > h2, :scope > h3, .deck-t, h3, .study-note");
     const label = (h?.textContent || el.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim();
     return label || ("Módulo " + (index + 1));
   }
