@@ -14649,9 +14649,9 @@ tbody tr:last-child td{border-bottom:0}
     const filas = visible.map(x => {
       const roles = x.roles.size > 1 ? "Cierre + apertura" : x.roles.has("entry") ? "Entrada" : "Salida";
       const firstTrade = [...x.tradeIds][0];
-      return `<tr><td>${esc(x.date || "—")}</td><td>${esc(x.time || "—")}</td><td>${esc(acctLabel(x.accountId) || "—")}</td><td>${esc(x.instrument || "—")}</td><td class="${x.side === "sell" ? "neg" : "pos"}">${esc(x.side || "—")}</td><td>${roles}</td><td class="r">${Number(x.qty.toFixed(6)).toString()}</td><td class="r">${Number.isFinite(x.price) ? esc(String(x.price)) : "—"}</td><td class="r">${money(x.fees)}</td><td class="mono">${esc(x.executionId)}</td><td>${firstTrade ? `<button type="button" class="btn ghost sm" data-exec-trade="${esc(firstTrade)}" title="Abrir una de las operaciones vinculadas">${x.tradeIds.size > 1 ? `Ver operación +${x.tradeIds.size-1}` : "Ver operación"}</button>` : "—"}</td></tr>`;
+      return `<tr><td>${esc(x.date || "—")}</td><td>${esc(x.time || "—")}</td><td>${esc(acctLabel(x.accountId) || "—")}</td><td>${esc(x.instrument || "—")}</td><td class="${x.side === "sell" ? "neg" : "pos"}">${esc(x.side || "—")}</td><td>${roles}</td><td class="r">${Number(x.qty.toFixed(6)).toString()}</td><td class="r">${Number.isFinite(x.price) ? esc(String(x.price)) : "—"}</td><td class="r">${money(x.fees)}</td><td class="mono">${esc(x.executionId)}</td><td class="mono">${esc([...x.tradeIds].join(", "))}</td><td>${firstTrade ? `<button type="button" class="btn ghost sm" data-exec-trade="${esc(firstTrade)}" title="Abrir una de las operaciones vinculadas">${x.tradeIds.size > 1 ? `Ver operación +${x.tradeIds.size-1}` : "Ver operación"}</button>` : "—"}</td></tr>`;
     }).join("");
-    table.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Hora</th><th>Cuenta</th><th>Instrumento</th><th>Lado</th><th>Asignación</th><th class="r">Cantidad</th><th class="r">Precio</th><th class="r">Comisión</th><th>ID / huella</th><th>Operación</th></tr></thead><tbody>${filas}</tbody></table><p class="csub" style="margin:8px 0 0">${visible.length} de ${all.length} ejecuciones · ${linked.size} operaciones vinculadas. Cantidad y comisión se agregan por huella para no duplicar fills repartidos entre operaciones.</p>`;
+    table.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Hora</th><th>Cuenta</th><th>Instrumento</th><th>Lado</th><th>Asignación</th><th class="r">Cantidad</th><th class="r">Precio</th><th class="r">Comisión</th><th>ID / huella</th><th>IDs de operación</th><th>Acción</th></tr></thead><tbody>${filas}</tbody></table><p class="csub" style="margin:8px 0 0">${visible.length} de ${all.length} ejecuciones · ${linked.size} operaciones vinculadas. Cantidad y comisión se agregan por huella para no duplicar fills repartidos entre operaciones.</p>`;
   }
   ["execQ","execAcct","execInstr","execFrom","execTo"].forEach(id => {
     const el = $(id); if (el) el.addEventListener(id === "execQ" ? "input" : "change", renderExecutionHistory);
@@ -14663,9 +14663,9 @@ tbody tr:last-child td{border-bottom:0}
   $("execExport").addEventListener("click", () => {
     const table = $("execHistoryTable")?.querySelector("table");
     if (!table) return;
-    const headers = Array.from(table.querySelectorAll("thead th")).slice(0, 10).map(x => x.textContent.trim());
+    const headers = Array.from(table.querySelectorAll("thead th")).slice(0, 11).map(x => x.textContent.trim());
     const rows = Array.from(table.querySelectorAll("tbody tr"), tr =>
-      Array.from(tr.querySelectorAll("td")).slice(0, 10).map(td => td.textContent.trim()));
+      Array.from(tr.querySelectorAll("td")).slice(0, 11).map(td => td.textContent.trim()));
     if (!rows.length) return;
     const quote = value => '"' + String(value ?? "").replace(/"/g, '""') + '"';
     const csv = "\uFEFF" + [headers, ...rows].map(row => row.map(quote).join(",")).join("\r\n");
