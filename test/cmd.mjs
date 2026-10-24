@@ -50,5 +50,19 @@ await p.keyboard.press('Control+k'); await p.waitForTimeout(250);
 await p.keyboard.type('50K'); await p.waitForTimeout(250);
 await p.keyboard.press('Enter'); await p.waitForTimeout(500);
 ok(await p.evaluate(()=>FUT.selectedAccountId()==='prop50'), 'selecciona cuenta por la puerta de FUT', await p.evaluate(()=>FUT.selectedAccountId()));
+// Búsqueda global: no solo comandos, también entidades guardadas.
+await p.evaluate(() => FUT.createTrade({
+  id: 'search-trade-zxq', type: 'futuros', accountId: 'prop50',
+  instrument: 'ZXQ', direction: 'long', qty: 1, entry: 100, stop: 95,
+  exit: 110, date: '2026-09-18', time: '10:05', notes: 'setup de prueba'
+}));
+await p.keyboard.press('Control+k'); await p.waitForTimeout(250);
+await p.fill('#cmdQ', 'ZXQ'); await p.waitForTimeout(250);
+const resultadosZXQ = await p.locator('#cmdList').innerText();
+ok(resultadosZXQ.includes('ZXQ') && resultadosZXQ.includes('Operaciones'), 'la búsqueda global encuentra operaciones por instrumento', resultadosZXQ.replace(/\s+/g, ' ').slice(0, 120));
+await p.keyboard.press('Enter'); await p.waitForTimeout(250);
+ok(await p.evaluate(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros'), 'un resultado de operación navega a Futuros');
+await p.keyboard.press('Escape');
+
 console.log('\n  errores JS:', errs.length, errs.join(' | '));
 await b.close(); process.exit(errs.length?1:0);
