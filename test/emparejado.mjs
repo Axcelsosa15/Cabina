@@ -65,6 +65,27 @@ ok(aisladas.ops.length === 3 && aisladas.ops.every(x => x.open), 'nunca empareja
 console.log('\n═══ 5 · los datos inválidos se informan, no se descartan en silencio ═══');
 const invalid = await run([base('buy', 0, 100, '09:30:00'), base('hold', 1, 100, '09:31:00')]);
 ok(invalid.invalidas.length === 2 && invalid.ops.length === 0, 'rechaza cantidad cero y lado desconocido', invalid.invalidas.length + ' filas rechazadas');
+console.log('\n═══ 6 · el mapeador de ejecuciones produce operaciones y conserva la huella ═══');
+const previo = await p.evaluate(() => {
+  const csv = 'date,time,instrument,side,qty,price,fees,execution_id\n'
+    + '2026-10-01,09:30:00,MNQ,buy,2,100,2,fill-open\n'
+    + '2026-10-01,09:31:00,MNQ,sell,2,110,2,fill-close';
+  const lectura = FUT.csv.lee(csv);
+  const mapa = { date: 0, time: 1, instrument: 2, side: 3, qty: 4, price: 5, fees: 6, executionId: 7 };
+  return FUT.imp.previoEjecuciones(lectura, mapa, {}, 'acct-1', [], []);
+});
+ok(previo.ops.length === 1 && previo.ops[0].qty === 2 && previo.ops[0].exit === 110,
+   'el CSV de ejecuciones se transforma en una ida y vuelta', JSON.stringify(previo.ops[0]));
+ok(previo.ops[0]?.executionLedger?.length === 2 && previo.ops[0]?.executionIds?.length === 2,
+   'la operación mantiene los detalles de entrada y salida', JSON.stringify(previo.ops[0]?.executionLedger));
+const duplicado = await p.evaluate(() => {
+  const csv = 'date,time,instrument,side,qty,price,execution_id\n2026-10-01,09:30:00,MNQ,buy,1,100,seen';
+  return FUT.imp.previoEjecuciones(FUT.csv.lee(csv),
+    { date: 0, time: 1, instrument: 2, side: 3, qty: 4, price: 5, executionId: 6 },
+    {}, 'acct-1', ['id:seen'], []);
+});
+ok(duplicado.ops.length === 0 && duplicado.duplicadas.length === 1, 'el mapeador marca una ejecución reimportada');
+
 ok(errores.length === 0, 'sin errores JavaScript', errores.join(' | ') || 'ninguno');
 
 await b.close();
