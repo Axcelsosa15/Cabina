@@ -57,6 +57,12 @@ const after = await page.locator('[data-cabina-view-key]').evaluateAll(els => el
 ok(after === before, 'la personalización no elimina módulos del DOM', String(after) + ' módulos');
 
 await page.click('#viewPrefsOpen');
+await page.check('#viewPrefsCompact');
+ok(await page.locator('body').evaluate(el => el.classList.contains('cabina-compact-view')), 'la vista compacta reduce espacios en todas las pestañas');
+await page.reload({ waitUntil: 'load' });
+await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
+ok(await page.locator('body').evaluate(el => el.classList.contains('cabina-compact-view')), 'la densidad compacta persiste tras recargar');
+await page.click('#viewPrefsOpen');
 await page.fill('#viewPrefsSearch', 'Estudio');
 const matches = await page.locator('#viewPrefsGroups .view-prefs-item:visible').count();
 ok(matches > 0, 'la búsqueda filtra la lista de secciones', String(matches) + ' resultado(s)');
