@@ -10,7 +10,7 @@ p.on('pageerror', e => errores.push(e.message));
 await p.addInitScript(seed => {
   try {
     if (!localStorage.getItem('cabina-study-investigacion-seeded')) {
-      localStorage.setItem('cabina-mnq:v1', JSON.stringify(seed));
+      localStorage.setItem('cabina-mnq:v1', typeof seed === 'string' ? seed : JSON.stringify(seed));
       localStorage.setItem('cabina-study-investigacion-seeded', '1');
     }
   } catch {}
