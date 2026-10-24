@@ -2471,6 +2471,7 @@ tbody tr:last-child td{border-bottom:0}
         <label class="lab">Desde<input id="execFrom" type="date" style="width:100%"></label>
         <label class="lab">Hasta<input id="execTo" type="date" style="width:100%"></label>
         <button type="button" class="btn ghost sm" id="execReset" style="align-self:end">Limpiar filtros</button>
+        <button type="button" class="btn ghost sm" id="execExport" style="align-self:end" aria-label="Exportar las ejecuciones filtradas a CSV" disabled>Exportar CSV</button>
       </div>
       <div class="twrap" id="execHistoryTable" aria-live="polite"><p class="csub">Cargando ejecuciones…</p></div>
     </div>
@@ -14615,6 +14616,8 @@ tbody tr:last-child td{border-bottom:0}
       if (t.id) row.tradeIds.add(String(t.id));
     }
     const all = [...grouped.values()];
+    const exportBtn = $("execExport");
+    if (exportBtn) exportBtn.disabled = all.length === 0;
     const accounts = [...new Set(all.map(x => x.accountId).filter(Boolean))].sort((a,b) => acctLabel(a).localeCompare(acctLabel(b)));
     const instruments = [...new Set(all.map(x => x.instrument).filter(Boolean))].sort();
     const acctSel = $("execAcct"), instrSel = $("execInstr");
@@ -14645,7 +14648,7 @@ tbody tr:last-child td{border-bottom:0}
     const filas = visible.map(x => {
       const roles = x.roles.size > 1 ? "Cierre + apertura" : x.roles.has("entry") ? "Entrada" : "Salida";
       const firstTrade = [...x.tradeIds][0];
-      return `<tr><td>${esc(x.date || "—")}</td><td>${esc(x.time || "—")}</td><td>${esc(acctLabel(x.accountId) || "—")}</td><td>${esc(x.instrument || "—")}</td><td class="${x.side === "sell" ? "neg" : "pos"}">${esc(x.side || "—")}</td><td>${roles}</td><td class="r">${Number(x.qty.toFixed(6)).toString()}</td><td class="r">${Number.isFinite(x.price) ? esc(String(x.price)) : "—"}</td><td class="r">${money(x.fees)}</td><td class="mono">${esc(x.executionId).slice(0,48)}</td><td>${firstTrade ? `<button type="button" class="btn ghost sm" data-exec-trade="${esc(firstTrade)}" title="Abrir una de las operaciones vinculadas">${x.tradeIds.size > 1 ? `Ver operación +${x.tradeIds.size-1}` : "Ver operación"}</button>` : "—"}</td></tr>`;
+      return `<tr><td>${esc(x.date || "—")}</td><td>${esc(x.time || "—")}</td><td>${esc(acctLabel(x.accountId) || "—")}</td><td>${esc(x.instrument || "—")}</td><td class="${x.side === "sell" ? "neg" : "pos"}">${esc(x.side || "—")}</td><td>${roles}</td><td class="r">${Number(x.qty.toFixed(6)).toString()}</td><td class="r">${Number.isFinite(x.price) ? esc(String(x.price)) : "—"}</td><td class="r">${money(x.fees)}</td><td class="mono">${esc(x.executionId)}</td><td>${firstTrade ? `<button type="button" class="btn ghost sm" data-exec-trade="${esc(firstTrade)}" title="Abrir una de las operaciones vinculadas">${x.tradeIds.size > 1 ? `Ver operación +${x.tradeIds.size-1}` : "Ver operación"}</button>` : "—"}</td></tr>`;
     }).join("");
     table.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Hora</th><th>Cuenta</th><th>Instrumento</th><th>Lado</th><th>Asignación</th><th class="r">Cantidad</th><th class="r">Precio</th><th class="r">Comisión</th><th>ID / huella</th><th>Operación</th></tr></thead><tbody>${filas}</tbody></table><p class="csub" style="margin:8px 0 0">${visible.length} de ${all.length} ejecuciones · ${linked.size} operaciones vinculadas. Cantidad y comisión se agregan por huella para no duplicar fills repartidos entre operaciones.</p>`;
   }
@@ -14655,6 +14658,22 @@ tbody tr:last-child td{border-bottom:0}
   $("execReset").addEventListener("click", () => {
     ["execQ","execAcct","execInstr","execFrom","execTo"].forEach(id => { const el = $(id); if (el) el.value = ""; });
     renderExecutionHistory();
+  });
+  $("execExport").addEventListener("click", () => {
+    const table = $("execHistoryTable")?.querySelector("table");
+    if (!table) return;
+    const headers = Array.from(table.querySelectorAll("thead th")).slice(0, 10).map(x => x.textContent.trim());
+    const rows = Array.from(table.querySelectorAll("tbody tr"), tr =>
+      Array.from(tr.querySelectorAll("td")).slice(0, 10).map(td => td.textContent.trim()));
+    if (!rows.length) return;
+    const quote = value => '"' + String(value ?? "").replace(/"/g, '""') + '"';
+    const csv = "\uFEFF" + [headers, ...rows].map(row => row.map(quote).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "cabina-historial-ejecuciones-" + new Date().toISOString().slice(0, 10) + ".csv";
+    link.hidden = true; document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
   $("execToggle").addEventListener("click", () => {
     const body = $("execHistoryBody"), open = body.hidden;
