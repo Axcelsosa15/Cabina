@@ -14889,10 +14889,65 @@ tbody tr:last-child td{border-bottom:0}
 
   // Coincidencia por subcadena sin acentos: «analisis» encuentra «análisis».
   const sinTildes = x => String(x).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  /* La paleta combina acciones con resultados reales del almacén. Es búsqueda
+     local por texto normalizado, no una promesa de búsqueda semántica/IA. */
+  function cmdResultados(q) {
+    q = sinTildes(String(q || "").trim());
+    if (q.length < 2) return [];
+    const out = [], hit = (...v) => sinTildes(v.filter(x => x != null && x !== "").join(" ")).includes(q);
+    const take = (g, i, t, s, f) => { if (out.length < 48) out.push({ g, i, t, s: s || "", f }); };
+    const trades = coll("trades").items;
+    trades.forEach(t => {
+      const acct = acctLabel(t.accountId), setup = t.setupId ? (coll("playbooks").get(t.setupId)?.name || "") : "";
+      const name = t.type === "inversion" ? (t.asset || t.instrument || "Inversión") : (t.instrument || "Operación");
+      if (!hit(name, t.date, t.time, t.direction, t.op, acct, setup, t.notes, t.tags, t.lesson, t.exitWhy)) return;
+      const id = t.id, tab = t.type === "inversion" ? "invest" : "futuros";
+      take("Operaciones", "↗", `${name} · ${t.direction || t.op || "operación"} · ${t.date || "sin fecha"}`,
+        [acct, t.exit == null ? "abierta" : "cerrada", t.source && /^import:/.test(t.source) ? "importada" : ""].filter(Boolean).join(" · "),
+        () => { const live = coll("trades").get(id); if (!live) return; showTab(tab); if (tab === "futuros") setFtView("diario"); setTimeout(() => openTrade(live), 60); });
+    });
+    historyMerged().forEach(d => {
+      if (!hit(d.date, d.note, d.result, d.trades, d.broke ? "rota" : "", JSON.stringify(d.pres || {}))) return;
+      take("Sesiones", "◷", `Sesión · ${d.date}`, d.result == null ? "resultado sin registrar" : money(Number(d.result)), () => {
+        ft.day = d.date; ft.month = String(d.date).slice(0, 7); showTab("futuros"); setFtView("diario"); renderCalendar(); renderDay();
+      });
+    });
+    coll("positions").items.forEach(p => {
+      if (!hit(p.asset, p.name, p.thesis, p.exitPlan, p.date, p.accountId, investmentAccountName(p.accountId))) return;
+      const id = p.id;
+      take("Posiciones", "◫", `${p.asset || p.name || "Posición"} · ${p.date || "sin fecha"}`,
+        investmentAccountName(p.accountId) || "cuenta no asignada", () => {
+          const live = coll("positions").get(id); if (!live) return; showTab("invest"); setTimeout(() => openPosition(live), 60);
+        });
+    });
+    coll("playbooks").items.forEach(p => {
+      if (!hit(p.name, p.market, p.tags, p.context, p.entry, p.notes, p.kind)) return;
+      const id = p.id;
+      take("Playbook", "◱", p.name || "Setup sin nombre", [kindDef(pbKindOf(p)).label, p.status || ""].filter(Boolean).join(" · "), () => {
+        const live = coll("playbooks").get(id); if (!live) return; showTab("playbook"); setTimeout(() => openPlaybook(live), 60);
+      });
+    });
+    coll("tesis").items.forEach(t => {
+      if (!hit(t.name, t.asset, t.tesis, t.hipotesis, t.leccion, t.status, t.bias, t.horizonte)) return;
+      const id = t.id;
+      take("Tesis", "◈", `${t.name || t.asset || "Tesis"} · ${t.asset || "sin activo"}`, t.status || "", () => {
+        const live = coll("tesis").get(id); if (!live) return; showTab("playbook"); pb.view = "tesis"; renderPlaybook(); setTimeout(() => abreSeccion(live, "ficha"), 60);
+      });
+    });
+    coll("research").items.forEach(d => {
+      if (d.type === "trade-review" || !hit(d.title, d.question, d.evidence, d.counter, d.conclusion, d.url, (d.tags || []).join(" "), d.status)) return;
+      const id = d.id;
+      take("Estudio", "⌕", d.title || "Documento de estudio", [d.type || "concepto", d.status || "por estudiar", d.url || ""].filter(Boolean).join(" · "), () => {
+        showTab("estudio"); setTimeout(() => estudioEditor(id), 60);
+      });
+    });
+    return out;
+  }
   function cmdPinta() {
     const q = sinTildes(cmdQ.value.trim());
-    const todas = cmdAcciones();
-    cmdVis = q ? todas.filter(a => sinTildes(a.t + " " + a.g).includes(q)) : todas;
+    const acciones = cmdAcciones();
+    const entidades = cmdResultados(q);
+    cmdVis = q ? acciones.filter(a => sinTildes(a.t + " " + a.g).includes(q)).concat(entidades) : acciones;
     if (cmdSel >= cmdVis.length) cmdSel = Math.max(0, cmdVis.length - 1);
     if (!cmdVis.length) { cmdList.innerHTML = `<p class="cmd-none">Nada que coincida con «${esc(cmdQ.value.trim())}».</p>`; return; }
     let html = "", grupo = null;
@@ -14916,7 +14971,12 @@ tbody tr:last-child td{border-bottom:0}
     cmdCierra();
     try { a.f(); } catch (e) { try { console.error("acción «" + a.t + "» falló:", e); } catch (x) { } flash("Esa acción no se pudo abrir."); }
   }
-  cmdQ.addEventListener("input", () => { cmdSel = 0; cmdPinta(); });
+  let cmdSearchTimer = null;
+  cmdQ.addEventListener("input", () => {
+    cmdSel = 0;
+    if (cmdSearchTimer) clearTimeout(cmdSearchTimer);
+    cmdSearchTimer = setTimeout(() => { cmdSearchTimer = null; cmdPinta(); }, 80);
+  });
   cmdList.addEventListener("click", e => { const b = e.target.closest(".cmd-it"); if (b) cmdEjecuta(Number(b.dataset.k)); });
   cmdList.addEventListener("mousemove", e => {
     const b = e.target.closest(".cmd-it"); if (!b) return;
