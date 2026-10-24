@@ -96,7 +96,7 @@ const duplicado = await p.evaluate(() => {
 ok(duplicado.ops.length === 0 && duplicado.duplicadas.length === 1, 'el mapeador marca una ejecución reimportada');
 
 const parcialPrevio = await p.evaluate(() => {
-  const csv = 'date,time,instrument,side,qty,price,execution_id\\n2026-10-01,09:31:00,MNQ,sell,1,110,new-close';
+  const csv = 'date,time,instrument,side,qty,price,execution_id\n2026-10-01,09:31:00,MNQ,sell,1,110,new-close';
   const lectura = FUT.csv.lee(csv);
   const mapa = { date: 0, time: 1, instrument: 2, side: 3, qty: 4, price: 5, executionId: 6 };
   return FUT.imp.previoEjecuciones(lectura, mapa, {}, 'acct-1', [], [{
@@ -108,9 +108,9 @@ ok(parcialPrevio.conflictos.length === 1 && !parcialPrevio.listo,
    'bloquea un rango parcial que cerraría una posición importada aún abierta sin ledger',
    JSON.stringify({ conflictos: parcialPrevio.conflictos.length, listo: parcialPrevio.listo }));
 
-console.log('\\n═══ 6b · reanudar una posición abierta importada con su ledger ═══');
+console.log('\n═══ 6b · reanudar una posición abierta importada con su ledger ═══');
 const incremental = async qty => p.evaluate(q => {
-  const csv = 'date,time,instrument,side,qty,price,fees,execution_id\\n'
+  const csv = 'date,time,instrument,side,qty,price,fees,execution_id\n'
     + '2026-10-01,09:31:00,MNQ,sell,' + q + ',110,1,close-new';
   const lectura = FUT.csv.lee(csv);
   const mapa = { date: 0, time: 1, instrument: 2, side: 3, qty: 4, price: 5, fees: 6, executionId: 7 };
@@ -137,13 +137,13 @@ ok(incrementalPartial.listo && incrementalPartial.ops.length === 2
    'un cierre parcial guarda el tramo cerrado y conserva el resto abierto',
    JSON.stringify(incrementalPartial.ops.map(x => ({ id: x.existingTradeId || 'nuevo', qty: x.qty, exit: x.exit, open: x.open }))));
 
-console.log('\\n═══ 7 · importación real y ledger visible en el journal ═══');
+console.log('\n═══ 7 · importación real y ledger visible en el journal ═══');
 await p.click('.tabbtn[data-tab="futuros"]');
 await p.click('#ftSeg button[data-v="diario"]');
 await quieto(p);
 await p.click('#impPaste');
-await p.fill('#ef_c', 'date,time,instrument,side,qty,price,fees,execution_id\\n'
-  + '2026-10-01,09:30:00,MNQ,buy,2,100,2,fill-open\\n'
+await p.fill('#ef_c', 'date,time,instrument,side,qty,price,fees,execution_id\n'
+  + '2026-10-01,09:30:00,MNQ,buy,2,100,2,fill-open\n'
   + '2026-10-01,09:31:00,MNQ,sell,2,110,2,fill-close');
 await p.click('#edSave');
 await trasAccion(p);
@@ -193,13 +193,13 @@ const archivoCSV = await descargaCSV;
 const contenidoCSV = readFileSync(await archivoCSV.path(), 'utf8');
 ok(/Fecha/.test(contenidoCSV) && /fill-open/.test(contenidoCSV) && /fill-close/.test(contenidoCSV) && !!guardada.id && contenidoCSV.includes(guardada.id),
    'el CSV conserva cabeceras, IDs de ejecución y las operaciones vinculadas',
-   contenidoCSV.slice(0, 220).replace(/\\r?\\n/g, ' | '));
+   contenidoCSV.slice(0, 220).replace(/\r?\n/g, ' | '));
 await p.fill('#execQ', 'sin-coincidencias');
 await quieto(p);
 ok(await p.locator('#execExport').isDisabled(), 'la exportación se desactiva si no hay filas visibles');
 await p.click('#execReset');
 
-console.log('\\n═══ 8 · reconciliación incremental real y deshacer seguro ═══');
+console.log('\n═══ 8 · reconciliación incremental real y deshacer seguro ═══');
 const importarCSV = async csv => {
   await p.click('#impPaste');
   await p.fill('#ef_c', csv);
@@ -216,7 +216,7 @@ const importarCSV = async csv => {
   await p.click('#edSave');
   await trasGuardar(p);
 };
-await importarCSV('date,time,instrument,side,qty,price,fees,execution_id\\n'
+await importarCSV('date,time,instrument,side,qty,price,fees,execution_id\n'
   + '2026-10-02,09:30:00,MNQ,buy,2,100,2,open-inc');
 const openBefore = await p.evaluate(() => {
   const t = (FUT.trades() || []).find(x => x.executionIds?.includes('id:open-inc'));
@@ -224,7 +224,7 @@ const openBefore = await p.evaluate(() => {
 });
 ok(!!openBefore && openBefore.exit == null && openBefore.qty === 2 && openBefore.ledger === 1,
    'una importación de entrada conserva una posición abierta', JSON.stringify(openBefore));
-await importarCSV('date,time,instrument,side,qty,price,fees,execution_id\\n'
+await importarCSV('date,time,instrument,side,qty,price,fees,execution_id\n'
   + '2026-10-02,09:31:00,MNQ,sell,2,110,2,close-inc');
 const closedAfter = await p.evaluate(id => {
   const t = (FUT.trades() || []).find(x => x.id === id);
@@ -251,5 +251,5 @@ ok(!!restored && restored.exit == null && restored.qty === 2 && restored.ledger 
 ok(errores.length === 0, 'sin errores JavaScript', errores.join(' | ') || 'ninguno');
 
 await b.close();
-console.log(`\\n${fallos.length ? '❌' : '✅'} emparejado · ${fallos.length} fallos`);
+console.log(`\n${fallos.length ? '❌' : '✅'} emparejado · ${fallos.length} fallos`);
 process.exit(fallos.length ? 1 : 0);
