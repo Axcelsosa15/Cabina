@@ -7,7 +7,14 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 const b = await chromium.launch();
 const p = await (await b.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
 p.on('pageerror', e => errores.push(e.message));
-await p.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(SEMILLA)});}catch(e){}`);
+await p.addInitScript(seed => {
+  try {
+    if (!localStorage.getItem('cabina-study-investigacion-seeded')) {
+      localStorage.setItem('cabina-mnq:v1', JSON.stringify(seed));
+      localStorage.setItem('cabina-study-investigacion-seeded', '1');
+    }
+  } catch {}
+}, SEMILLA);
 await p.goto('file://' + process.cwd() + '/../index.html');
 await p.waitForFunction(() => window.FUT && document.querySelector('#studyNew')); await quieto(p);
 await p.click('.tabbtn[data-tab="estudio"]'); await quieto(p);
