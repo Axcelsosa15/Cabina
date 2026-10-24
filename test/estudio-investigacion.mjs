@@ -73,7 +73,7 @@ ok((await p.locator('#studyGrid').innerText()).includes('Research alpha'), 'el f
 
 await p.reload(); await p.waitForFunction(() => window.FUT && document.querySelector('#studyNew')); await quieto(p);
 await p.click('.tabbtn[data-tab="estudio"]'); await quieto(p);
-const editAlpha = p.locator('#studyGrid .study-card').filter({ hasText: 'Research alpha' }).locator('button[data-study-edit]').first();
+const editAlpha = p.locator('#studyGrid .study-card').filter({ hasText: 'Research alpha' }).locator('button[data-study-edit]:not(.study-tag)').first();
 await editAlpha.click();
 ok(await p.inputValue('#studyAuthor') === 'Research Desk', 'autor y metadatos persisten tras recargar');
 ok(await p.inputValue('#studyCatalysts') === 'CPI, FOMC y cambios en los rendimientos reales.', 'los catalizadores persisten tras recargar');
