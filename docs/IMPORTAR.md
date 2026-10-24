@@ -1,7 +1,7 @@
 # Importar operaciones desde el bróker
 
 Estado al 24/10/2026: **fases 0.5 y 1 hechas; fase 2 implementada para CSV manual de ejecuciones; fase 3 parcial; fases 4 y 5 pendientes**. La fase 0 —un CSV real anonimizado— sigue sin hacerse: bloquea la detección automática (fase 4) y la comprobación de que los importes cuadren con el bróker al céntimo, no el desarrollo del mapeador.
-La fase 2 reconstruye operaciones por FIFO y conserva el detalle de cada ejecución en `executionLedger`. La deduplicación por ID del bróker o huella determinista ya evita volver a importar ejecuciones reconocidas. La reconciliación incremental de una posición que quedó abierta en una importación anterior se bloquea explícitamente cuando el rango parcial es ambiguo; todavía no se da por resuelta.
+La fase 2 reconstruye operaciones por FIFO y conserva el detalle de cada ejecución en `executionLedger`. La deduplicación por ID del bróker o huella determinista evita volver a importar ejecuciones reconocidas. La reconciliación incremental cierra o reduce una posición abierta importada cuando el ledger permite reconstruir su entrada; si la posición antigua no tiene evidencia suficiente, el rango se bloquea en vez de inventar una apertura. Sigue pendiente la detección automática de bróker y validar los importes contra un CSV real anonimizado.
 
 El `README.md` ya nombraba el hueco: no hay esquema canónico de operación
 importada, ni mapeos por bróker, ni el camino de importación, ni huella de
@@ -277,7 +277,7 @@ La reconciliación incremental de esos casos sigue pendiente.
 > inválidas y el camino CSV → operación → historial de ejecuciones. La suite no
 > demuestra aún fidelidad a un bróker real: eso requiere la fase 0.
 
-### Fase 3 — Huella y reimportación
+### Fase 3 — Huella, reimportación y reconciliación incremental · parcial
 
 > **Control:** importar el mismo fichero dos veces produce cero operaciones
 > nuevas la segunda. Importar un rango que se solapa produce sólo lo nuevo.
