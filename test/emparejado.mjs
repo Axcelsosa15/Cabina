@@ -233,9 +233,9 @@ const closedAfter = await p.evaluate(id => {
 ok(!!closedAfter && closedAfter.exit === 110 && closedAfter.qty === 2 && closedAfter.ledger === 2
    && closedAfter.ids.includes('id:close-inc'),
    'la segunda importación actualiza la misma operación y conserva ambos fills', JSON.stringify(closedAfter));
-ok((await p.locator('#impMeta').innerText()).includes('1 operación actualizada'),
+ok((await p.locator('#impNote').innerText()).includes('1 operación actualizada'),
    'el estado del importador distingue una reconciliación de una operación nueva',
-   await p.locator('#impMeta').innerText());
+   await p.locator('#impNote').innerText());
 await p.click('#impUndo');
 await p.fill('#ef_ok', 'BORRAR');
 await p.click('#edSave');
