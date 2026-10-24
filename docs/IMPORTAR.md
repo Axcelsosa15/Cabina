@@ -1,12 +1,7 @@
 # Importar operaciones desde el bróker
 
-Estado: **fases 0.5 y 1 hechas; 2, 3, 4 y 5 no.** La fase 0 —un CSV real— sigue
-sin hacerse, y hay que ser exacto sobre qué bloquea de verdad: bloquea la
-**detección** (fase 4) y bloquea el **control** de la fase 1 —que las cifras
-cuadren con la plataforma del bróker al céntimo—, pero no bloqueaba
-*construir* el mapeador manual, que por definición no sabe nada de ningún
-bróker. Dar por bloqueada la fase 1 fue un error de lectura de este mismo
-documento, y costó tiempo; queda escrito para no repetirlo.
+Estado al 24/10/2026: **fases 0.5 y 1 hechas; fase 2 implementada para CSV manual de ejecuciones; fase 3 parcial; fases 4 y 5 pendientes**. La fase 0 —un CSV real anonimizado— sigue sin hacerse: bloquea la detección automática (fase 4) y la comprobación de que los importes cuadren con el bróker al céntimo, no el desarrollo del mapeador.
+La fase 2 reconstruye operaciones por FIFO y conserva el detalle de cada ejecución en `executionLedger`. La deduplicación por ID del bróker o huella determinista ya evita volver a importar ejecuciones reconocidas. La reconciliación incremental de una posición que quedó abierta en una importación anterior se bloquea explícitamente cuando el rango parcial es ambiguo; todavía no se da por resuelta.
 
 El `README.md` ya nombraba el hueco: no hay esquema canónico de operación
 importada, ni mapeos por bróker, ni el camino de importación, ni huella de
@@ -263,14 +258,25 @@ acotada y `test/mapeador.mjs` lo fija con las dos mitades.
 > `test/fixtures/`: un fixture sintético ahí se confundiría con el real y daría
 > la fase 0 por cerrada sin estarlo.
 
-### Fase 2 — Emparejado de ejecuciones
+### Fase 2 — Emparejado de ejecuciones · implementada, pendiente de CSV real
 
-FIFO por cuenta e instrumento. Cierres parciales, entradas múltiples y vueltas
-de posición. Las ejecuciones huérfanas se muestran, no se tiran.
+Modo **Ejecuciones · emparejar FIFO** en el importador. Agrupa por cuenta e
+instrumento, ordena por fecha/hora, procesa cierres parciales, entradas múltiples
+y vueltas de posición. Las cantidades que quedan abiertas se conservan como
+operaciones abiertas. Cada operación almacena `executionIds[]` y
+`executionLedger[]` con lado, cantidad asignada, precio, comisión, fecha/hora e
+identificador/huella de cada ejecución. No modifica el motor cuantitativo.
 
-> **Control:** un fixture con un cierre parcial, uno con dos entradas y uno con
-> una vuelta de posición, los tres con el resultado esperado escrito a mano en
-> la prueba.
+La huella usa el ID del bróker cuando existe; si no, usa cuenta, instrumento,
+fecha/hora, lado, cantidad y precio normalizados. Si un rango parcial podría
+cerrar una posición importada anteriormente sin poder reconstruir con seguridad
+su apertura, el importador bloquea la escritura en vez de inventar una posición.
+La reconciliación incremental de esos casos sigue pendiente.
+
+> **Control automatizado:** `test/emparejado.mjs` cubre cierres parciales, dos
+> entradas, reversión, aislamiento por cuenta/instrumento, duplicados, filas
+> inválidas y el camino CSV → operación → historial de ejecuciones. La suite no
+> demuestra aún fidelidad a un bróker real: eso requiere la fase 0.
 
 ### Fase 3 — Huella y reimportación
 
