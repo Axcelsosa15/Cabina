@@ -184,7 +184,7 @@ await p.fill('#ef_ok', 'IMPORTAR');
 await p.click('#edSave');
 await trasGuardar(p);
 const nota = (await p.textContent('#impNote')).replace(/\s+/g, ' ').trim();
-ok(/2 operaciones importadas/.test(nota), 'dice cuántas entraron', nota.slice(0, 80));
+ok(/2 operaciones nuevas/.test(nota), 'dice cuántas entraron sin confundir nuevas con actualizadas', nota.slice(0, 80));
 /* Contando TODAS las importadas, no sólo las nuevas: la semilla ya trae una
    —la de la sección 7— así que son 1 + 2. Contar sólo el lote nuevo escondería
    un importador que pisara lo que ya había. */
