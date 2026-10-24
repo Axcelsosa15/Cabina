@@ -2030,6 +2030,7 @@ tbody tr:last-child td{border-bottom:0}
     <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
     <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
     <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
+    <button type="button" class="editbtn" id="viewPrefsBtn" aria-haspopup="dialog" aria-controls="viewPrefsOv">Vista</button>
     <button type="button" class="editbtn" id="idiomaBtn" aria-pressed="false" title="Language / Idioma">EN</button>
   </div>
 </div>
@@ -2140,7 +2141,7 @@ tbody tr:last-child td{border-bottom:0}
 <button type="button" class="credo-trace view-only" id="credoTrace" hidden></button>
 
 <section class="deck" aria-label="Resumen de Cabina"><span class="deck-n">01</span><h1 class="deck-t">Cabina</h1><span class="deck-stage">Ejecución</span><span class="deck-parts">Pre-sesión · Reglas duras · Diario</span></section>
-<section class="panel" id="panelAccts">
+<section class="panel" id="panelAccts" data-view-key="estudio-panelAccts">
       <header><h2>Cuentas prop</h2><div class="hgroup"><select id="cabAcct" aria-label="Cuenta de trabajo"><option value="">todas las cuentas</option></select><span class="meta" id="acctsMeta"></span><button type="button" class="btn sm ghost" id="addAcct">+ Añadir cuenta</button><button type="button" class="btn ghost sm selbtn" id="selbtn-accts" title="Selecciona varias cuentas y bórralas de una vez">Seleccionar</button></div></header>
       <div class="body">
         <div class="accts" id="accts"></div>
@@ -2148,7 +2149,7 @@ tbody tr:last-child td{border-bottom:0}
 </section>
 <div class="grid" style="margin-top:var(--s5)">
   <div class="col">
-    <section class="panel" id="panelRules">
+    <section class="panel" id="panelRules" data-view-key="estudio-panelRules">
       <header><h2>Reglas duras</h2><span class="rulesstate" id="rulesState"><i></i>—</span></header>
       <div class="body">
         <p class="hint" id="rulesHint"></p>
@@ -2156,7 +2157,7 @@ tbody tr:last-child td{border-bottom:0}
         <button type="button" class="add edit-only" id="addRule">+ Añadir regla</button>
       </div>
     </section>
-    <section class="panel" id="panelCheck">
+    <section class="panel" id="panelCheck" data-view-key="estudio-panelCheck">
       <header><h2>Pre-sesión</h2><span class="meta" id="checkMeta">0 / 0 · hoy</span></header>
       <div class="body">
         <div class="winbox">
@@ -2184,13 +2185,13 @@ tbody tr:last-child td{border-bottom:0}
         </div>
       </div>
     </section>
-    <section class="panel" id="panelLevels">
+    <section class="panel" id="panelLevels" data-view-key="estudio-panelLevels">
       <header><h2>Niveles del día</h2><span class="meta">MNQ · se guardan con la sesión</span></header>
       <div class="body" id="mktLevels"></div>
     </section>
   </div>
   <div class="col">
-    <section class="panel" id="panelJournal">
+    <section class="panel" id="panelJournal" data-view-key="estudio-panelJournal">
       <header><h2>Sesión de hoy</h2><div class="hgroup"><div class="sesnow off" id="sesNow" aria-live="polite"></div><span class="meta" id="todayLabel">—</span></div></header>
       <div class="body">
         <div id="closedBanner" hidden class="closed-banner"></div>
@@ -2223,7 +2224,7 @@ tbody tr:last-child td{border-bottom:0}
         </div>
       </div>
     </section>
-    <section class="panel" id="panelHist">
+    <section class="panel" id="panelHist" data-view-key="estudio-panelHist">
       <header><h2>Últimas 14 sesiones</h2><span class="meta" id="histMeta"></span>
         <button type="button" class="btn ghost sm selbtn" id="selbtn-histWrap" title="Selecciona varias sesiones y bórralas de una vez">Seleccionar</button></header>
       <div class="tiles" id="tiles"></div>
@@ -2231,7 +2232,7 @@ tbody tr:last-child td{border-bottom:0}
     </section>
   </div>
 </div>
-<section class="panel" id="panelCabCal" style="margin-top:24px">
+<section class="panel" id="panelCabCal" style="margin-top:24px" data-view-key="estudio-panelCabCal">
   <header>
     <div class="tools"><button type="button" class="icon" id="calCabPrev" title="Mes anterior">‹</button><h2 id="calCabTitle" style="margin:0 6px">—</h2><button type="button" class="icon" id="calCabNext" title="Mes siguiente">›</button></div>
     <span class="meta" id="calCabMeta"></span>
@@ -2243,7 +2244,7 @@ tbody tr:last-child td{border-bottom:0}
 </section>
 
 <div id="migPanel" hidden style="margin-top:24px"></div>
-<section class="panel" id="panelDatos" style="margin-top:24px">
+<section class="panel" id="panelDatos" style="margin-top:24px" data-view-key="estudio-panelDatos">
   <header><h2>Copia de seguridad y traspaso</h2><span class="meta" id="bkMeta">—</span></header>
   <div class="body">
     <p class="hint">Un solo archivo con todo: ajustes, reglas duras, cuentas, sesiones, operaciones, playbook, ideas e inversiones. Sirve de respaldo y es la vía para llevar los datos a otra copia de Cabina.</p>
@@ -2308,31 +2309,31 @@ tbody tr:last-child td{border-bottom:0}
       <section class="panel">
         <div class="tiles five" id="ftTiles"></div>
       </section>
-      <section class="panel" id="qeSec">
+      <section class="panel" id="qeSec" data-view-key="futuros-qeSec">
         <header><h2>Radiografía cuantitativa</h2><span class="meta" id="qeMeta"></span></header>
         <div class="body"><div id="qePanel"></div></div>
       </section>
       <div class="grid eq">
-        <section class="panel">
+        <section class="panel" data-view-key="futuros-curva-de-equity">
           <header><h2>Curva de equity</h2><span class="meta" id="eqMeta"></span></header>
           <div class="body"><div class="chartwrap" id="eqWrap"></div></div>
         </section>
-        <section class="panel">
+        <section class="panel" data-view-key="futuros-bajo-el-agua">
           <header><h2>Bajo el agua</h2><span class="meta" id="uwMeta"></span></header>
           <div class="body"><p class="csub">Distancia al máximo anterior. Plano en cero = cuenta en máximos.</p><div class="chartwrap" id="uwWrap"></div></div>
         </section>
       </div>
       <div class="grid eq">
-        <section class="panel">
+        <section class="panel" data-view-key="futuros-p-l-diario">
           <header><h2>P&amp;L diario</h2><span class="meta" id="dailyMeta"></span></header>
           <div class="body"><div class="chartwrap" id="dailyWrap"></div></div>
         </section>
-        <section class="panel">
+        <section class="panel" data-view-key="futuros-expectativa-movil">
           <header><h2>Expectativa móvil</h2><span class="meta" id="rollMeta"></span></header>
           <div class="body"><p class="csub">Media de R de las últimas 20 operaciones. Por encima de cero el sistema paga.</p><div class="chartwrap" id="rollWrap"></div></div>
         </section>
       </div>
-      <section class="panel">
+      <section class="panel" data-view-key="futuros-rachas-y-disciplina">
         <header><h2>Rachas y disciplina</h2><span class="meta" id="strMeta"></span></header>
         <div class="body"><div class="tiles three" id="ftStreaks" style="border:1px solid var(--line);border-radius:4px;overflow:hidden"></div></div>
       </section>
@@ -2349,7 +2350,7 @@ tbody tr:last-child td{border-bottom:0}
   <!-- ---------- análisis ---------- -->
   <div class="ftview" data-v="analisis">
     <div class="stack">
-      <section class="panel">
+      <section class="panel" data-view-key="futuros-funciona-el-sistema">
         <header><h2>¿Funciona el sistema?</h2><span class="meta" id="scMeta"></span></header>
         <div class="body">
           <div id="ftVerdict"></div>
@@ -2357,38 +2358,38 @@ tbody tr:last-child td{border-bottom:0}
         </div>
       </section>
       <div class="grid eq">
-        <section class="panel">
+        <section class="panel" data-view-key="futuros-distribucion-de-r">
           <header><h2>Distribución de R</h2><span class="meta" id="rdMeta"></span></header>
           <div class="body"><p class="csub">Cuántas operaciones caen en cada múltiplo de riesgo. La barra <b>-1R</b> son stops respetados; lo que quede a su izquierda son stops que se saltaron.</p><div class="chartwrap" id="rdWrap"></div></div>
         </section>
-        <section class="panel">
+        <section class="panel" data-view-key="futuros-el-protocolo-paga">
           <header><h2>El protocolo, ¿paga?</h2><span class="meta" id="prMeta"></span></header>
           <div class="body"><p class="csub">Operaciones con las cuatro condiciones marcadas frente al resto.</p><div class="chartwrap" id="prWrap"></div><div id="prOut"></div></div>
         </section>
       </div>
-      <section class="panel">
+      <section class="panel" data-view-key="futuros-de-que-tipo-fueron-tus-perdidas">
         <header><h2>¿De qué tipo fueron tus pérdidas?</h2><span class="meta" id="erMeta"></span></header>
         <div class="body"><p class="csub">Cada pérdida, clasificada por la cabina con lo que la operación ya trae — no por cómo te sientes después de perderla. La categoría 4 no se elige: se gana, con esperanza positiva en operaciones limpias.</p><div id="erWrap"></div></div>
       </section>
-      <section class="panel">
+      <section class="panel" data-view-key="futuros-por-sesion-de-mercado">
         <header><h2>Por sesión de mercado</h2><span class="meta" id="seMeta"></span></header>
         <div class="body"><p class="csub">Cada operación cae en su sesión por la hora de entrada. Aquí se ve si la ventana de NY AM de verdad es la que paga, o si el dinero está en otro sitio.</p><div class="chartwrap" id="seWrap"></div><div id="seOut"></div></div>
       </section>
       <div class="grid eq">
-        <section class="panel">
+        <section class="panel" data-view-key="futuros-por-hora-de-entrada">
           <header><h2>Por hora de entrada</h2><span class="meta" id="hrMeta"></span></header>
           <div class="body"><div class="chartwrap" id="hrWrap"></div></div>
         </section>
-        <section class="panel">
+        <section class="panel" data-view-key="futuros-por-dia-de-la-semana">
           <header><h2>Por día de la semana</h2><span class="meta" id="dwMeta"></span></header>
           <div class="body"><div class="chartwrap" id="dwWrap"></div></div>
         </section>
       </div>
-      <section class="panel">
+      <section class="panel" data-view-key="futuros-consistencia">
         <header><h2>Consistencia</h2><span class="meta" id="cnMeta"></span></header>
         <div class="body"><p class="csub">Peso de cada día dentro de la ganancia acumulada. Un solo día gigante rompe la regla de las prop firms. La tabla de abajo mide lo mismo cuenta por cuenta, con el total de cada una.</p><div class="chartwrap" id="cnWrap"></div><div id="cnOut"></div></div>
       </section>
-      <section class="panel">
+      <section class="panel" data-view-key="futuros-desglose">
         <header><h2>Desglose</h2><span class="meta">dónde está el edge y dónde se va el dinero</span></header>
         <div class="body"><div class="bk" id="ftBreak"></div></div>
       </section>
@@ -2405,15 +2406,15 @@ tbody tr:last-child td{border-bottom:0}
         <span class="meta" id="prCount"></span>
       </div>
       <section class="panel"><div class="tiles" id="prTiles"></div></section>
-      <section class="panel">
+      <section class="panel" data-view-key="futuros-preparar-paga">
         <header><h2>¿Preparar paga?</h2><span class="meta" id="prPayMeta"></span></header>
         <div class="body"><p class="csub">Resultado medio de una sesión según cómo llegó su pre-sesión. Es la única forma de saber si la lista sirve o es un ritual.</p><div class="chartwrap" id="prPayWrap"></div><div id="prPayOut"></div></div>
       </section>
-      <section class="panel">
+      <section class="panel" data-view-key="futuros-pasos-que-mas-te-saltas">
         <header><h2>Pasos que más te saltas</h2><span class="meta" id="prStepMeta"></span></header>
         <div class="body"><p class="csub">Cada paso, cuántas veces quedó sin marcar y qué resultado dio la sesión en cada caso.</p><div class="twrap" id="prSteps"></div></div>
       </section>
-      <section class="panel">
+      <section class="panel" data-view-key="futuros-historial-de-pre-sesiones">
         <header><h2>Historial de pre-sesiones</h2><span class="meta" id="prHistMeta"></span></header>
         <div class="body"><div class="twrap" id="prHist"></div></div>
       </section>
@@ -2423,7 +2424,7 @@ tbody tr:last-child td{border-bottom:0}
   <!-- ---------- diario ---------- -->
   <div class="ftview" data-v="diario">
     <div class="stack">
-      <section class="panel">
+      <section class="panel" data-view-key="futuros-panel">
         <header>
           <div class="tools"><button type="button" class="icon" id="calPrev" title="Mes anterior">‹</button><h2 id="calTitle" style="margin:0 6px">—</h2><button type="button" class="icon" id="calNext" title="Mes siguiente">›</button></div>
           <span class="meta" id="calMeta"></span>
@@ -2432,18 +2433,18 @@ tbody tr:last-child td{border-bottom:0}
           <div class="cal" id="cal"></div>
         </div>
       </section>
-      <section class="panel" id="dayPanel">
+      <section class="panel" id="dayPanel" data-view-key="futuros-dayPanel">
         <header><h2 id="dayTitle">Día</h2><span class="meta" id="dayMeta"></span></header>
         <div class="body" id="dayBody"></div>
       </section>
-      <section class="panel">
+      <section class="panel" data-view-key="futuros-operaciones">
         <header><h2>Operaciones</h2><span class="meta" id="jrMeta"></span></header>
         <div class="body"><div class="twrap" id="jrTable"></div></div>
       </section>
       <!-- IMPORTAR · mapeador manual de operaciones cerradas y modo FIFO de ejecuciones.
            La detección automática de plataforma (fase 4) y la validación contra un CSV
            real del bróker siguen pendientes; ver docs/IMPORTAR.md. -->
-      <section class="panel" id="panelImportar">
+      <section class="panel" id="panelImportar" data-view-key="futuros-panelImportar">
         <header><h2>Importar operaciones</h2><span class="meta" id="impMeta">—</span></header>
         <div class="body">
           <p class="hint">Un CSV del bróker. No sale del navegador: se lee aquí. <strong>Tú dices qué columna es qué</strong> —esta cabina no conoce la cabecera de ningún bróker, y adivinarla es cómo se importan doce meses al día equivocado—. Nada se escribe antes de que veas la tabla exacta que va a entrar.</p>
@@ -2460,7 +2461,7 @@ tbody tr:last-child td{border-bottom:0}
       </section>
     </div>
   </div>
-  <section class="panel" id="panelExecHistory">
+  <section class="panel" id="panelExecHistory" data-view-key="futuros-panelExecHistory">
     <header><h2>Historial de ejecuciones</h2><span class="meta" id="execHistoryMeta">Sin ejecuciones importadas</span><button type="button" class="btn ghost sm" id="execToggle" aria-expanded="false">Ver historial</button></header>
     <div class="body" id="execHistoryBody" hidden>
       <p class="hint">Registro consolidado de los fills importados. Si una ejecución se repartió entre varias operaciones por un cierre parcial o una reversión, se agrupa por su huella para no contarla dos veces. No calcula un P&amp;L independiente: el resultado sigue perteneciendo al motor de operaciones.</p>
@@ -2494,7 +2495,7 @@ tbody tr:last-child td{border-bottom:0}
   </div>
   <div id="mxAviso"></div>
   <div class="stack">
-    <section class="panel">
+    <section class="panel" data-view-key="edge-parametros">
       <header><h2>Parámetros</h2><span class="meta">se guardan con tu configuración</span></header>
       <div class="body">
         <div class="mxparams">
@@ -2506,16 +2507,16 @@ tbody tr:last-child td{border-bottom:0}
         <p class="csub" id="mxComNota" style="margin-top:12px"></p>
       </div>
     </section>
-    <section class="panel">
+    <section class="panel" data-view-key="edge-edge">
       <header><h2>Edge</h2><span class="meta" id="mxEdgeMeta"></span></header>
       <div class="body"><div class="qeg" id="mxEdge"></div><div id="mxEdgeNotas"></div></div>
     </section>
-    <section class="panel">
+    <section class="panel" data-view-key="edge-curva-de-equity-y-drawdown">
       <header><h2>Curva de equity y drawdown</h2><span class="meta" id="mxCurvaMeta"></span></header>
       <div class="body"><div class="chartwrap" id="mxCurva"></div><div id="mxDD"></div></div>
     </section>
     <div class="grid eq">
-      <section class="panel">
+      <section class="panel" data-view-key="edge-tamano-de-posicion">
         <header><h2>Tamaño de posición</h2><span class="meta">futuros · floor(riesgo ÷ (puntos × $/pt + comisión))</span></header>
         <div class="body" id="mxSize">
           <div class="mxform">
@@ -2530,7 +2531,7 @@ tbody tr:last-child td{border-bottom:0}
           <div id="mxSizeRes"></div>
         </div>
       </section>
-      <section class="panel">
+      <section class="panel" data-view-key="edge-riesgo-de-ruina-prop">
         <header><h2>Riesgo de ruina · prop</h2><span class="meta">Monte Carlo · 10.000 caminos</span></header>
         <div class="body" id="mxRuina">
           <div class="mxform">
@@ -2543,7 +2544,7 @@ tbody tr:last-child td{border-bottom:0}
         </div>
       </section>
     </div>
-    <section class="panel">
+    <section class="panel" data-view-key="playbook-operacion-por-operacion">
       <header><h2>Operación por operación</h2><span class="meta" id="mxTablaMeta"></span></header>
       <div class="body"><div class="twrap" id="mxTabla"></div></div>
     </section>
@@ -2602,36 +2603,36 @@ tbody tr:last-child td{border-bottom:0}
     <header><h2>Cuentas de inversión</h2><span class="meta">eliminar una cuenta conserva su historial</span></header>
     <div class="body" id="ivAccountsList"></div>
   </section>
-  <section class="panel" style="margin-bottom:24px">
+  <section class="panel" style="margin-bottom:24px" data-view-key="invest-cartera-todos-los-mercados">
     <header><h2>Cartera · todos los mercados</h2><span class="meta" id="ivPortfolioScope">todas las cuentas · cartera consolidada · precios los escribes tú</span></header>
     <div class="tiles five" id="ivTiles"></div>
     <div id="ivTocar" hidden></div>
   </section>
   <div class="grid eq" style="margin-bottom:24px">
-    <section class="panel">
+    <section class="panel" data-view-key="invest-asignacion-por-mercado">
       <header><h2>Asignación por mercado</h2><span class="meta" id="ivAllocMeta"></span></header>
       <div class="body"><div class="chartwrap" id="ivAllocWrap"></div><div id="ivAllocTable"></div></div>
     </section>
-    <section class="panel">
+    <section class="panel" data-view-key="invest-rendimiento-por-posicion">
       <header><h2>Rendimiento por posición</h2><span class="meta" id="ivPerfMeta"></span></header>
       <div class="body"><p class="csub">Rendimiento neto sobre lo invertido: precio, ventas, dividendos y comisiones. Solo las posiciones con precio actual escrito o ya cerradas — sin precio no hay nada que medir.</p><div class="chartwrap" id="ivPerfWrap"></div></div>
     </section>
   </div>
   <div class="grid eq" style="margin-bottom:24px">
-    <section class="panel">
+    <section class="panel" data-view-key="calc-aportes-por-mes">
       <header><h2>Aportes por mes</h2><span class="meta" id="ivFlowMeta"></span></header>
       <div class="body"><p class="csub">Compras y aportes registrados. La constancia importa más que el importe.</p><div class="chartwrap" id="ivFlowWrap"></div></div>
     </section>
-    <section class="panel">
+    <section class="panel" data-view-key="calc-ingresos-cobrados">
       <header><h2>Ingresos cobrados</h2><span class="meta" id="ivIncMeta"></span></header>
       <div class="body"><p class="csub">Dividendos, cupones, primas de opciones y alquileres registrados como cobro.</p><div class="chartwrap" id="ivIncWrap"></div></div>
     </section>
   </div>
-  <section class="panel" style="margin-bottom:24px">
+  <section class="panel" style="margin-bottom:24px" data-view-key="calc-salud-de-la-cartera">
     <header><h2>Salud de la cartera</h2><span class="meta" id="ivHealthMeta"></span></header>
     <div class="body"><div id="ivVerdict"></div><div class="score" id="ivScore"></div></div>
   </section>
-  <section class="panel" style="margin-bottom:24px">
+  <section class="panel" style="margin-bottom:24px" data-view-key="calc-operaciones-de-inversion">
     <header><h2>Operaciones de inversión</h2><span class="meta" id="ivOpsMeta"></span></header>
     <div class="body"><div class="twrap" id="ivOps"></div></div>
   </section>
@@ -2662,7 +2663,7 @@ tbody tr:last-child td{border-bottom:0}
   <div id="calcProj">
     <div class="grid">
       <div class="col">
-        <section class="panel">
+        <section class="panel" data-view-key="calc-interes-compuesto">
           <header><h2 id="ccTitle">Interés compuesto</h2><span class="meta" id="ccMode">modo clásico</span></header>
           <div class="body">
             <div class="calc-form" id="ccForm">
@@ -2678,13 +2679,13 @@ tbody tr:last-child td{border-bottom:0}
             <p class="note-p" id="ccNote" style="margin-top:12px"></p>
           </div>
         </section>
-        <section class="panel">
+        <section class="panel" data-view-key="calc-escenarios-guardados">
           <header><h2>Escenarios guardados</h2><button type="button" class="btn sm" id="ccSave">Guardar escenario actual</button></header>
           <div class="body" id="ccScenarios"></div>
         </section>
       </div>
       <div class="col">
-        <section class="panel">
+        <section class="panel" data-view-key="calc-resultado">
           <header><h2>Resultado</h2><span class="meta" id="ccMeta"></span></header>
           <div class="body">
             <div class="hero" id="ccHero"></div>
@@ -2692,7 +2693,7 @@ tbody tr:last-child td{border-bottom:0}
             <div class="legend"><span><i></i>Balance</span><span><i class="d"></i>Aportado</span></div>
           </div>
         </section>
-        <section class="panel">
+        <section class="panel" data-view-key="calc-ano-a-ano">
           <header><h2>Año a año</h2></header>
           <div class="body"><div class="twrap" id="ccTable"></div></div>
         </section>
@@ -2704,7 +2705,7 @@ tbody tr:last-child td{border-bottom:0}
   <div id="calcRisk" hidden>
     <div class="grid">
       <div class="col">
-        <section class="panel">
+        <section class="panel" data-view-key="calc-datos-de-la-cuenta">
           <header><h2>Datos de la cuenta</h2><span class="meta" id="riskMeta"></span></header>
           <div class="body">
             <div class="rform" id="riskForm"></div>
@@ -2716,7 +2717,7 @@ tbody tr:last-child td{border-bottom:0}
             <p class="note" id="riskFlash" style="font-family:var(--font-mono);font-size:12px;margin:12px 0 0;min-height:1em"></p>
           </div>
         </section>
-        <section class="panel" id="riskSaved">
+        <section class="panel" id="riskSaved" data-view-key="calc-riskSaved">
           <header><h2>Escenarios guardados</h2><span class="meta">uno por cuenta</span></header>
           <div class="body" id="riskList"></div>
         </section>
@@ -2751,6 +2752,14 @@ tbody tr:last-child td{border-bottom:0}
      Una sola entrada para todo lo que está a dos o tres clics. Se abre con
      ⌘K / Ctrl+K y se cierra con Esc. No sustituye a la navegación: la
      acompaña, para quien ya sabe adónde va. -->
+<div class="ov" id="viewPrefsOv" role="dialog" aria-modal="true" aria-labelledby="viewPrefsTitle">
+  <div class="ed view-prefs-ed">
+    <header><div><h3 id="viewPrefsTitle">Personalizar vista</h3><p class="hint">Oculta bloques que no necesitas. Tus datos y cálculos no cambian.</p></div><button type="button" class="icon" id="viewPrefsClose" aria-label="Cerrar">×</button></header>
+    <div class="fields view-prefs-fields" id="viewPrefsFields"></div>
+    <footer><button type="button" class="btn ghost" id="viewPrefsReset">Mostrar todo</button><span class="sp"></span><button type="button" class="btn primary" id="viewPrefsDone">Listo</button></footer>
+  </div>
+</div>
+
 <div class="ov cmd-ov" id="cmdOv" role="dialog" aria-modal="true" aria-label="Paleta de comandos">
   <div class="cmd">
     <div class="cmd-in">
@@ -16973,6 +16982,64 @@ tbody tr:last-child td{border-bottom:0}
   /* El idioma se aplica al final del arranque, cuando el markup estatico ya
      esta y los primeros renders han corrido: traducir antes dejaria el cromo a
      medias hasta el primer repintado. */
+
+  /* ── PREFERENCIAS DE VISIBILIDAD POR PESTAÑA ────────────────────────────
+     Sólo oculta bloques de interfaz; no borra datos ni altera los motores.
+     Preferencias en una clave separada para no modificar el esquema de datos. */
+  (function iniciarVistaPersonalizada() {
+    const STORE = "cabina-view-prefs:v1";
+    const modal = $("viewPrefsOv"), fields = $("viewPrefsFields");
+    const btn = $("viewPrefsBtn");
+    if (!modal || !fields || !btn) return;
+    const tabNames = { cabina:"Cabina", futuros:"Futuros", edge:"Métricas / Edge",
+      playbook:"Playbook", ideas:"Formas de hacer dinero", invest:"Inversiones",
+      estudio:"Estudio", calc:"Calculadora" };
+    const read = () => { try { const v=JSON.parse(localStorage.getItem(STORE)||"{}"); return v&&typeof v==="object"&&!Array.isArray(v)?v:{}; } catch { return {}; } };
+    let prefs = read(), returnFocus = null;
+    const targets = () => [...document.querySelectorAll("[data-view-key]")].filter(el => !el.hidden);
+    const groupOf = el => el.closest(".tab[data-tab]")?.dataset.tab || "cabina";
+    const titleOf = el => el.querySelector("h2")?.textContent?.trim() || el.getAttribute("aria-label") || el.id || "Bloque";
+    const save = () => { try { localStorage.setItem(STORE, JSON.stringify(prefs)); } catch(e) { const st=$("saveState"); if(st){st.textContent="vista no guardada";st.classList.add("nosave");} } };
+    function apply() {
+      for (const el of document.querySelectorAll("[data-view-key]")) el.hidden = prefs[el.dataset.viewKey] === false;
+      const hidden = Object.values(prefs).filter(v=>v===false).length;
+      btn.setAttribute("aria-label", hidden ? `Personalizar vista; ${hidden} bloques ocultos` : "Personalizar vista");
+      btn.title = hidden ? `${hidden} bloques ocultos · personalizar vista` : "Elegir qué bloques mostrar";
+    }
+    function render() {
+      fields.replaceChildren();
+      const groups = new Map();
+      for (const el of targets()) {
+        const tab = groupOf(el);
+        if (!groups.has(tab)) groups.set(tab, []);
+        groups.get(tab).push(el);
+      }
+      for (const [tab, els] of groups) {
+        const fs=document.createElement("fieldset"); fs.className="view-prefs-group";
+        const legend=document.createElement("legend"); legend.textContent=tabNames[tab]||tab; fs.append(legend);
+        const grid=document.createElement("div"); grid.className="view-prefs-options";
+        for (const el of els) {
+          const label=document.createElement("label"); label.className="view-prefs-option";
+          const input=document.createElement("input"); input.type="checkbox"; input.checked=prefs[el.dataset.viewKey]!==false;
+          input.dataset.viewKey=el.dataset.viewKey; input.setAttribute("aria-label",titleOf(el));
+          const text=document.createElement("span"); text.textContent=titleOf(el);
+          input.addEventListener("change",()=>{prefs[el.dataset.viewKey]=input.checked;save();apply();});
+          label.append(input,text); grid.append(label);
+        }
+        fs.append(grid); fields.append(fs);
+      }
+    }
+    function open() { returnFocus=document.activeElement; render(); modal.classList.add("open"); $("viewPrefsClose").focus(); }
+    function close() { modal.classList.remove("open"); if(returnFocus&&returnFocus.focus)returnFocus.focus(); }
+    btn.addEventListener("click",open);
+    $("viewPrefsClose").addEventListener("click",close);
+    $("viewPrefsDone").addEventListener("click",close);
+    modal.addEventListener("click",e=>{if(e.target===modal)close();});
+    $("viewPrefsReset").addEventListener("click",()=>{prefs={};save();apply();render();});
+    document.addEventListener("keydown",e=>{if(e.key==="Escape"&&modal.classList.contains("open"))close();});
+    apply();
+  })();
+
   i18nArranca();
 
 })();
@@ -17468,6 +17535,20 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
      que hay que ver, y partirlo lo escondería. */
   .save-state.nosave { flex: 1 1 100%; }
 }
+
+/* ── PERSONALIZAR VISTA: menos ruido sin perder datos ── */
+.view-prefs-ed{width:min(820px,calc(100vw - 24px))}
+.view-prefs-ed>header{align-items:flex-start}
+.view-prefs-ed>header .hint{margin:6px 0 0;max-width:58ch;font-size:12px}
+.view-prefs-fields{display:block;max-height:min(62dvh,620px);overflow:auto}
+.view-prefs-group{padding:0 0 16px;margin:0 0 14px;border:0;border-bottom:1px solid var(--line)}
+.view-prefs-group legend{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:750;margin-bottom:9px}
+.view-prefs-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.view-prefs-option{display:flex;align-items:flex-start;gap:9px;min-width:0;padding:10px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-size:12px;line-height:1.4;cursor:pointer}
+.view-prefs-option input{flex:0 0 auto;margin:2px 0 0;accent-color:var(--accent,#70e0cf)}
+.view-prefs-option:has(input:focus-visible){outline:2px solid var(--focus,#70e0cf);outline-offset:2px}
+@media(max-width:560px){.view-prefs-ed{width:calc(100vw - 14px);max-height:95dvh}.view-prefs-fields{padding:14px}.view-prefs-options{grid-template-columns:minmax(0,1fr)}.view-prefs-ed>header{padding:14px}.view-prefs-ed>footer{padding:12px 14px}}
+
 </style>
 
 </body>
