@@ -15405,7 +15405,7 @@ tbody tr:last-child td{border-bottom:0}
       Number(f.qty), Number(f.price)
     ].join("|");
   }
-  function impEmparejarEjecuciones(fills, yaVistas) {
+  function impEmparejarEjecuciones(fills, yaVistas, previas) {
     const vistos = new Set(Array.isArray(yaVistas) ? yaVistas.map(String) : []);
     const duplicadas = [], invalidas = [], ordenadas = [];
     (Array.isArray(fills) ? fills : []).forEach((raw, ix) => {
@@ -15434,6 +15434,29 @@ tbody tr:last-child td{border-bottom:0}
     });
     const abiertas = new Map(), lotes = [];
     const clave = f => String(f.accountId) + "|" + f.instrument;
+    /* Reanuda lotes abiertos de importaciones previas sólo cuando el ledger
+       conserva la ejecución de entrada. No adivina un coste ni una identidad. */
+    const prevLotes = (Array.isArray(previas) ? previas : []).map(t => {
+      const entry = Array.isArray(t.executionLedger) ? t.executionLedger.find(x => x && x.role === "entry") : null;
+      const qty = Number(t.qty), price = Number(t.entry);
+      const side = t.direction === "long" ? "buy" : t.direction === "short" ? "sell" : "";
+      if (!entry || !(qty > 0) || !(price > 0) || !side) return null;
+      const f = {
+        accountId: String(t.accountId || ""), instrument: String(t.instrument || "").trim().toUpperCase(),
+        date: String(entry.date || t.date || ""), time: String(entry.time || t.time || ""),
+        side, qty, price, fees: Math.abs(Number(t.fees ?? entry.fees) || 0),
+        executionId: String(entry.executionId || ""), fingerprint: String(entry.fingerprint || ""),
+      };
+      f.fingerprint = f.fingerprint || (Array.isArray(t.executionIds) ? String(t.executionIds.find(x => String(x).startsWith("id:") || String(x).startsWith("fp:")) || "") : "");
+      f.fingerprint = f.fingerprint || impHuellaEjecucion(f);
+      return { trade: t, fill: f };
+    }).filter(Boolean).sort((a,b) => (a.fill.date+"T"+(a.fill.time||"")).localeCompare(b.fill.date+"T"+(b.fill.time||"")));
+    prevLotes.forEach(({trade,fill:f}) => {
+      const key = clave(f), cola = abiertas.get(key) || [];
+      const lote = { fill:f, side:f.side, remaining:f.qty, closedQty:0, exitNotional:0, exitFees:0,
+        closeIds:[], exitFills:[], exitDate:"", exitTime:"", existingTradeId:trade.id, priorQty:f.qty };
+      cola.push(lote); abiertas.set(key,cola); lotes.push(lote);
+    });
     ordenadas.forEach(f => {
       let restante = f.qty;
       const key = clave(f), cola = abiertas.get(key) || [];
@@ -15464,8 +15487,10 @@ tbody tr:last-child td{border-bottom:0}
     const ops = [];
     lotes.forEach(l => {
       const f = l.fill, entradaFeePorUnidad = f.fees / f.qty;
+      if (l.existingTradeId && l.closedQty <= 1e-9) return; // el lote sigue intacto
       if (l.closedQty > 1e-9) {
         ops.push({
+          ...(l.existingTradeId ? { existingTradeId: l.existingTradeId } : {}),
           date: f.date, time: f.time || "", exitDate: l.exitDate || f.date,
           exitTime: l.exitTime || "", instrument: f.instrument,
           direction: f.side === "buy" ? "long" : "short", qty: l.closedQty,
@@ -15576,19 +15601,22 @@ tbody tr:last-child td{border-bottom:0}
       fills.push({ accountId, instrument, date, time, side, qty, price, fees: fees || 0, executionId: cel(fila, "executionId"), n });
     });
     const idsExistentes = Array.isArray(existentes) ? existentes : [];
-    const emp = impEmparejarEjecuciones(fills, idsExistentes);
-    emp.invalidas.forEach(x => rechazadas.push({ n: x.n, problemas: [x.motivo] }));
-    /* Si una posición importada sigue abierta y llega una ejecución nueva del
-       lado contrario, no se puede inferir si es su cierre o una operación nueva
-       sin reconstruir el lote previo. Bloquear evita inventar una posición corta
-       o larga al importar un rango parcial. */
     const huellasPrevias = new Set(idsExistentes.map(String));
     const operacionesPrevias = Array.isArray(tradesExistentes) ? tradesExistentes : [];
+    const abiertasReconstruibles = operacionesPrevias.filter(t => t && t.type === "futuros" &&
+      /^import:/.test(String(t.source || "")) && (t.exit == null || !Number.isFinite(Number(t.exit))) &&
+      String(t.accountId || "") === String(accountId || "") &&
+      Array.isArray(t.executionLedger) && t.executionLedger.some(x => x && x.role === "entry" && x.date && x.price != null));
+    const emp = impEmparejarEjecuciones(fills, idsExistentes, abiertasReconstruibles);
+    emp.invalidas.forEach(x => rechazadas.push({ n: x.n, problemas: [x.motivo] }));
+    /* Si existe una posición importada abierta sin ledger suficiente, no se
+       puede decidir si una ejecución opuesta la cierra o abre otra posición. */
     const conflictos = fills.filter(f => !huellasPrevias.has(impHuellaEjecucion(f)) &&
       operacionesPrevias.some(t => t && t.type === "futuros" && /^import:/.test(String(t.source || "")) &&
         (t.exit == null || !Number.isFinite(Number(t.exit))) && String(t.accountId || "") === String(accountId || "") &&
         String(t.instrument || "").trim().toUpperCase() === String(f.instrument || "").trim().toUpperCase() &&
-        ((t.direction === "long" && f.side === "sell") || (t.direction === "short" && f.side === "buy"))));
+        ((t.direction === "long" && f.side === "sell") || (t.direction === "short" && f.side === "buy")) &&
+        !abiertasReconstruibles.some(x => x.id === t.id)));
     return {
       plan, ops: emp.ops, rechazadas, faltan, repetidas, duplicadas: emp.duplicadas,
       aceptadas: emp.aceptadas, huellas: emp.huellas, conflictos, modo: "ejecuciones",
@@ -15635,7 +15663,7 @@ tbody tr:last-child td{border-bottom:0}
          una operación sin cuenta no entra en el drawdown de ninguna.
        · EL BOTÓN DE IMPORTAR NO EXISTE MIENTRAS FALTE ALGO, y lo que falta se
          dice con su nombre. No hay camino «importa y ya veremos». */
-  const imp = { lectura: null, nombre: "", mapa: {}, elegido: {}, cuenta: "", lote: null, modo: "operaciones" };
+  const imp = { lectura: null, nombre: "", mapa: {}, elegido: {}, cuenta: "", lote: null, modo: "operaciones", undoSnapshots: [] };
   function impSay(msg, mal) {
     const el = $("impNote"); if (!el) return;
     el.className = "synced" + (mal ? " bad" : "");
@@ -15661,8 +15689,9 @@ tbody tr:last-child td{border-bottom:0}
        que ofrecer deshacer las que quedan, no mentir con el total. Por eso esto
        lee `coll("trades")` y por eso es una zona del registro de repintado. */
     const lote = imp.lote ? coll("trades").items.filter(t => t && t.importId === imp.lote) : [];
+    const deshacerN = lote.length + (imp.undoSnapshots || []).length;
     const bU = $("impUndo"), bC = $("impClear");
-    if (bU) { bU.hidden = !lote.length; bU.textContent = `Deshacer la importación (${lote.length})`; }
+    if (bU) { bU.hidden = !deshacerN; bU.textContent = `Deshacer la importación (${deshacerN})`; }
     if (bC) bC.hidden = !imp.lectura;
     const meta = $("impMeta");
     if (!imp.lectura) {
@@ -15801,7 +15830,23 @@ tbody tr:last-child td{border-bottom:0}
   async function impEscribe(p) {
     const lote = uid("imp");
     let n = 0;
+    imp.undoSnapshots = [];
     for (const o of p.ops) {
+      if (o.existingTradeId) {
+        const previo = coll("trades").get(o.existingTradeId);
+        if (!previo) throw new Error("La posición abierta cambió antes de guardar; vuelve a revisar la vista previa.");
+        imp.undoSnapshots.push(JSON.parse(JSON.stringify(previo)));
+        const rec = Object.assign({}, previo, {
+          date: o.date, time: o.time || previo.time || "", instrument: o.instrument,
+          direction: o.direction, qty: o.qty, exit: o.exit, exitDate: o.exitDate || o.date,
+          exitTime: o.exitTime || "", fees: o.fees, executionIds: (o.executionIds || []).slice(),
+          executionLedger: (o.executionLedger || []).map(x => Object.assign({}, x)),
+          updatedAt: Date.now()
+        });
+        await coll("trades").set(rec.id, rec);
+        n++;
+        continue;
+      }
       const rec = {
         id: uid("t"), type: "futuros", accountId: imp.cuenta,
         date: o.date, instrument: o.instrument, direction: o.direction, qty: o.qty, entry: o.entry,
@@ -15843,17 +15888,19 @@ tbody tr:last-child td{border-bottom:0}
   $("impClear").addEventListener("click", () => { imp.lectura = null; imp.nombre = ""; imp.mapa = {}; imp.elegido = {}; renderImportar(); impSay("Fichero descartado. No se escribió nada."); });
   $("impUndo").addEventListener("click", () => {
     const pend = imp.lote ? coll("trades").items.filter(t => t && t.importId === imp.lote) : [];
-    if (!pend.length) { renderImportar(); return; }
+    const snapshots = Array.isArray(imp.undoSnapshots) ? imp.undoSnapshots.slice() : [];
+    if (!pend.length && !snapshots.length) { renderImportar(); return; }
     openEditor({ title: "Deshacer la importación",
-      fields: [{ key: "nota", type: "nota", w: 6, label: `Se borran ${plu(pend.length, "operación", "operaciones")} del journal: las de la última importación de esta sesión. Lo que hayas escrito encima de ellas —stop, setup, notas— se va con ellas.` },
+      fields: [{ key: "nota", type: "nota", w: 6, label: `Se borran ${plu(pend.length, "operación nueva", "operaciones nuevas")} y se restauran ${plu(snapshots.length, "posición previa", "posiciones previas")} que se actualizaron al reconciliar la última importación.` },
                { key: "ok", label: "Escribe BORRAR para confirmar", w: 6, ph: "BORRAR" }],
       values: { ok: "" },
       validate: v => (String(v.ok || "").trim().toUpperCase() === "BORRAR" ? null : "Escribe BORRAR para confirmar"),
       onSave: async () => {
+        for (const t of snapshots) await coll("trades").set(t.id, t);
         for (const t of pend) await coll("trades").remove(t.id);
-        imp.lote = null;
+        imp.lote = null; imp.undoSnapshots = [];
         renderImportar();
-        impSay(`${plu(pend.length, "operación borrada", "operaciones borradas")}. El journal vuelve a estar como antes de importar.`);
+        impSay(`${plu(pend.length, "operación nueva borrada", "operaciones nuevas borradas")} y ${plu(snapshots.length, "posición restaurada", "posiciones restauradas")}. El journal vuelve al estado anterior a la importación.`);
       } });
     const sv = $("edSave"); sv.textContent = "Borrar";
     const obs = new MutationObserver(() => { if (!ov.classList.contains("open")) { sv.textContent = "Guardar"; obs.disconnect(); } });
