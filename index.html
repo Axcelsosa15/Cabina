@@ -15820,7 +15820,7 @@ tbody tr:last-child td{border-bottom:0}
           flash(plu(n, "operación importada", "operaciones importadas"));
           imp.lectura = null; imp.nombre = ""; imp.mapa = {}; imp.elegido = {};
           renderImportar();
-        } catch (e) { impSay("No se pudo importar: " + ((e && e.message) || "error desconocido") + ".", true); }
+        } catch (e) { renderImportar(); impSay("No se pudo importar: " + ((e && e.message) || "error desconocido") + ".", true); }
       },
     });
     const sv = $("edSave"); sv.textContent = "Importar";
@@ -15829,6 +15829,7 @@ tbody tr:last-child td{border-bottom:0}
   }
   async function impEscribe(p) {
     const lote = uid("imp");
+    imp.lote = lote; // si falla una escritura parcial, la UI puede ofrecer deshacerla
     let n = 0;
     imp.undoSnapshots = [];
     for (const o of p.ops) {
