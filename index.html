@@ -14639,6 +14639,7 @@ tbody tr:last-child td{border-bottom:0}
       if (q && ![x.date,x.time,x.instrument,x.side,x.executionId,acctLabel(x.accountId),[...x.roles].join(" "),[...x.tradeIds].join(" ")].join(" ").toLowerCase().includes(q)) return false;
       return true;
     }).sort((a,b) => (b.date+"T"+b.time).localeCompare(a.date+"T"+a.time));
+    if (exportBtn) exportBtn.disabled = visible.length === 0;
     const linked = new Set(visible.flatMap(x => [...x.tradeIds]));
     meta.textContent = all.length ? `${all.length} ejecuciones · ${new Set(all.map(x=>x.accountId)).size} cuentas · ${new Set(all.map(x=>x.instrument)).size} instrumentos` : "Sin ejecuciones importadas";
     if (!visible.length) {
