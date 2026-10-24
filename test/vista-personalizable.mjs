@@ -60,6 +60,7 @@ ok(!(await page.locator('#panelImportar').evaluate(el => el.classList.contains('
 
 console.log('\\n═══ COBERTURA DE TODAS LAS PESTAÑAS ═══');
 for (const [tab, label] of [
+  ['edge', 'Métricas / Edge'],
   ['invest', 'Inversiones'],
   ['playbook', 'Playbook'],
   ['ideas', 'Formas de hacer dinero'],
