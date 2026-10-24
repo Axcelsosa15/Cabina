@@ -1,6 +1,7 @@
 /* FIFO de ejecuciones · fixtures deterministas contra la función expuesta por la app.
    No toca el almacén ni modifica los cálculos del motor cuantitativo. */
 import { chromium } from 'playwright';
+import { quieto, trasAccion, trasGuardar } from './espera.mjs';
 
 const fallos = [], errores = [];
 const ok = (c, t, d) => {
@@ -10,6 +11,13 @@ const ok = (c, t, d) => {
 const b = await chromium.launch();
 const p = await (await b.newContext({ viewport: { width: 1200, height: 900 } })).newPage();
 p.on('pageerror', e => errores.push(e.message));
+const SEMILLA = {
+  settings: { meta: { mx: { com: 0 } }, accounts: [
+    { id: 'acct-1', name: 'Cuenta FIFO', size: 50000, dd: 2500, ddKind: 'estatico', status: 'fondeada', ledger: [] }
+  ], rules: [] },
+  trades: {}
+};
+await p.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(JSON.stringify(SEMILLA))});}catch(e){}`);
 await p.goto('file://' + process.cwd() + '/../index.html');
 await p.waitForFunction(() => window.FUT?.imp?.emparejarEjecuciones, null, { timeout: 20000 });
 
@@ -98,6 +106,42 @@ const parcialPrevio = await p.evaluate(() => {
 ok(parcialPrevio.conflictos.length === 1 && !parcialPrevio.listo,
    'bloquea un rango parcial que cerraría una posición importada aún abierta',
    JSON.stringify({ conflictos: parcialPrevio.conflictos.length, listo: parcialPrevio.listo }));
+
+console.log('\\n═══ 7 · importación real y ledger visible en el journal ═══');
+await p.click('.tabbtn[data-tab="futuros"]');
+await p.click('#ftSeg button[data-v="diario"]');
+await quieto(p);
+await p.click('#impPaste');
+await p.fill('#ef_c', 'date,time,instrument,side,qty,price,fees,execution_id\\n'
+  + '2026-10-01,09:30:00,MNQ,buy,2,100,2,fill-open\\n'
+  + '2026-10-01,09:31:00,MNQ,sell,2,110,2,fill-close');
+await p.click('#edSave');
+await trasAccion(p);
+await p.selectOption('#impMode', 'ejecuciones');
+await quieto(p);
+for (const [campo, i] of Object.entries({ date: 0, time: 1, instrument: 2, side: 3, qty: 4, price: 5, fees: 6, executionId: 7 })) {
+  await p.selectOption(`select[data-imp="col_${campo}"]`, String(i));
+}
+await p.selectOption('select[data-imp="cuenta"]', 'acct-1');
+await quieto(p);
+ok(await p.$('#impGo') !== null, 'el modo FIFO deja previsualizar una ida y vuelta válida', 'botón disponible');
+await p.click('#impGo');
+await p.fill('#ef_ok', 'IMPORTAR');
+await p.click('#edSave');
+await trasGuardar(p);
+const guardada = await p.evaluate(() => {
+  const t = (FUT.trades() || []).find(x => x.source === 'import:ejecuciones');
+  return {
+    source: t && t.source, qty: t && t.qty, exit: t && t.exit,
+    ledger: t && t.executionLedger && t.executionLedger.length,
+    ids: t && t.executionIds && t.executionIds.length,
+    visible: document.querySelector('#jrTable .execs details summary')?.textContent || ''
+  };
+});
+ok(guardada.source === 'import:ejecuciones' && guardada.qty === 2 && guardada.exit === 110,
+   'el botón escribe la operación emparejada con su procedencia', JSON.stringify(guardada));
+ok(guardada.ledger === 2 && guardada.ids === 2 && /2 fills/.test(guardada.visible),
+   'el journal muestra los dos fills originales dentro de la operación', JSON.stringify(guardada));
 
 ok(errores.length === 0, 'sin errores JavaScript', errores.join(' | ') || 'ninguno');
 
