@@ -15403,7 +15403,7 @@ tbody tr:last-child td{border-bottom:0}
       const q = Number(f.qty), px = Number(f.price);
       f.n = Number.isFinite(Number(f.n)) ? Number(f.n) : ix + 2;
       f.side = String(f.side || "").toLowerCase();
-      if (!f.accountId || !String(f.instrument || "").trim() || !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(f.date || "")) ||
+      if (!f.accountId || !String(f.instrument || "").trim() || !/^\d{4}-\d{2}-\d{2}$/.test(String(f.date || "")) ||
           !["buy", "sell"].includes(f.side) || !Number.isFinite(q) || q <= 0 ||
           !Number.isFinite(px) || px <= 0) {
         invalidas.push({ n: f.n, motivo: "cuenta, fecha, instrumento, lado, cantidad o precio no válido" });
