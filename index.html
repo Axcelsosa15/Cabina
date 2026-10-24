@@ -15808,7 +15808,7 @@ tbody tr:last-child td{border-bottom:0}
         /* `source` dice DE DÓNDE vino y `importId` de QUÉ importación. Con eso el
            deshacer no tiene que acordarse de nada, y la fase 3 —la huella de
            deduplicación— tiene dónde colgarse cuando llegue. */
-        source: "import:manual", importId: lote,
+        source: imp.modo === "ejecuciones" ? "import:ejecuciones" : "import:manual", importId: lote,
         createdAt: Date.now(), updatedAt: Date.now(),
       };
       if (o.time) rec.time = o.time;
