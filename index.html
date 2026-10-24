@@ -15813,7 +15813,11 @@ tbody tr:last-child td{border-bottom:0}
     const meta = $("impMeta");
     if (!imp.lectura) {
       cont.innerHTML = "";
-      if (meta) meta.textContent = lote.length ? plu(lote.length, "operación importada", "operaciones importadas") + " en esta sesión" : "ningún fichero cargado";
+      const actualizadas = (imp.undoSnapshots || []).length;
+      const partesMeta = [];
+      if (lote.length) partesMeta.push(plu(lote.length, "operación importada", "operaciones importadas"));
+      if (actualizadas) partesMeta.push(plu(actualizadas, "operación actualizada", "operaciones actualizadas"));
+      if (meta) meta.textContent = partesMeta.length ? partesMeta.join(" · ") + " en esta sesión" : "ningún fichero cargado";
       return;
     }
     const L = imp.lectura;
@@ -15932,9 +15936,13 @@ tbody tr:last-child td{border-bottom:0}
       onSave: async () => {
         impSay("Importando…");
         try {
-          const n = await impEscribe(p);
-          impSay(`${plu(n, "operación importada", "operaciones importadas")} a ${acctLabel(imp.cuenta)}. Revisa el journal: les falta el stop.`);
-          flash(plu(n, "operación importada", "operaciones importadas"));
+          const resultado = await impEscribe(p);
+          const partes = [];
+          if (resultado.nuevas) partes.push(plu(resultado.nuevas, "operación nueva", "operaciones nuevas"));
+          if (resultado.actualizadas) partes.push(plu(resultado.actualizadas, "operación actualizada", "operaciones actualizadas"));
+          const resumen = partes.join(" · ");
+          impSay(`${resumen} a ${acctLabel(imp.cuenta)}. Revisa el journal: les falta el stop.`);
+          flash(resumen);
           imp.lectura = null; imp.nombre = ""; imp.mapa = {}; imp.elegido = {};
           renderImportar();
         } catch (e) { renderImportar(); impSay("No se pudo importar: " + ((e && e.message) || "error desconocido") + ".", true); }
@@ -15947,7 +15955,7 @@ tbody tr:last-child td{border-bottom:0}
   async function impEscribe(p) {
     const lote = uid("imp");
     imp.lote = lote; // si falla una escritura parcial, la UI puede ofrecer deshacerla
-    let n = 0;
+    let nuevas = 0, actualizadas = 0;
     imp.undoSnapshots = [];
     for (const o of p.ops) {
       if (o.existingTradeId) {
@@ -15962,7 +15970,7 @@ tbody tr:last-child td{border-bottom:0}
           updatedAt: Date.now()
         });
         await coll("trades").set(rec.id, rec);
-        n++;
+        actualizadas++;
         continue;
       }
       const rec = {
@@ -15983,10 +15991,10 @@ tbody tr:last-child td{border-bottom:0}
       if (Array.isArray(o.executionIds)) rec.executionIds = o.executionIds.slice();
       if (Array.isArray(o.executionLedger)) rec.executionLedger = o.executionLedger.map(x => Object.assign({}, x));
       await coll("trades").set(rec.id, rec);
-      n++;
+      nuevas++;
     }
     imp.lote = lote;
-    return n;
+    return { nuevas, actualizadas };
   }
   $("impFileBtn").addEventListener("click", () => { const f = $("impFile"); f.value = ""; f.click(); });
   $("impFile").addEventListener("change", async e => {
