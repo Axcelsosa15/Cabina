@@ -72,7 +72,7 @@ await q.waitForSelector('#viewPrefsOv.open');
 const viewCount = await q.locator('#viewPrefsFields input[data-view-key]').count();
 const viewGroups = await q.locator('#viewPrefsFields legend').allTextContents();
 ok(viewCount >= 30, 'se pueden personalizar bloques en todas las pestañas', viewCount + ' bloques');
-ok(['Cabina','Futuros','Métricas / Edge','Inversiones','Estudio','Calculadora'].every(x => viewGroups.includes(x)),
+ok(['Cabina','Futuros','Métricas / Edge','Playbook','Formas de hacer dinero','Inversiones','Estudio','Calculadora'].every(x => viewGroups.includes(x)),
    'los controles están agrupados por pestaña', viewGroups.join(', '));
 const viewAcct = q.locator('#viewPrefsFields input[data-view-key="cabina-panelAccts"]');
 ok(await viewAcct.count() === 1 && await viewAcct.isChecked(), 'los bloques se muestran por defecto');
