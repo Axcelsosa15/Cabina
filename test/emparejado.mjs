@@ -172,6 +172,19 @@ ok(guardada.source === 'import:ejecuciones' && guardada.qty === 2 && guardada.ex
 ok(guardada.ledger === 2 && guardada.ids === 2 && /2 fills/.test(guardada.visible),
    'el journal muestra los dos fills originales dentro de la operación', JSON.stringify(guardada));
 
+await p.click('#execToggle');
+const historyRows = await p.locator('#execHistoryTable tbody tr').count();
+const historyText = await p.locator('#execHistoryTable').innerText();
+ok(historyRows === 2 && historyText.includes('fill-open') && historyText.includes('fill-close'),
+   'el historial consolidado muestra los fills sin duplicarlos', JSON.stringify({ rows: historyRows, text: historyText.slice(0, 300) }));
+await p.fill('#execQ', 'fill-open');
+await quieto(p);
+ok(await p.locator('#execHistoryTable tbody tr').count() === 1,
+   'el historial permite filtrar por ID de ejecución');
+await p.click('#execReset');
+ok(await p.locator('#execHistoryTable tbody tr').count() === 2,
+   'limpiar filtros restaura el historial completo');
+
 console.log('\\n═══ 8 · reconciliación incremental real y deshacer seguro ═══');
 const importarCSV = async csv => {
   await p.click('#impPaste');
