@@ -17606,7 +17606,7 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
     prefs={};compactToggle.checked=false;document.body.classList.remove('cabina-compact-view');
     registry.forEach(function(item){
       item.el.classList.remove('cabina-user-hidden');
-      var input=$('input[type=checkbox][data-key]',overlay).find(function(i){return i.dataset.key===item.key;});
+      var input=$$('input[type=checkbox][data-key]',overlay).find(function(i){return i.dataset.key===item.key;});
       if(input)input.checked=true;updateCount(item.tab);
     });
     save();applySearch($('#viewPrefsSearch',overlay).value);
