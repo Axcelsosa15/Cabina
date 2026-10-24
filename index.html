@@ -17487,7 +17487,20 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   .view-prefs-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line)}
   .view-prefs-status{font-size:11px;color:var(--muted);min-height:1em}
   .cabina-user-hidden{display:none!important}
-  @media(max-width:560px){.view-prefs-items{grid-template-columns:minmax(0,1fr)}.view-prefs-body{padding:12px}.view-prefs-footer{align-items:stretch}.view-prefs-footer .btn{flex:1}}
+  .view-prefs-compact{display:flex;align-items:flex-start;gap:9px;padding:10px 11px;margin:0 0 12px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:12px;line-height:1.4;cursor:pointer}
+  .view-prefs-compact input{margin:2px 0 0;accent-color:var(--accent);flex:none}
+  body.cabina-compact-view .tab .deck{padding-block:9px;margin-bottom:12px}
+  body.cabina-compact-view .tab .toolbar{gap:8px 10px;margin-bottom:12px}
+  body.cabina-compact-view .tab .grid,body.cabina-compact-view .tab .grid.eq,body.cabina-compact-view .tab .grid.side,body.cabina-compact-view .tab .col,body.cabina-compact-view .tab .stack{gap:12px!important}
+  body.cabina-compact-view .tab section.panel{margin-bottom:12px!important}
+  body.cabina-compact-view .tab section.panel>header{padding:10px 12px}
+  body.cabina-compact-view .tab section.panel>.body{padding:10px 12px}
+  body.cabina-compact-view .tab .tiles{gap:8px!important}
+  body.cabina-compact-view .tab .tile{padding:10px!important}
+  body.cabina-compact-view .tab .cards{gap:10px!important}
+  body.cabina-compact-view .tab .study-shell{padding-bottom:16px}
+  body.cabina-compact-view .tab .study-panel{margin-bottom:10px!important;padding:12px!important}
+  @media(max-width:560px){.view-prefs-items{grid-template-columns:minmax(0,1fr)}.view-prefs-body{padding:12px}.view-prefs-footer{align-items:stretch}.view-prefs-footer .btn{flex:1}} 
 </style>
 <script id="cabina-view-preferences-runtime">
 (function(){
@@ -17497,6 +17510,7 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   var CANDIDATE='.panel, .study-panel, .cards, .grid.side, .mlist';
   var prefs={};
   try{var saved=JSON.parse(localStorage.getItem(PREF_KEY)||'{}');if(saved&&typeof saved==='object'&&!Array.isArray(saved))prefs=saved;}catch(_){}
+  document.body.classList.toggle('cabina-compact-view',prefs.compact===true);
   var $=function(s,root){return (root||document).querySelector(s);};
   var $=function(s,root){return Array.prototype.slice.call((root||document).querySelectorAll(s));};
   var slug=function(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,64)||'seccion';};
@@ -17541,7 +17555,7 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   else if($('.topbar .clock'))$('.topbar .clock').append(button);
   var overlay=document.createElement('div');
   overlay.className='ov';overlay.id='viewPrefsOv';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-labelledby','viewPrefsTitle');
-  overlay.innerHTML='<div class="ed view-prefs-dialog"><header><h3 id="viewPrefsTitle">Personalizar vista</h3><button type="button" class="icon" id="viewPrefsClose" aria-label="Cerrar">×</button></header><div class="view-prefs-body"><p class="view-prefs-intro">Desmarca las secciones que no necesitas ver. Tus datos no se borran: solo se oculta el panel. La preferencia se guarda en este navegador.</p><input class="view-prefs-search" type="search" id="viewPrefsSearch" placeholder="Buscar una sección…" aria-label="Buscar secciones"><div id="viewPrefsGroups"></div><p class="view-prefs-empty" id="viewPrefsEmpty" hidden>No hay secciones que coincidan con esa búsqueda.</p></div><footer class="view-prefs-footer"><div><div class="view-prefs-status" id="viewPrefsStatus" aria-live="polite"></div><button type="button" class="btn ghost sm" id="viewPrefsReset">Restaurar todas</button></div><button type="button" class="btn primary" id="viewPrefsDone">Listo</button></footer></div>';
+  overlay.innerHTML='<div class="ed view-prefs-dialog"><header><h3 id="viewPrefsTitle">Personalizar vista</h3><button type="button" class="icon" id="viewPrefsClose" aria-label="Cerrar">×</button></header><div class="view-prefs-body"><p class="view-prefs-intro">Desmarca las secciones que no necesitas ver. Tus datos no se borran: solo se oculta el panel. La preferencia se guarda en este navegador.</p><label class="view-prefs-compact"><input type="checkbox" id="viewPrefsCompact"> <span>Vista compacta: reduce espacios y relleno en todas las pestañas.</span></label><input class="view-prefs-search" type="search" id="viewPrefsSearch" placeholder="Buscar una sección…" aria-label="Buscar secciones"><div id="viewPrefsGroups"></div><p class="view-prefs-empty" id="viewPrefsEmpty" hidden>No hay secciones que coincidan con esa búsqueda.</p></div><footer class="view-prefs-footer"><div><div class="view-prefs-status" id="viewPrefsStatus" aria-live="polite"></div><button type="button" class="btn ghost sm" id="viewPrefsReset">Restaurar todas</button></div><button type="button" class="btn primary" id="viewPrefsDone">Listo</button></footer></div>';
   document.body.append(overlay);
   var groups=$('#viewPrefsGroups',overlay),byTab=new Map();
   registry.forEach(function(item){if(!byTab.has(item.tab))byTab.set(item.tab,[]);byTab.get(item.tab).push(item);});
@@ -17583,8 +17597,13 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   $('#viewPrefsDone',overlay).addEventListener('click',close);
   overlay.addEventListener('click',function(e){if(e.target===overlay)close();});
   $('#viewPrefsSearch',overlay).addEventListener('input',function(e){applySearch(e.target.value);});
+  var compactToggle=$('#viewPrefsCompact',overlay);compactToggle.checked=prefs.compact===true;
+  compactToggle.addEventListener('change',function(){
+    if(compactToggle.checked)prefs.compact=true;else delete prefs.compact;
+    document.body.classList.toggle('cabina-compact-view',compactToggle.checked);save();
+  });
   $('#viewPrefsReset',overlay).addEventListener('click',function(){
-    prefs={};
+    prefs={};compactToggle.checked=false;document.body.classList.remove('cabina-compact-view');
     registry.forEach(function(item){
       item.el.classList.remove('cabina-user-hidden');
       var input=$('input[type=checkbox][data-key]',overlay).find(function(i){return i.dataset.key===item.key;});
