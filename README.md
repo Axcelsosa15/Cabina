@@ -97,8 +97,9 @@ queda es configuración en GitHub y en Supabase, y sólo el dueño puede hacerla
 - el importador de CSV ([`docs/IMPORTAR.md`](docs/IMPORTAR.md)) ya tiene las
   fases 0.5 y 1, el emparejado **FIFO** y la reconciliación incremental de posiciones
   abiertas cuando el ledger conserva la entrada. Los cierres parciales mantienen
-  el tramo restante abierto; deshacer restaura las posiciones previas. Los rangos
-  ambiguos sin ledger se bloquean. Faltan la **detección automática** del bróker y
+  el tramo restante abierto; deshacer restaura las posiciones previas. El panel
+  plegable de historial consolida y filtra los fills sin contarlos dos veces.
+  Los rangos ambiguos sin ledger se bloquean. Faltan la **detección automática** del bróker y
   una **cola dedicada de operaciones incompletas**. También falta un `.csv` real
   anonimizado del bróker en `test/fixtures/`: sin él, la conciliación al céntimo
   contra tu plataforma es UNKNOWN en la compuerta, no un PASS
