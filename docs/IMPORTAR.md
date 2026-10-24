@@ -266,7 +266,8 @@ operaciones abiertas. Cada operación almacena `executionIds[]` y
 `executionLedger[]` con lado, cantidad asignada, precio, comisión, fecha/hora e
 identificador/huella de cada ejecución. El panel plegable «Historial de
 ejecuciones» agrega los fills por huella, permite filtrar por texto, cuenta,
-instrumento y fechas, y abre una operación vinculada. Una ejecución repartida
+instrumento y fechas, abre una operación vinculada y exporta a CSV las filas
+visibles del filtro, con cabeceras e identificadores completos. Una ejecución repartida
 entre varios lotes aparece una sola vez con cantidad y comisión agregadas. No
 modifica el motor cuantitativo.
 
