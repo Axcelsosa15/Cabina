@@ -264,13 +264,19 @@ instrumento, ordena por fecha/hora, procesa cierres parciales, entradas múltipl
 y vueltas de posición. Las cantidades que quedan abiertas se conservan como
 operaciones abiertas. Cada operación almacena `executionIds[]` y
 `executionLedger[]` con lado, cantidad asignada, precio, comisión, fecha/hora e
-identificador/huella de cada ejecución. No modifica el motor cuantitativo.
+identificador/huella de cada ejecución. El panel plegable «Historial de
+ejecuciones» agrega los fills por huella, permite filtrar por texto, cuenta,
+instrumento y fechas, y abre una operación vinculada. Una ejecución repartida
+entre varios lotes aparece una sola vez con cantidad y comisión agregadas. No
+modifica el motor cuantitativo.
 
 La huella usa el ID del bróker cuando existe; si no, usa cuenta, instrumento,
-fecha/hora, lado, cantidad y precio normalizados. Si un rango parcial podría
-cerrar una posición importada anteriormente sin poder reconstruir con seguridad
-su apertura, el importador bloquea la escritura en vez de inventar una posición.
-La reconciliación incremental de esos casos sigue pendiente.
+fecha/hora, lado, cantidad y precio normalizados. Al importar un rango posterior,
+Cabina reconstruye los lotes abiertos desde el ledger y actualiza la operación
+existente al recibir su cierre. Los cierres parciales dejan el tramo cerrado y
+crean una fila nueva para el resto abierto; deshacer restaura las posiciones
+previas y elimina las filas nuevas. Si una posición previa no tiene ledger
+suficiente, el importador bloquea la escritura en vez de inventar una apertura.
 
 > **Control automatizado:** `test/emparejado.mjs` cubre cierres parciales, dos
 > entradas, reversión, aislamiento por cuenta/instrumento, duplicados, filas
