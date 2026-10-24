@@ -1,0 +1,72 @@
+/* FIFO de ejecuciones · fixtures deterministas contra la función expuesta por la app.
+   No toca el almacén ni modifica los cálculos del motor cuantitativo. */
+import { chromium } from 'playwright';
+
+const fallos = [], errores = [];
+const ok = (c, t, d) => {
+  console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`);
+  if (!c) fallos.push(t);
+};
+const b = await chromium.launch();
+const p = await (await b.newContext({ viewport: { width: 1200, height: 900 } })).newPage();
+p.on('pageerror', e => errores.push(e.message));
+await p.goto('file://' + process.cwd() + '/../index.html');
+await p.waitForFunction(() => window.FUT?.imp?.emparejarEjecuciones, null, { timeout: 20000 });
+
+const run = fills => p.evaluate(f => FUT.imp.emparejarEjecuciones(f), fills);
+const base = (side, qty, price, time, extra = {}) => ({
+  accountId: 'acct-1', instrument: 'MNQ', date: '2026-10-01', time,
+  side, qty, price, fees: 0, ...extra
+});
+
+console.log('\n═══ 1 · cuatro contratos y tres cierres parciales forman una ida y vuelta ═══');
+const parcial = await run([
+  base('buy', 4, 100, '09:30:00', { fees: 4, executionId: 'open-1' }),
+  base('sell', 1, 110, '09:31:00', { fees: 1, executionId: 'close-1' }),
+  base('sell', 2, 120, '09:32:00', { fees: 2, executionId: 'close-2' }),
+  base('sell', 1, 130, '09:33:00', { fees: 1, executionId: 'close-3' }),
+]);
+ok(parcial.ops.length === 1, 'no multiplica una entrada por cada cierre', parcial.ops.length + ' operación');
+ok(parcial.ops[0]?.qty === 4 && parcial.ops[0]?.exit === 120, 'cantidad y salida media ponderada', JSON.stringify({ qty: parcial.ops[0]?.qty, exit: parcial.ops[0]?.exit }));
+ok(parcial.ops[0]?.fees === 8, 'suma comisión de entrada y cierres, asignada por cantidad', parcial.ops[0]?.fees);
+ok(parcial.ops[0]?.executionIds.length === 4, 'conserva las cuatro huellas de ejecución', parcial.ops[0]?.executionIds.length);
+
+console.log('\n═══ 2 · dos entradas se emparejan en FIFO y el resto queda abierto ═══');
+const fifo = await run([
+  base('buy', 1, 100, '09:30:00', { executionId: 'e1' }),
+  base('buy', 2, 105, '09:31:00', { executionId: 'e2' }),
+  base('sell', 2, 110, '09:32:00', { executionId: 'x1' }),
+]);
+const cerradas = fifo.ops.filter(x => !x.open), abiertas = fifo.ops.filter(x => x.open);
+ok(cerradas.length === 2 && cerradas[0].entry === 100 && cerradas[1].entry === 105, 'el cierre consume primero la entrada más antigua', cerradas.map(x => x.entry).join(', '));
+ok(abiertas.length === 1 && abiertas[0].entry === 105 && abiertas[0].qty === 1 && abiertas[0].exit == null, 'no descarta el contrato que sigue abierto', JSON.stringify(abiertas[0] && { entry: abiertas[0].entry, qty: abiertas[0].qty, exit: abiertas[0].exit }));
+
+console.log('\n═══ 3 · una vuelta de posición cierra y abre en la misma ejecución ═══');
+const reversal = await run([
+  base('buy', 1, 100, '09:30:00', { executionId: 'r1' }),
+  base('sell', 2, 90, '09:31:00', { executionId: 'r2' }),
+]);
+ok(reversal.ops.some(x => !x.open && x.direction === 'long' && x.qty === 1 && x.exit === 90), 'cierra el largo existente', JSON.stringify(reversal.ops));
+ok(reversal.ops.some(x => x.open && x.direction === 'short' && x.qty === 1 && x.entry === 90), 'abre el corto residual', JSON.stringify(reversal.ops));
+
+console.log('\n═══ 4 · las huellas evitan duplicados y la cuenta/instrumento aíslan el FIFO ═══');
+const dedupe = await p.evaluate(() => FUT.imp.emparejarEjecuciones([
+  { accountId: 'acct-1', instrument: 'MNQ', date: '2026-10-01', time: '09:30:00', side: 'buy', qty: 1, price: 100, executionId: 'same-id' },
+  { accountId: 'acct-1', instrument: 'MNQ', date: '2026-10-01', time: '09:30:00', side: 'buy', qty: 1, price: 100, executionId: 'same-id' }
+], ['id:same-id']));
+ok(dedupe.aceptadas === 0 && dedupe.duplicadas.length === 2, 'no vuelve a consumir IDs ya importados', dedupe.duplicadas.length + ' duplicados');
+const aisladas = await run([
+  base('buy', 1, 100, '09:30:00', { accountId: 'acct-1' }),
+  base('sell', 1, 110, '09:31:00', { accountId: 'acct-2' }),
+  base('sell', 1, 110, '09:32:00', { instrument: 'MES' }),
+]);
+ok(aisladas.ops.length === 3 && aisladas.ops.every(x => x.open), 'nunca empareja cuentas o instrumentos distintos', aisladas.ops.length + ' posiciones abiertas');
+
+console.log('\n═══ 5 · los datos inválidos se informan, no se descartan en silencio ═══');
+const invalid = await run([base('buy', 0, 100, '09:30:00'), base('hold', 1, 100, '09:31:00')]);
+ok(invalid.invalidas.length === 2 && invalid.ops.length === 0, 'rechaza cantidad cero y lado desconocido', invalid.invalidas.length + ' filas rechazadas');
+ok(errores.length === 0, 'sin errores JavaScript', errores.join(' | ') || 'ninguno');
+
+await b.close();
+console.log(`\\n${fallos.length ? '❌' : '✅'} emparejado · ${fallos.length} fallos`);
+process.exit(fallos.length ? 1 : 0);
