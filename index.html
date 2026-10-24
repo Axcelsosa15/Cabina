@@ -14824,7 +14824,7 @@ tbody tr:last-child td{border-bottom:0}
   });
   coll("credo").subscribe(() => fanout([Z.credo]));
 
-  coll("playbooks").subscribe(() => fanout([Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.edge]));
+  coll("playbooks").subscribe(() => fanout([Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.edge, Z.estudio]));
   coll("ideas").subscribe(() => fanout([Z.ideas, Z.contadores]));
   /* `Z.invOps` EN LAS DOS. La lista de operaciones de inversión no se pintaba
      con ninguna de ellas, y lee las dos: el nombre del mercado por
@@ -14835,11 +14835,11 @@ tbody tr:last-child td{border-bottom:0}
      la misma clase de fallo que el nombre de cuenta en la clave del buscador:
      el render lee un dato que vive en OTRA colección y nadie lo repintaba. */
   coll("markets").subscribe(() => fanout([Z.invest, Z.destinos, Z.invOps]));
-  coll("positions").subscribe(() => fanout([Z.invest, Z.contadores, Z.invOps]));
+  coll("positions").subscribe(() => fanout([Z.invest, Z.contadores, Z.invOps, Z.estudio]));
   coll("watch").subscribe(() => fanout([Z.invest]));
   /* También Z.respaldo: crear una tesis cambia lo que se lleva una copia, y el
      resumen del panel se quedaba clavado hasta que otra cosa lo repintara. */
-  coll("tesis").subscribe(() => fanout([Z.playbook, Z.contadores, Z.respaldo]));
+  coll("tesis").subscribe(() => fanout([Z.playbook, Z.contadores, Z.respaldo, Z.estudio]));
   /* Las marcas de selección se repintan DESPUÉS de cada repintado de lista: si
      no, una fila redibujada perdería su marca y el usuario borraría otra cosa. */
   ["trades", "playbooks", "ideas", "tesis"].forEach(n => coll(n).subscribe(() => Promise.resolve().then(pintaSel)));
