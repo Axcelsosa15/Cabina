@@ -310,6 +310,7 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      citar la misma suite, y el nombre de un fichero de pruebas es parte de la
      interfaz de la compuerta. */
   dice('mapeador', 'suite', 'Un CSV entra por donde se le dice, o no entra', 'index.html');
+  dice('emparejado', 'suite', 'Las ejecuciones se emparejan FIFO sin perder cierres parciales ni cantidades abiertas', 'importación');
 }
 
 /* ── LO QUE LA PLATAFORMA NO PERMITE COMPROBAR ───────────────────────────────
