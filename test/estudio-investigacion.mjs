@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import { SEMILLA, quieto } from './espera.mjs';
 
 const fallos = [], errores = [];
+const SEMILLA_OBJ = JSON.parse(SEMILLA);
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
 const b = await chromium.launch();
 const p = await (await b.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
@@ -14,7 +15,7 @@ await p.addInitScript(seed => {
       localStorage.setItem('cabina-study-investigacion-seeded', '1');
     }
   } catch {}
-}, SEMILLA);
+}, SEMILLA_OBJ);
 await p.goto('file://' + process.cwd() + '/../index.html');
 await p.waitForFunction(() => window.FUT && document.querySelector('#studyNew')); await quieto(p);
 await p.click('.tabbtn[data-tab="estudio"]'); await quieto(p);
