@@ -15586,10 +15586,9 @@ tbody tr:last-child td{border-bottom:0}
     const operacionesPrevias = Array.isArray(tradesExistentes) ? tradesExistentes : [];
     const conflictos = fills.filter(f => !huellasPrevias.has(impHuellaEjecucion(f)) &&
       operacionesPrevias.some(t => t && t.type === "futuros" && /^import:/.test(String(t.source || "")) &&
-        !Number.isFinite(Number(t.exit)) && String(t.accountId || "") === String(accountId || "") &&
+        (t.exit == null || !Number.isFinite(Number(t.exit))) && String(t.accountId || "") === String(accountId || "") &&
         String(t.instrument || "").trim().toUpperCase() === String(f.instrument || "").trim().toUpperCase() &&
         ((t.direction === "long" && f.side === "sell") || (t.direction === "short" && f.side === "buy"))));
-    emp.invalidas.forEach(x => rechazadas.push({ n: x.n, problemas: [x.motivo] }));
     return {
       plan, ops: emp.ops, rechazadas, faltan, repetidas, duplicadas: emp.duplicadas,
       aceptadas: emp.aceptadas, huellas: emp.huellas, conflictos, modo: "ejecuciones",
