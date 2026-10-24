@@ -15446,6 +15446,8 @@ tbody tr:last-child td{border-bottom:0}
         lote.exitNotional += toma * f.price;
         lote.exitFees += f.fees * toma / f.qty;
         lote.closeIds.push(f.fingerprint);
+        lote.exitFills.push({ side: f.side, qty: toma, price: f.price, fees: f.fees * toma / f.qty,
+          date: f.date, time: f.time, executionId: String(f.executionId || ""), fingerprint: f.fingerprint });
         lote.exitDate = f.date; lote.exitTime = f.time;
         lote.remaining -= toma; restante -= toma;
         if (lote.remaining <= 1e-9) cola.splice(i, 1); else i++;
@@ -15453,7 +15455,7 @@ tbody tr:last-child td{border-bottom:0}
       if (restante > 1e-9) {
         const lote = {
           fill: f, side: f.side, remaining: restante, closedQty: 0,
-          exitNotional: 0, exitFees: 0, closeIds: [], exitDate: "", exitTime: ""
+          exitNotional: 0, exitFees: 0, closeIds: [], exitFills: [], exitDate: "", exitTime: ""
         };
         cola.push(lote); lotes.push(lote);
       }
@@ -15470,6 +15472,12 @@ tbody tr:last-child td{border-bottom:0}
           entry: f.price, exit: l.exitNotional / l.closedQty,
           fees: entradaFeePorUnidad * l.closedQty + l.exitFees,
           executionIds: [...new Set([f.fingerprint, ...l.closeIds])],
+          executionLedger: [
+            { role: "entry", side: f.side, qty: l.closedQty, price: f.price,
+              fees: entradaFeePorUnidad * l.closedQty, date: f.date, time: f.time,
+              executionId: String(f.executionId || ""), fingerprint: f.fingerprint },
+            ...l.exitFills.map(x => Object.assign({ role: "exit" }, x))
+          ],
           open: false
         });
       }
@@ -15478,7 +15486,11 @@ tbody tr:last-child td{border-bottom:0}
           date: f.date, time: f.time || "", instrument: f.instrument,
           direction: f.side === "buy" ? "long" : "short", qty: l.remaining,
           entry: f.price, exit: null, fees: entradaFeePorUnidad * l.remaining,
-          executionIds: [f.fingerprint], open: true
+          executionIds: [f.fingerprint],
+          executionLedger: [{ role: "entry", side: f.side, qty: l.remaining, price: f.price,
+            fees: entradaFeePorUnidad * l.remaining, date: f.date, time: f.time,
+            executionId: String(f.executionId || ""), fingerprint: f.fingerprint }],
+          open: true
         });
       }
     });
@@ -15531,7 +15543,7 @@ tbody tr:last-child td{border-bottom:0}
       return ks.length > 1 && !(ks.length === 2 && ks.includes("date") && ks.includes("time"));
     }).map(i => ({ col: Number(i), nombre: lectura.cabecera[i] || "columna " + (Number(i) + 1), campos: porCol[i].map(k => IMP_EJEC_CAMPOS.find(c => c[0] === k)?.[1] || k) }));
   }
-  function impPrevioEjecuciones(lectura, mapa, elegido, accountId, existentes) {
+  function impPrevioEjecuciones(lectura, mapa, elegido, accountId, existentes, tradesExistentes) {
     const oblig = ["date", "instrument", "side", "qty", "price"];
     const faltan = oblig.filter(k => mapa[k] == null || mapa[k] < 0).map(k => IMP_EJEC_CAMPOS.find(c => c[0] === k)[1]);
     const repetidas = impRepetidasEjecuciones(lectura, mapa);
@@ -15566,10 +15578,22 @@ tbody tr:last-child td{border-bottom:0}
     const idsExistentes = Array.isArray(existentes) ? existentes : [];
     const emp = impEmparejarEjecuciones(fills, idsExistentes);
     emp.invalidas.forEach(x => rechazadas.push({ n: x.n, problemas: [x.motivo] }));
+    /* Si una posición importada sigue abierta y llega una ejecución nueva del
+       lado contrario, no se puede inferir si es su cierre o una operación nueva
+       sin reconstruir el lote previo. Bloquear evita inventar una posición corta
+       o larga al importar un rango parcial. */
+    const huellasPrevias = new Set(idsExistentes.map(String));
+    const operacionesPrevias = Array.isArray(tradesExistentes) ? tradesExistentes : [];
+    const conflictos = fills.filter(f => !huellasPrevias.has(impHuellaEjecucion(f)) &&
+      operacionesPrevias.some(t => t && t.type === "futuros" && /^import:/.test(String(t.source || "")) &&
+        !Number.isFinite(Number(t.exit)) && String(t.accountId || "") === String(accountId || "") &&
+        String(t.instrument || "").trim().toUpperCase() === String(f.instrument || "").trim().toUpperCase() &&
+        ((t.direction === "long" && f.side === "sell") || (t.direction === "short" && f.side === "buy"))));
+    emp.invalidas.forEach(x => rechazadas.push({ n: x.n, problemas: [x.motivo] }));
     return {
       plan, ops: emp.ops, rechazadas, faltan, repetidas, duplicadas: emp.duplicadas,
-      aceptadas: emp.aceptadas, huellas: emp.huellas, modo: "ejecuciones",
-      listo: puede && emp.ops.length > 0 && emp.invalidas.length === 0
+      aceptadas: emp.aceptadas, huellas: emp.huellas, conflictos, modo: "ejecuciones",
+      listo: puede && emp.ops.length > 0 && emp.invalidas.length === 0 && conflictos.length === 0
     };
   }
 
@@ -15653,7 +15677,7 @@ tbody tr:last-child td{border-bottom:0}
     const campos = esEjecuciones ? IMP_EJEC_CAMPOS : IMP_CAMPOS;
     const huellasExistentes = coll("trades").items.flatMap(t => Array.isArray(t && t.executionIds) ? t.executionIds : []);
     const p = esEjecuciones
-      ? impPrevioEjecuciones(L, imp.mapa, imp.elegido, imp.cuenta, huellasExistentes)
+      ? impPrevioEjecuciones(L, imp.mapa, imp.elegido, imp.cuenta, huellasExistentes, coll("trades").items)
       : impPrevio(L, imp.mapa, imp.elegido);
     if (meta) meta.textContent = `${imp.nombre} · ${plu(L.filas.length, "fila", "filas")}`;
     const ctas = acctOptions();
@@ -15712,7 +15736,8 @@ tbody tr:last-child td{border-bottom:0}
       h += "</tbody></table></div>";
       if (p.ops.length > 12) h += `<p class="csub" style="margin:8px 0 0">…y ${plu(p.ops.length - 12, "operación más", "operaciones más")}. Se importan todas.</p>`;
       if (esEjecuciones && p.duplicadas && p.duplicadas.length) h += `<p class="csub" style="margin:8px 0 0">${plu(p.duplicadas.length, "ejecución duplicada omitida", "ejecuciones duplicadas omitidas")} por huella.</p>`;
-      if (esEjecuciones) h += '<p class="csub" style="margin:8px 0 0">Cada operación guarda su lista de ejecuciones de origen. Las filas rechazadas y las posiciones abiertas se muestran explícitamente.</p>';
+      if (esEjecuciones && p.conflictos && p.conflictos.length) h += '<p class="synced bad" style="margin-top:12px"><span class="dotg"></span><span>Este rango contiene ejecuciones que podrían cerrar una posición importada anteriormente. Para no crear una posición falsa, no se puede importar este rango parcial: incluye el historial completo de esa posición o termina de reconciliarla antes.</span></p>';
+      if (esEjecuciones) h += '<p class="csub" style="margin:8px 0 0">Cada operación guarda la lista de ejecuciones de origen con hora, precio, cantidad, comisión e identificador/huella. Las filas rechazadas y las posiciones abiertas se muestran explícitamente.</p>';
       if (!esEjecuciones && imp.mapa.pnl != null && imp.mapa.pnl >= 0) h += '<p class="csub" style="margin:8px 0 0">El P&amp;L del bróker entra en el mismo campo que un P&amp;L escrito a mano y gana sobre el cálculo. Si ese número ya viene neto de comisión, dilo en Métricas → «Mis P&amp;L escritos a mano ya son netos», o la comisión se contará dos veces.</p>';
       /* LO QUE NO ENTRA SE VE, con su número de fila y su motivo. Descartar en
          silencio es perder una operación sin saberlo, que es exactamente lo
@@ -15725,9 +15750,9 @@ tbody tr:last-child td{border-bottom:0}
         if (p.rechazadas.length > 15) h += `<p class="csub" style="margin:8px 0 0">…y ${plu(p.rechazadas.length - 15, "fila más", "filas más")}.</p>`;
       }
       h += '<div class="bkbtns" style="margin-top:14px">';
-      h += p.ops.length
+      h += p.listo && p.ops.length
         ? `<button type="button" class="btn primary" id="impGo">Importar ${plu(p.ops.length, "operación", "operaciones")}</button>`
-        : '<p class="csub" style="margin:0">Ninguna fila de este fichero se puede importar con este mapeo.</p>';
+        : '<p class="csub" style="margin:0">No hay operaciones importables con este mapeo o hace falta reconciliar el rango.</p>';
       h += "</div>";
     }
     h += "</div>";
