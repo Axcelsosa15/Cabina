@@ -60,12 +60,12 @@
 }
 
 /* Dashboard operativo v1: capa visual únicamente, sin alterar estado ni cálculos. */
-.deck{position:relative;isolation:isolate;overflow:hidden;align-items:center;gap:12px 16px;padding:15px 18px;margin-bottom:20px;border:1px solid #2b3b47;border-radius:14px;background:radial-gradient(ellipse at 0 0,rgba(112,224,207,.09),transparent 52%),linear-gradient(115deg,#141d26,#10151d 72%);box-shadow:0 10px 28px rgba(0,0,0,.14)}
-.deck::before{content:"";position:absolute;z-index:-1;inset:0 auto 0 0;width:3px;background:linear-gradient(180deg,#70e0cf,rgba(112,224,207,.12))}
-.deck-n{font-size:10px;letter-spacing:.14em;color:#70e0cf}
-.deck-t{font-family:var(--font-display,var(--font-ui));font-size:clamp(16px,1.5vw,20px);font-weight:700;letter-spacing:-.035em;text-transform:none}
-.deck-stage{padding:5px 9px;border:1px solid rgba(112,224,207,.25);border-radius:999px;background:rgba(112,224,207,.07);color:#a8e8de;font-size:10px;letter-spacing:.08em}
-.deck-parts{margin-left:auto;color:#a5b3c0;font-size:11px;letter-spacing:.015em}
+.tab[data-tab="cabina"] .deck{position:relative;isolation:isolate;overflow:hidden;align-items:center;gap:12px 16px;padding:15px 18px;margin-bottom:20px;border:1px solid #2b3b47;border-radius:14px;background:radial-gradient(ellipse at 0 0,rgba(112,224,207,.09),transparent 52%),linear-gradient(115deg,#141d26,#10151d 72%);box-shadow:0 10px 28px rgba(0,0,0,.14)}
+.tab[data-tab="cabina"] .deck::before{content:"";position:absolute;z-index:-1;inset:0 auto 0 0;width:3px;background:linear-gradient(180deg,#70e0cf,rgba(112,224,207,.12))}
+.tab[data-tab="cabina"] .deck-n{font-size:10px;letter-spacing:.14em;color:#70e0cf}
+.tab[data-tab="cabina"] .deck-t{font-family:var(--font-display,var(--font-ui));font-size:clamp(16px,1.5vw,20px);font-weight:700;letter-spacing:-.035em;text-transform:none}
+.tab[data-tab="cabina"] .deck-stage{padding:5px 9px;border:1px solid rgba(112,224,207,.25);border-radius:999px;background:rgba(112,224,207,.07);color:#a8e8de;font-size:10px;letter-spacing:.08em}
+.tab[data-tab="cabina"] .deck-parts{margin-left:auto;color:#a5b3c0;font-size:11px;letter-spacing:.015em}
 #panelAccts{background:linear-gradient(145deg,rgba(21,30,39,.99),rgba(15,20,28,.99))}
 /* Mantener las primitivas del sistema visual unificadas en el panel de cuentas. */
 #panelAccts{border-top-color:#1e2531}
@@ -83,7 +83,7 @@
 #panelCabCal .cal{border-radius:10px}
 #panelHist .tiles{padding:14px}
 #panelHist .twrap{max-width:100%;overflow-x:auto}
-@media(max-width:760px){.deck{padding:13px 14px;gap:9px 11px;margin-bottom:15px}.deck-parts{flex-basis:100%;margin-left:0}#panelAccts>header{align-items:flex-start}#panelAccts #cabAcct{max-width:none;width:100%}#panelAccts .hgroup{width:100%;flex-wrap:wrap}#panelAccts .acct:hover{transform:none}}
+@media(max-width:760px){.tab[data-tab="cabina"] .deck{padding:13px 14px;gap:9px 11px;margin-bottom:15px}.tab[data-tab="cabina"] .deck-parts{flex-basis:100%;margin-left:0}#panelAccts>header{align-items:flex-start}#panelAccts #cabAcct{max-width:none;width:100%}#panelAccts .hgroup{width:100%;flex-wrap:wrap}#panelAccts .acct:hover{transform:none}}
 @media(prefers-reduced-motion:reduce){#panelAccts .acct,#panelRules,#panelJournal,#panelLevels,#panelHist,#panelCabCal,.jstrip>div{transition:none!important}#panelAccts .acct:hover{transform:none}}
 
 </style>
