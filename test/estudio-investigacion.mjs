@@ -73,7 +73,7 @@ ok((await p.locator('#studyGrid').innerText()).includes('Research alpha'), 'el f
 
 await p.reload(); await p.waitForFunction(() => window.FUT && document.querySelector('#studyNew')); await quieto(p);
 await p.click('.tabbtn[data-tab="estudio"]'); await quieto(p);
-const editAlpha = p.locator('#studyGrid .study-card').filter({ hasText: 'Research alpha' }).locator('button[data-study-edit]:not(.study-tag)').first();
+const editAlpha = p.locator('#studyGrid .study-card').filter({ has: p.locator('h3').getByText('Research alpha', { exact: true }) }).locator('button[data-study-edit]:not(.study-tag)').first();
 ok(await editAlpha.count() === 1, 'Editar apunta al documento actual, no al backlink');
 await editAlpha.click();
 ok(await p.inputValue('#studyAuthor') === 'Research Desk', 'autor y metadatos persisten tras recargar');
