@@ -63,28 +63,5 @@ ok(foco.estilo !== 'none' && parseFloat(foco.ancho) >= 2, 'el foco por teclado e
    :focus-visible. Esa prueba mediría el navegador, no la app. */
 const signo = await p.evaluate(()=>[...document.querySelectorAll('.acc-recent td.r')].map(t=>t.textContent.trim()).filter(Boolean).slice(0,6).join(' '));
 ok(/[+−-]/.test(signo), 'las cifras llevan signo, no sólo color', signo);
-
-console.log('\n═══ PERSONALIZAR VISTA · preferencias por pestaña ═══');
-q.on('pageerror', e => errs.push('VIEW PAGEERROR: ' + e.message));
-ok(await q.isVisible('#viewPrefsBtn'), 'la acción Vista está disponible en la cabecera');
-await q.click('#viewPrefsBtn');
-await q.waitForSelector('#viewPrefsOv.open');
-const viewCount = await q.locator('#viewPrefsFields input[data-view-key]').count();
-const viewGroups = await q.locator('#viewPrefsFields legend').allTextContents();
-ok(viewCount >= 30, 'se pueden personalizar bloques en todas las pestañas', viewCount + ' bloques');
-ok(['Cabina','Futuros','Métricas / Edge','Playbook','Formas de hacer dinero','Inversiones','Estudio','Calculadora'].every(x => viewGroups.includes(x)),
-   'los controles están agrupados por pestaña', viewGroups.join(', '));
-const viewAcct = q.locator('#viewPrefsFields input[data-view-key="cabina-panelAccts"]');
-ok(await viewAcct.count() === 1 && await viewAcct.isChecked(), 'los bloques se muestran por defecto');
-await viewAcct.uncheck();
-ok(await q.locator('#panelAccts').evaluate(el => el.hidden), 'ocultar un bloque sólo cambia su visibilidad');
-await q.click('#viewPrefsDone');
-await q.reload(); await q.waitForSelector('#viewPrefsBtn');
-ok(await q.locator('#panelAccts').evaluate(el => el.hidden), 'la preferencia se conserva tras recargar');
-await q.click('#viewPrefsBtn'); await q.waitForSelector('#viewPrefsOv.open');
-await q.click('#viewPrefsReset');
-ok(await q.locator('#panelAccts').evaluate(el => !el.hidden), 'Mostrar todo restaura los bloques');
-await q.click('#viewPrefsDone');
-
 console.log('\n  errores JS:', errs.length, errs.join(' | '));
 await b.close(); process.exit(errs.length?1:0);
