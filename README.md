@@ -95,14 +95,13 @@ queda es configuración en GitHub y en Supabase, y sólo el dueño puede hacerla
   arregla en su sitio de render, no con un observador del árbol entero
 - capturas sin cuenta
 - el importador de CSV ([`docs/IMPORTAR.md`](docs/IMPORTAR.md)) ya tiene las
-  fases 0.5 y 1, y un modo de **emparejado FIFO de ejecuciones** que conserva el
-  detalle de cada fill en la operación. Las huellas evitan reimportar ejecuciones
-  ya reconocidas; los rangos parciales ambiguos se bloquean para no inventar una
-  posición. Faltan la **reconciliación incremental** de posiciones abiertas entre
-  importaciones, la **detección automática** del bróker y una **cola dedicada de
-  operaciones incompletas**. También falta un `.csv` real anonimizado del bróker
-  en `test/fixtures/`: sin él, que las cifras cuadren al céntimo con tu plataforma
-  es UNKNOWN en la compuerta, no un PASS
+  fases 0.5 y 1, el emparejado **FIFO** y la reconciliación incremental de posiciones
+  abiertas cuando el ledger conserva la entrada. Los cierres parciales mantienen
+  el tramo restante abierto; deshacer restaura las posiciones previas. Los rangos
+  ambiguos sin ledger se bloquean. Faltan la **detección automática** del bróker y
+  una **cola dedicada de operaciones incompletas**. También falta un `.csv` real
+  anonimizado del bróker en `test/fixtures/`: sin él, la conciliación al céntimo
+  contra tu plataforma es UNKNOWN en la compuerta, no un PASS
 - interfaz para crear y anclar versiones del contrato de una firma: la arquitectura
   y la fachada están ([docs/DATA_MODEL.md](docs/DATA_MODEL.md)), el formulario no
 - medición de rendimiento con cifras (hoy sólo hay el tope de 1005 operaciones que
