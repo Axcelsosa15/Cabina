@@ -91,7 +91,8 @@ versiones `a.rules` ya no gobierna nada. Fachada: `FUT.rulesets`, `FUT.rulesetFo
 
 `date`, `time`, `accountId`, `instrument`, `direction`, `qty`, `entry`, `stop`,
 `target`, `exit`, `exitTime`, `exitWhy`, `fees`, `mae`, `mfe`, `setupId`, `plan`,
-`invalida`, `quality`, `tags`, `notes`, `images[]`, `source`.
+`invalida`, `quality`, `tags`, `notes`, `images[]`, `source`,
+`executionIds[]`, `executionLedger[]`, y opcionalmente `exitDate`.
 
 - `pnl` es opcional: si está, **gana** sobre el calculado (es un hecho reportado).
 - El P&L, la R y el riesgo **no se guardan**: los deriva el motor al leer.
@@ -102,6 +103,14 @@ versiones `a.rules` ya no gobierna nada. Fachada: `FUT.rulesets`, `FUT.rulesetFo
   (`CANTIDAD_NEGATIVA`, `COMISION_NEGATIVA`) cuando ha tenido que corregir. Ninguna
   pestaña vuelve a resolverlos: Métricas/Edge lo hacía y no coincidía.
 - `source`: `quick_add`, `manual` o ausente (anterior al campo: no se sabe).
+- `executionIds[]` y `executionLedger[]`: metadatos de operaciones importadas
+  desde un CSV de ejecuciones. La primera lista evita reimportar ejecuciones ya
+  consumidas; la segunda conserva cada fill asignado a la operación (`role`, lado,
+  cantidad asignada, precio, comisión, fecha/hora, ID del bróker y huella). Las
+  operaciones cerradas guardan la entrada y todos sus cierres parciales; las
+  abiertas conservan su entrada. No sustituyen el cálculo de P&L del motor.
+- `exitDate`: fecha de la última ejecución de salida cuando la operación se cierra
+  en una fecha distinta a la entrada.
 
 ### `days/<fecha>`
 
