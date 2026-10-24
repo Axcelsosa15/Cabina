@@ -94,14 +94,15 @@ queda es configuración en GitHub y en Supabase, y sólo el dueño puede hacerla
   cabeceras de tabla construidas en JS) vuelve a español al regenerarse: se
   arregla en su sitio de render, no con un observador del árbol entero
 - capturas sin cuenta
-- del importador de CSV ([`docs/IMPORTAR.md`](docs/IMPORTAR.md)) están hechas la
-  fase 0.5 (leer bytes sin corromper nada en silencio) y la **fase 1**, el
-  mapeador manual. Faltan: el **emparejado de ejecuciones** —necesario para un
-  export de órdenes, donde hoy una fila es una operación y la app lo dice—, la
-  **huella de deduplicación** para reimportar un rango solapado, la **detección
-  automática** del bróker y la **cola de operaciones incompletas**. Y falta un
-  `.csv` real del bróker en `test/fixtures/`: sin él, que las cifras cuadren al
-  céntimo con tu plataforma es una fila UNKNOWN de la compuerta, no un PASS
+- el importador de CSV ([`docs/IMPORTAR.md`](docs/IMPORTAR.md)) ya tiene las
+  fases 0.5 y 1, y un modo de **emparejado FIFO de ejecuciones** que conserva el
+  detalle de cada fill en la operación. Las huellas evitan reimportar ejecuciones
+  ya reconocidas; los rangos parciales ambiguos se bloquean para no inventar una
+  posición. Faltan la **reconciliación incremental** de posiciones abiertas entre
+  importaciones, la **detección automática** del bróker y una **cola dedicada de
+  operaciones incompletas**. También falta un `.csv` real anonimizado del bróker
+  en `test/fixtures/`: sin él, que las cifras cuadren al céntimo con tu plataforma
+  es UNKNOWN en la compuerta, no un PASS
 - interfaz para crear y anclar versiones del contrato de una firma: la arquitectura
   y la fachada están ([docs/DATA_MODEL.md](docs/DATA_MODEL.md)), el formulario no
 - medición de rendimiento con cifras (hoy sólo hay el tope de 1005 operaciones que
