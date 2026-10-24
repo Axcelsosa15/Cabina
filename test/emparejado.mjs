@@ -1,6 +1,7 @@
 /* FIFO de ejecuciones · fixtures deterministas contra la función expuesta por la app.
    No toca el almacén ni modifica los cálculos del motor cuantitativo. */
 import { chromium } from 'playwright';
+import { readFileSync } from 'node:fs';
 import { quieto, trasAccion, trasGuardar } from './espera.mjs';
 
 const fallos = [], errores = [];
@@ -184,6 +185,19 @@ ok(await p.locator('#execHistoryTable tbody tr').count() === 1,
 await p.click('#execReset');
 ok(await p.locator('#execHistoryTable tbody tr').count() === 2,
    'limpiar filtros restaura el historial completo');
+
+ok(await p.locator('#execExport').isEnabled(), 'la exportación se activa cuando hay ejecuciones visibles');
+const descargaCSV = p.waitForEvent('download');
+await p.click('#execExport');
+const archivoCSV = await descargaCSV;
+const contenidoCSV = readFileSync(await archivoCSV.path(), 'utf8');
+ok(/Fecha/.test(contenidoCSV) && /fill-open/.test(contenidoCSV) && /fill-close/.test(contenidoCSV),
+   'el CSV exportado conserva cabeceras e IDs de todas las ejecuciones visibles',
+   contenidoCSV.slice(0, 220).replace(/\\r?\\n/g, ' | '));
+await p.fill('#execQ', 'sin-coincidencias');
+await quieto(p);
+ok(await p.locator('#execExport').isDisabled(), 'la exportación se desactiva si no hay filas visibles');
+await p.click('#execReset');
 
 console.log('\\n═══ 8 · reconciliación incremental real y deshacer seguro ═══');
 const importarCSV = async csv => {
