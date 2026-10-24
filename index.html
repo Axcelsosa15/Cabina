@@ -15919,11 +15919,16 @@ tbody tr:last-child td{border-bottom:0}
      journal de golpe cambia el P&L de una cuenta, y eso no se hace con un clic
      que se puede dar sin mirar. */
   function impConfirma(p) {
-    const resumen = `${plu(p.ops.length, "operación", "operaciones")} a ${acctLabel(imp.cuenta) || "la cuenta elegida"}.\n`
+    const nuevas = p.ops.filter(o => !o.existingTradeId).length;
+    const actualizadas = p.ops.length - nuevas;
+    const tipos = [];
+    if (nuevas) tipos.push(plu(nuevas, "operación nueva", "operaciones nuevas"));
+    if (actualizadas) tipos.push(plu(actualizadas, "operación existente se actualizará", "operaciones existentes se actualizarán"));
+    const resumen = `${tipos.join(" · ")} a ${acctLabel(imp.cuenta) || "la cuenta elegida"}.\n`
       + `Desde ${imp.nombre}.\n`
       + (p.rechazadas.length ? `${plu(p.rechazadas.length, "fila se queda fuera", "filas se quedan fuera")} (están listadas arriba con su motivo).\n` : "")
       + (p.duplicadas && p.duplicadas.length ? `${plu(p.duplicadas.length, "ejecución duplicada se omite", "ejecuciones duplicadas se omiten")} por huella.\n` : "")
-      + `Entran SIN stop, sin setup y sin plan: eso no lo trae ningún CSV, y sin stop no hay R. La cabina las marcará como lo que son.\n`
+      + `El CSV no aporta stop, setup ni plan. Las operaciones nuevas entran sin esos campos; las posiciones existentes conservan los datos que ya tenían.\n`
       + `Se puede deshacer entero mientras no cierres la página.`;
     openEditor({
       title: "Importar al journal de futuros",
@@ -15941,7 +15946,7 @@ tbody tr:last-child td{border-bottom:0}
           if (resultado.nuevas) partes.push(plu(resultado.nuevas, "operación nueva", "operaciones nuevas"));
           if (resultado.actualizadas) partes.push(plu(resultado.actualizadas, "operación actualizada", "operaciones actualizadas"));
           const resumen = partes.join(" · ");
-          impSay(`${resumen} a ${acctLabel(imp.cuenta)}. Revisa el journal: les falta el stop.`);
+          impSay(`${resumen} a ${acctLabel(imp.cuenta)}. Revisa el journal y confirma el plan de las operaciones nuevas.`);
           flash(resumen);
           imp.lectura = null; imp.nombre = ""; imp.mapa = {}; imp.elegido = {};
           renderImportar();
