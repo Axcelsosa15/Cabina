@@ -5265,7 +5265,7 @@ tbody tr:last-child td{border-bottom:0}
     if (el.id) return el.id;
     const cls = Array.from(el.classList).filter(c => ["panel","study-panel","deck","study-toolbar"].includes(c)).join("-") || el.tagName.toLowerCase();
     if (cls === "deck" || cls === "study-toolbar") return tabName + ":" + cls;
-    const label = viewLabel(el, index).toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const label = viewLabel(el, index).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     return tabName + ":" + cls + ":" + (label || index);
   }
   function viewLabel(el, index) {
@@ -16408,7 +16408,7 @@ tbody tr:last-child td{border-bottom:0}
   const ESTUDIO_TIPOS={concept:"Concepto",brief:"Research brief",source:"Fuente",flashcard:"Flashcard","trade-review":"Revisión de trade"};
   const ESTUDIO_ESTADOS={todo:"Por estudiar",progressing:"En curso",mastered:"Revisado"};
   let estudioFiltro="all",estudioFlashIdx=0,estudioFlashRevelada=false,estudioTradeSeleccionado="";
-  const estudioNorm=x=>String(x||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();
+  const estudioNorm=x=>String(x||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
   function estudioEsc(x){return esc(String(x==null?"":x));}
   function estudioLista(){return coll("research").items.slice().sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));}
   function estudioTexto(d){return[d.title,d.question,d.evidence,d.counter,d.conclusion,d.url,(d.tags||[]).join(" ")].join(" ");}
