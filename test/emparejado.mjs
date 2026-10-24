@@ -104,8 +104,37 @@ const parcialPrevio = await p.evaluate(() => {
   }]);
 });
 ok(parcialPrevio.conflictos.length === 1 && !parcialPrevio.listo,
-   'bloquea un rango parcial que cerraría una posición importada aún abierta',
+   'bloquea un rango parcial que cerraría una posición importada aún abierta sin ledger',
    JSON.stringify({ conflictos: parcialPrevio.conflictos.length, listo: parcialPrevio.listo }));
+
+console.log('\\n═══ 6b · reanudar una posición abierta importada con su ledger ═══');
+const incremental = async qty => p.evaluate(q => {
+  const csv = 'date,time,instrument,side,qty,price,fees,execution_id\\n'
+    + '2026-10-01,09:31:00,MNQ,sell,' + q + ',110,1,close-new';
+  const lectura = FUT.csv.lee(csv);
+  const mapa = { date: 0, time: 1, instrument: 2, side: 3, qty: 4, price: 5, fees: 6, executionId: 7 };
+  const previa = [{
+    id: 'existing-open', type: 'futuros', source: 'import:ejecuciones', accountId: 'acct-1',
+    instrument: 'MNQ', direction: 'long', qty: 2, entry: 100, exit: null, fees: 2,
+    executionIds: ['id:open-fill'],
+    executionLedger: [{ role: 'entry', side: 'buy', qty: 2, price: 100, fees: 2,
+      date: '2026-10-01', time: '09:30:00', executionId: 'open-fill', fingerprint: 'id:open-fill' }]
+  }];
+  return FUT.imp.previoEjecuciones(lectura, mapa, {}, 'acct-1', ['id:open-fill'], previa);
+}, qty);
+const incrementalFull = await incremental(2);
+ok(incrementalFull.listo && incrementalFull.conflictos.length === 0
+   && incrementalFull.ops.length === 1 && incrementalFull.ops[0].existingTradeId === 'existing-open'
+   && incrementalFull.ops[0].exit === 110,
+   'un cierre nuevo completa la operación abierta existente sin duplicarla',
+   JSON.stringify({ listo: incrementalFull.listo, conflictos: incrementalFull.conflictos.length,
+     ops: incrementalFull.ops.map(x => ({ id: x.existingTradeId, qty: x.qty, exit: x.exit })) }));
+const incrementalPartial = await incremental(1);
+ok(incrementalPartial.listo && incrementalPartial.ops.length === 2
+   && incrementalPartial.ops.some(x => x.existingTradeId === 'existing-open' && x.exit === 110 && x.qty === 1)
+   && incrementalPartial.ops.some(x => !x.existingTradeId && x.open && x.qty === 1),
+   'un cierre parcial guarda el tramo cerrado y conserva el resto abierto',
+   JSON.stringify(incrementalPartial.ops.map(x => ({ id: x.existingTradeId || 'nuevo', qty: x.qty, exit: x.exit, open: x.open }))));
 
 console.log('\\n═══ 7 · importación real y ledger visible en el journal ═══');
 await p.click('.tabbtn[data-tab="futuros"]');
