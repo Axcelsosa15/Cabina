@@ -15298,6 +15298,16 @@ tbody tr:last-child td{border-bottom:0}
     ["fees",       "Comisión",       "num",   false, "sin signo, por la operación entera"],
     ["pnl",        "P&L del bróker", "num",   false, "si viene, gana: es un hecho, no un cálculo"],
   ];
+  const IMP_EJEC_CAMPOS = [
+    ["date", "Fecha", "fecha", true, "fecha de la ejecución"],
+    ["time", "Hora", "hora", false, "hora local que aparece en el CSV"],
+    ["instrument", "Instrumento", "texto", true, "MNQ, NQ, MES…"],
+    ["side", "Lado de ejecución", "lado", true, "buy/compra o sell/venta; no long/short de la posición"],
+    ["qty", "Contratos", "num", true, "cantidad ejecutada, siempre positiva"],
+    ["price", "Precio ejecutado", "num", true, "precio de esta ejecución"],
+    ["fees", "Comisión", "num", false, "comisión de esta ejecución"],
+    ["executionId", "ID de ejecución", "texto", false, "si el bróker lo proporciona, permite deduplicar con más precisión"]
+  ];
   const IMP_OBLIG = IMP_CAMPOS.filter(c => c[3]).map(c => c[0]);
   const impCampo = k => IMP_CAMPOS.find(x => x[0] === k);
   const impLabel = k => { const c = impCampo(k); return c ? c[1] : k; };
@@ -15492,6 +15502,77 @@ tbody tr:last-child td{border-bottom:0}
     }).map(i => ({ col: Number(i), nombre: lectura.cabecera[i] || "columna " + (Number(i) + 1), campos: porCol[i].map(impLabel) }));
   }
 
+  function impPlanEjecuciones(lectura, mapa, elegido) {
+    elegido = elegido || {};
+    const decimal = {}, ambiguas = [];
+    ["qty", "price", "fees"].forEach(k => {
+      const i = mapa[k]; if (i == null || i < 0) return;
+      const celdas = impCol(lectura, i), auto = csvDecimal(celdas);
+      decimal[k] = elegido["dec_" + k] || auto;
+      if (!decimal[k] && impHaySep(celdas)) ambiguas.push({ campo: k, que: "dec_" + k, label: IMP_EJEC_CAMPOS.find(c => c[0] === k)?.[1] || k });
+    });
+    let orden = "";
+    const idf = mapa.date;
+    if (idf != null && idf >= 0) {
+      const celdas = impCol(lectura, idf);
+      orden = elegido.orden || csvOrdenFecha(celdas);
+      if (!orden && impHayFecha(celdas)) ambiguas.push({ campo: "date", que: "orden", label: "Fecha" });
+    }
+    return { decimal, orden, ambiguas };
+  }
+  function impRepetidasEjecuciones(lectura, mapa) {
+    const porCol = {};
+    IMP_EJEC_CAMPOS.forEach(([k]) => {
+      const i = mapa[k]; if (i == null || i < 0) return;
+      (porCol[i] || (porCol[i] = [])).push(k);
+    });
+    return Object.keys(porCol).filter(i => {
+      const ks = porCol[i];
+      return ks.length > 1 && !(ks.length === 2 && ks.includes("date") && ks.includes("time"));
+    }).map(i => ({ col: Number(i), nombre: lectura.cabecera[i] || "columna " + (Number(i) + 1), campos: porCol[i].map(k => IMP_EJEC_CAMPOS.find(c => c[0] === k)?.[1] || k) }));
+  }
+  function impPrevioEjecuciones(lectura, mapa, elegido, accountId, existentes) {
+    const oblig = ["date", "instrument", "side", "qty", "price"];
+    const faltan = oblig.filter(k => mapa[k] == null || mapa[k] < 0).map(k => IMP_EJEC_CAMPOS.find(c => c[0] === k)[1]);
+    const repetidas = impRepetidasEjecuciones(lectura, mapa);
+    const plan = impPlanEjecuciones(lectura, mapa, elegido);
+    const fills = [], rechazadas = [];
+    const puede = !!accountId && !faltan.length && !repetidas.length && !plan.ambiguas.length;
+    const cel = (fila, k) => { const i = mapa[k]; return i == null || i < 0 ? "" : String(fila[i] == null ? "" : fila[i]).trim(); };
+    const num = (fila, k) => {
+      const raw = cel(fila, k);
+      if (!raw) return k === "fees" ? 0 : null;
+      const v = csvNumero(raw, plan.decimal[k]);
+      return v == null ? null : (k === "fees" ? Math.abs(v) : v);
+    };
+    if (puede) lectura.filas.forEach((fila, ix) => {
+      const n = ix + 2, problemas = [];
+      const rawDate = cel(fila, "date"), date = csvFecha(rawDate, plan.orden);
+      if (!date) problemas.push(rawDate ? "fecha ilegible" : "sin fecha");
+      const rawTime = cel(fila, "time"), time = rawTime ? csvHora(rawTime) : "";
+      if (rawTime && !time) problemas.push("hora ilegible");
+      const instrument = cel(fila, "instrument");
+      if (!instrument) problemas.push("sin instrumento");
+      const rawSide = cel(fila, "side"), side0 = csvLado(rawSide);
+      const side = side0 === "long" ? "buy" : side0 === "short" ? "sell" : "";
+      if (!side) problemas.push(rawSide ? "lado no reconocido" : "sin lado");
+      const qty = num(fila, "qty"), price = num(fila, "price"), fees = num(fila, "fees");
+      if (!(qty > 0)) problemas.push("cantidad no válida");
+      if (!(price > 0)) problemas.push("precio no válido");
+      if (cel(fila, "fees") && fees == null) problemas.push("comisión ilegible");
+      if (problemas.length) { rechazadas.push({ n, problemas }); return; }
+      fills.push({ accountId, instrument, date, time, side, qty, price, fees: fees || 0, executionId: cel(fila, "executionId"), n });
+    });
+    const idsExistentes = Array.isArray(existentes) ? existentes : [];
+    const emp = impEmparejarEjecuciones(fills, idsExistentes);
+    emp.invalidas.forEach(x => rechazadas.push({ n: x.n, problemas: [x.motivo] }));
+    return {
+      plan, ops: emp.ops, rechazadas, faltan, repetidas, duplicadas: emp.duplicadas,
+      aceptadas: emp.aceptadas, huellas: emp.huellas, modo: "ejecuciones",
+      listo: puede && emp.ops.length > 0 && emp.invalidas.length === 0
+    };
+  }
+
   function impPrevio(lectura, mapa, elegido) {
     const faltan = IMP_OBLIG.filter(k => mapa[k] == null || mapa[k] < 0).map(impLabel);
     const repetidas = impRepetidas(lectura, mapa);
@@ -15516,7 +15597,8 @@ tbody tr:last-child td{border-bottom:0}
      previa y por el botón, nunca por aquí. */
   FUT.imp = { campos: IMP_CAMPOS, obligatorios: IMP_OBLIG, plan: impPlan, fila: impFila,
               repetidas: impRepetidas, previo: impPrevio, huellaEjecucion: impHuellaEjecucion,
-              emparejarEjecuciones: impEmparejarEjecuciones };
+              emparejarEjecuciones: impEmparejarEjecuciones, camposEjecuciones: IMP_EJEC_CAMPOS,
+              previoEjecuciones: impPrevioEjecuciones };
 
   /* ── LA PANTALLA ──────────────────────────────────────────────────────────
      Tres decisiones que son decisiones, no detalles:
@@ -15530,7 +15612,7 @@ tbody tr:last-child td{border-bottom:0}
          una operación sin cuenta no entra en el drawdown de ninguna.
        · EL BOTÓN DE IMPORTAR NO EXISTE MIENTRAS FALTE ALGO, y lo que falta se
          dice con su nombre. No hay camino «importa y ya veremos». */
-  const imp = { lectura: null, nombre: "", mapa: {}, elegido: {}, cuenta: "", lote: null };
+  const imp = { lectura: null, nombre: "", mapa: {}, elegido: {}, cuenta: "", lote: null, modo: "operaciones" };
   function impSay(msg, mal) {
     const el = $("impNote"); if (!el) return;
     el.className = "synced" + (mal ? " bad" : "");
@@ -15567,13 +15649,21 @@ tbody tr:last-child td{border-bottom:0}
     }
     const L = imp.lectura;
     const cols = L.cabecera.map((h, i) => [String(i), (h || "(columna " + (i + 1) + ")") + " · ej. «" + String((L.filas[0] || [])[i] || "").slice(0, 14) + "»"]);
-    const p = impPrevio(L, imp.mapa, imp.elegido);
+    const esEjecuciones = imp.modo === "ejecuciones";
+    const campos = esEjecuciones ? IMP_EJEC_CAMPOS : IMP_CAMPOS;
+    const huellasExistentes = coll("trades").items.flatMap(t => Array.isArray(t && t.executionIds) ? t.executionIds : []);
+    const p = esEjecuciones
+      ? impPrevioEjecuciones(L, imp.mapa, imp.elegido, imp.cuenta, huellasExistentes)
+      : impPrevio(L, imp.mapa, imp.elegido);
     if (meta) meta.textContent = `${imp.nombre} · ${plu(L.filas.length, "fila", "filas")}`;
     const ctas = acctOptions();
     let h = '<div class="impwrap" style="margin-top:14px">';
-    h += '<p class="csub" style="margin:0 0 10px"><strong>Una fila, una operación.</strong> Esta fase no empareja ejecuciones: si tu fichero trae una fila por compra y otra por venta —un export de órdenes— saldrán el doble de operaciones con la mitad del resultado. Úsalo con un export que ya venga emparejado (ida y vuelta por fila).</p>';
+    h += '<div style="display:grid;grid-template-columns:minmax(220px,360px) 1fr;gap:10px;margin-bottom:12px"><div><label class="lab" for="impMode">Tipo de CSV</label><select id="impMode"><option value="operaciones"${esEjecuciones ? "" : " selected"}>Operaciones ya cerradas</option><option value="ejecuciones"${esEjecuciones ? " selected" : ""}>Ejecuciones · emparejar FIFO</option></select></div><p class="help" style="margin:0;align-self:end">${esEjecuciones ? "Cada fila es una ejecución. Cabina agrupa compras y ventas por cuenta e instrumento usando FIFO, y conserva las ejecuciones que forman cada operación." : "Usa esta opción si cada fila ya contiene entrada y salida de una operación completa."}</p></div>';
+    h += esEjecuciones
+      ? '<p class="csub" style="margin:0 0 10px">FIFO se aplica al contenido de este fichero. Las ejecuciones duplicadas se omiten si su huella ya está guardada. Incluye el rango necesario para que las entradas y salidas que quieras emparejar estén presentes; las posiciones que sigan abiertas se conservan como abiertas.</p>'
+      : '<p class="csub" style="margin:0 0 10px"><strong>Una fila, una operación.</strong> Usa este modo para un export que ya venga emparejado (ida y vuelta por fila).</p>';
     h += '<div class="impgrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">';
-    IMP_CAMPOS.forEach(([k, label, , oblig, ayuda]) => {
+    campos.forEach(([k, label, , oblig, ayuda]) => {
       const v = imp.mapa[k] == null || imp.mapa[k] < 0 ? "" : String(imp.mapa[k]);
       h += `<div><label class="lab">${esc(label)}${oblig ? ' <span style="color:#e0604f">*</span>' : ""}</label>`
         + impSel("col_" + k, v, cols, "— ninguna —")
@@ -15621,7 +15711,9 @@ tbody tr:last-child td{border-bottom:0}
       });
       h += "</tbody></table></div>";
       if (p.ops.length > 12) h += `<p class="csub" style="margin:8px 0 0">…y ${plu(p.ops.length - 12, "operación más", "operaciones más")}. Se importan todas.</p>`;
-      if (imp.mapa.pnl != null && imp.mapa.pnl >= 0) h += '<p class="csub" style="margin:8px 0 0">El P&amp;L del bróker entra en el mismo campo que un P&amp;L escrito a mano y gana sobre el cálculo. Si ese número ya viene neto de comisión, dilo en Métricas → «Mis P&amp;L escritos a mano ya son netos», o la comisión se contará dos veces.</p>';
+      if (esEjecuciones && p.duplicadas && p.duplicadas.length) h += `<p class="csub" style="margin:8px 0 0">${plu(p.duplicadas.length, "ejecución duplicada omitida", "ejecuciones duplicadas omitidas")} por huella.</p>`;
+      if (esEjecuciones) h += '<p class="csub" style="margin:8px 0 0">Cada operación guarda su lista de ejecuciones de origen. Las filas rechazadas y las posiciones abiertas se muestran explícitamente.</p>';
+      if (!esEjecuciones && imp.mapa.pnl != null && imp.mapa.pnl >= 0) h += '<p class="csub" style="margin:8px 0 0">El P&amp;L del bróker entra en el mismo campo que un P&amp;L escrito a mano y gana sobre el cálculo. Si ese número ya viene neto de comisión, dilo en Métricas → «Mis P&amp;L escritos a mano ya son netos», o la comisión se contará dos veces.</p>';
       /* LO QUE NO ENTRA SE VE, con su número de fila y su motivo. Descartar en
          silencio es perder una operación sin saberlo, que es exactamente lo
          que este fichero existe para no hacer. */
@@ -15640,6 +15732,11 @@ tbody tr:last-child td{border-bottom:0}
     }
     h += "</div>";
     cont.innerHTML = h;
+    const modoSel = $("impMode");
+    if (modoSel) modoSel.addEventListener("change", () => {
+      imp.modo = modoSel.value === "ejecuciones" ? "ejecuciones" : "operaciones";
+      imp.mapa = {}; imp.elegido = {}; renderImportar();
+    });
     const go = $("impGo");
     if (go) go.addEventListener("click", () => impConfirma(p));
   }
@@ -15651,6 +15748,7 @@ tbody tr:last-child td{border-bottom:0}
     const resumen = `${plu(p.ops.length, "operación", "operaciones")} a ${acctLabel(imp.cuenta) || "la cuenta elegida"}.\n`
       + `Desde ${imp.nombre}.\n`
       + (p.rechazadas.length ? `${plu(p.rechazadas.length, "fila se queda fuera", "filas se quedan fuera")} (están listadas arriba con su motivo).\n` : "")
+      + (p.duplicadas && p.duplicadas.length ? `${plu(p.duplicadas.length, "ejecución duplicada se omite", "ejecuciones duplicadas se omiten")} por huella.\n` : "")
       + `Entran SIN stop, sin setup y sin plan: eso no lo trae ningún CSV, y sin stop no hay R. La cabina las marcará como lo que son.\n`
       + `Se puede deshacer entero mientras no cierres la página.`;
     openEditor({
@@ -15691,8 +15789,12 @@ tbody tr:last-child td{border-bottom:0}
       };
       if (o.time) rec.time = o.time;
       if (o.exit != null) rec.exit = o.exit;
+      if (o.exitDate) rec.exitDate = o.exitDate;
+      if (o.exitTime) rec.exitTime = o.exitTime;
       if (o.fees != null) rec.fees = o.fees;
       if (o.pnl != null) rec.pnl = o.pnl;
+      if (Array.isArray(o.executionIds)) rec.executionIds = o.executionIds.slice();
+      if (Array.isArray(o.executionLedger)) rec.executionLedger = o.executionLedger.map(x => Object.assign({}, x));
       await coll("trades").set(rec.id, rec);
       n++;
     }
