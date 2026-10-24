@@ -2568,7 +2568,7 @@ tbody tr:last-child td{border-bottom:0}
   <input type="file" id="pbFile" accept="image/*" hidden>
 <input type="file" id="tradeFile" accept="image/*" hidden>
   <p class="note-p" id="pbKindNote"></p>
-  <div class="cards" id="pbCards"></div>
+  <div class="cards" id="pbCards" data-view-key="playbook-library" data-view-label="Biblioteca de estrategias"></div>
 </div>
 
 <!-- ======================= IDEAS ======================= -->
@@ -2583,7 +2583,7 @@ tbody tr:last-child td{border-bottom:0}
     <button type="button" class="btn primary" id="idNew">+ Nueva forma</button>
   </div>
   <p class="note-p">Repositorio de formas de hacer dinero en los mercados. Cada una con capital, tiempo, riesgo y por qué funcionaría. Una idea sin "próximo paso" es un deseo, no una idea.</p>
-  <div class="cards" id="idCards"></div>
+  <div class="cards" id="idCards" data-view-key="ideas-library" data-view-label="Oportunidades e ideas"></div>
 </div>
 
 <!-- ======================= INVERSIONES ======================= -->
@@ -16998,7 +16998,7 @@ tbody tr:last-child td{border-bottom:0}
     let prefs = read(), returnFocus = null;
     const targets = () => [...document.querySelectorAll("[data-view-key]")];
     const groupOf = el => el.closest(".tab[data-tab]")?.dataset.tab || "cabina";
-    const titleOf = el => el.querySelector("h2")?.textContent?.trim() || el.getAttribute("aria-label") || el.id || "Bloque";
+    const titleOf = el => el.dataset.viewLabel || el.querySelector("h2")?.textContent?.trim() || el.getAttribute("aria-label") || el.id || "Bloque";
     const save = () => { try { localStorage.setItem(STORE, JSON.stringify(prefs)); } catch(e) { const st=$("saveState"); if(st){st.textContent="vista no guardada";st.classList.add("nosave");} } };
     function apply() {
       for (const el of document.querySelectorAll("[data-view-key]")) el.hidden = prefs[el.dataset.viewKey] === false;
