@@ -86,6 +86,19 @@ const duplicado = await p.evaluate(() => {
 });
 ok(duplicado.ops.length === 0 && duplicado.duplicadas.length === 1, 'el mapeador marca una ejecución reimportada');
 
+const parcialPrevio = await p.evaluate(() => {
+  const csv = 'date,time,instrument,side,qty,price,execution_id\\n2026-10-01,09:31:00,MNQ,sell,1,110,new-close';
+  const lectura = FUT.csv.lee(csv);
+  const mapa = { date: 0, time: 1, instrument: 2, side: 3, qty: 4, price: 5, executionId: 6 };
+  return FUT.imp.previoEjecuciones(lectura, mapa, {}, 'acct-1', [], [{
+    type: 'futuros', source: 'import:ejecuciones', accountId: 'acct-1',
+    instrument: 'MNQ', direction: 'long', exit: null
+  }]);
+});
+ok(parcialPrevio.conflictos.length === 1 && !parcialPrevio.listo,
+   'bloquea un rango parcial que cerraría una posición importada aún abierta',
+   JSON.stringify({ conflictos: parcialPrevio.conflictos.length, listo: parcialPrevio.listo }));
+
 ok(errores.length === 0, 'sin errores JavaScript', errores.join(' | ') || 'ninguno');
 
 await b.close();
