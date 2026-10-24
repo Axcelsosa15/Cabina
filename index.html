@@ -16996,7 +16996,7 @@ tbody tr:last-child td{border-bottom:0}
       estudio:"Estudio", calc:"Calculadora" };
     const read = () => { try { const v=JSON.parse(localStorage.getItem(STORE)||"{}"); return v&&typeof v==="object"&&!Array.isArray(v)?v:{}; } catch { return {}; } };
     let prefs = read(), returnFocus = null;
-    const targets = () => [...document.querySelectorAll("[data-view-key]")].filter(el => !el.hidden);
+    const targets = () => [...document.querySelectorAll("[data-view-key]")];
     const groupOf = el => el.closest(".tab[data-tab]")?.dataset.tab || "cabina";
     const titleOf = el => el.querySelector("h2")?.textContent?.trim() || el.getAttribute("aria-label") || el.id || "Bloque";
     const save = () => { try { localStorage.setItem(STORE, JSON.stringify(prefs)); } catch(e) { const st=$("saveState"); if(st){st.textContent="vista no guardada";st.classList.add("nosave");} } };
