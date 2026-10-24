@@ -172,6 +172,52 @@ ok(guardada.source === 'import:ejecuciones' && guardada.qty === 2 && guardada.ex
 ok(guardada.ledger === 2 && guardada.ids === 2 && /2 fills/.test(guardada.visible),
    'el journal muestra los dos fills originales dentro de la operación', JSON.stringify(guardada));
 
+console.log('\\n═══ 8 · reconciliación incremental real y deshacer seguro ═══');
+const importarCSV = async csv => {
+  await p.click('#impPaste');
+  await p.fill('#ef_c', csv);
+  await p.click('#edSave');
+  await trasAccion(p);
+  await p.selectOption('#impMode', 'ejecuciones');
+  for (const [campo, i] of Object.entries({ date: 0, time: 1, instrument: 2, side: 3, qty: 4, price: 5, fees: 6, executionId: 7 })) {
+    await p.selectOption(`select[data-imp="col_${campo}"]`, String(i));
+  }
+  await p.selectOption('select[data-imp="cuenta"]', 'acct-1');
+  await quieto(p);
+  await p.click('#impGo');
+  await p.fill('#ef_ok', 'IMPORTAR');
+  await p.click('#edSave');
+  await trasGuardar(p);
+};
+await importarCSV('date,time,instrument,side,qty,price,fees,execution_id\\n'
+  + '2026-10-02,09:30:00,MNQ,buy,2,100,2,open-inc');
+const openBefore = await p.evaluate(() => {
+  const t = (FUT.trades() || []).find(x => x.executionIds?.includes('id:open-inc'));
+  return t && { id: t.id, exit: t.exit, qty: t.qty, ledger: t.executionLedger?.length };
+});
+ok(!!openBefore && openBefore.exit == null && openBefore.qty === 2 && openBefore.ledger === 1,
+   'una importación de entrada conserva una posición abierta', JSON.stringify(openBefore));
+await importarCSV('date,time,instrument,side,qty,price,fees,execution_id\\n'
+  + '2026-10-02,09:31:00,MNQ,sell,2,110,2,close-inc');
+const closedAfter = await p.evaluate(id => {
+  const t = (FUT.trades() || []).find(x => x.id === id);
+  return t && { id: t.id, exit: t.exit, qty: t.qty, ledger: t.executionLedger?.length, ids: t.executionIds };
+}, openBefore?.id);
+ok(!!closedAfter && closedAfter.exit === 110 && closedAfter.qty === 2 && closedAfter.ledger === 2
+   && closedAfter.ids.includes('id:close-inc'),
+   'la segunda importación actualiza la misma operación y conserva ambos fills', JSON.stringify(closedAfter));
+await p.click('#impUndo');
+await p.fill('#ef_ok', 'BORRAR');
+await p.click('#edSave');
+await trasGuardar(p);
+const restored = await p.evaluate(id => {
+  const t = (FUT.trades() || []).find(x => x.id === id);
+  return t && { id: t.id, exit: t.exit, qty: t.qty, ledger: t.executionLedger?.length, ids: t.executionIds };
+}, openBefore?.id);
+ok(!!restored && restored.exit == null && restored.qty === 2 && restored.ledger === 1
+   && !restored.ids.includes('id:close-inc'),
+   'deshacer restaura el trade abierto original sin borrar su entrada', JSON.stringify(restored));
+
 ok(errores.length === 0, 'sin errores JavaScript', errores.join(' | ') || 'ninguno');
 
 await b.close();
