@@ -24,7 +24,8 @@ await p.fill('#studyPublishedAt', '2026-10-10');
 await p.fill('#studyConsultedAt', '2026-10-20');
 await p.fill('#studyNextReview', '2000-01-01');
 await p.fill('#studyUrl', 'https://example.com/research-alpha');
-await p.fill('#studyEvidence', 'El dato observado se registra por separado de la interpretación.');
+await p.fill('#studyEvidence', 'Hecho observado y fuente. '.repeat(90));
+await p.fill('#studyCatalysts', 'CPI, FOMC y cambios en los rendimientos reales.');
 await p.selectOption('#studyLinkType', 'trade'); await quieto(p);
 await p.selectOption('#studyLinkTarget', String(tradeId));
 await p.click('#studyLinkAdd');
@@ -36,6 +37,14 @@ ok((await p.locator('#studyGrid').innerText()).includes('Research Desk'), 'muest
 ok((await p.locator('#studyGrid').innerText()).includes('Revisión pendiente'), 'marca la próxima revisión vencida');
 const doc1Id = await p.locator('#studyGrid .study-card button[data-study-edit]').first().getAttribute('data-study-edit');
 ok(!!doc1Id, 'el documento guardado tiene ID estable');
+await p.locator('#studyGrid .study-card').filter({ hasText: 'Research alpha' }).locator('button[data-study-read]').click();
+await p.waitForFunction(() => document.querySelector('#studyReader').classList.contains('open'));
+ok(!(await p.locator('#studyReaderToc').isHidden()), 'la lectura enfocada crea índice para documentos largos');
+ok((await p.locator('#studyReaderContent').innerText()).includes('Catalizadores'), 'la lectura separa catalizadores y evidencia');
+await p.click('#studyReaderClose'); await quieto(p);
+await p.fill('#studyFrom', '2026-10-21'); await p.fill('#studyTo', '2026-10-25'); await quieto(p);
+ok(!(await p.locator('#studyGrid').innerText()).includes('Research alpha'), 'filtra por fecha consultada');
+await p.fill('#studyFrom', ''); await p.fill('#studyTo', '2026-10-25'); await quieto(p);
 
 await p.click('#studyNew');
 await p.fill('#studyTitle', 'Research beta');
@@ -56,6 +65,7 @@ await p.click('.tabbtn[data-tab="estudio"]'); await quieto(p);
 const editAlpha = p.locator('#studyGrid .study-card').filter({ hasText: 'Research alpha' }).locator('button[data-study-edit]').first();
 await editAlpha.click();
 ok(await p.inputValue('#studyAuthor') === 'Research Desk', 'autor y metadatos persisten tras recargar');
+ok(await p.inputValue('#studyCatalysts') === 'CPI, FOMC y cambios en los rendimientos reales.', 'los catalizadores persisten tras recargar');
 ok(await p.locator('#studyLinksList').innerText().then(t => t.includes('NQ')), 'el vínculo a la operación persiste');
 ok(errores.length === 0, 'sin errores JavaScript', errores.join(' | ') || 'ninguno');
 
