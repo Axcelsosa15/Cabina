@@ -57,6 +57,21 @@ await page.click('#viewPrefsReset');
 await page.locator('input[name="viewDensity"][value="comfortable"]').check();
 await page.locator('#viewPrefsDone').click();
 ok(!(await page.locator('#panelImportar').evaluate(el => el.classList.contains('user-view-hidden'))), 'restaurar Futuros vuelve a mostrar sus módulos');
+
+console.log('\\n═══ COBERTURA DE TODAS LAS PESTAÑAS ═══');
+for (const [tab, label] of [
+  ['invest', 'Inversiones'],
+  ['playbook', 'Playbook'],
+  ['ideas', 'Formas de hacer dinero'],
+  ['calc', 'Calculadora'],
+  ['estudio', 'Estudio'],
+]) {
+  await page.click('.tabbtn[data-tab="' + tab + '"]');
+  await page.click('#viewPrefsOpen');
+  const count = await page.locator('#viewPrefsList .view-prefs-item').count();
+  ok(count > 0, label + ' expone módulos configurables', count + ' módulos');
+  await page.locator('#viewPrefsDone').click();
+}
 ok(errors.length === 0, 'sin errores JavaScript en el flujo de preferencias', errors.join(' | ') || 'ninguno');
 await browser.close();
 await new Promise(resolve => srv.close(resolve));
