@@ -1,6 +1,6 @@
 /* ESTUDIO · fuentes fechadas, vínculos a datos reales y backlinks. */
 import { chromium } from 'playwright';
-import { SEMILLA, quieto, arrancada } from './espera.mjs';
+import { SEMILLA, quieto } from './espera.mjs';
 
 const fallos = [], errores = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
@@ -9,7 +9,7 @@ const p = await (await b.newContext({ viewport: { width: 1400, height: 1000 } })
 p.on('pageerror', e => errores.push(e.message));
 await p.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(SEMILLA)});}catch(e){}`);
 await p.goto('file://' + process.cwd() + '/../index.html');
-await arrancada(p, '.tabbtn');
+await p.waitForFunction(() => window.FUT && document.querySelector('#studyNew')); await quieto(p);
 await p.click('.tabbtn[data-tab="estudio"]'); await quieto(p);
 
 const tradeId = await p.evaluate(() => FUT.createTrade({
@@ -51,7 +51,7 @@ ok((await alpha.innerText()).includes('Referenciado por') && (await alpha.innerT
 await p.click('[data-study-filter="review"]'); await quieto(p);
 ok((await p.locator('#studyGrid').innerText()).includes('Research alpha'), 'el filtro encuentra documentos cuya revisión venció');
 
-await p.reload(); await arrancada(p, '.tabbtn');
+await p.reload(); await p.waitForFunction(() => window.FUT && document.querySelector('#studyNew')); await quieto(p);
 await p.click('.tabbtn[data-tab="estudio"]'); await quieto(p);
 const editAlpha = p.locator('#studyGrid .study-card').filter({ hasText: 'Research alpha' }).locator('button[data-study-edit]').first();
 await editAlpha.click();
