@@ -14937,7 +14937,7 @@ tbody tr:last-child td{border-bottom:0}
       });
     });
     coll("research").items.forEach(d => {
-      if (d.type === "trade-review" || !hit(d.title, d.question, d.evidence, d.counter, d.conclusion, d.url, (d.tags || []).join(" "), d.status)) return;
+      if (d.type === "trade-review" || !hit(d.title, d.question, d.evidence, d.counter, d.conclusion, d.url, d.author, d.publishedAt, d.consultedAt, d.nextReview, (d.tags || []).join(" "), (d.links || []).map(estudioLinkLabel).join(" "), d.status)) return;
       const id = d.id;
       take("Estudio", "⌕", d.title || "Documento de estudio", [d.type || "concepto", d.status || "por estudiar", d.url || ""].filter(Boolean).join(" · "), () => {
         showTab("estudio"); setTimeout(() => estudioEditor(id), 60);
@@ -16330,7 +16330,7 @@ tbody tr:last-child td{border-bottom:0}
   function estudioLista(){return coll("research").items.slice().sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));}
   function estudioTexto(d){return[d.title,d.question,d.evidence,d.counter,d.conclusion,d.url,d.author,d.publishedAt,d.consultedAt,d.nextReview,(d.tags||[]).join(" "),(d.links||[]).map(estudioLinkLabel).join(" ")].join(" ");}
   function estudioVisible(){const q=estudioNorm($("studySearch").value.trim()),hoy=todayISO();return estudioLista().filter(d=>{if(d.type==="trade-review")return false;const ok=estudioFiltro==="all"||(estudioFiltro==="todo"?d.status==="todo":estudioFiltro==="review"?!!d.nextReview&&d.nextReview<=hoy:d.type===estudioFiltro);return ok&&(!q||estudioNorm(estudioTexto(d)).includes(q));});}
-  function estudioFecha(v){try{return new Intl.DateTimeFormat("es-US",{month:"short",day:"numeric",year:"numeric"}).format(new Date(Number(v)||v));}catch{return"Sin fecha";}}
+  function estudioFecha(v){try{if(typeof v==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(v)){const a=v.split("-").map(Number);return new Intl.DateTimeFormat("es-US",{month:"short",day:"numeric",year:"numeric"}).format(new Date(a[0],a[1]-1,a[2],12));}return new Intl.DateTimeFormat("es-US",{month:"short",day:"numeric",year:"numeric"}).format(new Date(Number(v)||v));}catch{return"Sin fecha";}}
   function estudioLinkLabel(l){
     if(!l||!l.id)return"Vínculo sin destino";
     if(l.type==="trade"){const x=coll("trades").get(l.id);return x?(x.instrument||x.asset||"Operación")+" · "+(x.date||"sin fecha"):"Operación eliminada";}
