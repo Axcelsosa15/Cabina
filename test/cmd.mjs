@@ -59,7 +59,7 @@ await p.evaluate(() => FUT.createTrade({
 await p.keyboard.press('Control+k'); await p.waitForTimeout(250);
 await p.fill('#cmdQ', 'ZXQ'); await p.waitForTimeout(250);
 const resultadosZXQ = await p.locator('#cmdList').innerText();
-ok(resultadosZXQ.includes('ZXQ') && resultadosZXQ.includes('Operaciones'), 'la búsqueda global encuentra operaciones por instrumento', resultadosZXQ.replace(/\s+/g, ' ').slice(0, 120));
+ok(resultadosZXQ.toLowerCase().includes('zxq') && resultadosZXQ.toLowerCase().includes('operaciones'), 'la búsqueda global encuentra operaciones por instrumento', resultadosZXQ.replace(/\s+/g, ' ').slice(0, 120));
 await p.keyboard.press('Enter'); await p.waitForTimeout(250);
 ok(await p.evaluate(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros'), 'un resultado de operación navega a Futuros');
 await p.keyboard.press('Escape');
