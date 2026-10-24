@@ -2460,6 +2460,21 @@ tbody tr:last-child td{border-bottom:0}
       </section>
     </div>
   </div>
+  <section class="panel" id="panelExecHistory">
+    <header><h2>Historial de ejecuciones</h2><span class="meta" id="execHistoryMeta">Sin ejecuciones importadas</span><button type="button" class="btn ghost sm" id="execToggle" aria-expanded="false">Ver historial</button></header>
+    <div class="body" id="execHistoryBody" hidden>
+      <p class="hint">Registro consolidado de los fills importados. Si una ejecución se repartió entre varias operaciones por un cierre parcial o una reversión, se agrupa por su huella para no contarla dos veces. No calcula un P&amp;L independiente: el resultado sigue perteneciendo al motor de operaciones.</p>
+      <div id="execHistoryFilters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">
+        <label class="lab">Buscar<input id="execQ" type="search" placeholder="ID, instrumento, lado…" style="width:100%"></label>
+        <label class="lab">Cuenta<select id="execAcct" style="width:100%"><option value="">Todas las cuentas</option></select></label>
+        <label class="lab">Instrumento<select id="execInstr" style="width:100%"><option value="">Todos</option></select></label>
+        <label class="lab">Desde<input id="execFrom" type="date" style="width:100%"></label>
+        <label class="lab">Hasta<input id="execTo" type="date" style="width:100%"></label>
+        <button type="button" class="btn ghost sm" id="execReset" style="align-self:end">Limpiar filtros</button>
+      </div>
+      <div class="twrap" id="execHistoryTable" aria-live="polite"><p class="csub">Cargando ejecuciones…</p></div>
+    </div>
+  </section>
 </div>
 
 <!-- ======================= PLAYBOOK ======================= -->
@@ -14570,6 +14585,87 @@ tbody tr:last-child td{border-bottom:0}
   });
   $("mxTabla").addEventListener("click", e => { const tr = e.target.closest("tr[data-mx]"); if (!tr) return; const t = coll("trades").get(tr.dataset.mx); if (t) openTrade(t); });
 
+  function renderExecutionHistory() {
+    const table = $("execHistoryTable");
+    const meta = $("execHistoryMeta");
+    if (!table || !meta) return;
+    const q = String($("execQ")?.value || "").trim().toLowerCase();
+    const acct = String($("execAcct")?.value || "");
+    const instr = String($("execInstr")?.value || "");
+    const from = String($("execFrom")?.value || ""), to = String($("execTo")?.value || "");
+    const trades = coll("trades").items.filter(t => t && t.type === "futuros" && Array.isArray(t.executionLedger));
+    const grouped = new Map();
+    for (const t of trades) for (const fill of t.executionLedger) {
+      if (!fill || typeof fill !== "object") continue;
+      const key = String(fill.fingerprint || (fill.executionId ? "id:" + fill.executionId :
+        [t.accountId || "", t.instrument || "", fill.date || t.date || "", fill.time || t.time || "",
+         fill.side || "", fill.qty ?? "", fill.price ?? ""].join("|")));
+      let row = grouped.get(key);
+      if (!row) {
+        row = { key, date: String(fill.date || t.date || ""), time: String(fill.time || t.time || ""),
+          accountId: String(t.accountId || ""), instrument: String(t.instrument || fill.instrument || ""),
+          side: String(fill.side || ""), qty: 0, price: Number(fill.price), fees: 0,
+          executionId: String(fill.executionId || fill.fingerprint || "—"), roles: new Set(), tradeIds: new Set() };
+        grouped.set(key, row);
+      }
+      row.qty += Math.max(0, Number(fill.qty) || 0);
+      row.fees += Math.max(0, Number(fill.fees) || 0);
+      if (Number.isFinite(Number(fill.price))) row.price = Number(fill.price);
+      if (fill.role) row.roles.add(String(fill.role));
+      if (t.id) row.tradeIds.add(String(t.id));
+    }
+    const all = [...grouped.values()];
+    const accounts = [...new Set(all.map(x => x.accountId).filter(Boolean))].sort((a,b) => acctLabel(a).localeCompare(acctLabel(b)));
+    const instruments = [...new Set(all.map(x => x.instrument).filter(Boolean))].sort();
+    const acctSel = $("execAcct"), instrSel = $("execInstr");
+    if (acctSel) {
+      const current = acctSel.value;
+      acctSel.innerHTML = '<option value="">Todas las cuentas</option>' + accounts.map(id => `<option value="${esc(id)}">${esc(acctLabel(id) || "Cuenta sin nombre")}</option>`).join("");
+      if (accounts.includes(current)) acctSel.value = current;
+    }
+    if (instrSel) {
+      const current = instrSel.value;
+      instrSel.innerHTML = '<option value="">Todos</option>' + instruments.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+      if (instruments.includes(current)) instrSel.value = current;
+    }
+    const visible = all.filter(x => {
+      if (acct && x.accountId !== acct) return false;
+      if (instr && x.instrument !== instr) return false;
+      if (from && x.date < from) return false;
+      if (to && x.date > to) return false;
+      if (q && ![x.date,x.time,x.instrument,x.side,x.executionId,acctLabel(x.accountId),[...x.roles].join(" "),[...x.tradeIds].join(" ")].join(" ").toLowerCase().includes(q)) return false;
+      return true;
+    }).sort((a,b) => (b.date+"T"+b.time).localeCompare(a.date+"T"+a.time));
+    const linked = new Set(visible.flatMap(x => [...x.tradeIds]));
+    meta.textContent = all.length ? `${all.length} ejecuciones · ${new Set(all.map(x=>x.accountId)).size} cuentas · ${new Set(all.map(x=>x.instrument)).size} instrumentos` : "Sin ejecuciones importadas";
+    if (!visible.length) {
+      table.innerHTML = '<p class="csub" style="padding:12px 0">No hay ejecuciones que coincidan con estos filtros. Si aún no has importado un CSV de ejecuciones, empieza en «Importar operaciones» y elige «Ejecuciones · emparejar FIFO».</p>';
+      return;
+    }
+    const filas = visible.map(x => {
+      const roles = x.roles.size > 1 ? "Cierre + apertura" : x.roles.has("entry") ? "Entrada" : "Salida";
+      const firstTrade = [...x.tradeIds][0];
+      return `<tr><td>${esc(x.date || "—")}</td><td>${esc(x.time || "—")}</td><td>${esc(acctLabel(x.accountId) || "—")}</td><td>${esc(x.instrument || "—")}</td><td class="${x.side === "sell" ? "neg" : "pos"}">${esc(x.side || "—")}</td><td>${roles}</td><td class="r">${Number(x.qty.toFixed(6)).toString()}</td><td class="r">${Number.isFinite(x.price) ? esc(String(x.price)) : "—"}</td><td class="r">${money(x.fees)}</td><td class="mono">${esc(x.executionId).slice(0,48)}</td><td>${firstTrade ? `<button type="button" class="btn ghost sm" data-exec-trade="${esc(firstTrade)}" title="Abrir una de las operaciones vinculadas">${x.tradeIds.size > 1 ? `Ver operación +${x.tradeIds.size-1}` : "Ver operación"}</button>` : "—"}</td></tr>`;
+    }).join("");
+    table.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Hora</th><th>Cuenta</th><th>Instrumento</th><th>Lado</th><th>Asignación</th><th class="r">Cantidad</th><th class="r">Precio</th><th class="r">Comisión</th><th>ID / huella</th><th>Operación</th></tr></thead><tbody>${filas}</tbody></table><p class="csub" style="margin:8px 0 0">${visible.length} de ${all.length} ejecuciones · ${linked.size} operaciones vinculadas. Cantidad y comisión se agregan por huella para no duplicar fills repartidos entre operaciones.</p>`;
+  }
+  ["execQ","execAcct","execInstr","execFrom","execTo"].forEach(id => {
+    const el = $(id); if (el) el.addEventListener(id === "execQ" ? "input" : "change", renderExecutionHistory);
+  });
+  $("execReset").addEventListener("click", () => {
+    ["execQ","execAcct","execInstr","execFrom","execTo"].forEach(id => { const el = $(id); if (el) el.value = ""; });
+    renderExecutionHistory();
+  });
+  $("execToggle").addEventListener("click", () => {
+    const body = $("execHistoryBody"), open = body.hidden;
+    body.hidden = !open; $("execToggle").setAttribute("aria-expanded", String(open));
+    $("execToggle").textContent = open ? "Ocultar historial" : "Ver historial";
+  });
+  $("execHistoryTable").addEventListener("click", e => {
+    const btn = e.target.closest("button[data-exec-trade]"); if (!btn) return;
+    const t = coll("trades").get(btn.dataset.execTrade); if (t) openTrade(t);
+  });
+
   const Z = {
     edge:       ["métricas / edge", () => renderEdge()],
     futuros:    ["operaciones", () => renderFutures()],
@@ -14617,13 +14713,14 @@ tbody tr:last-child td{border-bottom:0}
        recuento se quedaba en el del momento de importar, que es la clase de
        número que `test/conexiones.mjs` existe para cazar. */
     importar:   ["importador", () => renderImportar()],
+    ejecuciones:["historial de ejecuciones", () => renderExecutionHistory()],
   };
   /* Al cambiar la CUENTA SELECCIONADA no cambian los datos, cambia el punto de
      vista: se repinta lo que depende de qué cuenta se está mirando. */
   const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia, Z.edge];
   const FANOUT_TRADES = [Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
                          Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion, Z.edge,
-                         Z.estudio, Z.invDetalle, Z.importar];
+                         Z.estudio, Z.invDetalle, Z.importar, Z.ejecuciones];
   function pinta(lista) {
     /* Una actualización de datos no debe echar al usuario del campo donde está
        escribiendo ni devolver la página al inicio. Algunos renders reconstruyen
