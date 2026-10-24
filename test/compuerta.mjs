@@ -254,8 +254,9 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      en pantalla. Lo que `csv.mjs` exige no es que acierte siempre, es que cuando el
      fichero NO dice lo suficiente conteste «no se puede saber» en vez de adivinar.
      Cinco sabotajes corridos el 12/10/2026, los cinco rojos por su asercion.
-     NO es el importador: la fase 0 de docs/IMPORTAR.md sigue bloqueando el mapeo,
-     el emparejado y la deteccion. */
+     NO es el importador: la fase 0 de docs/IMPORTAR.md bloquea la detección automática
+     y la comparación contra un bróker real; el mapeador manual y el motor FIFO tienen
+     suites propias. */
   dice('csv', 'suite', 'Leer un CSV no adivina lo que el fichero no dice', 'persistencia');
   /* EL ESQUEMA Y LAS POLÍTICAS, EN UN POSTGRES DE VERDAD. Esto es nuevo y conviene
      decir exactamente qué añade y qué no. `db.mjs` arranca un Postgres local, aplica

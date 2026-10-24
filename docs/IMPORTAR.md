@@ -199,8 +199,7 @@ convierte una venta en su contraria).
 > recuento se saltaba la cabecera y acertaba por casualidad—; hizo falta uno donde
 > comas y `;` empatan y la coma gana por ir primera en la lista.
 
-**Lo que esto NO desbloquea:** el emparejado (fase 2) ni la detección (fase 4).
-Esto es el suelo sobre el que se apoyan, no un atajo para saltárselos.
+**Lo que esto NO desbloquea:** la detección automática del bróker (fase 4) ni la validación al céntimo contra un CSV real. El modo FIFO de la fase 2 ya existe, pero su validación contra una plataforma concreta sigue dependiendo de la fase 0.
 
 *(La primera versión de esta línea decía que la fase 0 seguía bloqueando también
 el mapeo. No era cierto, y esa frase es la que hizo dar por imposible la fase 1
@@ -210,9 +209,9 @@ Corregido el 20/10/2026, con la fase 1 hecha.)*
 ### Fase 1 — El mapeador manual *(hecha, 20/10/2026)*
 
 Subir cualquier CSV o pegarlo, ver las primeras filas, decir a mano qué columna
-es qué, previsualizar e importar. Sin detección, sin emparejado: una fila, una
-operación, y **se dice en pantalla**, porque con un export de órdenes produce el
-doble de operaciones con la mitad del P&L.
+es qué, previsualizar e importar. Sin detección automática, pero con dos modos:
+operaciones ya cerradas (una fila, una operación) y ejecuciones individuales que
+se reconstruyen por FIFO. El importador identifica el modo elegido en pantalla.
 
 Funciona con **todos** los brókers desde el primer día, porque no sabe nada de
 ninguno. Vive en Futuros → Diario, y las decisiones que no son obvias:
@@ -297,8 +296,9 @@ Las dos que importan, en este orden, porque son las que usa el autor:
 
 Esa diferencia es la razón de empezar por NinjaTrader aunque Tradovate sea el
 que más se usa en las prop: con un export de Trades de NinjaTrader la fase 1
-sola ya produce operaciones correctas, sin emparejado. Sirve de banco de pruebas
-del resto del camino mientras la fase 2 no existe.
+sola ya produce operaciones correctas, sin emparejado; el modo FIFO queda para
+exports de ejecuciones individuales como los de Tradovate. Sirve de banco de pruebas
+del resto del camino mientras falta un CSV real que valide cifras contra el bróker.
 
 > **Control:** el fixture se detecta solo y el mapeo propuesto es el correcto sin
 > tocarlo.
