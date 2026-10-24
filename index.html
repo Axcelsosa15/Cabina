@@ -15381,6 +15381,101 @@ tbody tr:last-child td{border-bottom:0}
     return { ok: !problemas.length, op, problemas, n: nFila };
   }
 
+  /* Emparejado de ejecuciones por FIFO. Función pura: no escribe en el almacén.
+     Cada fill de entrada lleva {accountId,instrument,date,time,side:'buy'|'sell',
+     qty,price,fees?,executionId?,n?}. Una fila del CSV nunca se convierte a ciegas
+     en una operación cerrada: se empareja contra inventario abierto y los restos
+     se conservan como operaciones abiertas. */
+  function impHuellaEjecucion(f) {
+    const brokerId = String(f.executionId == null ? "" : f.executionId).trim();
+    if (brokerId) return "id:" + brokerId;
+    return "fp:" + [
+      String(f.accountId || ""), String(f.instrument || "").trim().toUpperCase(),
+      String(f.date || ""), String(f.time || ""), String(f.side || "").toLowerCase(),
+      Number(f.qty), Number(f.price)
+    ].join("|");
+  }
+  function impEmparejarEjecuciones(fills, yaVistas) {
+    const vistos = new Set(Array.isArray(yaVistas) ? yaVistas.map(String) : []);
+    const duplicadas = [], invalidas = [], ordenadas = [];
+    (Array.isArray(fills) ? fills : []).forEach((raw, ix) => {
+      const f = Object.assign({}, raw || {});
+      const q = Number(f.qty), px = Number(f.price);
+      f.n = Number.isFinite(Number(f.n)) ? Number(f.n) : ix + 2;
+      f.side = String(f.side || "").toLowerCase();
+      if (!f.accountId || !String(f.instrument || "").trim() || !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(f.date || "")) ||
+          !["buy", "sell"].includes(f.side) || !Number.isFinite(q) || q <= 0 ||
+          !Number.isFinite(px) || px <= 0) {
+        invalidas.push({ n: f.n, motivo: "cuenta, fecha, instrumento, lado, cantidad o precio no válido" });
+        return;
+      }
+      f.qty = q; f.price = px; f.fees = Math.abs(Number.isFinite(Number(f.fees)) ? Number(f.fees) : 0);
+      f.instrument = String(f.instrument).trim().toUpperCase();
+      f.time = String(f.time || "").trim();
+      f.fingerprint = impHuellaEjecucion(f);
+      if (vistos.has(f.fingerprint)) { duplicadas.push({ n: f.n, fingerprint: f.fingerprint }); return; }
+      vistos.add(f.fingerprint);
+      ordenadas.push(f);
+    });
+    ordenadas.sort((a, b) => {
+      const ka = a.date + "T" + (a.time || "00:00:00");
+      const kb = b.date + "T" + (b.time || "00:00:00");
+      return ka.localeCompare(kb) || a.n - b.n;
+    });
+    const abiertas = new Map(), lotes = [];
+    const clave = f => String(f.accountId) + "|" + f.instrument;
+    ordenadas.forEach(f => {
+      let restante = f.qty;
+      const key = clave(f), cola = abiertas.get(key) || [];
+      const opuesto = f.side === "buy" ? "sell" : "buy";
+      for (let i = 0; i < cola.length && restante > 1e-9;) {
+        const lote = cola[i];
+        if (lote.side !== opuesto || lote.remaining <= 1e-9) { i++; continue; }
+        const toma = Math.min(restante, lote.remaining);
+        lote.closedQty += toma;
+        lote.exitNotional += toma * f.price;
+        lote.exitFees += f.fees * toma / f.qty;
+        lote.closeIds.push(f.fingerprint);
+        lote.exitDate = f.date; lote.exitTime = f.time;
+        lote.remaining -= toma; restante -= toma;
+        if (lote.remaining <= 1e-9) cola.splice(i, 1); else i++;
+      }
+      if (restante > 1e-9) {
+        const lote = {
+          fill: f, side: f.side, remaining: restante, closedQty: 0,
+          exitNotional: 0, exitFees: 0, closeIds: [], exitDate: "", exitTime: ""
+        };
+        cola.push(lote); lotes.push(lote);
+      }
+      abiertas.set(key, cola);
+    });
+    const ops = [];
+    lotes.forEach(l => {
+      const f = l.fill, entradaFeePorUnidad = f.fees / f.qty;
+      if (l.closedQty > 1e-9) {
+        ops.push({
+          date: f.date, time: f.time || "", exitDate: l.exitDate || f.date,
+          exitTime: l.exitTime || "", instrument: f.instrument,
+          direction: f.side === "buy" ? "long" : "short", qty: l.closedQty,
+          entry: f.price, exit: l.exitNotional / l.closedQty,
+          fees: entradaFeePorUnidad * l.closedQty + l.exitFees,
+          executionIds: [...new Set([f.fingerprint, ...l.closeIds])],
+          open: false
+        });
+      }
+      if (l.remaining > 1e-9) {
+        ops.push({
+          date: f.date, time: f.time || "", instrument: f.instrument,
+          direction: f.side === "buy" ? "long" : "short", qty: l.remaining,
+          entry: f.price, exit: null, fees: entradaFeePorUnidad * l.remaining,
+          executionIds: [f.fingerprint], open: true
+        });
+      }
+    });
+    ops.sort((a, b) => (a.date + "T" + (a.time || "")).localeCompare(b.date + "T" + (b.time || "")));
+    return { ops, duplicadas, invalidas, aceptadas: ordenadas.length, huellas: ordenadas.map(f => f.fingerprint) };
+  }
+
   /* Dos campos pueden compartir columna, y exactamente dos: FECHA y HORA. Un
      «2026-09-14 10:05:00» en una sola columna es lo normal en medio mundo, y
      obligar a partirlo a mano sería pedirle al usuario que arregle el fichero.
@@ -15420,7 +15515,8 @@ tbody tr:last-child td{border-bottom:0}
      que se expone es el mapeador, no el escritor: escribir pasa por la vista
      previa y por el botón, nunca por aquí. */
   FUT.imp = { campos: IMP_CAMPOS, obligatorios: IMP_OBLIG, plan: impPlan, fila: impFila,
-              repetidas: impRepetidas, previo: impPrevio };
+              repetidas: impRepetidas, previo: impPrevio, huellaEjecucion: impHuellaEjecucion,
+              emparejarEjecuciones: impEmparejarEjecuciones };
 
   /* ── LA PANTALLA ──────────────────────────────────────────────────────────
      Tres decisiones que son decisiones, no detalles:
