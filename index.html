@@ -5435,6 +5435,7 @@ tbody tr:last-child td{border-bottom:0}
     tabsWithTables.forEach(({tab, tabName: tableTabName, tabLabel, tables}) => {
       const tabHeading = document.createElement("strong");
       tabHeading.textContent = tabLabel;
+      tabHeading.dataset.viewTab = tableTabName;
       tabHeading.style.display = "block";
       tabHeading.style.margin = "12px 0 4px";
       columnGroup.append(tabHeading);
@@ -5446,6 +5447,8 @@ tbody tr:last-child td{border-bottom:0}
         const tableKey = viewTableKey(table, tableTabName, tableIndex);
         const hiddenColumns = new Set(Array.isArray(prefs.columns?.[tableTabName]?.[tableKey]) ? prefs.columns[tableTabName][tableKey] : []);
         const group = document.createElement("div"); group.className = "view-prefs-table-group";
+        group.dataset.viewTab = tableTabName;
+        group.dataset.viewTableKey = tableKey;
         const panel = table.closest(".panel, .study-panel");
         const heading = document.createElement("strong");
         heading.textContent = panel ? viewLabel(panel, tableIndex) : "Tabla " + (tableIndex + 1);
