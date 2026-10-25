@@ -55,7 +55,32 @@
   body[data-density="compact"] .study-grid { gap: 8px; }
   body[data-density="compact"] .study-panel { padding: 12px; }
   body[data-density="compact"] .study-toolbar { gap: 8px; margin-block: 8px; }
+  /* Densidad compacta transversal: menos altura sin esconder información ni reducir el área táctil. */
+  body[data-density="compact"] .tab .panel > header { padding: 8px 12px; gap: 6px; }
+  body[data-density="compact"] .tab .panel > .body { padding: 9px 12px; }
+  body[data-density="compact"] .tab .panel { margin-bottom: 8px; }
+  body[data-density="compact"] .tab .stack,
+  body[data-density="compact"] .tab .grid,
+  body[data-density="compact"] .tab .tiles { gap: 7px; }
+  body[data-density="compact"] .tab .toolbar { gap: 6px; margin-block: 6px; }
+  body[data-density="compact"] .tab table th,
+  body[data-density="compact"] .tab table td { padding: 5px 7px; }
+  body[data-density="compact"] .tab .btn,
+  body[data-density="compact"] .tab .editbtn { padding-block: 6px; }
+  body[data-density="compact"] .tab .study-panel { padding: 9px; }
   .user-view-hidden { display: none !important; }
+  .user-column-hidden { display: none !important; }
+  .view-prefs-columns { border-top: 1px solid var(--line,rgba(255,255,255,.12)); margin-top: 12px; padding-top: 10px; }
+  .view-prefs-columns h3 { font-size: 12px; margin: 0 0 6px; }
+  .view-prefs-table-group { border: 1px solid var(--line,rgba(255,255,255,.12)); border-radius: 8px; padding: 8px; margin: 8px 0; }
+  .view-prefs-table-group > strong { display:block; font-size: 11px; margin-bottom: 5px; }
+  .view-prefs-column-item { padding: 4px 2px; }
+  /* Filtros activos más densos: conservan la lectura del estado y ocupan menos alto. */
+  body[data-density="compact"] .ftfilt { gap: 5px; margin-bottom: 8px; padding: 5px 8px; border-radius: 8px; }
+  body[data-density="compact"] .ftfilt .lb { font-size: 9px; letter-spacing: .06em; }
+  body[data-density="compact"] .ftfilt .fchip { gap: 5px; padding: 2px 3px 2px 6px; font-size: 10px; }
+  body[data-density="compact"] .ftfilt .fchip button { padding-inline: 2px; font-size: 12px; }
+  body[data-density="compact"] .ftfilt .clr { padding: 3px 8px; font-size: 10px; }
   .view-prefs[hidden] { display: none !important; }
   .view-prefs { position: fixed; inset: 0; z-index: 10050; display: grid; place-items: center; padding: 16px; }
   .view-prefs-backdrop { position: absolute; inset: 0; background: rgba(3,7,12,.78); backdrop-filter: blur(8px); }
@@ -2546,8 +2571,8 @@ tbody tr:last-child td{border-bottom:0}
       <p class="hint">Registro consolidado de los fills importados. Si una ejecución se repartió entre varias operaciones por un cierre parcial o una reversión, se agrupa por su huella para no contarla dos veces. No calcula un P&amp;L independiente: el resultado sigue perteneciendo al motor de operaciones.</p>
       <div id="execHistoryFilters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">
         <label class="lab">Buscar<input id="execQ" type="search" placeholder="ID, instrumento, lado…" style="width:100%"></label>
-        <label class="lab">Cuenta<select id="execAcct" style="width:100%"><option value="">Todas las cuentas</option></select></label>
-        <label class="lab">Instrumento<select id="execInstr" style="width:100%"><option value="">Todos</option></select></label>
+        <label class="lab">Cuenta<select id="execAcct" style="width:100%"><option value="">todas las cuentas</option></select></label>
+        <label class="lab">Instrumento<select id="execInstr" style="width:100%"><option value="">todos los instrumentos</option></select></label>
         <label class="lab">Desde<input id="execFrom" type="date" style="width:100%"></label>
         <label class="lab">Hasta<input id="execTo" type="date" style="width:100%"></label>
         <button type="button" class="btn ghost sm" id="execReset" style="align-self:end">Limpiar filtros</button>
@@ -3035,6 +3060,36 @@ tbody tr:last-child td{border-bottom:0}
   function pct(n) { return (n * 100).toFixed(0) + "%"; }
   // concordancia: "1 operación" en vez de "1 operaciones"
   function plu(n, one, many) { return n + " " + (Math.abs(Number(n)) === 1 ? one : many); }
+
+  /* UNA SOLA BAJADA DE FICHERO, Y LA GUARDA DEL CLIC VIAJA CON ELLA.
+     Había tres copias de «crear blob, crear ancla, pulsarla, revocar la url»:
+     el respaldo, el export del estudio y el CSV de ejecuciones. Sólo la del
+     respaldo cortaba el clic sintético —y con quince líneas explicando por
+     qué, abajo—; las otras dos nacieron sin ella, que es lo que pasa cuando
+     una guarda vive dentro de una de las tres copias en vez de en el único
+     sitio que hace el trabajo. Tampoco coincidían en cuándo revocar la url:
+     10 s, 1 s y 1 s para la misma operación. Aquí se revoca una vez, y tarde,
+     que es el lado seguro: revocar pronto corta una descarga lenta.
+
+     EL CLIC SINTÉTICO NO SALE DE AQUÍ. `a.click()` dispara un clic que burbujea
+     hasta `document` como cualquier otro, y allí hay manejadores que reaccionan a
+     «un clic en cualquier sitio» — el que cierra el menú «•••» de una cuenta lo
+     hace con una condición NEGATIVA (`if (!e.target.closest(".acc-menu"))`), así
+     que este ancla, que no está dentro de ningún menú, lo cerraba.
+     Medido: la migración al motor nuevo descarga un respaldo ~1,6 s después de
+     arrancar, y su descarga cerraba el menú que el usuario acababa de abrir. En
+     la suite eso era una carrera —la prueba `borrar` pulsaba «•••» y «Borrar», y
+     ganaba o perdía por decenas de milisegundos— y pasó a perderla siempre al
+     añadir trabajo al render. Una descarga no es un clic del usuario y no puede
+     parecerlo. Se corta en el ancla, así que ningún manejador de arriba lo ve,
+     ni los que existen hoy ni los que vengan. */
+  function descarga(nombre, contenido, tipo) {
+    const url = URL.createObjectURL(new Blob([contenido], { type: tipo }));
+    const a = document.createElement("a"); a.href = url; a.download = nombre;
+    a.addEventListener("click", e => e.stopPropagation());
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }
 
   /* ESTADO VACÍO. «—» no es una respuesta: no dice si falta un dato, si no
      aplica, o si algo se rompió. Un vacío dice qué falta y ofrece la acción
@@ -4163,6 +4218,11 @@ tbody tr:last-child td{border-bottom:0}
     "Ver todo": "Show all",
     "desde": "from",
     "hasta": "to",
+    "Buscar": "Search",
+    "Exportar CSV": "Export CSV",
+    "Historial de ejecuciones": "Execution history",
+    "Ver historial": "View history",
+    "Ocultar historial": "Hide history",
     "Listo": "Done",
     "Mis P&L escritos a mano ya son netos": "My hand-written P&L is already net",
     "Métricas / Edge": "Metrics / Edge",
@@ -5312,8 +5372,8 @@ tbody tr:last-child td{border-bottom:0}
   function readViewPrefs() {
     try {
       const raw = JSON.parse(localStorage.getItem(VIEW_PREF_KEY) || "{}");
-      return { density: raw.density === "compact" ? "compact" : "comfortable", hidden: raw.hidden && typeof raw.hidden === "object" ? raw.hidden : {} };
-    } catch { return { density: "comfortable", hidden: {} }; }
+      return { density: raw.density === "compact" ? "compact" : "comfortable", hidden: raw.hidden && typeof raw.hidden === "object" ? raw.hidden : {}, columns: raw.columns && typeof raw.columns === "object" ? raw.columns : {} };
+    } catch { return { density: "comfortable", hidden: {}, columns: {} }; }
   }
   function writeViewPrefs(prefs) {
     try { localStorage.setItem(VIEW_PREF_KEY, JSON.stringify(prefs)); return true; }
@@ -5343,6 +5403,35 @@ tbody tr:last-child td{border-bottom:0}
     const label = (h?.textContent || el.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim();
     return label || ("Módulo " + (index + 1));
   }
+
+  function viewTableKey(table, tabName, index) {
+    if (table.id) return table.id;
+    const panel = table.closest(".panel, .study-panel");
+    if (panel?.id) return panel.id + ":table:" + Array.from(panel.querySelectorAll("table")).indexOf(table);
+    return tabName + ":table:" + index;
+  }
+  function columnSlug(label, index) {
+    const slug = String(label || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return (slug || "columna") + ":" + index;
+  }
+  function applyColumnPrefs() {
+    const prefs = readViewPrefs();
+    for (const tab of document.querySelectorAll(".tab")) {
+      const tabName = tab.dataset.tab || "cabina";
+      Array.from(tab.querySelectorAll("table")).forEach((table, tableIndex) => {
+        const tableKey = viewTableKey(table, tabName, tableIndex);
+        const headerRow = table.tHead?.rows?.[0] || table.querySelector("tr");
+        if (!headerRow) return;
+        const headers = Array.from(headerRow.cells).filter(cell => cell.tagName === "TH");
+        if (headers.length < 2) return;
+        const hidden = new Set(Array.isArray(prefs.columns?.[tabName]?.[tableKey]) ? prefs.columns[tabName][tableKey] : []);
+        Array.from(table.rows || []).forEach(row => headers.forEach((th, columnIndex) => {
+          const cell = row.cells[columnIndex];
+          if (cell) cell.classList.toggle("user-column-hidden", hidden.has(columnSlug(th.textContent.trim(), columnIndex)));
+        }));
+      });
+    }
+  }
   function applyViewPrefs() {
     const prefs = readViewPrefs();
     document.body.dataset.density = prefs.density;
@@ -5354,6 +5443,7 @@ tbody tr:last-child td{border-bottom:0}
         el.classList.toggle("user-view-hidden", hidden.has(key));
       });
     }
+    applyColumnPrefs();
   }
   function renderViewPrefs() {
     if (!viewPrefsRoot || !viewPrefsList) return;
@@ -5364,7 +5454,7 @@ tbody tr:last-child td{border-bottom:0}
     const candidates = viewCandidates(tabName);
     const hidden = new Set(Array.isArray(prefs.hidden[tabName]) ? prefs.hidden[tabName] : []);
     if (!candidates.length) {
-      const p = document.createElement("p"); p.className = "view-prefs-note"; p.textContent = "Esta pestaña no tiene módulos configurables."; viewPrefsList.append(p); return;
+      const p = document.createElement("p"); p.className = "view-prefs-note"; p.textContent = "Esta pestaña no tiene módulos configurables."; viewPrefsList.append(p);
     }
     candidates.forEach((el, i) => {
       const key = viewKey(el, tabName, i);
@@ -5379,6 +5469,44 @@ tbody tr:last-child td{border-bottom:0}
       });
       label.append(input, text, stateLabel); viewPrefsList.append(label);
     });
+    const columnGroup = document.createElement("section"); columnGroup.className = "view-prefs-columns";
+    const columnTitle = document.createElement("h3"); columnTitle.textContent = "Columnas de tablas"; columnGroup.append(columnTitle);
+    const columnNote = document.createElement("p"); columnNote.className = "view-prefs-note"; columnNote.textContent = "Oculta columnas que no necesitas. Los datos se conservan y las preferencias se guardan por pestaña."; columnGroup.append(columnNote);
+    const activeTab = Array.from(document.querySelectorAll(".tab")).find(el => el.dataset.tab === tabName);
+    const tables = activeTab ? Array.from(activeTab.querySelectorAll("table")) : [];
+    let columnCount = 0;
+    tables.forEach((table, tableIndex) => {
+      const headerRow = table.tHead?.rows?.[0] || table.querySelector("tr");
+      if (!headerRow) return;
+      const headers = Array.from(headerRow.cells).filter(cell => cell.tagName === "TH");
+      if (headers.length < 2) return;
+      const tableKey = viewTableKey(table, tabName, tableIndex);
+      const hiddenColumns = new Set(Array.isArray(prefs.columns?.[tabName]?.[tableKey]) ? prefs.columns[tabName][tableKey] : []);
+      const group = document.createElement("div"); group.className = "view-prefs-table-group";
+      const panel = table.closest(".panel, .study-panel");
+      const heading = document.createElement("strong"); heading.textContent = panel ? viewLabel(panel, tableIndex) : "Tabla " + (tableIndex + 1); group.append(heading);
+      headers.forEach((th, columnIndex) => {
+        const labelText = th.textContent.replace(/\s+/g, " ").trim() || ("Columna " + (columnIndex + 1));
+        const key = columnSlug(labelText, columnIndex);
+        const label = document.createElement("label"); label.className = "view-prefs-item view-prefs-column-item";
+        const input = document.createElement("input"); input.type = "checkbox"; input.checked = !hiddenColumns.has(key);
+        input.setAttribute("aria-label", "Mostrar columna " + labelText);
+        const text = document.createElement("span"); text.textContent = labelText;
+        const stateLabel = document.createElement("small"); stateLabel.textContent = input.checked ? "Visible" : "Oculta"; stateLabel.style.color = "var(--muted,#a5adbb)";
+        input.addEventListener("change", () => {
+          const current = readViewPrefs();
+          current.columns[tabName] = current.columns[tabName] && typeof current.columns[tabName] === "object" ? current.columns[tabName] : {};
+          const list = new Set(Array.isArray(current.columns[tabName][tableKey]) ? current.columns[tabName][tableKey] : []);
+          if (input.checked) list.delete(key); else list.add(key);
+          current.columns[tabName][tableKey] = Array.from(list);
+          writeViewPrefs(current); applyColumnPrefs(); stateLabel.textContent = input.checked ? "Visible" : "Oculta";
+        });
+        label.append(input, text, stateLabel); group.append(label); columnCount++;
+      });
+      columnGroup.append(group);
+    });
+    if (!columnCount) { const empty = document.createElement("p"); empty.className = "view-prefs-note"; empty.textContent = "Esta pestaña no tiene tablas con columnas configurables."; columnGroup.append(empty); }
+    viewPrefsList.append(columnGroup);
     document.getElementById("viewPrefsNote").textContent = "Pestaña: " + (document.querySelector('#tabnav .tabbtn.active')?.textContent || tabName).replace(/\s+/g," ").trim() + ". Los módulos ocultos conservan sus datos y vuelven al activar Mostrar.";
   }
   function openViewPrefs() {
@@ -5399,9 +5527,11 @@ tbody tr:last-child td{border-bottom:0}
     if (!r.checked) return; const prefs = readViewPrefs(); prefs.density = r.value; writeViewPrefs(prefs); applyViewPrefs();
   }));
   document.getElementById("viewPrefsReset").addEventListener("click", () => {
-    const prefs = readViewPrefs(); delete prefs.hidden[state.tab || "cabina"]; writeViewPrefs(prefs); applyViewPrefs(); renderViewPrefs();
+    const prefs = readViewPrefs(); const tabName = state.tab || "cabina"; delete prefs.hidden[tabName]; delete prefs.columns[tabName]; writeViewPrefs(prefs); applyViewPrefs(); renderViewPrefs();
   });
   applyViewPrefs();
+  const viewColumnObserver = new MutationObserver(() => applyColumnPrefs());
+  document.querySelectorAll(".tab").forEach(tab => viewColumnObserver.observe(tab, { childList: true, subtree: true }));
 
 
   /* =============================== GENERIC EDITOR =============================== */
@@ -15025,14 +15155,25 @@ tbody tr:last-child td{border-bottom:0}
   });
   $("mxTabla").addEventListener("click", e => { const tr = e.target.closest("tr[data-mx]"); if (!tr) return; const t = coll("trades").get(tr.dataset.mx); if (t) openTrade(t); });
 
-  function renderExecutionHistory() {
-    const table = $("execHistoryTable");
-    const meta = $("execHistoryMeta");
-    if (!table || !meta) return;
-    const q = String($("execQ")?.value || "").trim().toLowerCase();
-    const acct = String($("execAcct")?.value || "");
-    const instr = String($("execInstr")?.value || "");
-    const from = String($("execFrom")?.value || ""), to = String($("execTo")?.value || "");
+  /* EL AGRUPADO POR HUELLA ES UN DERIVADO DE LAS OPERACIONES, NO DEL FILTRO.
+     Vivía dentro del render, y el render corre en cada PULSACIÓN de `execQ`
+     —su escuchador es `input`—, así que teclear «MNQ» recorría cuatro veces
+     todas las operaciones y todos sus fills para contestar una pregunta cuya
+     respuesta no depende de lo tecleado. El resto del archivo ya resuelve esto
+     igual (`_tradesMemo`, `_filtMemo`): memoria débil sobre la revisión de la
+     colección, que es TODO lo que este cálculo lee. Las etiquetas de cuenta no
+     entran en la clave a propósito: no se leen aquí, se leen al pintar. */
+  const _execMemo = { key: null, val: null };
+  /* Dos lectores quieren la misma etiqueta —la tabla y el CSV—, así que la
+     pregunta se contesta una vez y en un sitio. */
+  function execAsignacion(x) {
+    return x.roles.size > 1 ? "Cierre + apertura" : x.roles.has("entry") ? "Entrada" : "Salida";
+  }
+  function execAgrupadas() {
+    /* `clave`, no `key`: dentro del bucle hay otra `key` —la huella del fill—
+       y dos nombres iguales en dos ámbitos es cómo se lee mal un memo. */
+    const clave = coll("trades").rev;
+    if (_execMemo.key === clave) return _execMemo.val;
     const trades = coll("trades").items.filter(t => t && t.type === "futuros" && Array.isArray(t.executionLedger));
     const grouped = new Map();
     for (const t of trades) for (const fill of t.executionLedger) {
@@ -15055,6 +15196,25 @@ tbody tr:last-child td{border-bottom:0}
       if (t.id) row.tradeIds.add(String(t.id));
     }
     const all = [...grouped.values()];
+    _execMemo.key = clave; _execMemo.val = all;
+    return all;
+  }
+
+  /* Lo que el CSV baja es ESTA lista, la misma que se acaba de pintar. Antes se
+     raspaba del DOM (`thead th` + `tbody td` con un `slice(0, 11)`), así que la
+     comisión salía al fichero como «$0.00» —había pasado por `money()`, que es
+     formato de pantalla— y añadir una columna habría recortado el export en
+     silencio. Una hoja de cálculo no sabe sumar «$0.00». */
+  let execVisibles = [];
+  function renderExecutionHistory() {
+    const table = $("execHistoryTable");
+    const meta = $("execHistoryMeta");
+    if (!table || !meta) return;
+    const q = String($("execQ")?.value || "").trim().toLowerCase();
+    const acct = String($("execAcct")?.value || "");
+    const instr = String($("execInstr")?.value || "");
+    const from = String($("execFrom")?.value || ""), to = String($("execTo")?.value || "");
+    const all = execAgrupadas();
     const exportBtn = $("execExport");
     if (exportBtn) exportBtn.disabled = all.length === 0;
     const accounts = [...new Set(all.map(x => x.accountId).filter(Boolean))].sort((a,b) => acctLabel(a).localeCompare(acctLabel(b)));
@@ -15062,12 +15222,12 @@ tbody tr:last-child td{border-bottom:0}
     const acctSel = $("execAcct"), instrSel = $("execInstr");
     if (acctSel) {
       const current = acctSel.value;
-      acctSel.innerHTML = '<option value="">Todas las cuentas</option>' + accounts.map(id => `<option value="${esc(id)}">${esc(acctLabel(id) || "Cuenta sin nombre")}</option>`).join("");
+      acctSel.innerHTML = '<option value="">todas las cuentas</option>' + accounts.map(id => `<option value="${esc(id)}">${esc(acctLabel(id) || "Cuenta sin nombre")}</option>`).join("");
       if (accounts.includes(current)) acctSel.value = current;
     }
     if (instrSel) {
       const current = instrSel.value;
-      instrSel.innerHTML = '<option value="">Todos</option>' + instruments.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+      instrSel.innerHTML = '<option value="">todos los instrumentos</option>' + instruments.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
       if (instruments.includes(current)) instrSel.value = current;
     }
     const visible = all.filter(x => {
@@ -15079,6 +15239,7 @@ tbody tr:last-child td{border-bottom:0}
       return true;
     }).sort((a,b) => (b.date+"T"+b.time).localeCompare(a.date+"T"+a.time));
     if (exportBtn) exportBtn.disabled = visible.length === 0;
+    execVisibles = visible;
     const linked = new Set(visible.flatMap(x => [...x.tradeIds]));
     meta.textContent = all.length ? `${all.length} ejecuciones · ${new Set(all.map(x=>x.accountId)).size} cuentas · ${new Set(all.map(x=>x.instrument)).size} instrumentos` : "Sin ejecuciones importadas";
     if (!visible.length) {
@@ -15086,7 +15247,7 @@ tbody tr:last-child td{border-bottom:0}
       return;
     }
     const filas = visible.map(x => {
-      const roles = x.roles.size > 1 ? "Cierre + apertura" : x.roles.has("entry") ? "Entrada" : "Salida";
+      const roles = execAsignacion(x);
       const firstTrade = [...x.tradeIds][0];
       return `<tr><td>${esc(x.date || "—")}</td><td>${esc(x.time || "—")}</td><td>${esc(acctLabel(x.accountId) || "—")}</td><td>${esc(x.instrument || "—")}</td><td class="${x.side === "sell" ? "neg" : "pos"}">${esc(x.side || "—")}</td><td>${roles}</td><td class="r">${Number(x.qty.toFixed(6)).toString()}</td><td class="r">${Number.isFinite(x.price) ? esc(String(x.price)) : "—"}</td><td class="r">${money(x.fees)}</td><td class="mono">${esc(x.executionId)}</td><td class="mono">${esc([...x.tradeIds].join(", "))}</td><td>${firstTrade ? `<button type="button" class="btn ghost sm" data-exec-trade="${esc(firstTrade)}" title="Abrir una de las operaciones vinculadas">${x.tradeIds.size > 1 ? `Ver operación +${x.tradeIds.size-1}` : "Ver operación"}</button>` : "—"}</td></tr>`;
     }).join("");
@@ -15099,26 +15260,44 @@ tbody tr:last-child td{border-bottom:0}
     ["execQ","execAcct","execInstr","execFrom","execTo"].forEach(id => { const el = $(id); if (el) el.value = ""; });
     renderExecutionHistory();
   });
+  const EXEC_CSV = [
+    ["Fecha",            x => x.date],
+    ["Hora",             x => x.time],
+    ["Cuenta",           x => acctLabel(x.accountId)],
+    ["Instrumento",      x => x.instrument],
+    ["Lado",             x => x.side],
+    ["Asignación",       x => execAsignacion(x)],
+    ["Cantidad",         x => Number(x.qty.toFixed(6))],
+    ["Precio",           x => (Number.isFinite(x.price) ? x.price : "")],
+    ["Comisión",         x => Number((Number(x.fees) || 0).toFixed(2))],
+    ["ID / huella",      x => x.executionId],
+    ["IDs de operación", x => [...x.tradeIds].join(", ")],
+  ];
   $("execExport").addEventListener("click", () => {
-    const table = $("execHistoryTable")?.querySelector("table");
-    if (!table) return;
-    const headers = Array.from(table.querySelectorAll("thead th")).slice(0, 11).map(x => x.textContent.trim());
-    const rows = Array.from(table.querySelectorAll("tbody tr"), tr =>
-      Array.from(tr.querySelectorAll("td")).slice(0, 11).map(td => td.textContent.trim()));
-    if (!rows.length) return;
-    const quote = value => '"' + String(value ?? "").replace(/"/g, '""') + '"';
-    const csv = "\uFEFF" + [headers, ...rows].map(row => row.map(quote).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "cabina-historial-ejecuciones-" + new Date().toISOString().slice(0, 10) + ".csv";
-    link.hidden = true; document.body.append(link); link.click(); link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (!execVisibles.length) return;
+    const comilla = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    const csv = "\uFEFF" + [EXEC_CSV.map(c => c[0])]
+      .concat(execVisibles.map(x => EXEC_CSV.map(c => c[1](x))))
+      .map(fila => fila.map(comilla).join(",")).join("\r\n");
+    descarga("cabina-historial-ejecuciones-" + new Date().toISOString().slice(0, 10) + ".csv",
+      csv, "text/csv;charset=utf-8");
   });
   $("execToggle").addEventListener("click", () => {
-    const body = $("execHistoryBody"), open = body.hidden;
-    body.hidden = !open; $("execToggle").setAttribute("aria-expanded", String(open));
-    $("execToggle").textContent = open ? "Ocultar historial" : "Ver historial";
+    const body = $("execHistoryBody"), btn = $("execToggle"), open = body.hidden;
+    body.hidden = !open; btn.setAttribute("aria-expanded", String(open));
+    /* EL TEXTO SE ESCRIBE EN ESPAÑOL, QUE ES LA FUENTE, Y SE TRADUCE AQUÍ.
+       `traduce()` sólo corre al arrancar y al final de showTab —es la frontera
+       declarada arriba: «el cromo que un render GENERA vuelve a español al
+       regenerarse… se arregla en su sitio de render»—, así que sin esta
+       llamada el botón se quedaba en español dentro de una página en inglés
+       hasta el siguiente cambio de pestaña. Y hay que soltar la marca ANTES:
+       el WeakMap guarda «Ver historial» como el original de este nodo, y al
+       encontrar otro español dentro la pasada descarta la marca y sigue, así
+       que tardaría dos pasadas en recuperarse. Soltarla deja que la primera lo
+       registre. */
+    btn.textContent = open ? "Ocultar historial" : "Ver historial";
+    i18nOrig.delete(btn);
+    traduce(idioma());
   });
   $("execHistoryTable").addEventListener("click", e => {
     const btn = e.target.closest("button[data-exec-trade]"); if (!btn) return;
@@ -16684,23 +16863,9 @@ tbody tr:last-child td{border-bottom:0}
     el.innerHTML = `<span class="dotg"${bad ? "" : ""}></span><span>${esc(msg)}</span>`;
   }
   async function bkDownload(text, name) {
-    const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
-    const a = document.createElement("a"); a.href = url; a.download = name;
-    /* EL CLIC SINTÉTICO NO SALE DE AQUÍ. `a.click()` dispara un clic que burbujea
-       hasta `document` como cualquier otro, y allí hay manejadores que reaccionan a
-       «un clic en cualquier sitio» — el que cierra el menú «•••» de una cuenta lo
-       hace con una condición NEGATIVA (`if (!e.target.closest(".acc-menu"))`), así
-       que este ancla, que no está dentro de ningún menú, lo cerraba.
-       Medido: la migración al motor nuevo descarga un respaldo ~1,6 s después de
-       arrancar, y su descarga cerraba el menú que el usuario acababa de abrir. En
-       la suite eso era una carrera —la prueba `borrar` pulsaba «•••» y «Borrar», y
-       ganaba o perdía por decenas de milisegundos— y pasó a perderla siempre al
-       añadir trabajo al render. Una descarga no es un clic del usuario y no puede
-       parecerlo. Se corta en el ancla, así que ningún manejador de arriba lo ve,
-       ni los que existen hoy ni los que vengan. */
-    a.addEventListener("click", e => e.stopPropagation());
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    /* La guarda del clic sintético y el plazo de revocación viven en
+       `descarga()`, que es quien baja los tres ficheros de la app. */
+    descarga(name, text, "application/json");
     return "descargado";
   }
   function bkDownloadErr(err) {
@@ -17098,7 +17263,7 @@ tbody tr:last-child td{border-bottom:0}
     const d={id,type:$("studyType").value,status:$("studyStatus").value,title,question:$("studyQuestion").value.trim(),tags:$("studyTags").value.split(",").map(x=>x.trim()).filter(Boolean).slice(0,20),url,evidence:$("studyEvidence").value.trim(),counter:$("studyCounter").value.trim(),conclusion:$("studyConclusion").value.trim(),prompt:$("studyPrompt").value.trim(),answer:$("studyAnswer").value.trim(),createdAt:old?.createdAt||Date.now()};await coll("research").set(id,d);estudioCerrar();renderEstudio();});
   $("studyDelete").addEventListener("click",async()=>{const id=$("studyId").value,d=coll("research").get(id);if(!id||!d)return;if(!confirm("¿Eliminar «"+d.title+"»? Esta acción no se puede deshacer."))return;await coll("research").remove(id);estudioCerrar();renderEstudio();});
   $("studySearch").addEventListener("input",renderEstudio);$("studyFilters").querySelectorAll("[data-study-filter]").forEach(b=>b.addEventListener("click",()=>{estudioFiltro=b.dataset.studyFilter;$("studyFilters").querySelectorAll("[data-study-filter]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderEstudio();}));
-  $("studyExport").addEventListener("click",()=>{const data={schema:"cabina-research",version:1,exportedAt:new Date().toISOString(),docs:estudioLista()},blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="cabina-estudio-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+  $("studyExport").addEventListener("click",()=>{const data={schema:"cabina-research",version:1,exportedAt:new Date().toISOString(),docs:estudioLista()};descarga("cabina-estudio-"+new Date().toISOString().slice(0,10)+".json",JSON.stringify(data,null,2),"application/json");});
   function estudioFlashcards(){return estudioLista().filter(d=>(d.type==="flashcard"||d.prompt)&&d.prompt&&d.answer);}
   function renderEstudioFlash(){const fs=estudioFlashcards(),p=$("studyFlashPrompt"),a=$("studyFlashAnswer");if(!fs.length){$("studyFlashPos").textContent="";p.textContent="Crea una flashcard para practicar la recuperación activa.";a.hidden=true;a.textContent="";$("studyReveal").disabled=true;$("studyNext").disabled=true;return;}$("studyReveal").disabled=false;$("studyNext").disabled=fs.length<2;estudioFlashIdx%=fs.length;const d=fs[estudioFlashIdx];$("studyFlashPos").textContent=(estudioFlashIdx+1)+"/"+fs.length;p.textContent=d.prompt;a.textContent=d.answer;a.hidden=!estudioFlashRevelada;$("studyReveal").textContent=estudioFlashRevelada?"Ocultar respuesta":"Revelar respuesta";}
   $("studyReveal").addEventListener("click",()=>{estudioFlashRevelada=!estudioFlashRevelada;renderEstudioFlash();});$("studyNext").addEventListener("click",()=>{const fs=estudioFlashcards();if(fs.length){estudioFlashIdx=(estudioFlashIdx+1)%fs.length;estudioFlashRevelada=false;renderEstudioFlash();}});
