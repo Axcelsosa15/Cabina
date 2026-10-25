@@ -31,6 +31,8 @@ const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('cabina
 ok(Array.isArray(stored.hidden.cabina) && stored.hidden.cabina.includes('panelHist'), 'la preferencia queda guardada por pestaña');
 await page.locator('input[name="viewDensity"][value="compact"]').check();
 ok(await page.locator('body').getAttribute('data-density') === 'compact', 'la densidad compacta se aplica al instante');
+const filterCompact = await page.locator('#ftFilters').evaluate(el => ({gap:getComputedStyle(el).gap,padding:getComputedStyle(el).padding}));
+ok(filterCompact.gap === '5px' && filterCompact.padding === '5px 8px', 'la densidad compacta reduce espacio vertical de los filtros activos', JSON.stringify(filterCompact));
 await page.locator('#viewPrefsDone').click();
 await page.reload({ waitUntil: 'load' });
 await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });

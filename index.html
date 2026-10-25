@@ -56,6 +56,12 @@
   body[data-density="compact"] .study-panel { padding: 12px; }
   body[data-density="compact"] .study-toolbar { gap: 8px; margin-block: 8px; }
   .user-view-hidden { display: none !important; }
+  /* Filtros activos más densos: conservan la lectura del estado y ocupan menos alto. */
+  body[data-density="compact"] .ftfilt { gap: 5px; margin-bottom: 8px; padding: 5px 8px; border-radius: 8px; }
+  body[data-density="compact"] .ftfilt .lb { font-size: 9px; letter-spacing: .06em; }
+  body[data-density="compact"] .ftfilt .fchip { gap: 5px; padding: 2px 3px 2px 6px; font-size: 10px; }
+  body[data-density="compact"] .ftfilt .fchip button { padding-inline: 2px; font-size: 12px; }
+  body[data-density="compact"] .ftfilt .clr { padding: 3px 8px; font-size: 10px; }
   .view-prefs[hidden] { display: none !important; }
   .view-prefs { position: fixed; inset: 0; z-index: 10050; display: grid; place-items: center; padding: 16px; }
   .view-prefs-backdrop { position: absolute; inset: 0; background: rgba(3,7,12,.78); backdrop-filter: blur(8px); }
