@@ -234,7 +234,17 @@ await cp.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeou
 const pestanas = await cp.evaluate(() => [...document.querySelectorAll('.tabbtn[data-tab]')].map(x => x.dataset.tab));
 for (const t of pestanas) { await cp.click(`.tabbtn[data-tab="${t}"]`); await cp.waitForTimeout(250); }
 const viol = await cp.evaluate(() => window.__csp);
-ok(pestanas.length === 8 && pestanas.includes('estudio'), 'se recorrieron las ocho pestañas, incluida ESTUDIO', pestanas.join(' · '));
+/* EL NÚMERO SALE DE LA ASERCIÓN. Decía `=== 8`, y con la pestaña Historial la
+   app tiene nueve: una cuenta dentro de una aserción caduca cada vez que la
+   app crece, y se cae en ROJO por crecer, no por romperse. La propiedad que
+   esto vigila no es «son ocho»: es que se recorrieron TODAS las que el nav
+   tiene y que ESTUDIO está entre ellas —la que una vez se quedó fuera—. El
+   suelo de 8 se queda como lo que el número de verdad aproximaba: si el
+   selector dejara de encontrar botones, el bucle de arriba pasaría en verde
+   sin haber visitado nada, y eso sí es un fallo. */
+ok(pestanas.length >= 8 && pestanas.includes('estudio'),
+  'se recorrieron todas las pestañas del nav, incluida ESTUDIO',
+  `${pestanas.length}: ` + pestanas.join(' · '));
 ok(viol.length === 0, 'ninguna violación de CSP usando la app', viol.length ? viol.join(' | ') : 'ninguna');
 ok(cerrs.length === 0, 'y ningún error de página con la política puesta', cerrs.join(' | ') || 'ninguno');
 /* Sin red, ese fetch fallaría igual: lo que se afirma es que lo para la CSP, o

@@ -220,7 +220,13 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
   dice('guardado', 'suite', 'Un cambio que no se guardo no parece guardado', 'persistencia');
   /* Una cabina que no se puede leer en el telefono no esta entregada. `diseno.mjs`
      mide UNA pestana a 1600px; esto mide las seis, y en 430px. */
-  dice('vista', 'suite', 'Ninguna de las siete pestanas se sale de la pantalla', 'index.html');
+  /* SIN NÚMERO EN EL RÓTULO. Esta fila decía «las siete pestañas» y medía OCHO
+     —test/vista.mjs lo documentaba como etiqueta caducada— y con la novena
+     habría dicho ocho midiendo nueve. Un rótulo con una cuenta dentro caduca
+     cada vez que la app crece, y una fila de la compuerta que se describe mal
+     es peor que no tenerla: da una impresión de cobertura que no se ha
+     comprobado. La lista de verdad vive en test/vista.mjs. */
+  dice('vista', 'suite', 'Ninguna pestana se sale de la pantalla', 'index.html');
   /* Las cuatro categorias de error: la 4 se gana con esperanza positiva en limpio,
      los errores no entran en esa esperanza, y abrir una operacion vieja no la
      castiga. Ver docs/ERRORES.md. */
@@ -322,6 +328,14 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      verde. Esta fila existe para que esa unificación se haga con la puerta
      cerrada detrás, no delante. */
   dice('filtros', 'suite', 'El mismo filtro selecciona las mismas operaciones en Futuros y en Métricas', 'index.html');
+  /* EL HISTORIAL UNIFICADO. Es la pantalla que más fácil se convierte en una
+     tercera verdad: enseña dos familias que viven en colecciones distintas, con
+     dos espacios de nombres de cuenta y dos juegos de campos. Lo que esta fila
+     certifica no es que la tabla esté bien pintada, es que no calcula nada —
+     cada subconjunto sale de `FUT.filtered()`, y con el tipo en «sólo futuros»
+     elige exactamente lo que el journal. Se llama `unificado` y no `historial`
+     porque esa suite ya existe y vigila otra cosa. */
+  dice('unificado', 'suite', 'El historial enseña las dos familias sin inventar una tercera lista', 'index.html');
 }
 
 /* ── LO QUE LA PLATAFORMA NO PERMITE COMPROBAR ───────────────────────────────

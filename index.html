@@ -2101,6 +2101,7 @@ tbody tr:last-child td{border-bottom:0}
   <button class="tabbtn" data-tab="futuros">Futuros<span class="n" id="nFut"></span></button>
   <button class="tabbtn" data-tab="edge">Métricas / Edge</button>
   <button class="tabbtn" data-tab="invest">Inversiones<span class="n" id="nInvest"></span></button>
+  <button class="tabbtn" data-tab="historial">Historial<span class="n" id="nHist"></span></button>
   <button class="tabbtn" data-tab="playbook">Playbook<span class="n" id="nPlaybook"></span></button>
   <button class="tabbtn" data-tab="ideas">Formas de hacer dinero<span class="n" id="nIdeas"></span></button>
   <button class="tabbtn" data-tab="estudio">Estudio<span class="n" id="nResearch"></span></button>
@@ -2720,6 +2721,45 @@ tbody tr:last-child td{border-bottom:0}
       <button type="button" class="add" id="mAdd">+ Añadir mercado</button>
     </div>
     <div class="col" id="mDetail"></div>
+  </div>
+</div>
+
+<!-- ======================= HISTORIAL =======================
+     TODAS las operaciones, de las dos familias, en una tabla. No calcula nada:
+     pide el subconjunto a `FUT.filtered({ tipo })` —la puerta única— y lo
+     pinta. Si esta pantalla y el journal discreparan alguna vez, discreparían
+     porque una de las dos se saltó la puerta, y no hay por dónde: las dos
+     llaman a la misma función con el mismo predicado.
+
+     POR QUÉ UNA PESTAÑA Y NO UNA SUB-VISTA: las operaciones de inversión no
+     caben dentro de «Futuros» sin mentir sobre dónde están, y la pregunta «qué
+     he hecho» no es una sub-pregunta de ninguna de las dos pestañas. Es su
+     propia actividad: mirar hacia atrás.
+
+     LAS DOS FAMILIAS NO COMPARTEN NI EL NOMBRE DE LA CUENTA. Los futuros viven
+     en `state.settings.accounts` y se etiquetan con `acctLabel()`; las
+     inversiones en `investmentAccounts()`, con `investmentAccountName()`. Son
+     dos espacios de nombres, así que el filtro de cuenta dice de qué familia es
+     cada una en vez de fingir que son una lista. -->
+<div class="tab" data-tab="historial">
+<section class="deck" aria-label="Resumen de Historial"><span class="deck-n">09</span><h1 class="deck-t">Historial</h1><span class="deck-stage">Registro</span><span class="deck-parts">Futuros · Inversiones · Resultado</span></section>
+
+  <div class="toolbar">
+    <select id="hsTipo" aria-label="Tipo de operación"><option value="">futuros e inversiones</option><option value="futuros">sólo futuros</option><option value="inversion">sólo inversiones</option></select>
+    <select id="hsAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select>
+    <select id="hsRango" aria-label="Rango"><option value="all">todo el historial</option><option value="month">este mes</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select>
+    <label class="mxd">desde <input type="date" id="hsDesde" aria-label="Desde"></label>
+    <label class="mxd">hasta <input type="date" id="hsHasta" aria-label="Hasta"></label>
+    <input id="hsQ" type="search" aria-label="Buscar operaciones" placeholder="buscar activo, cuenta, nota…" autocomplete="off">
+    <span class="sp"></span>
+    <button type="button" class="btn ghost sm" id="hsLimpiar">Ver todo</button>
+  </div>
+  <p class="note-p">Cada fila es una operación que registraste, de futuros o de inversión. Sale del mismo sitio que el journal y que las métricas, no de una copia: el filtro es el de la puerta única. Pulsa una fila para abrirla.</p>
+  <div class="stack">
+    <section class="panel">
+      <header><h2>Todas las operaciones</h2><span class="meta" id="hsMeta"></span></header>
+      <div class="body"><div class="twrap" id="hsTabla"></div></div>
+    </section>
   </div>
 </div>
 
@@ -4114,6 +4154,15 @@ tbody tr:last-child td{border-bottom:0}
     "Lección y siguiente acción": "Lesson and next action",
     "Leídas": "Read",
     "Limpiar filtros": "Clear filters",
+    "Historial": "History",
+    "Todas las operaciones": "All trades",
+    "futuros e inversiones": "futures and investments",
+    "sólo futuros": "futures only",
+    "sólo inversiones": "investments only",
+    "sin cuenta asignada": "no account assigned",
+    "Ver todo": "Show all",
+    "desde": "from",
+    "hasta": "to",
     "Listo": "Done",
     "Mis P&L escritos a mano ya son netos": "My hand-written P&L is already net",
     "Métricas / Edge": "Metrics / Edge",
@@ -10687,7 +10736,8 @@ tbody tr:last-child td{border-bottom:0}
       if (hasta && d > hasta) return false;
       if (s.acct && (s.acct === "__none" ? !!t.accountId : t.accountId !== s.acct)) return false;
       if (s.setup && t.setupId !== s.setup) return false;
-      if (s.instr && t.instrument !== s.instr) return false;
+      // `instrument` en futuros, `asset` en inversiones: la misma pregunta.
+      if (s.instr && (t.instrument || t.asset) !== s.instr) return false;
       if (s.ses && (tradeSes(t) || "__sin") !== s.ses) return false;
       if (terms.length && !qMatch(t, terms)) return false;
       return true;
@@ -10731,8 +10781,17 @@ tbody tr:last-child td{border-bottom:0}
   function normQ(v) { return String(v == null ? "" : v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
   function qMatch(t, terms) {
     const pb = coll("playbooks").get(t.setupId);
+    const esFut = t.type !== "inversion";
+    /* LAS PALABRAS DE DIRECCIÓN SÓLO SI HAY DIRECCIÓN. Esto ponía «largo long l»
+       en el pajar de CUALQUIER operación sin `direction` —el else de un ternario
+       sin tercera salida—, así que en cuanto el historial dejó buscar en las
+       inversiones, buscar «largo» devolvía todos los dividendos. Para una
+       operación de futuros no cambia nada: siempre trae dirección. */
     const hay = normQ([t.instrument, t.tags, t.lesson, t.quality, t.note,
-      t.direction === "short" ? "corto short s" : "largo long l",
+      esFut ? (t.direction === "short" ? "corto short s" : "largo long l") : "",
+      /* Lo de la familia de inversión: activo, tipo de operación, mercado y el
+         nombre de SU cuenta, que vive en otro espacio de nombres. */
+      esFut ? "" : [t.asset, t.op, t.market, investmentAccountName(t.accountId)].join(" "),
       pb ? pb.name : "", acctLabel(t.accountId) || "", t.date, t.time || "",
       t.exit == null ? "abierta" : ""].join(" "));
     return terms.every(term => hay.indexOf(term) >= 0);
@@ -12088,6 +12147,128 @@ tbody tr:last-child td{border-bottom:0}
   $("ivOps").addEventListener("click", e => {
     if (e.target.classList.contains("thumb")) { openLightbox(e.target.src, e.target.alt); return; }
     const btn = e.target.closest("button[data-act='edit']"); if (!btn) return; const t = coll("trades").get(btn.closest("tr").dataset.id); if (t) openTrade(t);
+  });
+
+
+  /* ══════════════════ HISTORIAL · LAS DOS FAMILIAS, UNA TABLA ══════════════════
+     Lo que el usuario pedía al principio: un sitio donde ver todo lo que ha
+     hecho. No es una tercera verdad: cada consulta sale de `FUT.filtered()`,
+     la misma puerta que usan el journal y las métricas. Esta pantalla no
+     calcula un P&L, ni un neto, ni un total propio — enseña el que la
+     operación ya trae resuelto.
+
+     EL FILTRO DE CUENTA LLEVA LA FAMILIA DENTRO (`f:` / `i:`) porque los dos
+     espacios de nombres son independientes y dos cuentas de distinta familia
+     pueden compartir id. Elegir una cuenta de futuros acota a futuros por
+     definición, no por efecto secundario: es lo que significa. */
+  const hs = { tipo: "", acct: "", rango: "all", desde: "", hasta: "", q: "" };
+  /* Mismo tramo que el journal: 250 filas y un botón. Un historial de años no
+     puede pintar diez mil <tr> de golpe, y el journal ya resolvió cuánto. */
+  const HS_TRAMO = 250;
+  let hsTope = HS_TRAMO;
+
+  /* Una consulta por familia, porque `FUT.filtered` pide UN tipo. Lo que no
+     hace esta función es filtrar: sólo decide a qué le pregunta. */
+  function hsConsultas() {
+    const base = { rango: hs.rango, desde: hs.desde, hasta: hs.hasta, q: hs.q };
+    const familias = hs.tipo ? [hs.tipo] : ["futuros", "inversion"];
+    if (hs.acct === "__none") return familias.map(tipo => Object.assign({}, base, { tipo, acct: "__none" }));
+    const m = /^([fi]):(.*)$/.exec(hs.acct || "");
+    if (m) {
+      const tipo = m[1] === "f" ? "futuros" : "inversion";
+      /* Una cuenta de futuros con el filtro puesto en «sólo inversiones» no es
+         un error: es un conjunto vacío, y se dice vacío en vez de ignorar uno
+         de los dos filtros. */
+      if (hs.tipo && hs.tipo !== tipo) return [];
+      return [Object.assign({}, base, { tipo, acct: m[2] })];
+    }
+    return familias.map(tipo => Object.assign({}, base, { tipo }));
+  }
+  function hsLista() {
+    const l = hsConsultas().reduce((acc, q) => acc.concat(FUT.filtered(q)), []);
+    /* `FUT.filtered` devuelve cada familia ya ordenada, pero dos listas
+       ordenadas concatenadas no están ordenadas. El desempate por id mantiene
+       el orden estable: sin él, dos operaciones del mismo minuto podían
+       cambiar de sitio entre dos repintados. */
+    return l.sort((a, b) => (b.date || "").localeCompare(a.date || "")
+      || (b.time || "").localeCompare(a.time || "")
+      || String(b.id).localeCompare(String(a.id)));
+  }
+  /* El nombre de la cuenta, de su propio espacio de nombres. */
+  function hsCuenta(t) {
+    if (t.type === "inversion") return investmentAccountName(t.accountId);
+    return acctLabel(t.accountId) || "";
+  }
+  function hsOpciones() {
+    const sel = $("hsAcct"); if (!sel || document.activeElement === sel) return;
+    const fut = (state.settings.accounts || []).map(a => ["f:" + a.id, (acctLabel(a.id) || "cuenta") + " · futuros"]);
+    const inv = investmentAccounts().map(a => ["i:" + a.id, (a.name || "cuenta") + " · inversiones"]);
+    sel.innerHTML = '<option value="">todas las cuentas</option>'
+      + fut.concat(inv).map(([v, l]) => `<option value="${esc(v)}"${hs.acct === v ? " selected" : ""}>${esc(l)}</option>`).join("")
+      + `<option value="__none"${hs.acct === "__none" ? " selected" : ""}>sin cuenta asignada</option>`;
+  }
+  function renderHistorial() {
+    const wrap = $("hsTabla"); if (!wrap) return;
+    hsOpciones();
+    { const q = $("hsQ"); if (q && q.value !== hs.q) q.value = hs.q; }
+    { const r = $("hsRango"); if (r && r.value !== hs.rango) r.value = hs.rango; }
+    { const d = $("hsDesde"); if (d && d.value !== hs.desde) d.value = hs.desde; }
+    { const h = $("hsHasta"); if (h && h.value !== hs.hasta) h.value = hs.hasta; }
+    { const t = $("hsTipo"); if (t && t.value !== hs.tipo) t.value = hs.tipo; }
+    const lista = hsLista();
+    const total = lista.length;
+    if (hsTope > HS_TRAMO && hsTope > total) hsTope = Math.max(HS_TRAMO, total);
+    const visibles = total > hsTope ? lista.slice(0, hsTope) : lista;
+    const nFut = lista.filter(t => t.type !== "inversion").length;
+    $("hsMeta").textContent = total
+      ? (total > visibles.length ? `${plu(visibles.length, "operación", "operaciones")} de ${total}` : plu(total, "operación", "operaciones"))
+        + ` · ${nFut} de futuros · ${total - nFut} de inversión`
+      : "";
+    if (!total) {
+      wrap.innerHTML = `<p class="empty">Sin operaciones que coincidan con estos filtros. Las de futuros se registran en Futuros y las de inversión en Inversiones; aquí se ven juntas.</p>`;
+      return;
+    }
+    const filas = visibles.map(t => {
+      const inv = t.type === "inversion";
+      const res = inv ? t.pnl : t.pnlEff;
+      const precio = inv
+        ? (t.price != null ? money(t.price, 2) : "—")
+        : (t.entry == null ? "—" : esc(String(t.entry)) + (t.exit == null ? " → abierta" : " → " + esc(String(t.exit))));
+      const op = inv
+        ? `<span class="chip ${t.op === "compra" || t.op === "aporte" ? "inv" : t.op === "venta" ? "warn" : "good"}">${esc(t.op || "—")}</span>`
+        : `<span class="${t.direction === "short" ? "neg" : "pos"}">${t.direction === "short" ? "S" : "L"}</span>`;
+      const nota = inv ? t.note : (t.lesson || t.tags);
+      return `<tr data-id="${esc(String(t.id))}" title="Abrir esta operación">`
+        + `<td>${esc(t.date || "—")}</td>`
+        + `<td>${esc(t.time ? h12(t.time) : "—")}</td>`
+        + `<td><span class="chip ${inv ? "inv" : ""}">${inv ? "inversión" : "futuros"}</span></td>`
+        + `<td class="ui">${esc(hsCuenta(t)) || '<span class="dim">—</span>'}</td>`
+        + `<td>${esc(inv ? (t.asset || "—") : (t.instrument || "—"))}</td>`
+        + `<td>${op}</td>`
+        + `<td class="r">${t.qty ?? "—"}</td>`
+        + `<td class="r">${precio}</td>`
+        + `<td class="r ${res > 0 ? "pos" : res < 0 ? "neg" : ""}">${res == null ? '<span class="dim">—</span>' : money(res, inv ? 2 : undefined)}</td>`
+        + `<td class="notes">${esc(nota || "")}</td></tr>`;
+    }).join("");
+    wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Cuenta</th><th>Activo</th><th>Op.</th><th class="r">Cant.</th><th class="r">Precio</th><th class="r">Resultado</th><th>Nota</th></tr></thead><tbody>${filas}</tbody></table>`
+      + (total > visibles.length
+        ? `<div style="padding:12px 0;text-align:center"><button type="button" class="btn ghost" id="hsMas">Mostrar ${Math.min(HS_TRAMO, total - visibles.length)} más · quedan ${total - visibles.length}</button></div>`
+        : "");
+  }
+  /* Un cambio de filtro vuelve al primer tramo: dejar el tope de un filtro
+     anterior enseña «250 de 3» y pide pulsar «mostrar más» para nada. */
+  function hsCambia(patch) { Object.assign(hs, patch); hsTope = HS_TRAMO; renderHistorial(); }
+  $("hsTipo").addEventListener("change", e => hsCambia({ tipo: e.target.value }));
+  $("hsAcct").addEventListener("change", e => hsCambia({ acct: e.target.value }));
+  $("hsRango").addEventListener("change", e => hsCambia({ rango: e.target.value }));
+  $("hsDesde").addEventListener("change", e => hsCambia({ desde: e.target.value }));
+  $("hsHasta").addEventListener("change", e => hsCambia({ hasta: e.target.value }));
+  $("hsQ").addEventListener("input", e => hsCambia({ q: e.target.value }));
+  $("hsLimpiar").addEventListener("click", () => hsCambia({ tipo: "", acct: "", rango: "all", desde: "", hasta: "", q: "" }));
+  $("hsTabla").addEventListener("click", e => {
+    if (e.target.closest("#hsMas")) { hsTope += HS_TRAMO; renderHistorial(); return; }
+    const tr = e.target.closest("tr[data-id]"); if (!tr) return;
+    const t = coll("trades").get(tr.dataset.id); if (t) openTrade(t);
   });
 
 
@@ -14495,7 +14676,7 @@ tbody tr:last-child td{border-bottom:0}
   }, true);
 
   /* =============================== WIRING =============================== */
-  function counts() { $("nFut").textContent = coll("trades").items.filter(t => t.type === "futuros").length || ""; $("nPlaybook").textContent = coll("playbooks").items.length || ""; $("nIdeas").textContent = coll("ideas").items.length || ""; $("nInvest").textContent = coll("positions").items.length || ""; }
+  function counts() { $("nFut").textContent = coll("trades").items.filter(t => t.type === "futuros").length || ""; $("nPlaybook").textContent = coll("playbooks").items.length || ""; $("nIdeas").textContent = coll("ideas").items.length || ""; $("nInvest").textContent = coll("positions").items.length || ""; $("nHist").textContent = coll("trades").items.length || ""; }
   /* Antes esto era `try { renderHistory(); renderAccounts(); renderRules(); } catch {}`.
      Si renderHistory lanzaba, las otras dos NO corrían — y nadie se enteraba: los
      números se quedaban clavados sin un solo error en consola. Ahora cada render
@@ -14992,11 +15173,16 @@ tbody tr:last-child td{border-bottom:0}
        número que `test/conexiones.mjs` existe para cazar. */
     importar:   ["importador", () => renderImportar()],
     ejecuciones:["historial de ejecuciones", () => renderExecutionHistory()],
+    /* EL HISTORIAL LEE LAS DOS FAMILIAS, así que entra en FANOUT_TRADES como
+       cualquier otro lector: guardar una inversión tiene que moverlo igual que
+       guardar un futuro. Sin esta zona se quedaría con la lista del último
+       repintado, que es el fallo que test/conexiones.mjs existe para cazar. */
+    historial:  ["historial", () => renderHistorial()],
   };
   /* Al cambiar la CUENTA SELECCIONADA no cambian los datos, cambia el punto de
      vista: se repinta lo que depende de qué cuenta se está mirando. */
   const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia, Z.edge];
-  const FANOUT_TRADES = [Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
+  const FANOUT_TRADES = [Z.historial, Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
                          Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion, Z.edge,
                          Z.estudio, Z.invDetalle, Z.importar, Z.ejecuciones];
   function pinta(lista) {
