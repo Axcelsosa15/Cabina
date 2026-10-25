@@ -40,9 +40,12 @@ ok(compactPanel === '9px 12px', 'la densidad compacta reduce el espacio interior
 await page.locator('#viewPrefsDone').click();
 await page.click('.tabbtn[data-tab="calc"]');
 await page.click('#viewPrefsOpen');
-const columnToggle = page.locator('#viewPrefsList input[aria-label^="Mostrar columna"]').first();
-ok(await page.locator('#viewPrefsList input[aria-label^="Mostrar columna"]').count() > 0, 'el configurador ofrece controles de visibilidad por columna cuando hay tablas');
-if (await page.locator('#viewPrefsList input[aria-label^="Mostrar columna"]').count() > 0) {
+const calcColumnToggles = page.locator('#viewPrefsList .view-prefs-table-group[data-view-tab="calc"] input[aria-label^="Mostrar columna"]');
+const allColumnToggles = page.locator('#viewPrefsList input[aria-label^="Mostrar columna"]');
+ok(await allColumnToggles.count() > 0, 'el configurador ofrece controles de visibilidad por columna cuando hay tablas');
+ok(await calcColumnToggles.count() > 0, 'el configurador identifica las columnas pertenecientes a Calculadora');
+if (await calcColumnToggles.count() > 0) {
+  const columnToggle = calcColumnToggles.first();
   await columnToggle.uncheck();
   const columnPrefs = await page.evaluate(() => JSON.parse(localStorage.getItem('cabina-view-prefs:v1') || '{}'));
   ok(Object.keys(columnPrefs.columns?.calc || {}).length > 0, 'las columnas ocultas se guardan separadas por pestaña');
