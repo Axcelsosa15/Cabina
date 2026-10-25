@@ -5423,40 +5423,62 @@ tbody tr:last-child td{border-bottom:0}
     const columnGroup = document.createElement("section"); columnGroup.className = "view-prefs-columns";
     const columnTitle = document.createElement("h3"); columnTitle.textContent = "Columnas de tablas"; columnGroup.append(columnTitle);
     const columnNote = document.createElement("p"); columnNote.className = "view-prefs-note"; columnNote.textContent = "Oculta columnas que no necesitas. Los datos se conservan y las preferencias se guardan por pestaña."; columnGroup.append(columnNote);
-    const activeTab = Array.from(document.querySelectorAll(".tab")).find(el => el.dataset.tab === tabName);
-    const tables = activeTab ? Array.from(activeTab.querySelectorAll("table")) : [];
+    // Escanea todas las pestañas, no solo la activa: así puedes configurar columnas
+    // de tablas de otras secciones sin que una pestaña vacía o sin datos bloquee el panel.
+    const tabsWithTables = Array.from(document.querySelectorAll(".tab")).map(tab => ({
+      tab,
+      tabName: tab.dataset.tab || "cabina",
+      tabLabel: (document.querySelector('#tabnav .tabbtn[data-tab="' + (tab.dataset.tab || "cabina") + '"]')?.textContent || tab.dataset.tab || "Cabina").replace(/\s+/g, " ").trim(),
+      tables: Array.from(tab.querySelectorAll("table"))
+    })).filter(item => item.tables.length);
     let columnCount = 0;
-    tables.forEach((table, tableIndex) => {
-      const headerRow = table.tHead?.rows?.[0] || table.querySelector("tr");
-      if (!headerRow) return;
-      const headers = Array.from(headerRow.cells).filter(cell => cell.tagName === "TH");
-      if (headers.length < 2) return;
-      const tableKey = viewTableKey(table, tabName, tableIndex);
-      const hiddenColumns = new Set(Array.isArray(prefs.columns?.[tabName]?.[tableKey]) ? prefs.columns[tabName][tableKey] : []);
-      const group = document.createElement("div"); group.className = "view-prefs-table-group";
-      const panel = table.closest(".panel, .study-panel");
-      const heading = document.createElement("strong"); heading.textContent = panel ? viewLabel(panel, tableIndex) : "Tabla " + (tableIndex + 1); group.append(heading);
-      headers.forEach((th, columnIndex) => {
-        const labelText = th.textContent.replace(/\s+/g, " ").trim() || ("Columna " + (columnIndex + 1));
-        const key = columnSlug(labelText, columnIndex);
-        const label = document.createElement("label"); label.className = "view-prefs-item view-prefs-column-item";
-        const input = document.createElement("input"); input.type = "checkbox"; input.checked = !hiddenColumns.has(key);
-        input.setAttribute("aria-label", "Mostrar columna " + labelText);
-        const text = document.createElement("span"); text.textContent = labelText;
-        const stateLabel = document.createElement("small"); stateLabel.textContent = input.checked ? "Visible" : "Oculta"; stateLabel.style.color = "var(--muted,#a5adbb)";
-        input.addEventListener("change", () => {
-          const current = readViewPrefs();
-          current.columns[tabName] = current.columns[tabName] && typeof current.columns[tabName] === "object" ? current.columns[tabName] : {};
-          const list = new Set(Array.isArray(current.columns[tabName][tableKey]) ? current.columns[tabName][tableKey] : []);
-          if (input.checked) list.delete(key); else list.add(key);
-          current.columns[tabName][tableKey] = Array.from(list);
-          writeViewPrefs(current); applyColumnPrefs(); stateLabel.textContent = input.checked ? "Visible" : "Oculta";
+    tabsWithTables.forEach(({tab, tabName: tableTabName, tabLabel, tables}) => {
+      const tabHeading = document.createElement("strong");
+      tabHeading.textContent = tabLabel;
+      tabHeading.dataset.viewTab = tableTabName;
+      tabHeading.style.display = "block";
+      tabHeading.style.margin = "12px 0 4px";
+      columnGroup.append(tabHeading);
+      tables.forEach((table, tableIndex) => {
+        const headerRow = table.tHead?.rows?.[0] || table.querySelector("tr");
+        if (!headerRow) return;
+        const headers = Array.from(headerRow.cells).filter(cell => cell.tagName === "TH");
+        if (headers.length < 2) return;
+        const tableKey = viewTableKey(table, tableTabName, tableIndex);
+        const hiddenColumns = new Set(Array.isArray(prefs.columns?.[tableTabName]?.[tableKey]) ? prefs.columns[tableTabName][tableKey] : []);
+        const group = document.createElement("div"); group.className = "view-prefs-table-group";
+        group.dataset.viewTab = tableTabName;
+        group.dataset.viewTableKey = tableKey;
+        const panel = table.closest(".panel, .study-panel");
+        const heading = document.createElement("strong");
+        heading.textContent = panel ? viewLabel(panel, tableIndex) : "Tabla " + (tableIndex + 1);
+        group.append(heading);
+        headers.forEach((th, columnIndex) => {
+          const labelText = th.textContent.replace(/\s+/g, " ").trim() || ("Columna " + (columnIndex + 1));
+          const key = columnSlug(labelText, columnIndex);
+          const label = document.createElement("label"); label.className = "view-prefs-item view-prefs-column-item";
+          const input = document.createElement("input"); input.type = "checkbox"; input.checked = !hiddenColumns.has(key);
+          input.setAttribute("aria-label", "Mostrar columna " + labelText);
+          const text = document.createElement("span"); text.textContent = labelText;
+          const stateLabel = document.createElement("small"); stateLabel.textContent = input.checked ? "Visible" : "Oculta"; stateLabel.style.color = "var(--muted,#a5adbb)";
+          input.addEventListener("change", () => {
+            const current = readViewPrefs();
+            current.columns[tableTabName] = current.columns[tableTabName] && typeof current.columns[tableTabName] === "object" ? current.columns[tableTabName] : {};
+            const list = new Set(Array.isArray(current.columns[tableTabName][tableKey]) ? current.columns[tableTabName][tableKey] : []);
+            if (input.checked) list.delete(key); else list.add(key);
+            current.columns[tableTabName][tableKey] = Array.from(list);
+            writeViewPrefs(current); applyColumnPrefs(); stateLabel.textContent = input.checked ? "Visible" : "Oculta";
+          });
+          label.append(input, text, stateLabel); group.append(label); columnCount++;
         });
-        label.append(input, text, stateLabel); group.append(label); columnCount++;
+        columnGroup.append(group);
       });
-      columnGroup.append(group);
     });
-    if (!columnCount) { const empty = document.createElement("p"); empty.className = "view-prefs-note"; empty.textContent = "Esta pestaña no tiene tablas con columnas configurables."; columnGroup.append(empty); }
+    if (!columnCount) {
+      const empty = document.createElement("p"); empty.className = "view-prefs-note";
+      empty.textContent = "Todavía no hay tablas con columnas configurables cargadas. Abre una pestaña con una tabla y vuelve a Personalizar vista.";
+      columnGroup.append(empty);
+    }
     viewPrefsList.append(columnGroup);
     document.getElementById("viewPrefsNote").textContent = "Pestaña: " + (document.querySelector('#tabnav .tabbtn.active')?.textContent || tabName).replace(/\s+/g," ").trim() + ". Los módulos ocultos conservan sus datos y vuelven al activar Mostrar.";
   }
