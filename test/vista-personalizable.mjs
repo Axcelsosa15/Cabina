@@ -35,14 +35,22 @@ const filterCompact = await page.locator('#ftFilters').evaluate(el => ({gap:getC
 ok(filterCompact.gap === '5px' && filterCompact.padding === '5px 8px', 'la densidad compacta reduce espacio vertical de los filtros activos', JSON.stringify(filterCompact));
 const compactPanel = await page.locator('#panelHist > .body').evaluate(el => getComputedStyle(el).padding);
 ok(compactPanel === '9px 12px', 'la densidad compacta reduce el espacio interior de paneles generales', compactPanel);
+// La vista Cabina no contiene una tabla HTML con encabezados en estado vacío;
+ // probar las preferencias de columnas en Calculadora, que sí contiene tablas reales.
+await page.locator('#viewPrefsDone').click();
+await page.click('.tabbtn[data-tab="calc"]');
+await page.click('#viewPrefsOpen');
 const columnToggle = page.locator('#viewPrefsList input[aria-label^="Mostrar columna"]').first();
-ok(await page.locator('#viewPrefsList input[aria-label^="Mostrar columna"]').count() > 0, 'el configurador ofrece controles de visibilidad por columna');
+ok(await page.locator('#viewPrefsList input[aria-label^="Mostrar columna"]').count() > 0, 'el configurador ofrece controles de visibilidad por columna cuando hay tablas');
 if (await page.locator('#viewPrefsList input[aria-label^="Mostrar columna"]').count() > 0) {
   await columnToggle.uncheck();
   const columnPrefs = await page.evaluate(() => JSON.parse(localStorage.getItem('cabina-view-prefs:v1') || '{}'));
-  ok(Object.keys(columnPrefs.columns?.cabina || {}).length > 0, 'las columnas ocultas se guardan separadas por pestaña');
+  ok(Object.keys(columnPrefs.columns?.calc || {}).length > 0, 'las columnas ocultas se guardan separadas por pestaña');
   await columnToggle.check();
 }
+await page.locator('#viewPrefsDone').click();
+await page.click('.tabbtn[data-tab="cabina"]');
+await page.click('#viewPrefsOpen');
 
 await page.locator('#viewPrefsDone').click();
 await page.reload({ waitUntil: 'load' });
