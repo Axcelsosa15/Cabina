@@ -33,6 +33,8 @@ await page.locator('input[name="viewDensity"][value="compact"]').check();
 ok(await page.locator('body').getAttribute('data-density') === 'compact', 'la densidad compacta se aplica al instante');
 const filterCompact = await page.locator('#ftFilters').evaluate(el => ({gap:getComputedStyle(el).gap,padding:getComputedStyle(el).padding}));
 ok(filterCompact.gap === '5px' && filterCompact.padding === '5px 8px', 'la densidad compacta reduce espacio vertical de los filtros activos', JSON.stringify(filterCompact));
+const compactPanel = await page.locator('#panelHist').evaluate(el => { const body=el.querySelector(':scope > .body'); return {padding:getComputedStyle(body).padding,margin:getComputedStyle(el).marginBottom}; });
+ok(compactPanel.padding === '9px 12px' && compactPanel.margin === '0px 0px 8px', 'la densidad compacta reduce espacio en paneles generales', JSON.stringify(compactPanel));
 await page.locator('#viewPrefsDone').click();
 await page.reload({ waitUntil: 'load' });
 await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });

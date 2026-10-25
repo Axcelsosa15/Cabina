@@ -55,6 +55,19 @@
   body[data-density="compact"] .study-grid { gap: 8px; }
   body[data-density="compact"] .study-panel { padding: 12px; }
   body[data-density="compact"] .study-toolbar { gap: 8px; margin-block: 8px; }
+  /* Densidad compacta transversal: menos altura sin esconder información ni reducir el área táctil. */
+  body[data-density="compact"] .tab .panel > header { padding: 8px 12px; gap: 6px; }
+  body[data-density="compact"] .tab .panel > .body { padding: 9px 12px; }
+  body[data-density="compact"] .tab .panel { margin-bottom: 8px; }
+  body[data-density="compact"] .tab .stack,
+  body[data-density="compact"] .tab .grid,
+  body[data-density="compact"] .tab .tiles { gap: 7px; }
+  body[data-density="compact"] .tab .toolbar { gap: 6px; margin-block: 6px; }
+  body[data-density="compact"] .tab table th,
+  body[data-density="compact"] .tab table td { padding: 5px 7px; }
+  body[data-density="compact"] .tab .btn,
+  body[data-density="compact"] .tab .editbtn { padding-block: 6px; }
+  body[data-density="compact"] .tab .study-panel { padding: 9px; }
   .user-view-hidden { display: none !important; }
   /* Filtros activos más densos: conservan la lectura del estado y ocupan menos alto. */
   body[data-density="compact"] .ftfilt { gap: 5px; margin-bottom: 8px; padding: 5px 8px; border-radius: 8px; }
