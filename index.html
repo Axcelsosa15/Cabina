@@ -2519,9 +2519,9 @@ tbody tr:last-child td{border-bottom:0}
         <header><h2>Operaciones</h2><span class="meta" id="jrMeta"></span></header>
         <div class="body"><div class="twrap" id="jrTable"></div></div>
       </section>
-      <!-- IMPORTAR · fase 1 de docs/IMPORTAR.md: el mapeador MANUAL. Sin
-           detección del bróker (fase 4) y sin emparejado de ejecuciones
-           (fase 2): una fila, una operación, y eso se dice en pantalla. -->
+      <!-- IMPORTAR · mapeador manual de operaciones cerradas y modo FIFO de ejecuciones.
+           La detección automática de plataforma (fase 4) y la validación contra un CSV
+           real del bróker siguen pendientes; ver docs/IMPORTAR.md. -->
       <section class="panel" id="panelImportar">
         <header><h2>Importar operaciones</h2><span class="meta" id="impMeta">—</span></header>
         <div class="body">
@@ -2539,6 +2539,22 @@ tbody tr:last-child td{border-bottom:0}
       </section>
     </div>
   </div>
+  <section class="panel" id="panelExecHistory">
+    <header><h2>Historial de ejecuciones</h2><span class="meta" id="execHistoryMeta">Sin ejecuciones importadas</span><button type="button" class="btn ghost sm" id="execToggle" aria-expanded="false">Ver historial</button></header>
+    <div class="body" id="execHistoryBody" hidden>
+      <p class="hint">Registro consolidado de los fills importados. Si una ejecución se repartió entre varias operaciones por un cierre parcial o una reversión, se agrupa por su huella para no contarla dos veces. No calcula un P&amp;L independiente: el resultado sigue perteneciendo al motor de operaciones.</p>
+      <div id="execHistoryFilters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">
+        <label class="lab">Buscar<input id="execQ" type="search" placeholder="ID, instrumento, lado…" style="width:100%"></label>
+        <label class="lab">Cuenta<select id="execAcct" style="width:100%"><option value="">Todas las cuentas</option></select></label>
+        <label class="lab">Instrumento<select id="execInstr" style="width:100%"><option value="">Todos</option></select></label>
+        <label class="lab">Desde<input id="execFrom" type="date" style="width:100%"></label>
+        <label class="lab">Hasta<input id="execTo" type="date" style="width:100%"></label>
+        <button type="button" class="btn ghost sm" id="execReset" style="align-self:end">Limpiar filtros</button>
+        <button type="button" class="btn ghost sm" id="execExport" style="align-self:end" aria-label="Exportar las ejecuciones filtradas a CSV" disabled>Exportar CSV</button>
+      </div>
+      <div class="twrap" id="execHistoryTable" aria-live="polite"><p class="csub">Cargando ejecuciones…</p></div>
+    </div>
+  </section>
 </div>
 
 <!-- ======================= PLAYBOOK ======================= -->
@@ -11376,7 +11392,7 @@ tbody tr:last-child td{border-bottom:0}
       ["Instr.", "instrument", 0], ["Setup", "setup", 0], ["Dir", null, 0], ["Ctos", "qty", 1],
       ["Entrada", null, 1], ["Stop", null, 1], ["Salida", null, 1], ["R plan", "rPlanned", 1],
       ["R", "rReal", 1], ["P&amp;L", "pnlEff", 1], ["Cal.", "quality", 0], ["Prot.", "proto", 0],
-      ["Img", null, 0], ["Etiquetas", null, 0], ["Lección", null, 0]];
+      ["Img", null, 0], ["Etiquetas", null, 0], ["Lección", null, 0], ["Ejecuciones", null, 0]];
     const th = cols.map(([lb, key, right]) => {
       const cls = right ? ' class="r"' : "";
       if (!key) return `<th${cls}>${lb}</th>`;
@@ -11387,7 +11403,7 @@ tbody tr:last-child td{border-bottom:0}
     }).join("");
     wrap.innerHTML = `<table class="t"><thead><tr>${th}<th></th></tr></thead><tbody>${list.map(t => {
       const proto = [t.cStruct, t.cPull, t.cWindow, t.cSize].filter(Boolean).length;
-      return `<tr data-id="${t.id}"><td><span class="dim">${dowOf(t.date)}</span> ${(t.date || "").slice(5)}</td><td>${esc(t.time ? h12(t.time) : "—")}</td><td>${sesTag(t)}</td><td class="ui">${esc(acctLabel(t.accountId)) || '<span class="dim">—</span>'}</td><td>${esc(t.instrument)}</td><td class="ui">${esc(pbName(t.setupId)) || '<span class="dim">—</span>'}</td><td class="${t.direction === "short" ? "neg" : "pos"}">${t.direction === "short" ? "S" : "L"}</td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.entry ?? "—"}</td><td class="r">${t.stop ?? "—"}</td><td class="r">${t.exit ?? `<button type="button" class="hitstop" data-act="hitstop" title="Marcar que tocó el stop"${t.stop == null ? " disabled" : ""}>abierta${t.stop != null ? " · tocó el stop" : ""}</button>`}</td><td class="r dim">${t.rPlanned == null ? "—" : t.rPlanned.toFixed(1)}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="r ${t.pnlEff > 0 ? "pos" : t.pnlEff < 0 ? "neg" : ""}">${t.pnlEff == null ? (t.multUnknown ? `<span class="chip warn" title="No hay valor de punto para ${esc(String(t.instrument || ""))}. Escribe el resultado a mano en «Resultado $» o usa un instrumento conocido.">falta $/punto</span>` : "—") : money(t.pnlEff)}</td><td>${esc(t.quality || "")}</td><td class="${proto === 4 ? "pos" : proto <= 2 ? "neg" : ""}">${proto}/4</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.tags || "")}</td><td class="notes">${esc(t.lesson || "")}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button></td></tr>`;
+      return `<tr data-id="${t.id}"><td><span class="dim">${dowOf(t.date)}</span> ${(t.date || "").slice(5)}</td><td>${esc(t.time ? h12(t.time) : "—")}</td><td>${sesTag(t)}</td><td class="ui">${esc(acctLabel(t.accountId)) || '<span class="dim">—</span>'}</td><td>${esc(t.instrument)}</td><td class="ui">${esc(pbName(t.setupId)) || '<span class="dim">—</span>'}</td><td class="${t.direction === "short" ? "neg" : "pos"}">${t.direction === "short" ? "S" : "L"}</td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.entry ?? "—"}</td><td class="r">${t.stop ?? "—"}</td><td class="r">${t.exit ?? `<button type="button" class="hitstop" data-act="hitstop" title="Marcar que tocó el stop"${t.stop == null ? " disabled" : ""}>abierta${t.stop != null ? " · tocó el stop" : ""}</button>`}</td><td class="r dim">${t.rPlanned == null ? "—" : t.rPlanned.toFixed(1)}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="r ${t.pnlEff > 0 ? "pos" : t.pnlEff < 0 ? "neg" : ""}">${t.pnlEff == null ? (t.multUnknown ? `<span class="chip warn" title="No hay valor de punto para ${esc(String(t.instrument || ""))}. Escribe el resultado a mano en «Resultado $» o usa un instrumento conocido.">falta $/punto</span>` : "—") : money(t.pnlEff)}</td><td>${esc(t.quality || "")}</td><td class="${proto === 4 ? "pos" : proto <= 2 ? "neg" : ""}">${proto}/4</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.tags || "")}</td><td class="notes">${esc(t.lesson || "")}</td><td class="execs">${Array.isArray(t.executionLedger) && t.executionLedger.length ? `<details><summary>${plu(t.executionLedger.length, "fill", "fills")}</summary><div style="min-width:230px;max-width:330px;max-height:220px;overflow:auto;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)"><ol style="margin:0;padding-left:20px">${t.executionLedger.map(x => `<li style="margin:5px 0"><strong>${x.role === "entry" ? "Entrada" : "Salida"}</strong> · ${esc(x.date || t.date || "")} ${esc(x.time || "")}<br><span class="mono">${esc(String(x.qty ?? "—"))} × ${esc(String(x.price ?? "—"))}</span> · ${x.side === "buy" ? "buy" : x.side === "sell" ? "sell" : esc(String(x.side || "—"))}<br><span class="dim">Comisión ${money(Number(x.fees) || 0)} · ID ${esc(String(x.executionId || x.fingerprint || "sin ID").slice(0, 48))}</span></li>`).join("")}</ol></div></details>` : '<span class="dim">—</span>'}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button></td></tr>`;
     }).join("")}</tbody></table>${total > visibles.length
       ? `<div style="padding:12px 0;text-align:center"><button type="button" class="btn ghost" id="jrMas">Mostrar ${Math.min(JR_TRAMO, total - visibles.length)} más · quedan ${total - visibles.length}</button></div>`
       : ""}`;
@@ -14749,6 +14765,106 @@ tbody tr:last-child td{border-bottom:0}
   });
   $("mxTabla").addEventListener("click", e => { const tr = e.target.closest("tr[data-mx]"); if (!tr) return; const t = coll("trades").get(tr.dataset.mx); if (t) openTrade(t); });
 
+  function renderExecutionHistory() {
+    const table = $("execHistoryTable");
+    const meta = $("execHistoryMeta");
+    if (!table || !meta) return;
+    const q = String($("execQ")?.value || "").trim().toLowerCase();
+    const acct = String($("execAcct")?.value || "");
+    const instr = String($("execInstr")?.value || "");
+    const from = String($("execFrom")?.value || ""), to = String($("execTo")?.value || "");
+    const trades = coll("trades").items.filter(t => t && t.type === "futuros" && Array.isArray(t.executionLedger));
+    const grouped = new Map();
+    for (const t of trades) for (const fill of t.executionLedger) {
+      if (!fill || typeof fill !== "object") continue;
+      const key = String(fill.fingerprint || (fill.executionId ? "id:" + fill.executionId :
+        [t.accountId || "", t.instrument || "", fill.date || t.date || "", fill.time || t.time || "",
+         fill.side || "", fill.qty ?? "", fill.price ?? ""].join("|")));
+      let row = grouped.get(key);
+      if (!row) {
+        row = { key, date: String(fill.date || t.date || ""), time: String(fill.time || t.time || ""),
+          accountId: String(t.accountId || ""), instrument: String(t.instrument || fill.instrument || ""),
+          side: String(fill.side || ""), qty: 0, price: Number(fill.price), fees: 0,
+          executionId: String(fill.executionId || fill.fingerprint || "—"), roles: new Set(), tradeIds: new Set() };
+        grouped.set(key, row);
+      }
+      row.qty += Math.max(0, Number(fill.qty) || 0);
+      row.fees += Math.max(0, Number(fill.fees) || 0);
+      if (Number.isFinite(Number(fill.price))) row.price = Number(fill.price);
+      if (fill.role) row.roles.add(String(fill.role));
+      if (t.id) row.tradeIds.add(String(t.id));
+    }
+    const all = [...grouped.values()];
+    const exportBtn = $("execExport");
+    if (exportBtn) exportBtn.disabled = all.length === 0;
+    const accounts = [...new Set(all.map(x => x.accountId).filter(Boolean))].sort((a,b) => acctLabel(a).localeCompare(acctLabel(b)));
+    const instruments = [...new Set(all.map(x => x.instrument).filter(Boolean))].sort();
+    const acctSel = $("execAcct"), instrSel = $("execInstr");
+    if (acctSel) {
+      const current = acctSel.value;
+      acctSel.innerHTML = '<option value="">Todas las cuentas</option>' + accounts.map(id => `<option value="${esc(id)}">${esc(acctLabel(id) || "Cuenta sin nombre")}</option>`).join("");
+      if (accounts.includes(current)) acctSel.value = current;
+    }
+    if (instrSel) {
+      const current = instrSel.value;
+      instrSel.innerHTML = '<option value="">Todos</option>' + instruments.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+      if (instruments.includes(current)) instrSel.value = current;
+    }
+    const visible = all.filter(x => {
+      if (acct && x.accountId !== acct) return false;
+      if (instr && x.instrument !== instr) return false;
+      if (from && x.date < from) return false;
+      if (to && x.date > to) return false;
+      if (q && ![x.date,x.time,x.instrument,x.side,x.executionId,acctLabel(x.accountId),[...x.roles].join(" "),[...x.tradeIds].join(" ")].join(" ").toLowerCase().includes(q)) return false;
+      return true;
+    }).sort((a,b) => (b.date+"T"+b.time).localeCompare(a.date+"T"+a.time));
+    if (exportBtn) exportBtn.disabled = visible.length === 0;
+    const linked = new Set(visible.flatMap(x => [...x.tradeIds]));
+    meta.textContent = all.length ? `${all.length} ejecuciones · ${new Set(all.map(x=>x.accountId)).size} cuentas · ${new Set(all.map(x=>x.instrument)).size} instrumentos` : "Sin ejecuciones importadas";
+    if (!visible.length) {
+      table.innerHTML = '<p class="csub" style="padding:12px 0">No hay ejecuciones que coincidan con estos filtros. Si aún no has importado un CSV de ejecuciones, empieza en «Importar operaciones» y elige «Ejecuciones · emparejar FIFO».</p>';
+      return;
+    }
+    const filas = visible.map(x => {
+      const roles = x.roles.size > 1 ? "Cierre + apertura" : x.roles.has("entry") ? "Entrada" : "Salida";
+      const firstTrade = [...x.tradeIds][0];
+      return `<tr><td>${esc(x.date || "—")}</td><td>${esc(x.time || "—")}</td><td>${esc(acctLabel(x.accountId) || "—")}</td><td>${esc(x.instrument || "—")}</td><td class="${x.side === "sell" ? "neg" : "pos"}">${esc(x.side || "—")}</td><td>${roles}</td><td class="r">${Number(x.qty.toFixed(6)).toString()}</td><td class="r">${Number.isFinite(x.price) ? esc(String(x.price)) : "—"}</td><td class="r">${money(x.fees)}</td><td class="mono">${esc(x.executionId)}</td><td class="mono">${esc([...x.tradeIds].join(", "))}</td><td>${firstTrade ? `<button type="button" class="btn ghost sm" data-exec-trade="${esc(firstTrade)}" title="Abrir una de las operaciones vinculadas">${x.tradeIds.size > 1 ? `Ver operación +${x.tradeIds.size-1}` : "Ver operación"}</button>` : "—"}</td></tr>`;
+    }).join("");
+    table.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Hora</th><th>Cuenta</th><th>Instrumento</th><th>Lado</th><th>Asignación</th><th class="r">Cantidad</th><th class="r">Precio</th><th class="r">Comisión</th><th>ID / huella</th><th>IDs de operación</th><th>Acción</th></tr></thead><tbody>${filas}</tbody></table><p class="csub" style="margin:8px 0 0">${visible.length} de ${all.length} ejecuciones · ${linked.size} operaciones vinculadas. Cantidad y comisión se agregan por huella para no duplicar fills repartidos entre operaciones.</p>`;
+  }
+  ["execQ","execAcct","execInstr","execFrom","execTo"].forEach(id => {
+    const el = $(id); if (el) el.addEventListener(id === "execQ" ? "input" : "change", renderExecutionHistory);
+  });
+  $("execReset").addEventListener("click", () => {
+    ["execQ","execAcct","execInstr","execFrom","execTo"].forEach(id => { const el = $(id); if (el) el.value = ""; });
+    renderExecutionHistory();
+  });
+  $("execExport").addEventListener("click", () => {
+    const table = $("execHistoryTable")?.querySelector("table");
+    if (!table) return;
+    const headers = Array.from(table.querySelectorAll("thead th")).slice(0, 11).map(x => x.textContent.trim());
+    const rows = Array.from(table.querySelectorAll("tbody tr"), tr =>
+      Array.from(tr.querySelectorAll("td")).slice(0, 11).map(td => td.textContent.trim()));
+    if (!rows.length) return;
+    const quote = value => '"' + String(value ?? "").replace(/"/g, '""') + '"';
+    const csv = "\uFEFF" + [headers, ...rows].map(row => row.map(quote).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "cabina-historial-ejecuciones-" + new Date().toISOString().slice(0, 10) + ".csv";
+    link.hidden = true; document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  $("execToggle").addEventListener("click", () => {
+    const body = $("execHistoryBody"), open = body.hidden;
+    body.hidden = !open; $("execToggle").setAttribute("aria-expanded", String(open));
+    $("execToggle").textContent = open ? "Ocultar historial" : "Ver historial";
+  });
+  $("execHistoryTable").addEventListener("click", e => {
+    const btn = e.target.closest("button[data-exec-trade]"); if (!btn) return;
+    const t = coll("trades").get(btn.dataset.execTrade); if (t) openTrade(t);
+  });
+
   const Z = {
     edge:       ["métricas / edge", () => renderEdge()],
     futuros:    ["operaciones", () => renderFutures()],
@@ -14796,13 +14912,14 @@ tbody tr:last-child td{border-bottom:0}
        recuento se quedaba en el del momento de importar, que es la clase de
        número que `test/conexiones.mjs` existe para cazar. */
     importar:   ["importador", () => renderImportar()],
+    ejecuciones:["historial de ejecuciones", () => renderExecutionHistory()],
   };
   /* Al cambiar la CUENTA SELECCIONADA no cambian los datos, cambia el punto de
      vista: se repinta lo que depende de qué cuenta se está mirando. */
   const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia, Z.edge];
   const FANOUT_TRADES = [Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
                          Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion, Z.edge,
-                         Z.estudio, Z.invDetalle, Z.importar];
+                         Z.estudio, Z.invDetalle, Z.importar, Z.ejecuciones];
   function pinta(lista) {
     /* Una actualización de datos no debe echar al usuario del campo donde está
        escribiendo ni devolver la página al inicio. Algunos renders reconstruyen
@@ -15477,6 +15594,16 @@ tbody tr:last-child td{border-bottom:0}
     ["fees",       "Comisión",       "num",   false, "sin signo, por la operación entera"],
     ["pnl",        "P&L del bróker", "num",   false, "si viene, gana: es un hecho, no un cálculo"],
   ];
+  const IMP_EJEC_CAMPOS = [
+    ["date", "Fecha", "fecha", true, "fecha de la ejecución"],
+    ["time", "Hora", "hora", false, "hora local que aparece en el CSV"],
+    ["instrument", "Instrumento", "texto", true, "MNQ, NQ, MES…"],
+    ["side", "Lado de ejecución", "lado", true, "buy/compra o sell/venta; no long/short de la posición"],
+    ["qty", "Contratos", "num", true, "cantidad ejecutada, siempre positiva"],
+    ["price", "Precio ejecutado", "num", true, "precio de esta ejecución"],
+    ["fees", "Comisión", "num", false, "comisión de esta ejecución"],
+    ["executionId", "ID de ejecución", "texto", false, "si el bróker lo proporciona, permite deduplicar con más precisión"]
+  ];
   const IMP_OBLIG = IMP_CAMPOS.filter(c => c[3]).map(c => c[0]);
   const impCampo = k => IMP_CAMPOS.find(x => x[0] === k);
   const impLabel = k => { const c = impCampo(k); return c ? c[1] : k; };
@@ -15560,6 +15687,138 @@ tbody tr:last-child td{border-bottom:0}
     return { ok: !problemas.length, op, problemas, n: nFila };
   }
 
+  /* Emparejado de ejecuciones por FIFO. Función pura: no escribe en el almacén.
+     Cada fill de entrada lleva {accountId,instrument,date,time,side:'buy'|'sell',
+     qty,price,fees?,executionId?,n?}. Una fila del CSV nunca se convierte a ciegas
+     en una operación cerrada: se empareja contra inventario abierto y los restos
+     se conservan como operaciones abiertas. */
+  function impHuellaEjecucion(f) {
+    const brokerId = String(f.executionId == null ? "" : f.executionId).trim();
+    if (brokerId) return "id:" + brokerId;
+    return "fp:" + [
+      String(f.accountId || ""), String(f.instrument || "").trim().toUpperCase(),
+      String(f.date || ""), String(f.time || ""), String(f.side || "").toLowerCase(),
+      Number(f.qty), Number(f.price)
+    ].join("|");
+  }
+  function impEmparejarEjecuciones(fills, yaVistas, previas) {
+    const vistos = new Set(Array.isArray(yaVistas) ? yaVistas.map(String) : []);
+    const duplicadas = [], invalidas = [], ordenadas = [];
+    (Array.isArray(fills) ? fills : []).forEach((raw, ix) => {
+      const f = Object.assign({}, raw || {});
+      const q = Number(f.qty), px = Number(f.price);
+      f.n = Number.isFinite(Number(f.n)) ? Number(f.n) : ix + 2;
+      f.side = String(f.side || "").toLowerCase();
+      if (!f.accountId || !String(f.instrument || "").trim() || !/^\d{4}-\d{2}-\d{2}$/.test(String(f.date || "")) ||
+          !["buy", "sell"].includes(f.side) || !Number.isFinite(q) || q <= 0 ||
+          !Number.isFinite(px) || px <= 0) {
+        invalidas.push({ n: f.n, motivo: "cuenta, fecha, instrumento, lado, cantidad o precio no válido" });
+        return;
+      }
+      f.qty = q; f.price = px; f.fees = Math.abs(Number.isFinite(Number(f.fees)) ? Number(f.fees) : 0);
+      f.instrument = String(f.instrument).trim().toUpperCase();
+      f.time = String(f.time || "").trim();
+      f.fingerprint = impHuellaEjecucion(f);
+      if (vistos.has(f.fingerprint)) { duplicadas.push({ n: f.n, fingerprint: f.fingerprint }); return; }
+      vistos.add(f.fingerprint);
+      ordenadas.push(f);
+    });
+    ordenadas.sort((a, b) => {
+      const ka = a.date + "T" + (a.time || "00:00:00");
+      const kb = b.date + "T" + (b.time || "00:00:00");
+      return ka.localeCompare(kb) || a.n - b.n;
+    });
+    const abiertas = new Map(), lotes = [];
+    const clave = f => String(f.accountId) + "|" + f.instrument;
+    /* Reanuda lotes abiertos de importaciones previas sólo cuando el ledger
+       conserva la ejecución de entrada. No adivina un coste ni una identidad. */
+    const prevLotes = (Array.isArray(previas) ? previas : []).map(t => {
+      const entry = Array.isArray(t.executionLedger) ? t.executionLedger.find(x => x && x.role === "entry") : null;
+      const qty = Number(t.qty), price = Number(t.entry);
+      const side = t.direction === "long" ? "buy" : t.direction === "short" ? "sell" : "";
+      if (!entry || !(qty > 0) || !(price > 0) || !side) return null;
+      const f = {
+        accountId: String(t.accountId || ""), instrument: String(t.instrument || "").trim().toUpperCase(),
+        date: String(entry.date || t.date || ""), time: String(entry.time || t.time || ""),
+        side, qty, price, fees: Math.abs(Number(t.fees ?? entry.fees) || 0),
+        executionId: String(entry.executionId || ""), fingerprint: String(entry.fingerprint || ""),
+      };
+      f.fingerprint = f.fingerprint || (Array.isArray(t.executionIds) ? String(t.executionIds.find(x => String(x).startsWith("id:") || String(x).startsWith("fp:")) || "") : "");
+      f.fingerprint = f.fingerprint || impHuellaEjecucion(f);
+      return { trade: t, fill: f };
+    }).filter(Boolean).sort((a,b) => (a.fill.date+"T"+(a.fill.time||"")).localeCompare(b.fill.date+"T"+(b.fill.time||"")));
+    prevLotes.forEach(({trade,fill:f}) => {
+      const key = clave(f), cola = abiertas.get(key) || [];
+      const lote = { fill:f, side:f.side, remaining:f.qty, closedQty:0, exitNotional:0, exitFees:0,
+        closeIds:[], exitFills:[], exitDate:"", exitTime:"", existingTradeId:trade.id, priorQty:f.qty };
+      cola.push(lote); abiertas.set(key,cola); lotes.push(lote);
+    });
+    ordenadas.forEach(f => {
+      let restante = f.qty;
+      const key = clave(f), cola = abiertas.get(key) || [];
+      const opuesto = f.side === "buy" ? "sell" : "buy";
+      for (let i = 0; i < cola.length && restante > 1e-9;) {
+        const lote = cola[i];
+        if (lote.side !== opuesto || lote.remaining <= 1e-9) { i++; continue; }
+        const toma = Math.min(restante, lote.remaining);
+        lote.closedQty += toma;
+        lote.exitNotional += toma * f.price;
+        lote.exitFees += f.fees * toma / f.qty;
+        lote.closeIds.push(f.fingerprint);
+        lote.exitFills.push({ side: f.side, qty: toma, price: f.price, fees: f.fees * toma / f.qty,
+          date: f.date, time: f.time, executionId: String(f.executionId || ""), fingerprint: f.fingerprint });
+        lote.exitDate = f.date; lote.exitTime = f.time;
+        lote.remaining -= toma; restante -= toma;
+        if (lote.remaining <= 1e-9) cola.splice(i, 1); else i++;
+      }
+      if (restante > 1e-9) {
+        const lote = {
+          fill: f, side: f.side, remaining: restante, closedQty: 0,
+          exitNotional: 0, exitFees: 0, closeIds: [], exitFills: [], exitDate: "", exitTime: ""
+        };
+        cola.push(lote); lotes.push(lote);
+      }
+      abiertas.set(key, cola);
+    });
+    const ops = [];
+    lotes.forEach(l => {
+      const f = l.fill, entradaFeePorUnidad = f.fees / f.qty;
+      if (l.existingTradeId && l.closedQty <= 1e-9) return; // el lote sigue intacto
+      if (l.closedQty > 1e-9) {
+        ops.push({
+          ...(l.existingTradeId ? { existingTradeId: l.existingTradeId } : {}),
+          date: f.date, time: f.time || "", exitDate: l.exitDate || f.date,
+          exitTime: l.exitTime || "", instrument: f.instrument,
+          direction: f.side === "buy" ? "long" : "short", qty: l.closedQty,
+          entry: f.price, exit: l.exitNotional / l.closedQty,
+          fees: entradaFeePorUnidad * l.closedQty + l.exitFees,
+          executionIds: [...new Set([f.fingerprint, ...l.closeIds])],
+          executionLedger: [
+            { role: "entry", side: f.side, qty: l.closedQty, price: f.price,
+              fees: entradaFeePorUnidad * l.closedQty, date: f.date, time: f.time,
+              executionId: String(f.executionId || ""), fingerprint: f.fingerprint },
+            ...l.exitFills.map(x => Object.assign({ role: "exit" }, x))
+          ],
+          open: false
+        });
+      }
+      if (l.remaining > 1e-9) {
+        ops.push({
+          date: f.date, time: f.time || "", instrument: f.instrument,
+          direction: f.side === "buy" ? "long" : "short", qty: l.remaining,
+          entry: f.price, exit: null, fees: entradaFeePorUnidad * l.remaining,
+          executionIds: [f.fingerprint],
+          executionLedger: [{ role: "entry", side: f.side, qty: l.remaining, price: f.price,
+            fees: entradaFeePorUnidad * l.remaining, date: f.date, time: f.time,
+            executionId: String(f.executionId || ""), fingerprint: f.fingerprint }],
+          open: true
+        });
+      }
+    });
+    ops.sort((a, b) => (a.date + "T" + (a.time || "")).localeCompare(b.date + "T" + (b.time || "")));
+    return { ops, duplicadas, invalidas, aceptadas: ordenadas.length, huellas: ordenadas.map(f => f.fingerprint) };
+  }
+
   /* Dos campos pueden compartir columna, y exactamente dos: FECHA y HORA. Un
      «2026-09-14 10:05:00» en una sola columna es lo normal en medio mundo, y
      obligar a partirlo a mano sería pedirle al usuario que arregle el fichero.
@@ -15574,6 +15833,91 @@ tbody tr:last-child td{border-bottom:0}
       if (ks.length < 2) return false;
       return !(ks.length === 2 && ks.includes("date") && ks.includes("time"));
     }).map(i => ({ col: Number(i), nombre: lectura.cabecera[i] || "columna " + (Number(i) + 1), campos: porCol[i].map(impLabel) }));
+  }
+
+  function impPlanEjecuciones(lectura, mapa, elegido) {
+    elegido = elegido || {};
+    const decimal = {}, ambiguas = [];
+    ["qty", "price", "fees"].forEach(k => {
+      const i = mapa[k]; if (i == null || i < 0) return;
+      const celdas = impCol(lectura, i), auto = csvDecimal(celdas);
+      decimal[k] = elegido["dec_" + k] || auto;
+      if (!decimal[k] && impHaySep(celdas)) ambiguas.push({ campo: k, que: "dec_" + k, label: IMP_EJEC_CAMPOS.find(c => c[0] === k)?.[1] || k });
+    });
+    let orden = "";
+    const idf = mapa.date;
+    if (idf != null && idf >= 0) {
+      const celdas = impCol(lectura, idf);
+      orden = elegido.orden || csvOrdenFecha(celdas);
+      if (!orden && impHayFecha(celdas)) ambiguas.push({ campo: "date", que: "orden", label: "Fecha" });
+    }
+    return { decimal, orden, ambiguas };
+  }
+  function impRepetidasEjecuciones(lectura, mapa) {
+    const porCol = {};
+    IMP_EJEC_CAMPOS.forEach(([k]) => {
+      const i = mapa[k]; if (i == null || i < 0) return;
+      (porCol[i] || (porCol[i] = [])).push(k);
+    });
+    return Object.keys(porCol).filter(i => {
+      const ks = porCol[i];
+      return ks.length > 1 && !(ks.length === 2 && ks.includes("date") && ks.includes("time"));
+    }).map(i => ({ col: Number(i), nombre: lectura.cabecera[i] || "columna " + (Number(i) + 1), campos: porCol[i].map(k => IMP_EJEC_CAMPOS.find(c => c[0] === k)?.[1] || k) }));
+  }
+  function impPrevioEjecuciones(lectura, mapa, elegido, accountId, existentes, tradesExistentes) {
+    const oblig = ["date", "instrument", "side", "qty", "price"];
+    const faltan = oblig.filter(k => mapa[k] == null || mapa[k] < 0).map(k => IMP_EJEC_CAMPOS.find(c => c[0] === k)[1]);
+    const repetidas = impRepetidasEjecuciones(lectura, mapa);
+    const plan = impPlanEjecuciones(lectura, mapa, elegido);
+    const fills = [], rechazadas = [];
+    const puede = !!accountId && !faltan.length && !repetidas.length && !plan.ambiguas.length;
+    const cel = (fila, k) => { const i = mapa[k]; return i == null || i < 0 ? "" : String(fila[i] == null ? "" : fila[i]).trim(); };
+    const num = (fila, k) => {
+      const raw = cel(fila, k);
+      if (!raw) return k === "fees" ? 0 : null;
+      const v = csvNumero(raw, plan.decimal[k]);
+      return v == null ? null : (k === "fees" ? Math.abs(v) : v);
+    };
+    if (puede) lectura.filas.forEach((fila, ix) => {
+      const n = ix + 2, problemas = [];
+      const rawDate = cel(fila, "date"), date = csvFecha(rawDate, plan.orden);
+      if (!date) problemas.push(rawDate ? "fecha ilegible" : "sin fecha");
+      const rawTime = cel(fila, "time"), time = rawTime ? csvHora(rawTime) : "";
+      if (rawTime && !time) problemas.push("hora ilegible");
+      const instrument = cel(fila, "instrument");
+      if (!instrument) problemas.push("sin instrumento");
+      const rawSide = cel(fila, "side"), side0 = csvLado(rawSide);
+      const side = side0 === "long" ? "buy" : side0 === "short" ? "sell" : "";
+      if (!side) problemas.push(rawSide ? "lado no reconocido" : "sin lado");
+      const qty = num(fila, "qty"), price = num(fila, "price"), fees = num(fila, "fees");
+      if (!(qty > 0)) problemas.push("cantidad no válida");
+      if (!(price > 0)) problemas.push("precio no válido");
+      if (cel(fila, "fees") && fees == null) problemas.push("comisión ilegible");
+      if (problemas.length) { rechazadas.push({ n, problemas }); return; }
+      fills.push({ accountId, instrument, date, time, side, qty, price, fees: fees || 0, executionId: cel(fila, "executionId"), n });
+    });
+    const idsExistentes = Array.isArray(existentes) ? existentes : [];
+    const huellasPrevias = new Set(idsExistentes.map(String));
+    const operacionesPrevias = Array.isArray(tradesExistentes) ? tradesExistentes : [];
+    const abiertasReconstruibles = operacionesPrevias.filter(t => t && t.type === "futuros" &&
+      /^import:/.test(String(t.source || "")) && (t.exit == null || !Number.isFinite(Number(t.exit))) &&
+      String(t.accountId || "") === String(accountId || "") &&
+      Array.isArray(t.executionLedger) && t.executionLedger.some(x => x && x.role === "entry" && x.date && x.price != null));
+    const emp = impEmparejarEjecuciones(fills, idsExistentes, abiertasReconstruibles);
+    emp.invalidas.forEach(x => rechazadas.push({ n: x.n, problemas: [x.motivo] }));
+    /* Si existe una posición importada abierta sin ledger suficiente, no se
+       puede decidir si una ejecución opuesta la cierra o abre otra posición. */
+    const conflictos = fills.filter(f => !huellasPrevias.has(impHuellaEjecucion(f)) &&
+      operacionesPrevias.some(t => t && t.type === "futuros" && /^import:/.test(String(t.source || "")) &&
+        (t.exit == null || !Number.isFinite(Number(t.exit))) && String(t.accountId || "") === String(accountId || "") &&
+        String(t.instrument || "").trim().toUpperCase() === String(f.instrument || "").trim().toUpperCase() &&
+        ((t.direction === "long" && f.side === "sell") || (t.direction === "short" && f.side === "buy")) &&
+        !abiertasReconstruibles.some(x => x.id === t.id)));
+    return {
+      plan, ops: emp.ops, rechazadas, faltan, repetidas, duplicadas: emp.duplicadas,
+      aceptadas: emp.aceptadas, huellas: emp.huellas, conflictos, modo: "ejecuciones",
+      listo: puede && emp.ops.length > 0 && emp.invalidas.length === 0 && conflictos.length === 0
+    };
   }
 
   function impPrevio(lectura, mapa, elegido) {
@@ -15599,7 +15943,9 @@ tbody tr:last-child td{border-bottom:0}
      que se expone es el mapeador, no el escritor: escribir pasa por la vista
      previa y por el botón, nunca por aquí. */
   FUT.imp = { campos: IMP_CAMPOS, obligatorios: IMP_OBLIG, plan: impPlan, fila: impFila,
-              repetidas: impRepetidas, previo: impPrevio };
+              repetidas: impRepetidas, previo: impPrevio, huellaEjecucion: impHuellaEjecucion,
+              emparejarEjecuciones: impEmparejarEjecuciones, camposEjecuciones: IMP_EJEC_CAMPOS,
+              previoEjecuciones: impPrevioEjecuciones };
 
   /* ── LA PANTALLA ──────────────────────────────────────────────────────────
      Tres decisiones que son decisiones, no detalles:
@@ -15613,7 +15959,7 @@ tbody tr:last-child td{border-bottom:0}
          una operación sin cuenta no entra en el drawdown de ninguna.
        · EL BOTÓN DE IMPORTAR NO EXISTE MIENTRAS FALTE ALGO, y lo que falta se
          dice con su nombre. No hay camino «importa y ya veremos». */
-  const imp = { lectura: null, nombre: "", mapa: {}, elegido: {}, cuenta: "", lote: null };
+  const imp = { lectura: null, nombre: "", mapa: {}, elegido: {}, cuenta: "", lote: null, modo: "operaciones", undoSnapshots: [] };
   function impSay(msg, mal) {
     const el = $("impNote"); if (!el) return;
     el.className = "synced" + (mal ? " bad" : "");
@@ -15639,24 +15985,37 @@ tbody tr:last-child td{border-bottom:0}
        que ofrecer deshacer las que quedan, no mentir con el total. Por eso esto
        lee `coll("trades")` y por eso es una zona del registro de repintado. */
     const lote = imp.lote ? coll("trades").items.filter(t => t && t.importId === imp.lote) : [];
+    const deshacerN = lote.length + (imp.undoSnapshots || []).length;
     const bU = $("impUndo"), bC = $("impClear");
-    if (bU) { bU.hidden = !lote.length; bU.textContent = `Deshacer la importación (${lote.length})`; }
+    if (bU) { bU.hidden = !deshacerN; bU.textContent = `Deshacer la importación (${deshacerN})`; }
     if (bC) bC.hidden = !imp.lectura;
     const meta = $("impMeta");
     if (!imp.lectura) {
       cont.innerHTML = "";
-      if (meta) meta.textContent = lote.length ? plu(lote.length, "operación importada", "operaciones importadas") + " en esta sesión" : "ningún fichero cargado";
+      const actualizadas = (imp.undoSnapshots || []).length;
+      const partesMeta = [];
+      if (lote.length) partesMeta.push(plu(lote.length, "operación importada", "operaciones importadas"));
+      if (actualizadas) partesMeta.push(plu(actualizadas, "operación actualizada", "operaciones actualizadas"));
+      if (meta) meta.textContent = partesMeta.length ? partesMeta.join(" · ") + " en esta sesión" : "ningún fichero cargado";
       return;
     }
     const L = imp.lectura;
     const cols = L.cabecera.map((h, i) => [String(i), (h || "(columna " + (i + 1) + ")") + " · ej. «" + String((L.filas[0] || [])[i] || "").slice(0, 14) + "»"]);
-    const p = impPrevio(L, imp.mapa, imp.elegido);
+    const esEjecuciones = imp.modo === "ejecuciones";
+    const campos = esEjecuciones ? IMP_EJEC_CAMPOS : IMP_CAMPOS;
+    const huellasExistentes = coll("trades").items.flatMap(t => Array.isArray(t && t.executionIds) ? t.executionIds : []);
+    const p = esEjecuciones
+      ? impPrevioEjecuciones(L, imp.mapa, imp.elegido, imp.cuenta, huellasExistentes, coll("trades").items)
+      : impPrevio(L, imp.mapa, imp.elegido);
     if (meta) meta.textContent = `${imp.nombre} · ${plu(L.filas.length, "fila", "filas")}`;
     const ctas = acctOptions();
     let h = '<div class="impwrap" style="margin-top:14px">';
-    h += '<p class="csub" style="margin:0 0 10px"><strong>Una fila, una operación.</strong> Esta fase no empareja ejecuciones: si tu fichero trae una fila por compra y otra por venta —un export de órdenes— saldrán el doble de operaciones con la mitad del resultado. Úsalo con un export que ya venga emparejado (ida y vuelta por fila).</p>';
+    h += '<div style="display:grid;grid-template-columns:minmax(220px,360px) 1fr;gap:10px;margin-bottom:12px"><div><label class="lab" for="impMode">Tipo de CSV</label><select id="impMode"><option value="operaciones"${esEjecuciones ? "" : " selected"}>Operaciones ya cerradas</option><option value="ejecuciones"${esEjecuciones ? " selected" : ""}>Ejecuciones · emparejar FIFO</option></select></div><p class="help" style="margin:0;align-self:end">${esEjecuciones ? "Cada fila es una ejecución. Cabina agrupa compras y ventas por cuenta e instrumento usando FIFO, y conserva las ejecuciones que forman cada operación." : "Usa esta opción si cada fila ya contiene entrada y salida de una operación completa."}</p></div>';
+    h += esEjecuciones
+      ? '<p class="csub" style="margin:0 0 10px">FIFO se aplica al contenido de este fichero. Las ejecuciones duplicadas se omiten si su huella ya está guardada. Incluye el rango necesario para que las entradas y salidas que quieras emparejar estén presentes; las posiciones que sigan abiertas se conservan como abiertas.</p>'
+      : '<p class="csub" style="margin:0 0 10px"><strong>Una fila, una operación.</strong> Usa este modo para un export que ya venga emparejado (ida y vuelta por fila).</p>';
     h += '<div class="impgrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">';
-    IMP_CAMPOS.forEach(([k, label, , oblig, ayuda]) => {
+    campos.forEach(([k, label, , oblig, ayuda]) => {
       const v = imp.mapa[k] == null || imp.mapa[k] < 0 ? "" : String(imp.mapa[k]);
       h += `<div><label class="lab">${esc(label)}${oblig ? ' <span style="color:#e0604f">*</span>' : ""}</label>`
         + impSel("col_" + k, v, cols, "— ninguna —")
@@ -15704,7 +16063,10 @@ tbody tr:last-child td{border-bottom:0}
       });
       h += "</tbody></table></div>";
       if (p.ops.length > 12) h += `<p class="csub" style="margin:8px 0 0">…y ${plu(p.ops.length - 12, "operación más", "operaciones más")}. Se importan todas.</p>`;
-      if (imp.mapa.pnl != null && imp.mapa.pnl >= 0) h += '<p class="csub" style="margin:8px 0 0">El P&amp;L del bróker entra en el mismo campo que un P&amp;L escrito a mano y gana sobre el cálculo. Si ese número ya viene neto de comisión, dilo en Métricas → «Mis P&amp;L escritos a mano ya son netos», o la comisión se contará dos veces.</p>';
+      if (esEjecuciones && p.duplicadas && p.duplicadas.length) h += `<p class="csub" style="margin:8px 0 0">${plu(p.duplicadas.length, "ejecución duplicada omitida", "ejecuciones duplicadas omitidas")} por huella.</p>`;
+      if (esEjecuciones && p.conflictos && p.conflictos.length) h += '<p class="synced bad" style="margin-top:12px"><span class="dotg"></span><span>Este rango contiene ejecuciones que podrían cerrar una posición importada anteriormente. Para no crear una posición falsa, no se puede importar este rango parcial: incluye el historial completo de esa posición o termina de reconciliarla antes.</span></p>';
+      if (esEjecuciones) h += '<p class="csub" style="margin:8px 0 0">Cada operación guarda la lista de ejecuciones de origen con hora, precio, cantidad, comisión e identificador/huella. Las filas rechazadas y las posiciones abiertas se muestran explícitamente.</p>';
+      if (!esEjecuciones && imp.mapa.pnl != null && imp.mapa.pnl >= 0) h += '<p class="csub" style="margin:8px 0 0">El P&amp;L del bróker entra en el mismo campo que un P&amp;L escrito a mano y gana sobre el cálculo. Si ese número ya viene neto de comisión, dilo en Métricas → «Mis P&amp;L escritos a mano ya son netos», o la comisión se contará dos veces.</p>';
       /* LO QUE NO ENTRA SE VE, con su número de fila y su motivo. Descartar en
          silencio es perder una operación sin saberlo, que es exactamente lo
          que este fichero existe para no hacer. */
@@ -15716,13 +16078,18 @@ tbody tr:last-child td{border-bottom:0}
         if (p.rechazadas.length > 15) h += `<p class="csub" style="margin:8px 0 0">…y ${plu(p.rechazadas.length - 15, "fila más", "filas más")}.</p>`;
       }
       h += '<div class="bkbtns" style="margin-top:14px">';
-      h += p.ops.length
+      h += p.listo && p.ops.length
         ? `<button type="button" class="btn primary" id="impGo">Importar ${plu(p.ops.length, "operación", "operaciones")}</button>`
-        : '<p class="csub" style="margin:0">Ninguna fila de este fichero se puede importar con este mapeo.</p>';
+        : '<p class="csub" style="margin:0">No hay operaciones importables con este mapeo o hace falta reconciliar el rango.</p>';
       h += "</div>";
     }
     h += "</div>";
     cont.innerHTML = h;
+    const modoSel = $("impMode");
+    if (modoSel) modoSel.addEventListener("change", () => {
+      imp.modo = modoSel.value === "ejecuciones" ? "ejecuciones" : "operaciones";
+      imp.mapa = {}; imp.elegido = {}; renderImportar();
+    });
     const go = $("impGo");
     if (go) go.addEventListener("click", () => impConfirma(p));
   }
@@ -15731,10 +16098,16 @@ tbody tr:last-child td{border-bottom:0}
      journal de golpe cambia el P&L de una cuenta, y eso no se hace con un clic
      que se puede dar sin mirar. */
   function impConfirma(p) {
-    const resumen = `${plu(p.ops.length, "operación", "operaciones")} a ${acctLabel(imp.cuenta) || "la cuenta elegida"}.\n`
+    const nuevas = p.ops.filter(o => !o.existingTradeId).length;
+    const actualizadas = p.ops.length - nuevas;
+    const tipos = [];
+    if (nuevas) tipos.push(plu(nuevas, "operación nueva", "operaciones nuevas"));
+    if (actualizadas) tipos.push(plu(actualizadas, "operación existente se actualizará", "operaciones existentes se actualizarán"));
+    const resumen = `${tipos.join(" · ")} a ${acctLabel(imp.cuenta) || "la cuenta elegida"}.\n`
       + `Desde ${imp.nombre}.\n`
       + (p.rechazadas.length ? `${plu(p.rechazadas.length, "fila se queda fuera", "filas se quedan fuera")} (están listadas arriba con su motivo).\n` : "")
-      + `Entran SIN stop, sin setup y sin plan: eso no lo trae ningún CSV, y sin stop no hay R. La cabina las marcará como lo que son.\n`
+      + (p.duplicadas && p.duplicadas.length ? `${plu(p.duplicadas.length, "ejecución duplicada se omite", "ejecuciones duplicadas se omiten")} por huella.\n` : "")
+      + `El CSV no aporta stop, setup ni plan. Las operaciones nuevas entran sin esos campos; las posiciones existentes conservan los datos que ya tenían.\n`
       + `Se puede deshacer entero mientras no cierres la página.`;
     openEditor({
       title: "Importar al journal de futuros",
@@ -15747,12 +16120,16 @@ tbody tr:last-child td{border-bottom:0}
       onSave: async () => {
         impSay("Importando…");
         try {
-          const n = await impEscribe(p);
-          impSay(`${plu(n, "operación importada", "operaciones importadas")} a ${acctLabel(imp.cuenta)}. Revisa el journal: les falta el stop.`);
-          flash(plu(n, "operación importada", "operaciones importadas"));
+          const resultado = await impEscribe(p);
+          const partes = [];
+          if (resultado.nuevas) partes.push(plu(resultado.nuevas, "operación nueva", "operaciones nuevas"));
+          if (resultado.actualizadas) partes.push(plu(resultado.actualizadas, "operación actualizada", "operaciones actualizadas"));
+          const resumen = partes.join(" · ");
+          impSay(`${resumen} a ${acctLabel(imp.cuenta)}. Revisa el journal y confirma el plan de las operaciones nuevas.`);
+          flash(resumen);
           imp.lectura = null; imp.nombre = ""; imp.mapa = {}; imp.elegido = {};
           renderImportar();
-        } catch (e) { impSay("No se pudo importar: " + ((e && e.message) || "error desconocido") + ".", true); }
+        } catch (e) { renderImportar(); impSay("No se pudo importar: " + ((e && e.message) || "error desconocido") + ".", true); }
       },
     });
     const sv = $("edSave"); sv.textContent = "Importar";
@@ -15761,26 +16138,47 @@ tbody tr:last-child td{border-bottom:0}
   }
   async function impEscribe(p) {
     const lote = uid("imp");
-    let n = 0;
+    imp.lote = lote; // si falla una escritura parcial, la UI puede ofrecer deshacerla
+    let nuevas = 0, actualizadas = 0;
+    imp.undoSnapshots = [];
     for (const o of p.ops) {
+      if (o.existingTradeId) {
+        const previo = coll("trades").get(o.existingTradeId);
+        if (!previo) throw new Error("La posición abierta cambió antes de guardar; vuelve a revisar la vista previa.");
+        imp.undoSnapshots.push(JSON.parse(JSON.stringify(previo)));
+        const rec = Object.assign({}, previo, {
+          date: o.date, time: o.time || previo.time || "", instrument: o.instrument,
+          direction: o.direction, qty: o.qty, exit: o.exit, exitDate: o.exitDate || o.date,
+          exitTime: o.exitTime || "", fees: o.fees, executionIds: (o.executionIds || []).slice(),
+          executionLedger: (o.executionLedger || []).map(x => Object.assign({}, x)),
+          updatedAt: Date.now()
+        });
+        await coll("trades").set(rec.id, rec);
+        actualizadas++;
+        continue;
+      }
       const rec = {
         id: uid("t"), type: "futuros", accountId: imp.cuenta,
         date: o.date, instrument: o.instrument, direction: o.direction, qty: o.qty, entry: o.entry,
         /* `source` dice DE DÓNDE vino y `importId` de QUÉ importación. Con eso el
            deshacer no tiene que acordarse de nada, y la fase 3 —la huella de
            deduplicación— tiene dónde colgarse cuando llegue. */
-        source: "import:manual", importId: lote,
+        source: imp.modo === "ejecuciones" ? "import:ejecuciones" : "import:manual", importId: lote,
         createdAt: Date.now(), updatedAt: Date.now(),
       };
       if (o.time) rec.time = o.time;
       if (o.exit != null) rec.exit = o.exit;
+      if (o.exitDate) rec.exitDate = o.exitDate;
+      if (o.exitTime) rec.exitTime = o.exitTime;
       if (o.fees != null) rec.fees = o.fees;
       if (o.pnl != null) rec.pnl = o.pnl;
+      if (Array.isArray(o.executionIds)) rec.executionIds = o.executionIds.slice();
+      if (Array.isArray(o.executionLedger)) rec.executionLedger = o.executionLedger.map(x => Object.assign({}, x));
       await coll("trades").set(rec.id, rec);
-      n++;
+      nuevas++;
     }
     imp.lote = lote;
-    return n;
+    return { nuevas, actualizadas };
   }
   $("impFileBtn").addEventListener("click", () => { const f = $("impFile"); f.value = ""; f.click(); });
   $("impFile").addEventListener("change", async e => {
@@ -15800,17 +16198,19 @@ tbody tr:last-child td{border-bottom:0}
   $("impClear").addEventListener("click", () => { imp.lectura = null; imp.nombre = ""; imp.mapa = {}; imp.elegido = {}; renderImportar(); impSay("Fichero descartado. No se escribió nada."); });
   $("impUndo").addEventListener("click", () => {
     const pend = imp.lote ? coll("trades").items.filter(t => t && t.importId === imp.lote) : [];
-    if (!pend.length) { renderImportar(); return; }
+    const snapshots = Array.isArray(imp.undoSnapshots) ? imp.undoSnapshots.slice() : [];
+    if (!pend.length && !snapshots.length) { renderImportar(); return; }
     openEditor({ title: "Deshacer la importación",
-      fields: [{ key: "nota", type: "nota", w: 6, label: `Se borran ${plu(pend.length, "operación", "operaciones")} del journal: las de la última importación de esta sesión. Lo que hayas escrito encima de ellas —stop, setup, notas— se va con ellas.` },
+      fields: [{ key: "nota", type: "nota", w: 6, label: `Se borran ${plu(pend.length, "operación nueva", "operaciones nuevas")} y se restauran ${plu(snapshots.length, "posición previa", "posiciones previas")} que se actualizaron al reconciliar la última importación.` },
                { key: "ok", label: "Escribe BORRAR para confirmar", w: 6, ph: "BORRAR" }],
       values: { ok: "" },
       validate: v => (String(v.ok || "").trim().toUpperCase() === "BORRAR" ? null : "Escribe BORRAR para confirmar"),
       onSave: async () => {
+        for (const t of snapshots) await coll("trades").set(t.id, t);
         for (const t of pend) await coll("trades").remove(t.id);
-        imp.lote = null;
+        imp.lote = null; imp.undoSnapshots = [];
         renderImportar();
-        impSay(`${plu(pend.length, "operación borrada", "operaciones borradas")}. El journal vuelve a estar como antes de importar.`);
+        impSay(`${plu(pend.length, "operación nueva borrada", "operaciones nuevas borradas")} y ${plu(snapshots.length, "posición restaurada", "posiciones restauradas")}. El journal vuelve al estado anterior a la importación.`);
       } });
     const sv = $("edSave"); sv.textContent = "Borrar";
     const obs = new MutationObserver(() => { if (!ov.classList.contains("open")) { sv.textContent = "Guardar"; obs.disconnect(); } });

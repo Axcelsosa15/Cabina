@@ -184,7 +184,7 @@ await p.fill('#ef_ok', 'IMPORTAR');
 await p.click('#edSave');
 await trasGuardar(p);
 const nota = (await p.textContent('#impNote')).replace(/\s+/g, ' ').trim();
-ok(/2 operaciones importadas/.test(nota), 'dice cuántas entraron', nota.slice(0, 80));
+ok(/2 operaciones nuevas/.test(nota), 'dice cuántas entraron sin confundir nuevas con actualizadas', nota.slice(0, 80));
 /* Contando TODAS las importadas, no sólo las nuevas: la semilla ya trae una
    —la de la sección 7— así que son 1 + 2. Contar sólo el lote nuevo escondería
    un importador que pisara lo que ya había. */
@@ -216,7 +216,33 @@ const unaYuna = await p.$$eval('#erWrap .errcat', n => n.map(x => x.textContent.
 ok(unaYuna.filter(t => /Ejecución/.test(t)).some(t => /1 pérdida/.test(t)), 'una sola en Ejecución: la manual', unaYuna.find(t => /Ejecución/.test(t)) || 'ninguna');
 ok(unaYuna.filter(t => /Sin datos/.test(t)).some(t => /1 pérdida/.test(t)), 'y una sola sin datos: la importada', unaYuna.find(t => /Sin datos/.test(t)) || 'ninguna');
 
-console.log('\n═══ 8 · ningún error de página ═══');
+console.log('\n═══ 8 · importar ejecuciones por FIFO y conservar el historial completo ═══');
+await p.click('#ftSeg button[data-v="diario"]'); await quieto(p);
+await p.click('#impPaste');
+const CSV_EJEC = `Fecha,Hora,Simbolo,Lado,Ctr,Precio,Com,ExecID
+17/09/2026,10:05,MNQ,Buy,2,21000.25,1.50,fill-entry
+17/09/2026,10:06,MNQ,Sell,2,21010.25,1.50,fill-exit`;
+await p.fill('#ef_c', CSV_EJEC);
+await p.click('#edSave'); await trasAccion(p);
+ok(await p.$('#impMode') !== null, 'el importador ofrece el modo FIFO de ejecuciones', 'presente');
+await p.selectOption('#impMode', 'ejecuciones'); await quieto(p);
+const EM = { date: 0, time: 1, instrument: 2, side: 3, qty: 4, price: 5, fees: 6, executionId: 7 };
+for (const [campo, i] of Object.entries(EM)) await p.selectOption(`select[data-imp="col_${campo}"]`, String(i));
+await quieto(p);
+ok(await p.$('#impGo') !== null && /Importar 1 operación/.test(await p.textContent('#impGo')),
+   'dos ejecuciones se previsualizan como una operación cerrada', (await p.textContent('#impGo') || '').trim());
+await p.click('#impGo'); await p.fill('#ef_ok', 'IMPORTAR'); await p.click('#edSave'); await trasGuardar(p);
+const execTrade = await p.evaluate(() => {
+  const t = (FUT.trades ? FUT.trades() : []).find(x => Array.isArray(x.executionLedger) && x.executionLedger.length);
+  return t ? { id: t.id, qty: t.qty, entry: t.entry, exit: t.exit, fees: t.fees, ledger: t.executionLedger, ids: t.executionIds } : null;
+});
+ok(!!execTrade && execTrade.qty === 2 && execTrade.entry === 21000.25 && execTrade.exit === 21010.25,
+   'el trade importado conserva cantidad y precios', JSON.stringify(execTrade && { qty: execTrade.qty, entry: execTrade.entry, exit: execTrade.exit }));
+ok(!!execTrade && execTrade.ledger.length === 2 && execTrade.ids.length === 2 && execTrade.fees === 3,
+   'persisten los dos fills y sus comisiones', JSON.stringify(execTrade && { fills: execTrade.ledger.length, ids: execTrade.ids.length, fees: execTrade.fees }));
+await p.click('#cal button.d[data-date="2026-09-17"]'); await quieto(p);
+ok((await p.locator('#jrTable').innerText()).includes('2 fills'), 'el journal permite abrir el historial de fills desde la operación');
+console.log('\n═══ 9 · ningún error de página ═══');
 ok(errs.length === 0, 'sin errores de JavaScript', errs.join(' | ') || 'ninguno');
 
 await b.close();

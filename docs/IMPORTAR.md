@@ -1,12 +1,7 @@
 # Importar operaciones desde el bróker
 
-Estado: **fases 0.5 y 1 hechas; 2, 3, 4 y 5 no.** La fase 0 —un CSV real— sigue
-sin hacerse, y hay que ser exacto sobre qué bloquea de verdad: bloquea la
-**detección** (fase 4) y bloquea el **control** de la fase 1 —que las cifras
-cuadren con la plataforma del bróker al céntimo—, pero no bloqueaba
-*construir* el mapeador manual, que por definición no sabe nada de ningún
-bróker. Dar por bloqueada la fase 1 fue un error de lectura de este mismo
-documento, y costó tiempo; queda escrito para no repetirlo.
+Estado al 24/10/2026: **fases 0.5 y 1 hechas; fase 2 implementada para CSV manual de ejecuciones; fase 3 parcial; fases 4 y 5 pendientes**. La fase 0 —un CSV real anonimizado— sigue sin hacerse: bloquea la detección automática (fase 4) y la comprobación de que los importes cuadren con el bróker al céntimo, no el desarrollo del mapeador.
+La fase 2 reconstruye operaciones por FIFO y conserva el detalle de cada ejecución en `executionLedger`. La deduplicación por ID del bróker o huella determinista evita volver a importar ejecuciones reconocidas. La reconciliación incremental cierra o reduce una posición abierta importada cuando el ledger permite reconstruir su entrada; si la posición antigua no tiene evidencia suficiente, el rango se bloquea en vez de inventar una apertura. Sigue pendiente la detección automática de bróker y validar los importes contra un CSV real anonimizado.
 
 El `README.md` ya nombraba el hueco: no hay esquema canónico de operación
 importada, ni mapeos por bróker, ni el camino de importación, ni huella de
@@ -204,8 +199,7 @@ convierte una venta en su contraria).
 > recuento se saltaba la cabecera y acertaba por casualidad—; hizo falta uno donde
 > comas y `;` empatan y la coma gana por ir primera en la lista.
 
-**Lo que esto NO desbloquea:** el emparejado (fase 2) ni la detección (fase 4).
-Esto es el suelo sobre el que se apoyan, no un atajo para saltárselos.
+**Lo que esto NO desbloquea:** la detección automática del bróker (fase 4) ni la validación al céntimo contra un CSV real. El modo FIFO de la fase 2 ya existe, pero su validación contra una plataforma concreta sigue dependiendo de la fase 0.
 
 *(La primera versión de esta línea decía que la fase 0 seguía bloqueando también
 el mapeo. No era cierto, y esa frase es la que hizo dar por imposible la fase 1
@@ -215,9 +209,9 @@ Corregido el 20/10/2026, con la fase 1 hecha.)*
 ### Fase 1 — El mapeador manual *(hecha, 20/10/2026)*
 
 Subir cualquier CSV o pegarlo, ver las primeras filas, decir a mano qué columna
-es qué, previsualizar e importar. Sin detección, sin emparejado: una fila, una
-operación, y **se dice en pantalla**, porque con un export de órdenes produce el
-doble de operaciones con la mitad del P&L.
+es qué, previsualizar e importar. Sin detección automática, pero con dos modos:
+operaciones ya cerradas (una fila, una operación) y ejecuciones individuales que
+se reconstruyen por FIFO. El importador identifica el modo elegido en pantalla.
 
 Funciona con **todos** los brókers desde el primer día, porque no sabe nada de
 ninguno. Vive en Futuros → Diario, y las decisiones que no son obvias:
@@ -240,7 +234,7 @@ ninguno. Vive en Futuros → Diario, y las decisiones que no son obvias:
   es el número que se ve al abrir el CSV en una hoja de cálculo) y su motivo.
 - **Se deshace entero** mientras no se cierre la página: cada operación lleva
   `source: "import:manual"` e `importId`, y el deshacer borra su lote y sólo el
-  suyo. Ese `importId` es donde se colgará la huella de la fase 3.
+  suyo. El `importId` identifica el lote que se puede deshacer. La huella idempotente de cada ejecución permite reconocer fills ya importados al volver a cargar rangos que se solapan.
 
 Y una consecuencia que había que resolver con ella, porque sin resolverla el
 importador habría estropeado lo mejor que tiene la app: **una operación
@@ -263,19 +257,47 @@ acotada y `test/mapeador.mjs` lo fija con las dos mitades.
 > `test/fixtures/`: un fixture sintético ahí se confundiría con el real y daría
 > la fase 0 por cerrada sin estarlo.
 
-### Fase 2 — Emparejado de ejecuciones
+### Fase 2 — Emparejado de ejecuciones · implementada, pendiente de CSV real
 
-FIFO por cuenta e instrumento. Cierres parciales, entradas múltiples y vueltas
-de posición. Las ejecuciones huérfanas se muestran, no se tiran.
+Modo **Ejecuciones · emparejar FIFO** en el importador. Agrupa por cuenta e
+instrumento, ordena por fecha/hora, procesa cierres parciales, entradas múltiples
+y vueltas de posición. Las cantidades que quedan abiertas se conservan como
+operaciones abiertas. Cada operación almacena `executionIds[]` y
+`executionLedger[]` con lado, cantidad asignada, precio, comisión, fecha/hora e
+identificador/huella de cada ejecución. El panel plegable «Historial de
+ejecuciones» agrega los fills por huella, permite filtrar por texto, cuenta,
+instrumento y fechas, abre una operación vinculada y exporta a CSV las filas
+visibles del filtro, con cabeceras e identificadores completos. Una ejecución repartida
+entre varios lotes aparece una sola vez con cantidad y comisión agregadas. No
+modifica el motor cuantitativo.
 
-> **Control:** un fixture con un cierre parcial, uno con dos entradas y uno con
-> una vuelta de posición, los tres con el resultado esperado escrito a mano en
-> la prueba.
+La huella usa el ID del bróker cuando existe; si no, usa cuenta, instrumento,
+fecha/hora, lado, cantidad y precio normalizados. Al importar un rango posterior,
+Cabina reconstruye los lotes abiertos desde el ledger y actualiza la operación
+existente al recibir su cierre. Los cierres parciales dejan el tramo cerrado y
+crean una fila nueva para el resto abierto; deshacer restaura las posiciones
+previas y elimina las filas nuevas. Si una posición previa no tiene ledger
+suficiente, el importador bloquea la escritura en vez de inventar una apertura.
 
-### Fase 3 — Huella y reimportación
+> **Control automatizado:** `test/emparejado.mjs` cubre cierres parciales, dos
+> entradas, reversión, aislamiento por cuenta/instrumento, duplicados, filas
+> inválidas y el camino CSV → operación → historial de ejecuciones. La suite no
+> demuestra aún fidelidad a un bróker real: eso requiere la fase 0.
 
-> **Control:** importar el mismo fichero dos veces produce cero operaciones
-> nuevas la segunda. Importar un rango que se solapa produce sólo lo nuevo.
+### Fase 3 — Huella, reimportación y reconciliación incremental · implementada, pendiente de CSV real
+
+La huella de cada ejecución usa el ID del bróker cuando está disponible; si no,
+normaliza cuenta, instrumento, fecha/hora, lado, cantidad y precio. Reimportar
+el mismo archivo no duplica ejecuciones. Al importar rangos solapados, Cabina
+conserva lo ya registrado, añade sólo los fills nuevos y reconcilia cierres con
+las posiciones abiertas reconstruidas desde el ledger. Los casos ambiguos o sin
+ledger suficiente se bloquean antes de escribir, en lugar de inventar una
+apertura o un cierre.
+
+> **Control automatizado:** las pruebas de importación, emparejado e historial
+> cubren duplicados, rangos solapados, cierres parciales, reversión, aislamiento
+> por cuenta/instrumento y deshacer. La reconciliación contra cifras reales del
+> bróker sigue pendiente de la fase 0; no se considera validada con CSV sintéticos.
 
 ### Fase 4 — Detección automática
 
@@ -291,8 +313,9 @@ Las dos que importan, en este orden, porque son las que usa el autor:
 
 Esa diferencia es la razón de empezar por NinjaTrader aunque Tradovate sea el
 que más se usa en las prop: con un export de Trades de NinjaTrader la fase 1
-sola ya produce operaciones correctas, sin emparejado. Sirve de banco de pruebas
-del resto del camino mientras la fase 2 no existe.
+sola ya produce operaciones correctas, sin emparejado; el modo FIFO queda para
+exports de ejecuciones individuales como los de Tradovate. Sirve de banco de pruebas
+del resto del camino mientras falta un CSV real que valide cifras contra el bróker.
 
 > **Control:** el fixture se detecta solo y el mapeo propuesto es el correcto sin
 > tocarlo.
