@@ -5370,7 +5370,7 @@ tbody tr:last-child td{border-bottom:0}
     const candidates = viewCandidates(tabName);
     const hidden = new Set(Array.isArray(prefs.hidden[tabName]) ? prefs.hidden[tabName] : []);
     if (!candidates.length) {
-      const p = document.createElement("p"); p.className = "view-prefs-note"; p.textContent = "Esta pestaña no tiene módulos configurables."; viewPrefsList.append(p); return;
+      const p = document.createElement("p"); p.className = "view-prefs-note"; p.textContent = "Esta pestaña no tiene módulos configurables."; viewPrefsList.append(p);
     }
     candidates.forEach((el, i) => {
       const key = viewKey(el, tabName, i);
