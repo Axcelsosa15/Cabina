@@ -5323,7 +5323,7 @@ tbody tr:last-child td{border-bottom:0}
   function viewTableKey(table, tabName, index) {
     if (table.id) return table.id;
     const panel = table.closest(".panel, .study-panel");
-    if (panel?.id) return panel.id + ":table:" + index;
+    if (panel?.id) return panel.id + ":table:" + Array.from(panel.querySelectorAll("table")).indexOf(table);
     return tabName + ":table:" + index;
   }
   function columnSlug(label, index) {
@@ -5446,6 +5446,8 @@ tbody tr:last-child td{border-bottom:0}
     const prefs = readViewPrefs(); const tabName = state.tab || "cabina"; delete prefs.hidden[tabName]; delete prefs.columns[tabName]; writeViewPrefs(prefs); applyViewPrefs(); renderViewPrefs();
   });
   applyViewPrefs();
+  const viewColumnObserver = new MutationObserver(() => applyColumnPrefs());
+  document.querySelectorAll(".tab").forEach(tab => viewColumnObserver.observe(tab, { childList: true, subtree: true }));
 
 
   /* =============================== GENERIC EDITOR =============================== */
