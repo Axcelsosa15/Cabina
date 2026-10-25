@@ -313,6 +313,15 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      interfaz de la compuerta. */
   dice('mapeador', 'suite', 'Un CSV entra por donde se le dice, o no entra', 'index.html');
   dice('emparejado', 'suite', 'Las ejecuciones se emparejan FIFO sin perder cierres parciales ni cantidades abiertas', 'importación');
+  /* LOS CINCO DIALECTOS DE FILTRO. La colección `trades` se filtra en cinco
+     sitios con cinco vocabularios, y dos de ellos —Futuros y Métricas / Edge—
+     leen las MISMAS operaciones de futuros con dos implementaciones distintas
+     de «qué entra»: presets de rango contra desde/hasta. Ninguna fila de esta
+     tabla los comparaba, así que un cambio que unificara los filtros podía
+     mover qué operaciones alimentan la expectativa y el drawdown y pasar en
+     verde. Esta fila existe para que esa unificación se haga con la puerta
+     cerrada detrás, no delante. */
+  dice('filtros', 'suite', 'El mismo filtro selecciona las mismas operaciones en Futuros y en Métricas', 'index.html');
 }
 
 /* ── LO QUE LA PLATAFORMA NO PERMITE COMPROBAR ───────────────────────────────
