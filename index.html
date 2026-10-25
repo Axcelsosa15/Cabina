@@ -508,6 +508,7 @@ tbody tr:last-child td{border-bottom:0}
   .estcats button { border: 1px solid var(--line); background: var(--surface); color: var(--muted);
                     border-radius: var(--r-sm); padding:6px 10px; font-size: 11px; letter-spacing: .05em; }
   .estcats button[aria-pressed="true"] { border-color: var(--line-strong); color: var(--text); background: var(--accent-soft); }
+  #mxEstPanel > header .meta { margin-left: auto; }
   .estgrupo + .estgrupo { margin-top: 22px; }
   .estgrupo h3 { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin:0 0 4px; }
   .estrow { display: grid; grid-template-columns: minmax(0,1fr) auto; gap:8px 16px; align-items: baseline;
@@ -2639,8 +2640,8 @@ tbody tr:last-child td{border-bottom:0}
       <header><h2>Edge</h2><span class="meta" id="mxEdgeMeta"></span></header>
       <div class="body"><div class="qeg" id="mxEdge"></div><div id="mxEdgeNotas"></div></div>
     </section>
-    <section class="panel">
-      <header><h2>Estad&iacute;sticas</h2><span class="meta" id="mxEstMeta"></span></header>
+    <section class="panel" id="mxEstPanel">
+      <header><h2>Estad&iacute;sticas</h2><span class="meta" id="mxEstMeta"></span><button type="button" class="btn ghost sm" id="mxEstExport" title="Descarga las estad&iacute;sticas que el buscador y la categor&iacute;a dejan a la vista">Exportar CSV</button></header>
       <div class="body">
         <div class="esttools">
           <input type="search" id="mxEstQ" placeholder="buscar una estad&iacute;stica&hellip;" aria-label="Buscar una estad&iacute;stica">
@@ -15680,6 +15681,64 @@ tbody tr:last-child td{border-bottom:0}
      frontera declarada en la capa de idioma manda hacer: el cromo que un
      render genera se arregla en su sitio de render. */
   function repintaEstadisticas() { if (mxEstC) renderEstadisticas(mxEstC.lista, mxEstC.c); }
+  /* UNA FILA, CALCULADA UNA VEZ. La pantalla y el CSV leen de aquí. Si el
+     fichero pudiera discrepar de la tabla, sería una TERCERA verdad sobre los
+     mismos números —después de las tarjetas y del catálogo—, que es justo lo
+     que este catálogo entero existe para no ser. `v` es el número crudo y
+     `mostrado` lo que se pinta: en una hoja de cálculo «$244» no es un número,
+     y «—» tampoco es un cero. */
+  function estFila(e, a, en) {
+    let v = null, err = false;
+    try { v = e.calc(a); } catch (x) { err = true; }
+    const fmt = EST_FMT[e.fmt] || EST_FMT.t;
+    return {
+      id: e.id, cat: e.cat, label: en ? e.en : e.es,
+      v: err ? null : v,
+      mostrado: err ? "—" : fmt(v),
+      sub: err ? (en ? "could not be computed" : "no se pudo calcular")
+               : (e.sub ? String(e.sub(a, en) || "") : ""),
+      cls: err ? "bad" : v == null ? "dim"
+           : EST_SIGNO[e.fmt] && typeof v === "number" ? (v > 0 ? "good" : v < 0 ? "bad" : "") : "",
+    };
+  }
+  /* Qué entradas pasan el buscador y la categoría. La pantalla y el export
+     preguntan lo mismo al mismo sitio: un fichero que trajera otra selección
+     que la pantalla sería un fichero que miente sobre lo que exportó. */
+  function estVisibles(a, en) {
+    const q = est.q.trim().toLowerCase();
+    return EST.filter(e => (!est.cat || e.cat === est.cat) && (!q || estBusca(e, a, en).includes(q)));
+  }
+  /* `esc()` al revés, y SÓLO para el CSV. Las definiciones de cada fila se
+     construyen para innerHTML —escapan el nombre de un instrumento, que es
+     dato del usuario—, así que llevan entidades dentro. En una hoja de cálculo
+     «MNQ &amp;amp; Co» es basura. Se deshacen las cinco que `esc()` produce, ni
+     una más: decodificar entidades arbitrarias sería inventar. El `&amp;amp;` va
+     el último, o «&amp;amp;lt;» se convertiría en «&lt;». */
+  const estPlano = s => String(s == null ? "" : s)
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+  /* El catálogo NO recorta: enseña todas las filas que pasan el filtro, así
+     que aquí «lo visible» y «lo filtrado» son lo mismo y no hay trampa de
+     exportar media pantalla. En el historial sí la había, y por eso allí se
+     exporta la consulta entera en vez de la tabla. */
+  const EST_CSV = en => [
+    [en ? "Category"   : "Categoría",   f => { const k = EST_CATS.find(c => c.id === f.cat); return k ? (en ? k.en : k.es) : f.cat; }],
+    [en ? "Statistic"  : "Estadística", f => f.label],
+    [en ? "Value"      : "Valor",       f => f.v == null ? "" : f.v],
+    [en ? "Shown"      : "Mostrado",    f => estPlano(f.mostrado)],
+    [en ? "Definition" : "Definición",  f => estPlano(f.sub)],
+  ];
+  $("mxEstExport").addEventListener("click", () => {
+    if (!mxEstC) return;
+    const en = idioma() === "en";
+    const a = estAgrega(mxEstC.lista, mxEstC.c);
+    const visibles = estVisibles(a, en);
+    if (!a.filas.length || !visibles.length) return;
+    descarga("cabina-estadisticas-" + new Date().toISOString().slice(0, 10) + ".csv",
+      tablaCsv(EST_CSV(en), visibles.map(e => estFila(e, a, en))), "text/csv;charset=utf-8");
+  });
+
   function renderEstadisticas(list, c) {
     const cont = $("mxEstLista"); if (!cont) return;
     const en = idioma() === "en";
@@ -15698,8 +15757,10 @@ tbody tr:last-child td{border-bottom:0}
         .map(k => `<button type="button" data-cat="${esc(k.id)}" aria-pressed="${est.cat === k.id}">${esc(en ? k.en : k.es)}</button>`).join("");
       if (cats.innerHTML !== chips) cats.innerHTML = chips;
     }
-    const q = est.q.trim().toLowerCase();
-    const visibles = EST.filter(e => (!est.cat || e.cat === est.cat) && (!q || estBusca(e, a, en).includes(q)));
+    const visibles = estVisibles(a, en);
+    /* Un botón que descarga un fichero con la cabecera y nada debajo parece
+       una exportación que funcionó. */
+    { const b = $("mxEstExport"); if (b) b.disabled = !a.filas.length || !visibles.length; }
 
     if (!a.filas.length) {
       cont.innerHTML = `<p class="csub" style="padding:12px 0">${en
@@ -15711,13 +15772,9 @@ tbody tr:last-child td{border-bottom:0}
     } else {
       const grupos = EST_CATS.filter(k => visibles.some(e => e.cat === k.id)).map(k => {
         const filas = visibles.filter(e => e.cat === k.id).map(e => {
-          let v = null, err = null;
-          try { v = e.calc(a); } catch (x) { err = x; }
-          const fmt = EST_FMT[e.fmt] || EST_FMT.t;
-          const cls = err ? "bad" : v == null ? "dim" : EST_SIGNO[e.fmt] && typeof v === "number" ? (v > 0 ? "good" : v < 0 ? "bad" : "") : "";
-          const sub = err ? (en ? "could not be computed" : "no se pudo calcular") : (e.sub ? String(e.sub(a, en) || "") : "");
-          return `<div class="estrow" data-est="${esc(e.id)}"><div class="el"><b>${esc(en ? e.en : e.es)}</b>${sub ? `<span class="es2">${sub}</span>` : ""}</div>`
-            + `<div class="ev ${cls}">${err ? "—" : fmt(v)}</div></div>`;
+          const f = estFila(e, a, en);
+          return `<div class="estrow" data-est="${esc(f.id)}"><div class="el"><b>${esc(f.label)}</b>${f.sub ? `<span class="es2">${f.sub}</span>` : ""}</div>`
+            + `<div class="ev ${f.cls}">${f.mostrado}</div></div>`;
         }).join("");
         return `<div class="estgrupo"><h3>${esc(en ? k.en : k.es)}</h3>${filas}</div>`;
       }).join("");

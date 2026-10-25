@@ -349,8 +349,10 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      —de eso ya responde `edge`— sino que las dos superficies salen del mismo
      `mxCalc`, que las tres tasas de acierto siguen siendo tres, y que una
      cifra que no se puede medir se imprime con un guion y su razón en vez de
-     con un cero creíble. */
-  dice('estadisticas', 'suite', 'El catálogo de estadísticas no contradice a las métricas que tiene encima', 'index.html');
+     con un cero creíble — y que ese guion SOBREVIVE al CSV, que es donde más
+     barato sale convertirlo en un cero: en una hoja de cálculo ya no tiene la
+     definición al lado para desmentirlo. */
+  dice('estadisticas', 'suite', 'El catálogo de estadísticas no contradice a las métricas que tiene encima, ni al exportarse', 'index.html');
 }
 
 /* ── LO QUE LA PLATAFORMA NO PERMITE COMPROBAR ───────────────────────────────

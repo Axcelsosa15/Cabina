@@ -38,7 +38,8 @@ test/                          pruebas de navegador (Playwright) y guardianes
 | dónde se guarda un dato | `almacen()` con `nubeDb()` o `localDb()` | `guardado`, `primer`, `cuentas` |
 | las imágenes | bucket privado `capturas` | `capturas`, `supabase/pruebas/capturas.sql` |
 | **qué operaciones entran en un filtro** | `ventanaDe` + `tradeFiltro`, expuestos como `FUT.filtered(spec)` · el preset de rango se **resuelve** a desde/hasta, así que las dos gramáticas de fecha no pueden divergir | `filtros`, `unificado` |
-| **cada una de las 160 estadísticas** | una entrada del catálogo `EST` · `estAgrega()` hace UNA pasada y las 160 la leen | `estadisticas` |
+| **cada una de las 160 estadísticas** | una entrada del catálogo `EST` · `estAgrega()` hace UNA pasada y las 160 la leen; `estFila()` la calcula una vez para la pantalla y para el CSV | `estadisticas` |
+| **cómo se escribe un CSV** | `tablaCsv(columnas, filas)` · BOM, comillas dobladas, CRLF y cabecera en un solo sitio para las tres exportaciones | `unificado`, `estadisticas`, `emparejado` |
 
 Futuros, Métricas / Edge y el Historial no filtran por su cuenta: los tres piden
 el subconjunto a `FUT.filtered()`. El Historial además es la única pantalla que

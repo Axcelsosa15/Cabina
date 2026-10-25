@@ -53,7 +53,7 @@ const html = readFileSync(join(raiz, 'index.html'));
 const srv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const b = await chromium.launch();
-const p = await (await b.newContext({ viewport: { width: 1500, height: 950 } })).newPage();
+const p = await (await b.newContext({ viewport: { width: 1500, height: 950 }, acceptDownloads: true })).newPage();
 const errs = [];
 p.on('pageerror', e => errs.push(e.message));
 await p.goto(`http://127.0.0.1:${srv.address().port}/`, { waitUntil: 'load' });
@@ -345,6 +345,86 @@ console.log('\n═══ 8 · el inglés llega a las 160 filas, no a la cabecera
   ok(r.grupos.every(g => !/[áéíóúñ]/i.test(g)), 'los títulos de grupo tampoco', r.grupos.join(' | '));
   ok(antes === 'Profit factor' && r.pf === 'Profit factor', 'una etiqueta que se escribe igual en los dos idiomas no se rompe');
   await p.click('#idiomaBtn');
+}
+
+console.log('\n═══ 9 · el CSV lleva el número crudo Y el guion, sin convertir uno en otro ═══');
+{
+  /* El riesgo del fichero es el mismo que el de la pantalla, agravado: en una
+     hoja de cálculo un «0» en el sitio de un dato ausente ya no tiene la
+     definición al lado que lo desmienta... salvo que la lleve. Por eso van las
+     dos columnas: «Valor» crudo para calcular y «Mostrado» para leer, y el
+     guion sobrevive al viaje en vez de volverse cero. */
+  /* ESPERAR A LA DESCARGA QUE SE PIDIÓ, NO A LA PRIMERA QUE PASE. Cabina baja
+     un respaldo `cabina_pre_migracion.json` al arrancar si encuentra
+     operaciones antes de marcar la migración como hecha, y estas suites
+     siembran las suyas con `FUT.createTrade()` justo en esa ventana: la
+     carrera es real y se midió —tres de cada cuatro corridas leían el JSON del
+     respaldo en vez del CSV, y la cabecera salía «{»—. Ese respaldo es
+     correcto y no es asunto de esta prueba; lo que no puede pasar es
+     confundirlo con el fichero pedido. El predicado lo resuelve por nombre. */
+  const lineas = async () => {
+    const espera = p.waitForEvent('download',
+      { predicate: d => d.suggestedFilename().startsWith('cabina-estadisticas-') });
+    await p.click('#mxEstExport');
+    const f = await espera;
+    return readFileSync(await f.path(), 'utf8').replace(/^\uFEFF/, '').trim().split('\r\n');
+  };
+  const campos = l => l.slice(1, -1).split('","');
+  await p.fill('#mxEstQ', '');
+  await p.waitForFunction(() => window.nFilas() === 160, null, { timeout: 10000 });
+  const todo = await lineas();
+  ok(/^"Categoría","Estadística","Valor","Mostrado","Definición"$/.test(todo[0]),
+    'la cabecera son las cinco columnas', todo[0]);
+  ok(todo.length === 161, 'las 160 estadísticas, una por línea', `${todo.length - 1} filas`);
+  ok(!/<[a-z]|&amp;|&lt;|&#39;/i.test(todo.join('')),
+    'ni etiquetas ni entidades HTML dentro del fichero');
+
+  const fila = lab => campos(todo.find(l => l.startsWith('"') && campos(l)[1] === lab) || '""');
+  const total = fila('P&L total');
+  ok(/^-?\d+(\.\d+)?$/.test(total[2]), 'el valor crudo es un número que una hoja de cálculo entiende', total[2]);
+  ok(/\$/.test(total[3]), 'y «Mostrado» conserva el formato de pantalla', total[3]);
+
+  /* LA FILA QUE IMPORTA. El P&L no realizado no se puede medir; en el fichero
+     tiene que seguir sin medirse, no volverse cero por el camino. */
+  const abierto = fila('P&L no realizado');
+  ok(abierto[2] === '' && abierto[3] === '—',
+    'una cifra que no se puede medir va con el valor VACÍO y un guion, nunca con un cero',
+    `valor=«${abierto[2]}» mostrado=«${abierto[3]}»`);
+  ok(/precio en vivo/.test(abierto[4]), 'y la razón viaja con ella', abierto[4]);
+
+  /* El fichero exporta lo que el filtro deja a la vista, ni más ni menos. */
+  await p.fill('#mxEstQ', 'volumen');
+  await p.waitForFunction(() => window.nFilas() < 160, null, { timeout: 10000 });
+  const nPantalla = await p.evaluate(() => window.nFilas());
+  const filtrado = await lineas();
+  ok(filtrado.length - 1 === nPantalla,
+    'con el buscador puesto, el fichero trae exactamente lo que hay en pantalla',
+    `${filtrado.length - 1} filas · ${nPantalla} en pantalla`);
+  ok(filtrado.slice(1).every(l => l.toLowerCase().includes('volumen')),
+    'y todas coinciden con lo buscado');
+  await p.fill('#mxEstQ', 'no-existe-esta-estadistica');
+  await p.waitForFunction(() => window.nFilas() === 0, null, { timeout: 10000 });
+  ok(await p.locator('#mxEstExport').isDisabled(), 'sin filas que exportar, el botón se apaga');
+  await p.fill('#mxEstQ', '');
+  await p.waitForFunction(() => window.nFilas() === 160, null, { timeout: 10000 });
+
+  /* EL ESCAPADO SE DESHACE, Y HACE FALTA UN «&» PARA VERLO. La columna
+     «Definición» se construye para innerHTML y escapa el nombre del
+     instrumento, que es dato del usuario. Con datos limpios no se nota nada;
+     con un «&» dentro, un fichero que no deshiciera ese escapado diría
+     «A&amp;B» en una hoja de cálculo. Va al final del bloque para no mover
+     ninguno de los recuentos de arriba. */
+  await p.evaluate(async () => {
+    FUT.createTrade({ id: 'S_AMP', accountId: 'EST', instrument: 'A&B', qty: 1, direction: 'long',
+      date: '2026-03-07', time: '09:30', entry: 100, exit: 150, pnl: 9999 });
+    await window.hasta('la operación con un & en el instrumento',
+      () => window.num(window.fila('cerradas').v) === 13);
+  });
+  const conAmp = await lineas();
+  const sim = conAmp.find(l => l.includes('A&')) || '';
+  ok(/A&B/.test(sim) && !/A&amp;B/.test(sim),
+    'un «&» en el nombre de un instrumento llega al fichero como «&», no como «&amp;»',
+    sim.slice(0, 140) || 'no se encontró ninguna línea con el instrumento');
 }
 
 console.log('\n═══ errores de página ═══');
