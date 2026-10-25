@@ -21,6 +21,7 @@ await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { time
 await page.click('#viewPrefsOpen');
 await page.waitForSelector('#viewPrefs:not([hidden])');
 ok(await page.locator('#viewPrefsList .view-prefs-item').count() > 0, 'el configurador lista módulos de la pestaña activa');
+ok(await page.locator('#viewPrefsList .view-prefs-table-group[data-view-tab="calc"] input[aria-label^="Mostrar columna"]').count() > 0, 'desde la carga inicial de Cabina aparecen columnas configurables de otras pestañas');
 const histCheckbox = page.locator('#viewPrefsList input[aria-label*="Últimas 14 sesiones"]');
 ok(await histCheckbox.count() === 1, 'el historial de sesiones se puede personalizar');
 const histBefore = await page.locator('#panelHist').evaluate(el => el.classList.contains('user-view-hidden'));
