@@ -428,6 +428,13 @@ tbody tr:last-child td{border-bottom:0}
   .toolbar .sp { flex: 1; }
   /* un nombre de setup largo no debe estirar la barra ni romper el ancho de la página */
   .toolbar select, .toolbar input[type="text"], .toolbar input[type="search"] { max-width: min(100%, 260px); }
+  /* EL BUSCADOR DEL HISTORIAL PIDE TRES COSAS Y SÓLO SE LEÍAN DOS. Su
+     marcador de posición nombra activo, cuenta y nota, pero un <input> sin
+     base de flex se queda en su ancho intrínseco —unos 20 caracteres— y en la
+     barra del historial, que lleva siete controles, salía «buscar activo,
+     cuer…». El `max-width` de arriba lo recorta por arriba; lo que faltaba era
+     un suelo. */
+  #hsQ { flex: 1 1 220px; min-width: 180px; }
   /* `overflow: hidden` a secas RECORTABA la última opción sin dejar llegar a
      ella: en Futuros, a 430 px, «Pre-sesión» se salía 32 px y no había forma de
      pulsarla — ni arrastrando. El recorte seguía siendo necesario para que los
@@ -2777,6 +2784,7 @@ tbody tr:last-child td{border-bottom:0}
     <label class="mxd">hasta <input type="date" id="hsHasta" aria-label="Hasta"></label>
     <input id="hsQ" type="search" aria-label="Buscar operaciones" placeholder="buscar activo, cuenta, nota…" autocomplete="off">
     <span class="sp"></span>
+    <button type="button" class="btn ghost sm" id="hsExport" title="Descarga TODO lo que el filtro selecciona, no s&oacute;lo las filas visibles">Exportar CSV</button>
     <button type="button" class="btn ghost sm" id="hsLimpiar">Ver todo</button>
   </div>
   <p class="note-p">Cada fila es una operación que registraste, de futuros o de inversión. Sale del mismo sitio que el journal y que las métricas, no de una copia: el filtro es el de la puerta única. Pulsa una fila para abrirla.</p>
@@ -12349,6 +12357,9 @@ tbody tr:last-child td{border-bottom:0}
     const total = lista.length;
     if (hsTope > HS_TRAMO && hsTope > total) hsTope = Math.max(HS_TRAMO, total);
     const visibles = total > hsTope ? lista.slice(0, hsTope) : lista;
+    /* Un botón que descarga un fichero con la cabecera y nada debajo es peor
+       que uno apagado: parece que la exportación funcionó. */
+    { const b = $("hsExport"); if (b) b.disabled = !total; }
     const nFut = lista.filter(t => t.type !== "inversion").length;
     $("hsMeta").textContent = total
       ? (total > visibles.length ? `${plu(visibles.length, "operación", "operaciones")} de ${total}` : plu(total, "operación", "operaciones"))
@@ -12385,6 +12396,50 @@ tbody tr:last-child td{border-bottom:0}
         ? `<div style="padding:12px 0;text-align:center"><button type="button" class="btn ghost" id="hsMas">Mostrar ${Math.min(HS_TRAMO, total - visibles.length)} más · quedan ${total - visibles.length}</button></div>`
         : "");
   }
+  /* EL CSV SALE DE LAS OPERACIONES, NO DE LA TABLA, Y SALEN TODAS. Dos
+     trampas, las dos con antecedentes en este repositorio:
+
+     1. Raspar las celdas fue el defecto que tenía el export de ejecuciones:
+        una columna nueva, un `<span>` dentro de una celda o el chip de
+        «abierta» cambiaban el fichero sin que nadie tocara el export. Aquí
+        cada columna es una función de la OPERACIÓN.
+
+     2. La tabla pinta 250 filas y un botón. Exportar lo PINTADO daría 250
+        líneas de un historial de mil, y el fichero no diría nada de las otras
+        setecientas cincuenta — ni que faltan. Se exporta `hsLista()` entera,
+        que es lo que el filtro selecciona y lo que el usuario cree estar
+        mirando.
+
+     Los números van en crudo, sin `money()`: «$1,234» no es un número para
+     ninguna hoja de cálculo. Es la misma regla que ya seguía EXEC_CSV.
+
+     «Estado» queda VACÍO en una operación de inversión a propósito. Una compra
+     no está «abierta» ni «cerrada» en el sentido en que lo está un futuro
+     —eso lo resuelve la posición, no la operación—, y rellenar la celda con
+     cualquiera de las dos palabras sería inventar un dato. */
+  function hsRes(t) { return t.type === "inversion" ? t.pnl : t.pnlEff; }
+  const HS_CSV = [
+    ["Fecha",      t => t.date || ""],
+    ["Hora",       t => t.time || ""],
+    ["Tipo",       t => t.type === "inversion" ? "inversión" : "futuros"],
+    ["Cuenta",     t => hsCuenta(t)],
+    ["Activo",     t => t.type === "inversion" ? (t.asset || "") : (t.instrument || "")],
+    ["Operación",  t => t.type === "inversion" ? (t.op || "") : (t.direction === "short" ? "corto" : "largo")],
+    ["Cantidad",   t => t.qty ?? ""],
+    ["Entrada",    t => t.type === "inversion" ? (t.price ?? "") : (t.entry ?? "")],
+    ["Salida",     t => t.type === "inversion" ? "" : (t.exit ?? "")],
+    ["Estado",     t => t.type === "inversion" ? "" : (t.exit == null ? "abierta" : "cerrada")],
+    ["Resultado",  t => { const r = hsRes(t); return r == null ? "" : r; }],
+    ["R",          t => t.type === "inversion" ? "" : (t.rReal ?? "")],
+    ["Nota",       t => (t.type === "inversion" ? t.note : (t.lesson || t.tags)) || ""],
+  ];
+  $("hsExport").addEventListener("click", () => {
+    const lista = hsLista();
+    if (!lista.length) return;
+    descarga("cabina-historial-" + new Date().toISOString().slice(0, 10) + ".csv",
+      tablaCsv(HS_CSV, lista), "text/csv;charset=utf-8");
+  });
+
   /* Un cambio de filtro vuelve al primer tramo: dejar el tope de un filtro
      anterior enseña «250 de 3» y pide pulsar «mostrar más» para nada. */
   function hsCambia(patch) { Object.assign(hs, patch); hsTope = HS_TRAMO; renderHistorial(); }
@@ -15260,6 +15315,23 @@ tbody tr:last-child td{border-bottom:0}
     ["execQ","execAcct","execInstr","execFrom","execTo"].forEach(id => { const el = $(id); if (el) el.value = ""; });
     renderExecutionHistory();
   });
+  /* UNA SOLA CONSTRUCCIÓN DE CSV, Y ESTÁ AQUÍ PORQUE IBA A HABER DOS.
+     `execExport` llevaba estas cuatro decisiones en línea —el BOM para que
+     Excel lea los acentos, las comillas dobladas, el CRLF, la cabecera
+     delante— y el historial necesitaba exactamente las mismas. Dos copias de
+     cuatro decisiones son cuatro sitios donde pueden dejar de coincidir, y dos
+     exportaciones de la misma app con reglas distintas es el mismo defecto que
+     `descarga()` vino a cerrar un PR antes.
+
+     `columnas` es una lista de [título, función]: el valor sale de la fila, no
+     de lo que haya pintado en pantalla. */
+  function tablaCsv(columnas, filas) {
+    const comilla = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    return "\uFEFF" + [columnas.map(c => c[0])]
+      .concat(filas.map(f => columnas.map(c => c[1](f))))
+      .map(fila => fila.map(comilla).join(",")).join("\r\n");
+  }
+
   const EXEC_CSV = [
     ["Fecha",            x => x.date],
     ["Hora",             x => x.time],
@@ -15275,12 +15347,8 @@ tbody tr:last-child td{border-bottom:0}
   ];
   $("execExport").addEventListener("click", () => {
     if (!execVisibles.length) return;
-    const comilla = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
-    const csv = "\uFEFF" + [EXEC_CSV.map(c => c[0])]
-      .concat(execVisibles.map(x => EXEC_CSV.map(c => c[1](x))))
-      .map(fila => fila.map(comilla).join(",")).join("\r\n");
     descarga("cabina-historial-ejecuciones-" + new Date().toISOString().slice(0, 10) + ".csv",
-      csv, "text/csv;charset=utf-8");
+      tablaCsv(EXEC_CSV, execVisibles), "text/csv;charset=utf-8");
   });
   $("execToggle").addEventListener("click", () => {
     const body = $("execHistoryBody"), btn = $("execToggle"), open = body.hidden;

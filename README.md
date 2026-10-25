@@ -30,7 +30,7 @@ Postgres local; el estado actual del proyecto Supabase real queda explícitament
 | **Futuros** | journal, cuentas de prop firm (drawdown estático/trailing, consistencia, payouts, contrato de la firma **versionado por fecha de vigencia**), radiografía de la ventaja, supervivencia de la cuenta por Monte Carlo |
 | **Métricas / Edge** | expectancy, win rate, R:R, tamaño de posición, Kelly (referencia), profit factor, Sharpe, max drawdown, break-even, riesgo de ruina — netos de comisión. [docs/METRICAS.md](docs/METRICAS.md) |
 | **Inversiones** | posiciones, lotes, dividendos, TIR de la cartera |
-| **Historial** | **todo** lo que has operado, futuros e inversiones en una tabla: fecha, cuenta, activo, operación, resultado. No calcula nada propio — pide el subconjunto a la misma puerta que el journal y las métricas, así que no puede decir otra cifra |
+| **Historial** | **todo** lo que has operado, futuros e inversiones en una tabla: fecha, cuenta, activo, operación, resultado. No calcula nada propio — pide el subconjunto a la misma puerta que el journal y las métricas, así que no puede decir otra cifra. **Exportable a CSV**, y salen todas las que el filtro selecciona, no sólo las 250 que caben en pantalla |
 | **Playbook, tesis, ideas** | setups con condiciones y capturas, una tesis por jugada |
 | **Registro rápido** | `NQ L +185` y guardar; lo que no se sabe se queda vacío, no se inventa |
 | **Importar un CSV** | del bróker, con **tú** diciendo qué columna es qué: no se adivina la cabecera de nadie. Lo ambiguo se pregunta, lo ilegible no entra y se dice por qué, nada se escribe antes de la vista previa, y se deshace entero |
