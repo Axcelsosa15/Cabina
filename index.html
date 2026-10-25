@@ -69,6 +69,12 @@
   body[data-density="compact"] .tab .editbtn { padding-block: 6px; }
   body[data-density="compact"] .tab .study-panel { padding: 9px; }
   .user-view-hidden { display: none !important; }
+  .user-column-hidden { display: none !important; }
+  .view-prefs-columns { border-top: 1px solid var(--line,rgba(255,255,255,.12)); margin-top: 12px; padding-top: 10px; }
+  .view-prefs-columns h3 { font-size: 12px; margin: 0 0 6px; }
+  .view-prefs-table-group { border: 1px solid var(--line,rgba(255,255,255,.12)); border-radius: 8px; padding: 8px; margin: 8px 0; }
+  .view-prefs-table-group > strong { display:block; font-size: 11px; margin-bottom: 5px; }
+  .view-prefs-column-item { padding: 4px 2px; }
   /* Filtros activos más densos: conservan la lectura del estado y ocupan menos alto. */
   body[data-density="compact"] .ftfilt { gap: 5px; margin-bottom: 8px; padding: 5px 8px; border-radius: 8px; }
   body[data-density="compact"] .ftfilt .lb { font-size: 9px; letter-spacing: .06em; }
@@ -5282,8 +5288,8 @@ tbody tr:last-child td{border-bottom:0}
   function readViewPrefs() {
     try {
       const raw = JSON.parse(localStorage.getItem(VIEW_PREF_KEY) || "{}");
-      return { density: raw.density === "compact" ? "compact" : "comfortable", hidden: raw.hidden && typeof raw.hidden === "object" ? raw.hidden : {} };
-    } catch { return { density: "comfortable", hidden: {} }; }
+      return { density: raw.density === "compact" ? "compact" : "comfortable", hidden: raw.hidden && typeof raw.hidden === "object" ? raw.hidden : {}, columns: raw.columns && typeof raw.columns === "object" ? raw.columns : {} };
+    } catch { return { density: "comfortable", hidden: {}, columns: {} }; }
   }
   function writeViewPrefs(prefs) {
     try { localStorage.setItem(VIEW_PREF_KEY, JSON.stringify(prefs)); return true; }
@@ -5313,6 +5319,35 @@ tbody tr:last-child td{border-bottom:0}
     const label = (h?.textContent || el.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim();
     return label || ("Módulo " + (index + 1));
   }
+
+  function viewTableKey(table, tabName, index) {
+    if (table.id) return table.id;
+    const panel = table.closest(".panel, .study-panel");
+    if (panel?.id) return panel.id + ":table:" + index;
+    return tabName + ":table:" + index;
+  }
+  function columnSlug(label, index) {
+    const slug = String(label || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return (slug || "columna") + ":" + index;
+  }
+  function applyColumnPrefs() {
+    const prefs = readViewPrefs();
+    for (const tab of document.querySelectorAll(".tab")) {
+      const tabName = tab.dataset.tab || "cabina";
+      Array.from(tab.querySelectorAll("table")).forEach((table, tableIndex) => {
+        const tableKey = viewTableKey(table, tabName, tableIndex);
+        const headerRow = table.tHead?.rows?.[0] || table.querySelector("tr");
+        if (!headerRow) return;
+        const headers = Array.from(headerRow.cells).filter(cell => cell.tagName === "TH");
+        if (headers.length < 2) return;
+        const hidden = new Set(Array.isArray(prefs.columns?.[tabName]?.[tableKey]) ? prefs.columns[tabName][tableKey] : []);
+        Array.from(table.rows || []).forEach(row => headers.forEach((th, columnIndex) => {
+          const cell = row.cells[columnIndex];
+          if (cell) cell.classList.toggle("user-column-hidden", hidden.has(columnSlug(th.textContent.trim(), columnIndex)));
+        }));
+      });
+    }
+  }
   function applyViewPrefs() {
     const prefs = readViewPrefs();
     document.body.dataset.density = prefs.density;
@@ -5324,6 +5359,7 @@ tbody tr:last-child td{border-bottom:0}
         el.classList.toggle("user-view-hidden", hidden.has(key));
       });
     }
+    applyColumnPrefs();
   }
   function renderViewPrefs() {
     if (!viewPrefsRoot || !viewPrefsList) return;
@@ -5349,6 +5385,44 @@ tbody tr:last-child td{border-bottom:0}
       });
       label.append(input, text, stateLabel); viewPrefsList.append(label);
     });
+    const columnGroup = document.createElement("section"); columnGroup.className = "view-prefs-columns";
+    const columnTitle = document.createElement("h3"); columnTitle.textContent = "Columnas de tablas"; columnGroup.append(columnTitle);
+    const columnNote = document.createElement("p"); columnNote.className = "view-prefs-note"; columnNote.textContent = "Oculta columnas que no necesitas. Los datos se conservan y las preferencias se guardan por pestaña."; columnGroup.append(columnNote);
+    const activeTab = Array.from(document.querySelectorAll(".tab")).find(el => el.dataset.tab === tabName);
+    const tables = activeTab ? Array.from(activeTab.querySelectorAll("table")) : [];
+    let columnCount = 0;
+    tables.forEach((table, tableIndex) => {
+      const headerRow = table.tHead?.rows?.[0] || table.querySelector("tr");
+      if (!headerRow) return;
+      const headers = Array.from(headerRow.cells).filter(cell => cell.tagName === "TH");
+      if (headers.length < 2) return;
+      const tableKey = viewTableKey(table, tabName, tableIndex);
+      const hiddenColumns = new Set(Array.isArray(prefs.columns?.[tabName]?.[tableKey]) ? prefs.columns[tabName][tableKey] : []);
+      const group = document.createElement("div"); group.className = "view-prefs-table-group";
+      const panel = table.closest(".panel, .study-panel");
+      const heading = document.createElement("strong"); heading.textContent = panel ? viewLabel(panel, tableIndex) : "Tabla " + (tableIndex + 1); group.append(heading);
+      headers.forEach((th, columnIndex) => {
+        const labelText = th.textContent.replace(/\s+/g, " ").trim() || ("Columna " + (columnIndex + 1));
+        const key = columnSlug(labelText, columnIndex);
+        const label = document.createElement("label"); label.className = "view-prefs-item view-prefs-column-item";
+        const input = document.createElement("input"); input.type = "checkbox"; input.checked = !hiddenColumns.has(key);
+        input.setAttribute("aria-label", "Mostrar columna " + labelText);
+        const text = document.createElement("span"); text.textContent = labelText;
+        const stateLabel = document.createElement("small"); stateLabel.textContent = input.checked ? "Visible" : "Oculta"; stateLabel.style.color = "var(--muted,#a5adbb)";
+        input.addEventListener("change", () => {
+          const current = readViewPrefs();
+          current.columns[tabName] = current.columns[tabName] && typeof current.columns[tabName] === "object" ? current.columns[tabName] : {};
+          const list = new Set(Array.isArray(current.columns[tabName][tableKey]) ? current.columns[tabName][tableKey] : []);
+          if (input.checked) list.delete(key); else list.add(key);
+          current.columns[tabName][tableKey] = Array.from(list);
+          writeViewPrefs(current); applyColumnPrefs(); stateLabel.textContent = input.checked ? "Visible" : "Oculta";
+        });
+        label.append(input, text, stateLabel); group.append(label); columnCount++;
+      });
+      columnGroup.append(group);
+    });
+    if (!columnCount) { const empty = document.createElement("p"); empty.className = "view-prefs-note"; empty.textContent = "Esta pestaña no tiene tablas con columnas configurables."; columnGroup.append(empty); }
+    viewPrefsList.append(columnGroup);
     document.getElementById("viewPrefsNote").textContent = "Pestaña: " + (document.querySelector('#tabnav .tabbtn.active')?.textContent || tabName).replace(/\s+/g," ").trim() + ". Los módulos ocultos conservan sus datos y vuelven al activar Mostrar.";
   }
   function openViewPrefs() {
@@ -5369,7 +5443,7 @@ tbody tr:last-child td{border-bottom:0}
     if (!r.checked) return; const prefs = readViewPrefs(); prefs.density = r.value; writeViewPrefs(prefs); applyViewPrefs();
   }));
   document.getElementById("viewPrefsReset").addEventListener("click", () => {
-    const prefs = readViewPrefs(); delete prefs.hidden[state.tab || "cabina"]; writeViewPrefs(prefs); applyViewPrefs(); renderViewPrefs();
+    const prefs = readViewPrefs(); const tabName = state.tab || "cabina"; delete prefs.hidden[tabName]; delete prefs.columns[tabName]; writeViewPrefs(prefs); applyViewPrefs(); renderViewPrefs();
   });
   applyViewPrefs();
 
