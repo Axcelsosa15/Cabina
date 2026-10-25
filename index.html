@@ -9459,6 +9459,19 @@ tbody tr:last-child td{border-bottom:0}
     account(id) { return acctById(id); },
     rules() { return state.settings.rules || []; },
     trades(accountId) { return accountId ? tradesDe(accountId) : tradesOf("futuros"); },
+    /* LA PUERTA DEL FILTRO. Una pantalla que quiera un subconjunto de
+       operaciones lo pide aquí, no reimplementando los `filter`. `spec` admite
+       acct (con "__none"), setup, instr, ses, q, y la fecha en las dos
+       gramáticas: `rango` como preset o `desde`/`hasta` exactas — el preset se
+       resuelve a fechas, así que las dos no pueden divergir. `tipo` elige la
+       familia: "futuros" por defecto, "inversion" para la cartera. */
+    filtered(spec) {
+      const s = spec || {};
+      return tradesOf(s.tipo || "futuros").filter(tradeFiltro(s));
+    },
+    /* El filtro que tiene puesto Futuros ahora mismo, para quien quiera
+       enseñar lo mismo que el journal sin copiar su estado. */
+    filterSpec() { return ftSpec(); },
     tradesOn(accountId, date) { return FUT.trades(accountId).filter(t => t.date === date); },
 
     /* ── selección de cuenta ──
@@ -10614,14 +10627,76 @@ tbody tr:last-child td{border-bottom:0}
     _tradesMemo.key = key; _tradesMemo.val = val;
     return val;
   }
-  function inRange(t) {
-    const d = t.date || ""; const today = state.today;
-    if (ft.range === "month") return d.slice(0, 7) === today.slice(0, 7);
-    if (ft.range === "year") return d.slice(0, 4) === today.slice(0, 4);
-    if (ft.range === "30" || ft.range === "90") { const lim = new Date(today + "T12:00:00Z"); lim.setUTCDate(lim.getUTCDate() - Number(ft.range)); return d >= lim.toISOString().slice(0, 10); }
-    return true;
+  /* ══════════════════ UN SOLO FILTRO DE OPERACIONES ══════════════════
+     La colección `trades` se filtraba en cinco sitios con cinco vocabularios:
+     Futuros con presets de rango, Métricas y el historial de ejecuciones con
+     desde/hasta, Inversiones con cuenta y estrategia, las pre-sesiones con
+     presets otra vez. Cinco implementaciones de «¿qué operaciones entran?»
+     sobre los MISMOS datos, y la de Métricas decide la expectativa, el profit
+     factor y el drawdown — el número que dice si el sistema paga.
+
+     No es una abstracción nueva: la fachada FUT ya se declara más abajo como
+     «CAPA DE DATOS — PUERTA ÚNICA», con la regla escrita de que si dos
+     pantallas discrepan es porque una se saltó la puerta. `mxOps()` se la
+     saltaba. Esto la termina.
+
+     LO QUE HACE QUE LAS DOS GRAMÁTICAS DE FECHA NO PUEDAN DIVERGIR: el preset
+     se RESUELVE a desde/hasta, y de ahí abajo hay UNA comparación. Antes
+     «últimos 30 días» era `d >= lim` en un sitio y `d >= mx.desde` en otro —
+     dos expresiones que daban lo mismo por suerte, no por construcción. Las
+     dos gramáticas siguen existiendo porque las dos pantallas las necesitan de
+     verdad: Futuros quiere «este mes» de un clic, y las métricas necesitan una
+     ventana cerrada. Lo que no puede haber es dos implementaciones de ella.
+     test/filtros.mjs afirma la equivalencia, y cae si se rompe. */
+  function ventanaDe(spec) {
+    /* Devuelve { desde, hasta } en ISO; "" es «sin cota por ese lado».
+       Los límites de cada preset son EXACTAMENTE los que calculaba `inRange`:
+       «este mes» y «este año» acotan por los dos lados —eran una igualdad de
+       prefijo— y los de 30/90 días sólo por abajo, que es lo que hacía
+       `d >= lim`. Cambiar eso aquí movería en silencio qué entra en el edge. */
+    const hoy = state.today;
+    const r = spec.rango || "all";
+    let desde = spec.desde || "", hasta = spec.hasta || "";
+    if (r === "month") {
+      const mes = hoy.slice(0, 7);
+      // El 0 del mes siguiente es el último día de este: no hay tabla de 28/30/31.
+      const fin = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0, 12));
+      desde = desde || mes + "-01"; hasta = hasta || fin.toISOString().slice(0, 10);
+    } else if (r === "year") {
+      const anio = hoy.slice(0, 4);
+      desde = desde || anio + "-01-01"; hasta = hasta || anio + "-12-31";
+    } else if (r === "30" || r === "90") {
+      const lim = new Date(hoy + "T12:00:00Z"); lim.setUTCDate(lim.getUTCDate() - Number(r));
+      desde = desde || lim.toISOString().slice(0, 10);
+    }
+    return { desde, hasta };
   }
-  function acctMatch(t) { return !ft.acct || (ft.acct === "__none" ? !t.accountId : t.accountId === ft.acct); }
+  /* El predicado. `spec` lleva sólo lo que acota; lo ausente no filtra.
+       acct   id de cuenta, o "__none" para «sin cuenta asignada»
+       setup  id de playbook        instr  instrumento exacto
+       ses    sesión de mercado, o "__sin" para «sin hora»
+       rango  preset                desde / hasta  fechas exactas
+       q      búsqueda libre (varios términos = AND) */
+  function tradeFiltro(spec) {
+    const s = spec || {};
+    const { desde, hasta } = ventanaDe(s);
+    const terms = normQ(s.q || "").trim().split(/\s+/).filter(Boolean);
+    return t => {
+      const d = t.date || "";
+      if (desde && d < desde) return false;
+      if (hasta && d > hasta) return false;
+      if (s.acct && (s.acct === "__none" ? !!t.accountId : t.accountId !== s.acct)) return false;
+      if (s.setup && t.setupId !== s.setup) return false;
+      if (s.instr && t.instrument !== s.instr) return false;
+      if (s.ses && (tradeSes(t) || "__sin") !== s.ses) return false;
+      if (terms.length && !qMatch(t, terms)) return false;
+      return true;
+    };
+  }
+  /* Los dos que quedan por compatibilidad con quien ya los llamaba, ahora
+     delegando: una sola respuesta, dos nombres viejos. */
+  function inRange(t) { return tradeFiltro({ rango: ft.range })(t); }
+  function acctMatch(t) { return tradeFiltro({ acct: ft.acct })(t); }
   const FT_FILTROS = [
     { k: "acct", lb: "Cuenta", txt: v => v === "__none" ? "sin cuenta asignada" : acctLabel(v) },
     { k: "range", lb: "Rango", txt: v => ({ month: "este mes", "30": "últimos 30 días", "90": "últimos 90 días", year: "este año" })[v] || v, off: "all" },
@@ -10677,15 +10752,17 @@ tbody tr:last-child td{border-bottom:0}
          quién encuentra la búsqueda sin mover la clave. */
       (ft.q ? "|" + coll("playbooks").rev + "|" + (state.settings.accounts || []).map(a => a.id + ":" + (acctLabel(a.id) || "")).join(",") : "");  // inRange mira state.today
     if (_filtMemo.key === key) return _filtMemo.val;
-    let l = tradesOf("futuros").filter(inRange);
-    if (ft.setup) l = l.filter(t => t.setupId === ft.setup);
-    if (ft.instr) l = l.filter(t => t.instrument === ft.instr);
-    if (ft.ses) l = l.filter(t => (tradeSes(t) || "__sin") === ft.ses);
-    if (ft.acct) l = l.filter(acctMatch);
-    const terms = normQ(ft.q).trim().split(/\s+/).filter(Boolean);
-    if (terms.length) l = l.filter(t => qMatch(t, terms));
+    /* Seis `filter` en cadena pasan a UNA pasada por el predicado de la puerta.
+       Lo que se filtra y en qué orden no cambia —el predicado hace las mismas
+       seis preguntas— pero ahora las hace en el mismo sitio que Métricas. */
+    const l = tradesOf("futuros").filter(tradeFiltro(ftSpec()));
     _filtMemo.key = key; _filtMemo.val = l;
     return l;
+  }
+  /* El estado de los filtros de Futuros, dicho como spec de la puerta. Vive
+     aquí y no dentro de futFiltered porque lo lee también `FUT.filtered()`. */
+  function ftSpec() {
+    return { rango: ft.range, setup: ft.setup, instr: ft.instr, ses: ft.ses, acct: ft.acct, q: ft.q };
   }
   /* futStats hace seis pasadas sobre la lista y dos filtros más dentro de grp().
      Con 1.500 operaciones en el journal, guardar UNA repetía ese trabajo sobre
@@ -14476,13 +14553,15 @@ tbody tr:last-child td{border-bottom:0}
   }
   const mxNum = v => { if (v == null || v === "") return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
   function mxPv(instr) { const r = QE.resolveContract(instr); return r.ok ? r.value.multiplier : null; }
+  /* LAS MÉTRICAS ENTRAN POR LA MISMA PUERTA QUE EL JOURNAL. Aquí había cuatro
+     `filter` en línea que contestaban lo mismo que `inRange` + `acctMatch` con
+     otra letra, y nada obligaba a que coincidieran: `>=` contra `>` en la fecha
+     o un centinela `__none` olvidado movían qué operaciones alimentan la
+     expectativa y el drawdown sin que ninguna prueba lo notara. Ahora es el
+     mismo predicado, y test/filtros.mjs afirma que las dos pantallas eligen el
+     mismo conjunto. */
   function mxOps() {
-    let l = tradesOf("futuros");
-    if (mx.acct) l = l.filter(t => mx.acct === "__none" ? !t.accountId : t.accountId === mx.acct);
-    if (mx.setup) l = l.filter(t => t.setupId === mx.setup);
-    if (mx.desde) l = l.filter(t => (t.date || "") >= mx.desde);
-    if (mx.hasta) l = l.filter(t => (t.date || "") <= mx.hasta);
-    return l;
+    return FUT.filtered({ acct: mx.acct, setup: mx.setup, desde: mx.desde, hasta: mx.hasta });
   }
   /* El neto de UNA operación. Si el journal ya descontó la comisión (campo
      «Comisiones $» o comisiones automáticas), se respeta; si no, se descuenta la
