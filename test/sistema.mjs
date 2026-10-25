@@ -6,7 +6,7 @@
    —un panel, un botón, un campo, una cabecera de tabla— tiene que verse igual en
    cualquier pestaña. Eso no se comprueba mirando capturas: se comprueba
    preguntando al navegador por el estilo COMPUTADO de TODAS las instancias
-   visibles de cada primitiva, en las ocho pestañas y con datos, y exigiendo UN
+   visibles de cada primitiva, en todas las pestañas y con datos, y exigiendo UN
    SOLO valor por propiedad. Si hay dos, hay dos sistemas.
 
    POR QUÉ «TODAS LAS INSTANCIAS» Y NO «LA PRIMERA DE CADA PESTAÑA». El primer
@@ -133,7 +133,7 @@ for (const [nombre, [, props]] of Object.entries(PRIM)) {
   const total = vistas[props[0]] ? Object.values(vistas[props[0]]).flat().length : 0;
   /* Cero instancias no es un verde: es que la prueba no midió nada, y eso ya
      pasó una vez en este repositorio con siete pruebas sobre un fichero viejo. */
-  if (!total) { ok(false, `${nombre}: hay instancias que medir`, 'NINGUNA instancia visible en las ocho pestañas, ni con la semilla'); continue; }
+  if (!total) { ok(false, `${nombre}: hay instancias que medir`, 'NINGUNA instancia visible en ninguna pestaña, ni con la semilla'); continue; }
   const malas = props.filter(p => Object.keys(vistas[p] || {}).length > 1);
   ok(malas.length === 0, `${nombre.padEnd(18)} un solo valor en cada propiedad`,
      malas.length

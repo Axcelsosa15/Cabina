@@ -105,7 +105,7 @@ console.log('\n═══ 2 · traducir no se lleva por delante lo que había den
   const pend = await p.evaluate(() => [...document.querySelectorAll('#tabnav .tabbtn')]
     .map(b => { const n = [...b.childNodes].find(x => x.nodeType === 3 && x.data.trim()); return n ? n.data.trim() : ''; })
     .filter(t => /[áéíóúñÁÉÍÓÚÑ]/.test(t) || t === 'Futuros' || t === 'Inversiones' || t === 'Calculadora' || t === 'Historial'));
-  ok(pend.length === 0, 'ninguna de las ocho pestañas se queda en español', pend.join(' | ') || 'ninguna');
+  ok(pend.length === 0, 'ninguna pestaña se queda en español', pend.join(' | ') || 'ninguna');
   await ctx.close();
 }
 

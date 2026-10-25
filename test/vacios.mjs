@@ -20,7 +20,7 @@
    buscando `.tiles`. El modo de fallar de ese diseño no es «marca mal un tile»:
    es «un contenedor entero se queda sin observar y nadie lo nota». Un test que
    mire un tile de ejemplo no ve eso. §1 recalcula la marca esperada para CADA
-   tile visible de las ocho pestañas, desde el texto, y la compara con la real.
+   tile visible de todas las pestañas, desde el texto, y la compara con la real.
 
    POR QUÉ `prop50` Y NO «este mes» PARA PROBAR QUE LA MARCA SE VA. Las dos
    vacían los tiles de FUTUROS, pero «este mes» depende de la fecha de hoy
@@ -103,9 +103,9 @@ const irA = async (p, tab) => {
 
 /* ═══ §1 · NINGÚN TILE SE QUEDA SIN CLASIFICAR, EN NINGUNA PESTAÑA ═══════════
    La marca esperada se recalcula aquí desde el texto, para cada tile visible de
-   las ocho pestañas y en los dos estados de datos. Un contenedor sin observador
+   todas las pestañas y en los dos estados de datos. Un contenedor sin observador
    aparece como una tanda de tiles con «—» sin marcar. */
-console.log('\n§1 · la marca coincide con el texto en las ocho pestañas');
+console.log('\n§1 · la marca coincide con el texto en todas las pestañas');
 for (const [etiqueta, conSemilla] of [['cuenta nueva', false], ['con la semilla', true]]) {
   const { ctx, p } = await abrir(conSemilla);
   const mal = []; let vistos = 0, marcados = 0;

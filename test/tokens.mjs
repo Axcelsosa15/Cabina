@@ -37,7 +37,7 @@
          cometió al redactar el arreglo, y esta sección lo cazó.
      §2  Todo custom property declarado en `:root` RESUELVE a algo no vacío.
      §3  Ningún elemento con texto propio se pinta en blanco puro, en ninguna de
-         las ocho pestañas, con datos. Blanco puro no está en la escala: si
+         todas las pestañas, con datos. Blanco puro no está en la escala: si
          aparece, un token falló.
      §4  Los tres niveles cumplen, sobre `--surface-3`, los contrastes que el
          propio bloque de tokens afirma, y ninguno baja del suelo AA de 4.5:1.
@@ -74,7 +74,7 @@ bloques.forEach((b, i) => {
 ok(perdidos.length === 0, 'ningún custom property queda sepultado en un comentario',
    perdidos.length ? perdidos.slice(0, 6).join(' · ') : `${bloques.length} bloques <style> revisados`);
 
-/* ── el navegador, con datos y recorriendo las ocho pestañas ──────────────── */
+/* ── el navegador, con datos y recorriendo todas las pestañas ─────────────── */
 const srv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${srv.address().port}/`;
