@@ -58,7 +58,7 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(raiz, 'index.html'), 'utf8');
-const TABS = ['cabina', 'futuros', 'edge', 'invest', 'playbook', 'ideas', 'estudio', 'calc'];
+const TABS = ['cabina', 'futuros', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc'];
 
 /* nombre → [selector, propiedades]. El selector excluye las variantes
    semánticas; `.panel .body` excluye los calendarios por su contenedor. */

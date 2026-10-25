@@ -45,7 +45,7 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(raiz, 'index.html'), 'utf8');
-const TABS = ['cabina', 'futuros', 'edge', 'invest', 'playbook', 'ideas', 'estudio', 'calc'];
+const TABS = ['cabina', 'futuros', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc'];
 
 /* La misma expresión que usa la aplicación, escrita aquí a mano a propósito: si
    alguien relaja la de index.html, este archivo NO la sigue y la diferencia

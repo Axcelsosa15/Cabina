@@ -37,6 +37,16 @@ test/                          pruebas de navegador (Playwright) y guardianes
 | edge, Sharpe, drawdown, Monte Carlo | `QE.analizarEdge` · `metricasCurva` · `simularCuenta` | `edge`, `radiografia` |
 | dónde se guarda un dato | `almacen()` con `nubeDb()` o `localDb()` | `guardado`, `primer`, `cuentas` |
 | las imágenes | bucket privado `capturas` | `capturas`, `supabase/pruebas/capturas.sql` |
+| **qué operaciones entran en un filtro** | `ventanaDe` + `tradeFiltro`, expuestos como `FUT.filtered(spec)` · el preset de rango se **resuelve** a desde/hasta, así que las dos gramáticas de fecha no pueden divergir | `filtros`, `unificado` |
+
+Futuros, Métricas / Edge y el Historial no filtran por su cuenta: los tres piden
+el subconjunto a `FUT.filtered()`. El Historial además es la única pantalla que
+mezcla las dos familias (`type: "futuros"` y `"inversion"`), y lo hace pidiendo una
+consulta por familia a la misma puerta — no tiene lista propia. Las dos familias NO
+comparten el espacio de nombres de las cuentas: los futuros viven en
+`state.settings.accounts` y las inversiones en `state.settings.meta.investAccounts`,
+así que el mismo id significa cosas distintas y cada fila etiqueta la suya con
+`acctLabel()` o `investmentAccountName()` según su tipo.
 
 La app no recalcula ningún número del motor. Las funciones de la tarjeta de cuenta
 (`ddEngine`, `riskEngine`, `consistency`/`consEngine`, `gainCap`) son adaptadores de

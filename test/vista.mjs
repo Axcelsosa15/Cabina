@@ -35,7 +35,7 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
    como «ninguna de las siete pestanas se sale de la pantalla». Son ocho botones en
    #tabnav: cabina, futuros, edge, invest, playbook, ideas, estudio, calc.
    Como las demas, se mide en su estado VACIO: este archivo no siembra datos. */
-const TABS = ['cabina', 'futuros', 'edge', 'invest', 'playbook', 'ideas', 'estudio', 'calc'];
+const TABS = ['cabina', 'futuros', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc'];
 const ANCHOS = [[1440, 900, 'escritorio'], [834, 1000, 'tableta'], [430, 900, 'telefono']];
 
 const mide = p => p.evaluate(() => {

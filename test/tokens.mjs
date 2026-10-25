@@ -78,7 +78,7 @@ ok(perdidos.length === 0, 'ningún custom property queda sepultado en un comenta
 const srv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${srv.address().port}/`;
-const TABS = ['cabina', 'futuros', 'edge', 'invest', 'playbook', 'ideas', 'estudio', 'calc'];
+const TABS = ['cabina', 'futuros', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc'];
 
 const b = await chromium.launch();
 const pag = await (await b.newContext({ viewport: { width: 1500, height: 1000 } })).newPage();

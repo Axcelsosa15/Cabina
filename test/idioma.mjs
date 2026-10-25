@@ -94,11 +94,17 @@ console.log('\n═══ 2 · traducir no se lleva por delante lo que había den
   ok(antes.contador && despues.contador, 'el contador de operaciones sigue dentro del botón',
     `antes=${antes.contador} después=${despues.contador}`);
 
-  /* Las ocho pestañas, porque el modo de fallar no es «una se traduce mal»:
-     es «una se queda en español y parece que falta una traducción». */
+  /* TODAS las pestañas, porque el modo de fallar no es «una se traduce mal»:
+     es «una se queda en español y parece que falta una traducción».
+
+     La lista negra existe para las que NO llevan acento: sin ellas, una
+     pestaña sin traducir pasaba en verde porque su nombre español es
+     tipográficamente inocente. «Historial» es exactamente ese caso —además es
+     una palabra que un inglés casi entiende— así que va nombrada o no se
+     comprueba. Si añades una pestaña cuyo nombre no lleve acento, va aquí. */
   const pend = await p.evaluate(() => [...document.querySelectorAll('#tabnav .tabbtn')]
     .map(b => { const n = [...b.childNodes].find(x => x.nodeType === 3 && x.data.trim()); return n ? n.data.trim() : ''; })
-    .filter(t => /[áéíóúñÁÉÍÓÚÑ]/.test(t) || t === 'Futuros' || t === 'Inversiones' || t === 'Calculadora'));
+    .filter(t => /[áéíóúñÁÉÍÓÚÑ]/.test(t) || t === 'Futuros' || t === 'Inversiones' || t === 'Calculadora' || t === 'Historial'));
   ok(pend.length === 0, 'ninguna de las ocho pestañas se queda en español', pend.join(' | ') || 'ninguna');
   await ctx.close();
 }
