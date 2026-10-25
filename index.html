@@ -5428,7 +5428,7 @@ tbody tr:last-child td{border-bottom:0}
     const tabsWithTables = Array.from(document.querySelectorAll(".tab")).map(tab => ({
       tab,
       tabName: tab.dataset.tab || "cabina",
-      tabLabel: (document.querySelector('#tabnav .tabbtn[data-tab="' + (tab.dataset.tab || "cabina") + '"]')?.textContent || tab.dataset.tab || "Cabina").replace(/\\s+/g, " ").trim(),
+      tabLabel: (document.querySelector('#tabnav .tabbtn[data-tab="' + (tab.dataset.tab || "cabina") + '"]')?.textContent || tab.dataset.tab || "Cabina").replace(/\s+/g, " ").trim(),
       tables: Array.from(tab.querySelectorAll("table"))
     })).filter(item => item.tables.length);
     let columnCount = 0;
@@ -5451,7 +5451,7 @@ tbody tr:last-child td{border-bottom:0}
         heading.textContent = panel ? viewLabel(panel, tableIndex) : "Tabla " + (tableIndex + 1);
         group.append(heading);
         headers.forEach((th, columnIndex) => {
-          const labelText = th.textContent.replace(/\\s+/g, " ").trim() || ("Columna " + (columnIndex + 1));
+          const labelText = th.textContent.replace(/\s+/g, " ").trim() || ("Columna " + (columnIndex + 1));
           const key = columnSlug(labelText, columnIndex);
           const label = document.createElement("label"); label.className = "view-prefs-item view-prefs-column-item";
           const input = document.createElement("input"); input.type = "checkbox"; input.checked = !hiddenColumns.has(key);
