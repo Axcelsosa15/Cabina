@@ -336,6 +336,15 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      elige exactamente lo que el journal. Se llama `unificado` y no `historial`
      porque esa suite ya existe y vigila otra cosa. */
   dice('unificado', 'suite', 'El historial enseña las dos familias sin inventar una tercera lista', 'index.html');
+  /* EL CATÁLOGO DE 160 ESTADÍSTICAS. El riesgo no es que una fila salga mal:
+     es que salga PLAUSIBLE y distinta de la tarjeta que tiene quince
+     centímetros más arriba, y que la pantalla enseñe dos profit factors sin
+     que nadie lo note. Por eso lo que esta fila certifica no es la aritmética
+     —de eso ya responde `edge`— sino que las dos superficies salen del mismo
+     `mxCalc`, que las tres tasas de acierto siguen siendo tres, y que una
+     cifra que no se puede medir se imprime con un guion y su razón en vez de
+     con un cero creíble. */
+  dice('estadisticas', 'suite', 'El catálogo de estadísticas no contradice a las métricas que tiene encima', 'index.html');
 }
 
 /* ── LO QUE LA PLATAFORMA NO PERMITE COMPROBAR ───────────────────────────────
