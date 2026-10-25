@@ -54,6 +54,7 @@ if (await calcColumnToggles.count() > 0) {
 await page.locator('#viewPrefsDone').click();
 await page.click('.tabbtn[data-tab="cabina"]');
 await page.click('#viewPrefsOpen');
+ok(await page.locator('#viewPrefsList .view-prefs-table-group[data-view-tab="calc"] input[aria-label^="Mostrar columna"]').count() > 0, 'desde Cabina se pueden configurar las columnas de Calculadora sin cambiar de pestaña');
 
 await page.locator('#viewPrefsDone').click();
 await page.reload({ waitUntil: 'load' });
