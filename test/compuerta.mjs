@@ -334,8 +334,14 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      certifica no es que la tabla esté bien pintada, es que no calcula nada —
      cada subconjunto sale de `FUT.filtered()`, y con el tipo en «sólo futuros»
      elige exactamente lo que el journal. Se llama `unificado` y no `historial`
-     porque esa suite ya existe y vigila otra cosa. */
-  dice('unificado', 'suite', 'El historial enseña las dos familias sin inventar una tercera lista', 'index.html');
+     porque esa suite ya existe y vigila otra cosa.
+
+     Y desde que exporta, la fila certifica una segunda cosa con el mismo peso:
+     que el fichero sale de las OPERACIONES y salen TODAS. La tabla recorta a
+     250 filas; un export que copiara lo pintado daría 250 líneas de un
+     historial de mil sin decir que faltan setecientas cincuenta. La suite
+     siembra 260 a propósito para que la tabla recorte y el fichero no. */
+  dice('unificado', 'suite', 'El historial enseña las dos familias sin inventar una tercera lista, y las exporta enteras', 'index.html');
   /* EL CATÁLOGO DE 160 ESTADÍSTICAS. El riesgo no es que una fila salga mal:
      es que salga PLAUSIBLE y distinta de la tarjeta que tiene quince
      centímetros más arriba, y que la pantalla enseñe dos profit factors sin

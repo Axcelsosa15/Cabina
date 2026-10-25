@@ -96,26 +96,59 @@ for (const t of TABS) {
     const el = document.querySelector(`.tab[data-tab="${x}"]`);
     return el && el.classList.contains('active');
   }, t, { timeout: 10000 });
-  const r = await pag.evaluate(([tab, PRIM]) => {
+  /* ESPERAR A QUE EL COLOR DEJE DE MOVERSE, NO A QUE LA PESTAÑA ESTÉ ACTIVA.
+     `.tab.active` sólo dice que el panel se mostró; las transiciones de CSS
+     siguen corriendo encima. Muestreado ahí, `getComputedStyle` devuelve un
+     punto A MEDIO INTERPOLAR: se han leído `rgb(12, 17, 24)` y
+     `rgba(12, 18, 25, 0.996)` en los campos numéricos — valores que no están
+     en ninguna hoja de estilo, y una alfa de 0,996 no es una decisión de
+     diseño de nadie. La prueba caía entonces con «dos definiciones» de la
+     misma primitiva que en realidad eran la misma, fotografiada dos veces
+     durante el viaje.
+
+     `idioma.mjs` ya documenta este fallo desde el otro lado: quitó unas
+     escrituras en el DOM que reiniciaban las transiciones justo en esta
+     ventana. Lo que faltaba es esto, y es la misma regla que el resto de la
+     suite — esperar a la CONDICIÓN, no al reloj ni a una clase. Aquí la
+     condición es «el valor dejó de moverse»: dos muestras seguidas iguales,
+     separadas por un fotograma.
+
+     NO AFLOJA LO QUE SE MIDE. Dos primitivas con colores de verdad distintos
+     siguen dando dos valores asentados y la fila sigue roja; lo único que
+     desaparece es el tercer valor que no existía. */
+  const r = await pag.evaluate(async ([tab, PRIM]) => {
     const raiz = document.querySelector(`.tab[data-tab="${tab}"]`);
-    const out = {};
-    for (const [nombre, [sel, props]] of Object.entries(PRIM)) {
-      out[nombre] = [];
-      if (!raiz) continue;
-      for (const el of raiz.querySelectorAll(sel)) {
-        if (!el.offsetParent) continue;
-        const q = el.getBoundingClientRect();
-        if (!q.width || !q.height) continue;
-        const cs = getComputedStyle(el);
-        /* El color de un borde que no se dibuja no es un valor del sistema. */
-        if (nombre === 'celda con borde' && parseFloat(cs.borderBottomWidth) === 0) continue;
-        out[nombre].push({
-          id: `${el.tagName.toLowerCase()}${el.className ? '.' + String(el.className).trim().split(/\s+/).slice(0, 2).join('.') : ''}`,
-          v: Object.fromEntries(props.map(p => [p, cs.getPropertyValue(p)])),
-        });
+    const leer = () => {
+      const out = {};
+      for (const [nombre, [sel, props]] of Object.entries(PRIM)) {
+        out[nombre] = [];
+        if (!raiz) continue;
+        for (const el of raiz.querySelectorAll(sel)) {
+          if (!el.offsetParent) continue;
+          const q = el.getBoundingClientRect();
+          if (!q.width || !q.height) continue;
+          const cs = getComputedStyle(el);
+          /* El color de un borde que no se dibuja no es un valor del sistema. */
+          if (nombre === 'celda con borde' && parseFloat(cs.borderBottomWidth) === 0) continue;
+          out[nombre].push({
+            id: `${el.tagName.toLowerCase()}${el.className ? '.' + String(el.className).trim().split(/\s+/).slice(0, 2).join('.') : ''}`,
+            v: Object.fromEntries(props.map(p => [p, cs.getPropertyValue(p)])),
+          });
+        }
       }
+      return out;
+    };
+    const fotograma = () => new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+    /* Tope duro de un segundo: una transición que no termine nunca tiene que
+       salir como prueba lenta, no como prueba colgada. */
+    let prev = JSON.stringify(leer());
+    for (let i = 0; i < 60; i++) {
+      await fotograma();
+      const cur = JSON.stringify(leer());
+      if (cur === prev) break;
+      prev = cur;
     }
-    return out;
+    return JSON.parse(prev);
   }, [t, PRIM]);
   for (const [nombre, lista] of Object.entries(r)) {
     mapa[nombre] = mapa[nombre] || {};
