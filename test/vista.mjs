@@ -165,6 +165,16 @@ for (const [w, h, nombre] of ANCHOS) {
     ok(/MNQ/.test(quickPreview) && /12/.test(quickPreview), 'registro rápido funciona en móvil', quickPreview.replace(/\\s+/g, ' ').slice(0, 80));
     await p.click('#qkClose');
     await p.waitForFunction(() => !document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
+    await p.click('#quickBtn');
+    await p.waitForFunction(() => document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
+    await p.click('#qkModoNota');
+    await p.click('#qkClose');
+    await p.waitForFunction(() => !document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
+    await p.click('#quickBtn');
+    await p.waitForFunction(() => document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
+    ok(await p.locator('#qkNota').evaluate(el => document.activeElement === el), 'el modo Nota enfoca su campo al reabrir');
+    await p.keyboard.press('Escape');
+    await p.waitForFunction(() => !document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
   }
   console.log(`\n  ── ${nombre} ${w}×${h} ──────────────────────────────`);
   for (const t of TABS) {
