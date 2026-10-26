@@ -17811,6 +17811,12 @@ tbody tr:last-child td{border-bottom:0}
       trigger.classList.toggle("active", isSecondary);
       if (isSecondary) trigger.setAttribute("aria-current", "page");
       else trigger.removeAttribute("aria-current");
+      overlay.querySelectorAll("[data-mobile-more-tab]").forEach(button => {
+        const selected = !!(active && button.dataset.mobileMoreTab === active.dataset.tab);
+        button.classList.toggle("active", selected);
+        if (selected) button.setAttribute("aria-current", "page");
+        else button.removeAttribute("aria-current");
+      });
     }
     function closeMenu(restoreFocus = true) {
       if (overlay.hidden) return;
@@ -17843,6 +17849,7 @@ tbody tr:last-child td{border-bottom:0}
     nav.addEventListener("click", e => {
       if (e.target.closest(".tabbtn")) requestAnimationFrame(syncMoreActive);
     });
+    document.addEventListener("click", () => requestAnimationFrame(syncMoreActive));
     window.addEventListener("hashchange", syncMoreActive);
     window.addEventListener("resize", () => { if (window.innerWidth > 700) closeMenu(false); });
     document.addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.hidden) closeMenu(); });
@@ -18387,7 +18394,7 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
     #tabnav .tabbtn[data-tab="ideas"]::after { content: "Ideas"; }
     #tabnav .tabbtn[data-tab="estudio"]::after { content: "Estudio"; }
     #tabnav .tabbtn[data-tab="calc"]::after { content: "Calc"; }
-    #tabnav .tabbtn .n { position: absolute; top: 2px; right: 9px; min-width: 14px; padding: 1px 3px; border-radius: 9px; font-size: 9px; line-height: 1.25; background: var(--surface-3, #242d38); }
+    #tabnav .tabbtn .n { position: absolute; top: 2px; right: 4px; min-width: 14px; padding: 1px 3px; border-radius: 9px; font-size: 9px; line-height: 1.25; background: var(--surface-3, #242d38); }
     #quickBtn {
       position: fixed; right: 12px; bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
       z-index: 75; min-height: 46px; padding: 0 16px; border: 1px solid rgba(112,224,207,.42);
@@ -18488,7 +18495,7 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
     background: var(--surface-2, #18212c); color: var(--text, #e4ebf2); text-align: left;
     font-size: 13px; line-height: 1.25; white-space: normal;
   }
-  #mobileMoreOv [data-mobile-more-tab]:active { border-color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); }
+  #mobileMoreOv [data-mobile-more-tab]:active, #mobileMoreOv [data-mobile-more-tab].active { border-color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); color: var(--accent, #70e0cf); }
 }
 @media (min-width: 701px) {
   #mobileMoreBtn, #mobileMoreOv { display: none !important; }
