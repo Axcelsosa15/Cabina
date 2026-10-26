@@ -18417,7 +18417,10 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
     .qk input:not([type="checkbox"]):not([type="radio"]), .qk select, .qk textarea { min-height: 44px; font-size: 16px; }
     .ed > footer button, .qk button, .btn, .editbtn { min-height: 44px; }
     table { max-width: 100%; }
-    .panel table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .panel .twrap { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .panel .twrap > table { display: table; width: max-content; min-width: 100%; max-width: none; }
+    .panel table.t { display: table; max-width: 100%; }
+    .panel table.qsweep { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     img, canvas, video, svg { max-width: 100%; }
     .study-hero, .study-grid, .study-bottom, .study-fields, .study-protocol { grid-template-columns: minmax(0, 1fr); }
     .study-field.full { grid-column: auto; }
