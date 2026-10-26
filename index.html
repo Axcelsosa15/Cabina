@@ -2131,7 +2131,27 @@ tbody tr:last-child td{border-bottom:0}
   <button class="tabbtn" data-tab="ideas">Formas de hacer dinero<span class="n" id="nIdeas"></span></button>
   <button class="tabbtn" data-tab="estudio">Estudio<span class="n" id="nResearch"></span></button>
   <button class="tabbtn" data-tab="calc">Calculadora</button>
+
+  <button type="button" id="mobileMoreBtn" aria-label="Más secciones" aria-expanded="false" aria-controls="mobileMoreOv">Más</button>
 </nav>
+
+<div id="mobileMoreOv" class="mobile-more-ov" hidden>
+  <button type="button" class="mobile-more-backdrop" data-mobile-more-close aria-label="Cerrar menú Más"></button>
+  <section class="mobile-more-sheet" role="dialog" aria-modal="true" aria-labelledby="mobileMoreTitle" tabindex="-1">
+    <header class="mobile-more-head">
+      <h2 id="mobileMoreTitle">Más secciones</h2>
+      <button type="button" class="mobile-more-close" id="mobileMoreClose" data-mobile-more-close aria-label="Cerrar">×</button>
+    </header>
+    <div class="mobile-more-grid">
+      <button type="button" data-mobile-more-tab="cuentas">Cuentas</button>
+      <button type="button" data-mobile-more-tab="edge">Métricas / Edge</button>
+      <button type="button" data-mobile-more-tab="playbook">Playbook</button>
+      <button type="button" data-mobile-more-tab="ideas">Formas de hacer dinero</button>
+      <button type="button" data-mobile-more-tab="calc">Calculadora</button>
+    </div>
+  </section>
+</div>
+
 <div class="demobar" id="demoBar" hidden>
   <b>Modo demo</b>
   <span>Todo lo que ves está inventado para revisar el diseño: operaciones, setups, cuentas, niveles y cartera. <b>No se guarda nada</b>: al salir vuelven tus datos reales intactos.</span>
@@ -17768,6 +17788,60 @@ tbody tr:last-child td{border-bottom:0}
   i18nArranca();
 
 })();
+
+  /* Navegación móvil «Más»: reutiliza los botones originales y showTab(), sin duplicar rutas ni estado. */
+  (function mobileMoreMenu() {
+    const nav = document.getElementById("tabnav");
+    const trigger = document.getElementById("mobileMoreBtn");
+    const overlay = document.getElementById("mobileMoreOv");
+    const close = document.getElementById("mobileMoreClose");
+    if (!nav || !trigger || !overlay || !close) return;
+    const secondary = new Set(["cuentas", "edge", "playbook", "ideas", "calc"]);
+    let previousOverflow = "";
+    function syncMoreActive() {
+      const active = nav.querySelector(".tabbtn.active");
+      const isSecondary = !!(active && secondary.has(active.dataset.tab));
+      trigger.classList.toggle("active", isSecondary);
+      if (isSecondary) trigger.setAttribute("aria-current", "page");
+      else trigger.removeAttribute("aria-current");
+    }
+    function closeMenu(restoreFocus = true) {
+      if (overlay.hidden) return;
+      overlay.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+      document.body.style.overflow = previousOverflow;
+      if (restoreFocus && window.innerWidth <= 700) trigger.focus();
+    }
+    function openMenu() {
+      previousOverflow = document.body.style.overflow;
+      overlay.hidden = false;
+      trigger.setAttribute("aria-expanded", "true");
+      document.body.style.overflow = "hidden";
+      close.focus();
+    }
+    trigger.addEventListener("click", openMenu);
+    close.addEventListener("click", () => closeMenu());
+    overlay.addEventListener("click", e => {
+      if (e.target === overlay || e.target.closest("[data-mobile-more-close]")) closeMenu();
+    });
+    overlay.querySelectorAll("[data-mobile-more-tab]").forEach(button => {
+      button.addEventListener("click", () => {
+        const target = nav.querySelector('.tabbtn[data-tab="' + button.dataset.mobileMoreTab + '"]');
+        if (!target) return;
+        target.click();
+        syncMoreActive();
+        closeMenu();
+      });
+    });
+    nav.addEventListener("click", e => {
+      if (e.target.closest(".tabbtn")) requestAnimationFrame(syncMoreActive);
+    });
+    window.addEventListener("hashchange", syncMoreActive);
+    window.addEventListener("resize", () => { if (window.innerWidth > 700) closeMenu(false); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.hidden) closeMenu(); });
+    syncMoreActive();
+  })();
+
 </script>
 
 <style id="cabina-unified-estudio-system">
@@ -18260,6 +18334,165 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
      que hay que ver, y partirlo lo escondería. */
   .save-state.nosave { flex: 1 1 100%; }
 }
+@media (max-width: 700px) {
+    :root { --mobile-nav-h: 68px; }
+    html { scroll-padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 20px); }
+    body { overflow-x: clip; padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 24px); }
+    .tabnav#tabnav {
+      position: fixed; inset: auto 0 0; z-index: 80; display: flex; align-items: stretch;
+      gap: 2px; width: 100%; height: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px)); margin: 0;
+      padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px)); overflow-x: auto; overflow-y: hidden;
+      overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+      background: rgba(11,14,19,.96); border-top: 1px solid var(--line-strong, #303946);
+      border-bottom: 0; backdrop-filter: blur(20px); box-sizing: border-box;
+    }
+    .tabnav#tabnav::-webkit-scrollbar { display: none; }
+    #tabnav .tabbtn {
+      flex: 0 0 72px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+      gap: 5px; min-width: 72px; min-height: 44px; padding: 5px 3px 7px;
+      border: 1px solid transparent; border-radius: 10px; font-size: 10px; line-height: 1.1;
+      letter-spacing: -.01em; white-space: nowrap; text-align: center; background: transparent;
+      color: var(--muted, #a5adbb); scroll-snap-align: center;
+    }
+    #tabnav .tabbtn::before { display: block; font-size: 17px; line-height: 1; font-weight: 500; color: currentColor; }
+    #tabnav .tabbtn[data-tab="cabina"]::before { content: "⌂"; }
+    #tabnav .tabbtn[data-tab="futuros"]::before { content: "↗"; }
+    #tabnav .tabbtn[data-tab="cuentas"]::before { content: "◷"; }
+    #tabnav .tabbtn[data-tab="edge"]::before { content: "◫"; }
+    #tabnav .tabbtn[data-tab="invest"]::before { content: "◈"; }
+    #tabnav .tabbtn[data-tab="playbook"]::before { content: "▤"; }
+    #tabnav .tabbtn[data-tab="ideas"]::before { content: "✳"; }
+    #tabnav .tabbtn[data-tab="estudio"]::before { content: "◎"; }
+    #tabnav .tabbtn[data-tab="calc"]::before { content: "＋"; }
+    #tabnav .tabbtn.active { color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); border-color: rgba(112,224,207,.22); }
+    #tabnav .tabbtn { font-size: 0; }
+    #tabnav .tabbtn::after {
+      display: block; position: static; inset: auto; width: auto; height: auto; margin: 0;
+      background: none; border-radius: 0; box-shadow: none; opacity: 1; transform: none;
+      font-size: 10px; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap;
+    }
+    #tabnav .tabbtn[data-tab="cabina"]::after { content: "Cabina"; }
+    #tabnav .tabbtn[data-tab="futuros"]::after { content: "Futuros"; }
+    #tabnav .tabbtn[data-tab="cuentas"]::after { content: "Cuentas"; }
+    #tabnav .tabbtn[data-tab="edge"]::after { content: "Edge"; }
+    #tabnav .tabbtn[data-tab="invest"]::after { content: "Invertir"; }
+    #tabnav .tabbtn[data-tab="playbook"]::after { content: "Playbook"; }
+    #tabnav .tabbtn[data-tab="ideas"]::after { content: "Ideas"; }
+    #tabnav .tabbtn[data-tab="estudio"]::after { content: "Estudio"; }
+    #tabnav .tabbtn[data-tab="calc"]::after { content: "Calc"; }
+    #tabnav .tabbtn .n { position: absolute; top: 2px; right: 9px; min-width: 14px; padding: 1px 3px; border-radius: 9px; font-size: 9px; line-height: 1.25; background: var(--surface-3, #242d38); }
+    #quickBtn {
+      position: fixed; right: 12px; bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
+      z-index: 75; min-height: 46px; padding: 0 16px; border: 1px solid rgba(112,224,207,.42);
+      border-radius: 999px; background: var(--accent, #70e0cf); color: #07120f; font-size: 13px;
+      font-weight: 750; box-shadow: 0 8px 28px rgba(0,0,0,.35), 0 0 0 4px rgba(112,224,207,.08);
+    }
+    #quickBtn:active { transform: translateY(1px) scale(.98); }
+    .topbar, .topbar > *, .clock, .brand, .hgroup, .toolbar { min-width: 0; }
+    .tab, .tab > *, .panel, .panel > header, .panel > .body, .study-shell, .study-grid, .study-bottom, .deck { min-width: 0; max-width: 100%; }
+    .panel > header { flex-wrap: wrap; gap: 8px 10px; }
+    .panel > header h2 { overflow-wrap: anywhere; }
+    .toolbar, .hgroup, .actions, .filters, .jactions { flex-wrap: wrap; }
+    input:not([type="checkbox"]):not([type="radio"]), select, textarea, .btn, button.editbtn, .icon, .tabbtn {
+      scroll-margin-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
+    }
+    input:not([type="checkbox"]):not([type="radio"]), select, textarea { max-width: 100%; }
+    .ed, .ov, .dialog, [role="dialog"] { overscroll-behavior: contain; }
+    .ov { z-index: 100; } /* los diálogos deben quedar por encima de la navegación inferior */
+    .ed input:not([type="checkbox"]):not([type="radio"]), .ed select, .ed textarea,
+    .qk input:not([type="checkbox"]):not([type="radio"]), .qk select, .qk textarea { min-height: 44px; font-size: 16px; }
+    .ed > footer button, .qk button, .btn, .editbtn { min-height: 44px; }
+    table { max-width: 100%; }
+    .panel table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    img, canvas, video, svg { max-width: 100%; }
+    .study-hero, .study-grid, .study-bottom, .study-fields, .study-protocol { grid-template-columns: minmax(0, 1fr); }
+    .study-field.full { grid-column: auto; }
+    .study-toolbar { flex-wrap: wrap; }
+  }
+  @media (max-width: 380px) {
+    #tabnav .tabbtn { flex-basis: 68px; min-width: 68px; }
+    #quickBtn { right: 9px; padding-inline: 13px; }
+    .panel > header, .panel .body { padding-inline: 12px; }
+    .ed .fields { padding: 12px; }
+  }
+  @media (min-width: 701px) { #quickBtn { position: relative; } }
+  @media (prefers-reduced-motion: reduce) { #tabnav .tabbtn, #quickBtn { transition: none !important; animation: none !important; } }
+
+  @media (max-width: 700px) {
+    .empty, .deck-parts { min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: normal; white-space: normal; }
+    .tab[data-tab="cabina"] .deck-parts { white-space: normal; }
+    .tab[data-tab="estudio"] .deck-parts { display: block; width: 100%; flex: 1 1 100%; margin-left: 0; }
+    .tab[data-tab="playbook"] p.empty, .tab[data-tab="ideas"] p.empty {
+      display: block; box-sizing: border-box; min-width: 0; width: calc(100vw - 40px);
+      max-width: calc(100vw - 40px); white-space: normal; overflow-wrap: anywhere;
+      word-break: break-word; margin-right: 0;
+    }
+    .tab[data-tab="playbook"] .empty, .tab[data-tab="ideas"] .empty {
+      min-width: 0; max-width: calc(100vw - 40px); box-sizing: border-box;
+      white-space: normal; overflow-wrap: anywhere;
+    }
+    .tab[data-tab="playbook"] .empty code, .tab[data-tab="ideas"] .empty code { white-space: normal; overflow-wrap: anywhere; }
+  }
+
+
+
+@media (max-width: 700px) {
+  .tabnav#tabnav { overflow-x: hidden; justify-content: space-between; }
+  #tabnav .tabbtn { position: relative; }
+  #tabnav .tabbtn[data-tab="cuentas"],
+  #tabnav .tabbtn[data-tab="edge"],
+  #tabnav .tabbtn[data-tab="playbook"],
+  #tabnav .tabbtn[data-tab="ideas"],
+  #tabnav .tabbtn[data-tab="calc"] { display: none !important; }
+  #tabnav .tabbtn[data-tab="cabina"],
+  #tabnav .tabbtn[data-tab="futuros"],
+  #tabnav .tabbtn[data-tab="invest"],
+  #tabnav .tabbtn[data-tab="estudio"] { flex: 1 1 0; min-width: 0; }
+  #tabnav .tabbtn .n:empty { display: none; }
+  #tabnav #mobileMoreBtn {
+    display: flex; flex: 1 1 0; min-width: 0; min-height: 44px; padding: 5px 3px 7px;
+    flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+    border: 1px solid transparent; border-radius: 10px; background: transparent;
+    color: var(--muted, #a5adbb); font-size: 0; line-height: 1.1; white-space: nowrap;
+  }
+  #tabnav #mobileMoreBtn::before { content: "⋯"; display: block; font-size: 19px; line-height: 1; }
+  #tabnav #mobileMoreBtn::after {
+    content: "Más"; display: block; position: static; inset: auto; width: auto; height: auto;
+    margin: 0; background: none; border-radius: 0; box-shadow: none; opacity: 1; transform: none;
+    font-size: 10px; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap;
+  }
+  #tabnav #mobileMoreBtn.active { color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); border-color: rgba(112,224,207,.22); }
+  #mobileMoreOv {
+    position: fixed; inset: 0; z-index: 120; display: flex; align-items: flex-end; justify-content: center;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: rgba(3, 6, 12, .72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  }
+  #mobileMoreOv[hidden] { display: none !important; }
+  #mobileMoreOv .mobile-more-backdrop {
+    position: absolute; inset: 0; width: 100%; height: 100%; padding: 0;
+    border: 0; border-radius: 0; background: transparent;
+  }
+  #mobileMoreOv .mobile-more-sheet {
+    position: relative; width: min(100%, 520px); max-height: min(72dvh, 620px); overflow-y: auto;
+    padding: 16px; border: 1px solid var(--line-strong, #303946); border-radius: 18px;
+    background: var(--surface, #111821); box-shadow: 0 18px 50px rgba(0,0,0,.45);
+  }
+  #mobileMoreOv .mobile-more-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  #mobileMoreOv .mobile-more-head h2 { margin: 0; font-size: 13px; letter-spacing: .04em; }
+  #mobileMoreOv .mobile-more-close { min-width: 44px; min-height: 44px; }
+  #mobileMoreOv .mobile-more-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  #mobileMoreOv [data-mobile-more-tab] {
+    display: flex; align-items: center; justify-content: flex-start; min-width: 0; min-height: 52px;
+    width: 100%; padding: 12px; border: 1px solid var(--line-strong, #303946); border-radius: 12px;
+    background: var(--surface-2, #18212c); color: var(--text, #e4ebf2); text-align: left;
+    font-size: 13px; line-height: 1.25; white-space: normal;
+  }
+  #mobileMoreOv [data-mobile-more-tab]:active { border-color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); }
+}
+@media (min-width: 701px) {
+  #mobileMoreBtn, #mobileMoreOv { display: none !important; }
+}
+
 </style>
 
 </body>
