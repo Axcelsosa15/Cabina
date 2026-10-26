@@ -17846,7 +17846,7 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
     body { overflow-x: clip; padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 24px); }
     .tabnav#tabnav {
       position: fixed; inset: auto 0 0; z-index: 80; display: flex; align-items: stretch;
-      gap: 2px; width: 100%; height: var(--mobile-nav-h); margin: 0;
+      gap: 2px; width: 100%; height: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px)); margin: 0;
       padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px)); overflow-x: auto; overflow-y: hidden;
       overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none;
       background: rgba(11,14,19,.96); border-top: 1px solid var(--line-strong, #303946);
