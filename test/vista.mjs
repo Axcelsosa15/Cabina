@@ -116,7 +116,7 @@ for (const [w, h, nombre] of ANCHOS) {
     ok(mobile.minTouchHeight >= 44, 'objetivos táctiles de navegación ≥44px', String(mobile.minTouchHeight) + 'px');
     ok(mobile.pageOverflow <= 2, 'documento sin desborde horizontal', String(mobile.pageOverflow) + 'px');
   }
-  console.log(`\\n  ── ${nombre} ${w}×${h} ──────────────────────────────`);
+  console.log(`\n  ── ${nombre} ${w}×${h} ──────────────────────────────`);
   for (const t of TABS) {
     await p.click(`[data-tab="${t}"]`); await p.waitForTimeout(320);
     const m = await mide(p);
