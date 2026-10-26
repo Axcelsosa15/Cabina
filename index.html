@@ -10636,7 +10636,8 @@ tbody tr:last-child td{border-bottom:0}
     $("quickBtn").setAttribute("aria-expanded", "true");
     qkModo(qk.draftMode || "op"); qkPinta();
     if (qk.modo === "nota") $("qkSave").disabled = !$("qkNota").value.trim();
-    $("qkText").focus({ preventScroll: true });
+    const focusTarget = qk.modo === "nota" ? $("qkNota") : $("qkText");
+    focusTarget.focus({ preventScroll: true });
   }
   function qkLimpiarBorrador() {
     qk.draftText = ""; qk.draftNote = ""; qk.draftCal = ""; qk.draftTags = []; qk.draftMode = "op";
