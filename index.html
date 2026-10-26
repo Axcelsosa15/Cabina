@@ -10496,7 +10496,7 @@ tbody tr:last-child td{border-bottom:0}
      «ver qué error se repite». No es una taxonomía nueva. */
   const QK_TAGS = ["fomo", "forzada", "entrada temprana", "entrada tarde", "revenge", "según el plan"];
   const QK_CAL = [["A", "A · según protocolo"], ["B", "B · desviación menor"], ["C", "C · fuera del protocolo"]];
-  const qk = { cal: "", tags: [], modo: "op", ultimo: null };
+  const qk = { cal: "", tags: [], modo: "op", ultimo: null, draftText: "", draftNote: "", draftCal: "", draftTags: [], draftMode: "op" };
 
   function qkHoraET() { const n = etNow(); return `${String(Math.floor(n.min / 60)).padStart(2, "0")}:${String(n.min % 60).padStart(2, "0")}`; }
   /* Un número con o sin signo, con $ y separadores de miles. Devuelve null si no lo es. */
@@ -10601,7 +10601,7 @@ tbody tr:last-child td{border-bottom:0}
     if (qk.tags.length) rec.tags = qk.tags.join(", ");
     coll("trades").set(rec.id, rec);
     qk.ultimo = rec.id;
-    qkCierra();
+    qkLimpiarBorrador(); qkCierra();
     if (abrirDetalles) { const t = coll("trades").get(rec.id); if (t) openTrade(t); return; }
     revealTrade(rec);
     flash(`${rec.instrument} ${(rec.pnl >= 0 ? "+" : "") + money(rec.pnl)} registrada · rápida`);
@@ -10613,10 +10613,10 @@ tbody tr:last-child td{border-bottom:0}
     state.day.note = prev ? prev.replace(/\s+$/, "") + "\n" + txt : txt;
     persistDay();
     if (typeof renderJournalDay === "function") renderJournalDay();
-    qkCierra(); flash("añadido a la nota del día");
+    qkLimpiarBorrador(); qkCierra(); flash("añadido a la nota del día");
   }
   function qkModo(m) {
-    qk.modo = m;
+    qk.modo = m; qk.draftMode = m;
     $("qkOp").hidden = m !== "op"; $("qkNotaBox").hidden = m !== "nota";
     $("qkModoOp").classList.toggle("active", m === "op");
     $("qkModoNota").classList.toggle("active", m === "nota");
@@ -10627,31 +10627,38 @@ tbody tr:last-child td{border-bottom:0}
     (m === "op" ? $("qkText") : $("qkNota")).focus();
   }
   function qkAbre() {
-    qk.cal = ""; qk.tags = [];
-    $("qkText").value = ""; $("qkNota").value = "";
-    $("qkCal").innerHTML = QK_CAL.map(([v, l]) => `<button type="button" class="qkchip" data-cal="${v}" aria-pressed="false">${esc(l)}</button>`).join("");
-    $("qkTags").innerHTML = QK_TAGS.map(t => `<button type="button" class="qkchip" data-tag="${esc(t)}" aria-pressed="false">${esc(t)}</button>`).join("");
+    qk.cal = qk.draftCal || "";
+    qk.tags = Array.isArray(qk.draftTags) ? qk.draftTags.slice() : [];
+    $("qkText").value = qk.draftText || ""; $("qkNota").value = qk.draftNote || "";
+    $("qkCal").innerHTML = QK_CAL.map(([v, l]) => `<button type="button" class="qkchip" data-cal="${v}" aria-pressed="${String(qk.cal === v)}">${esc(l)}</button>`).join("");
+    $("qkTags").innerHTML = QK_TAGS.map(t => `<button type="button" class="qkchip" data-tag="${esc(t)}" aria-pressed="${String(qk.tags.includes(t))}">${esc(t)}</button>`).join("");
     $("quickOv").classList.add("open");
-    qkModo("op"); qkPinta();
+    qkModo(qk.draftMode || "op"); qkPinta();
+    if (qk.modo === "nota") $("qkSave").disabled = !$("qkNota").value.trim();
   }
+  function qkLimpiarBorrador() {
+    qk.draftText = ""; qk.draftNote = ""; qk.draftCal = ""; qk.draftTags = []; qk.draftMode = "op";
+    qk.cal = ""; qk.tags = []; qk.modo = "op";
+  }
+  function qkDescarta() { qkLimpiarBorrador(); qkCierra(); }
   function qkCierra() { $("quickOv").classList.remove("open"); }
 
   $("quickBtn").addEventListener("click", qkAbre);
   $("qkClose").addEventListener("click", qkCierra);
-  $("qkCancel").addEventListener("click", qkCierra);
+  $("qkCancel").addEventListener("click", qkDescarta);
   $("quickOv").addEventListener("click", e => { if (e.target === $("quickOv")) qkCierra(); });
-  $("qkText").addEventListener("input", qkPinta);
-  $("qkNota").addEventListener("input", () => { $("qkSave").disabled = !$("qkNota").value.trim(); });
+  $("qkText").addEventListener("input", () => { qk.draftText = $("qkText").value; qkPinta(); });
+  $("qkNota").addEventListener("input", () => { qk.draftNote = $("qkNota").value; $("qkSave").disabled = !$("qkNota").value.trim(); });
   $("qkModoOp").addEventListener("click", () => qkModo("op"));
   $("qkModoNota").addEventListener("click", () => qkModo("nota"));
   $("qkSave").addEventListener("click", () => { if (qk.modo === "nota") qkGuardaNota(); else qkGuarda(false); });
   $("qkDetalles").addEventListener("click", () => qkGuarda(true));
   $("qkCal").addEventListener("click", e => { const b = e.target.closest("[data-cal]"); if (!b) return;
-    qk.cal = qk.cal === b.dataset.cal ? "" : b.dataset.cal;
+    qk.cal = qk.cal === b.dataset.cal ? "" : b.dataset.cal; qk.draftCal = qk.cal;
     Array.prototype.forEach.call($("qkCal").children, x => x.setAttribute("aria-pressed", String(x.dataset.cal === qk.cal))); });
   $("qkTags").addEventListener("click", e => { const b = e.target.closest("[data-tag]"); if (!b) return;
     const t = b.dataset.tag, i = qk.tags.indexOf(t);
-    if (i >= 0) qk.tags.splice(i, 1); else qk.tags.push(t);
+    if (i >= 0) qk.tags.splice(i, 1); else qk.tags.push(t); qk.draftTags = qk.tags.slice();
     b.setAttribute("aria-pressed", String(i < 0)); });
   /* Enter guarda si se puede; Escape cierra. Un registro rápido que pide ratón no
      es rápido. */
@@ -18491,6 +18498,21 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
 }
 @media (min-width: 701px) {
   #mobileMoreBtn, #mobileMoreOv { display: none !important; }
+}
+/* Evita que estilos de display explícitos anulen el atributo hidden del menú. */
+#mobileMoreOv[hidden] { display: none !important; }
+/* Texto de estados vacíos limitado al viewport en pantallas estrechas. */
+@media (max-width: 700px) {
+  .tab[data-tab="playbook"] .empty,
+  .tab[data-tab="ideas"] .empty {
+    display: block; width: 100%; min-width: 0;
+    max-width: calc(100vw - 32px); box-sizing: border-box;
+    white-space: normal; overflow-wrap: anywhere; word-break: normal;
+  }
+  .tab[data-tab="playbook"] .empty *,
+  .tab[data-tab="ideas"] .empty * {
+    max-width: 100%; white-space: normal; overflow-wrap: anywhere;
+  }
 }
 
 </style>
