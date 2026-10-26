@@ -17870,7 +17870,20 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
     #tabnav .tabbtn[data-tab="estudio"]::before { content: "◎"; }
     #tabnav .tabbtn[data-tab="calc"]::before { content: "＋"; }
     #tabnav .tabbtn.active { color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); border-color: rgba(112,224,207,.22); }
-    #tabnav .tabbtn::after { display: none; }
+    #tabnav .tabbtn { font-size: 0; }
+    #tabnav .tabbtn::after {
+      display: block; position: static; inset: auto; width: auto; height: auto; margin: 0;
+      background: none; border-radius: 0; box-shadow: none; opacity: 1; transform: none;
+      font-size: 10px; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap;
+    }
+    #tabnav .tabbtn[data-tab="cabina"]::after { content: "Cabina"; }
+    #tabnav .tabbtn[data-tab="futuros"]::after { content: "Futuros"; }
+    #tabnav .tabbtn[data-tab="edge"]::after { content: "Edge"; }
+    #tabnav .tabbtn[data-tab="invest"]::after { content: "Invertir"; }
+    #tabnav .tabbtn[data-tab="playbook"]::after { content: "Playbook"; }
+    #tabnav .tabbtn[data-tab="ideas"]::after { content: "Ideas"; }
+    #tabnav .tabbtn[data-tab="estudio"]::after { content: "Estudio"; }
+    #tabnav .tabbtn[data-tab="calc"]::after { content: "Calc"; }
     #tabnav .tabbtn .n { position: absolute; top: 2px; right: 9px; min-width: 14px; padding: 1px 3px; border-radius: 9px; font-size: 9px; line-height: 1.25; background: var(--surface-3, #242d38); }
     #quickBtn {
       position: fixed; right: 12px; bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
