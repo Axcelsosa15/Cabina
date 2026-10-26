@@ -18260,6 +18260,101 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
      que hay que ver, y partirlo lo escondería. */
   .save-state.nosave { flex: 1 1 100%; }
 }
+@media (max-width: 700px) {
+    :root { --mobile-nav-h: 68px; }
+    html { scroll-padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 20px); }
+    body { overflow-x: clip; padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 24px); }
+    .tabnav#tabnav {
+      position: fixed; inset: auto 0 0; z-index: 80; display: flex; align-items: stretch;
+      gap: 2px; width: 100%; height: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px)); margin: 0;
+      padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px)); overflow-x: auto; overflow-y: hidden;
+      overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+      background: rgba(11,14,19,.96); border-top: 1px solid var(--line-strong, #303946);
+      border-bottom: 0; backdrop-filter: blur(20px); box-sizing: border-box;
+    }
+    .tabnav#tabnav::-webkit-scrollbar { display: none; }
+    #tabnav .tabbtn {
+      flex: 0 0 72px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+      gap: 5px; min-width: 72px; min-height: 44px; padding: 5px 3px 7px;
+      border: 1px solid transparent; border-radius: 10px; font-size: 10px; line-height: 1.1;
+      letter-spacing: -.01em; white-space: nowrap; text-align: center; background: transparent;
+      color: var(--muted, #a5adbb); scroll-snap-align: center;
+    }
+    #tabnav .tabbtn::before { display: block; font-size: 17px; line-height: 1; font-weight: 500; color: currentColor; }
+    #tabnav .tabbtn[data-tab="cabina"]::before { content: "⌂"; }
+    #tabnav .tabbtn[data-tab="futuros"]::before { content: "↗"; }
+    #tabnav .tabbtn[data-tab="cuentas"]::before { content: "◷"; }
+    #tabnav .tabbtn[data-tab="edge"]::before { content: "◫"; }
+    #tabnav .tabbtn[data-tab="invest"]::before { content: "◈"; }
+    #tabnav .tabbtn[data-tab="playbook"]::before { content: "▤"; }
+    #tabnav .tabbtn[data-tab="ideas"]::before { content: "✳"; }
+    #tabnav .tabbtn[data-tab="estudio"]::before { content: "◎"; }
+    #tabnav .tabbtn[data-tab="calc"]::before { content: "＋"; }
+    #tabnav .tabbtn.active { color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); border-color: rgba(112,224,207,.22); }
+    #tabnav .tabbtn { font-size: 0; }
+    #tabnav .tabbtn::after {
+      display: block; position: static; inset: auto; width: auto; height: auto; margin: 0;
+      background: none; border-radius: 0; box-shadow: none; opacity: 1; transform: none;
+      font-size: 10px; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap;
+    }
+    #tabnav .tabbtn[data-tab="cabina"]::after { content: "Cabina"; }
+    #tabnav .tabbtn[data-tab="futuros"]::after { content: "Futuros"; }
+    #tabnav .tabbtn[data-tab="cuentas"]::after { content: "Cuentas"; }
+    #tabnav .tabbtn[data-tab="edge"]::after { content: "Edge"; }
+    #tabnav .tabbtn[data-tab="invest"]::after { content: "Invertir"; }
+    #tabnav .tabbtn[data-tab="playbook"]::after { content: "Playbook"; }
+    #tabnav .tabbtn[data-tab="ideas"]::after { content: "Ideas"; }
+    #tabnav .tabbtn[data-tab="estudio"]::after { content: "Estudio"; }
+    #tabnav .tabbtn[data-tab="calc"]::after { content: "Calc"; }
+    #tabnav .tabbtn .n { position: absolute; top: 2px; right: 9px; min-width: 14px; padding: 1px 3px; border-radius: 9px; font-size: 9px; line-height: 1.25; background: var(--surface-3, #242d38); }
+    #quickBtn {
+      position: fixed; right: 12px; bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
+      z-index: 75; min-height: 46px; padding: 0 16px; border: 1px solid rgba(112,224,207,.42);
+      border-radius: 999px; background: var(--accent, #70e0cf); color: #07120f; font-size: 13px;
+      font-weight: 750; box-shadow: 0 8px 28px rgba(0,0,0,.35), 0 0 0 4px rgba(112,224,207,.08);
+    }
+    #quickBtn:active { transform: translateY(1px) scale(.98); }
+    .topbar, .topbar > *, .clock, .brand, .hgroup, .toolbar { min-width: 0; }
+    .tab, .tab > *, .panel, .panel > header, .panel > .body, .study-shell, .study-grid, .study-bottom, .deck { min-width: 0; max-width: 100%; }
+    .panel > header { flex-wrap: wrap; gap: 8px 10px; }
+    .panel > header h2 { overflow-wrap: anywhere; }
+    .toolbar, .hgroup, .actions, .filters, .jactions { flex-wrap: wrap; }
+    input:not([type="checkbox"]):not([type="radio"]), select, textarea, .btn, button.editbtn, .icon, .tabbtn {
+      scroll-margin-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
+    }
+    input:not([type="checkbox"]):not([type="radio"]), select, textarea { max-width: 100%; }
+    .ed, .ov, .dialog, [role="dialog"] { overscroll-behavior: contain; }
+    .ov { z-index: 100; } /* los diálogos deben quedar por encima de la navegación inferior */
+    .ed input:not([type="checkbox"]):not([type="radio"]), .ed select, .ed textarea,
+    .qk input:not([type="checkbox"]):not([type="radio"]), .qk select, .qk textarea { min-height: 44px; font-size: 16px; }
+    .ed > footer button, .qk button, .btn, .editbtn { min-height: 44px; }
+    table { max-width: 100%; }
+    .panel table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    img, canvas, video, svg { max-width: 100%; }
+    .study-hero, .study-grid, .study-bottom, .study-fields, .study-protocol { grid-template-columns: minmax(0, 1fr); }
+    .study-field.full { grid-column: auto; }
+    .study-toolbar { flex-wrap: wrap; }
+  }
+  @media (max-width: 380px) {
+    #tabnav .tabbtn { flex-basis: 68px; min-width: 68px; }
+    #quickBtn { right: 9px; padding-inline: 13px; }
+    .panel > header, .panel .body { padding-inline: 12px; }
+    .ed .fields { padding: 12px; }
+  }
+  @media (min-width: 701px) { #quickBtn { position: relative; } }
+  @media (prefers-reduced-motion: reduce) { #tabnav .tabbtn, #quickBtn { transition: none !important; animation: none !important; } }
+
+  @media (max-width: 700px) {
+    .empty, .deck-parts { min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: normal; white-space: normal; }
+    .tab[data-tab="cabina"] .deck-parts { white-space: normal; }
+    .tab[data-tab="estudio"] .deck-parts { display: block; width: 100%; flex: 1 1 100%; margin-left: 0; }
+    .tab[data-tab="playbook"] .empty, .tab[data-tab="ideas"] .empty {
+      display: block; width: 100%; box-sizing: border-box; white-space: normal; overflow-wrap: anywhere;
+    }
+    .tab[data-tab="playbook"] .empty code, .tab[data-tab="ideas"] .empty code { white-space: normal; overflow-wrap: anywhere; }
+  }
+
+
 </style>
 
 </body>
