@@ -1,4 +1,5 @@
-/* VISTA · que ninguna de las OCHO pestanas se salga de la pantalla.
+/* VISTA · responsive mobile workspaces: include compact iPhone widths and quick journal entry.
+   Original contract follows: VISTA · que ninguna de las OCHO pestanas se salga de la pantalla.
 
    `diseno.mjs` mide una sola pestana a 1600x1200: espaciado, tipos, contraste. Esto
    mide algo mas tonto y mas facil de romper -- si la pagina desborda en horizontal --
