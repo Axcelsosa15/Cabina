@@ -128,6 +128,8 @@ for (const [w, h, nombre] of ANCHOS) {
     ok(await p.locator('#mobileMoreOv [data-mobile-more-tab]').count() === 5, 'Más expone las cinco secciones secundarias');
     await p.click('#mobileMoreOv [data-mobile-more-tab="calc"]');
     await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden && document.querySelector('#tabnav .tabbtn[data-tab="calc"]')?.classList.contains('active'), null, { timeout: 5000 });
+    ok(await p.locator('#mobileMoreOv').evaluate(el => getComputedStyle(el).display === 'none'),
+       'el menú Más deja de interceptar toques al cerrarse', 'display:none');
     ok(await p.locator('#mobileMoreBtn').evaluate(el => el.classList.contains('active')), 'Más indica cuando una sección secundaria está activa');
     ok(mobile.minTouchHeight >= 44, 'objetivos táctiles de navegación ≥44px', String(mobile.minTouchHeight) + 'px');
     ok(mobile.pageOverflow <= 2, 'documento sin desborde horizontal', String(mobile.pageOverflow) + 'px');
