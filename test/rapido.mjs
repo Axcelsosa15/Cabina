@@ -82,6 +82,18 @@ const pinta = await p.evaluate(() => {
 ok(pinta.fondo !== 'rgb(79, 179, 160)', 'y Guardar deshabilitado PIERDE el relleno de acento',
    `fondo ${pinta.fondo}`);
 
+/* Cerrar accidentalmente conserva el borrador; Cancelar sí lo descarta. */
+await p.fill('#qkText', 'NQ +185');
+await p.click('#qkClose');
+await p.click('#quickBtn'); await p.waitForTimeout(300);
+const borrador = await p.inputValue('#qkText');
+ok(borrador === 'NQ +185' && !(await p.locator('#qkSave').isDisabled()),
+   'cerrar y reabrir recupera el borrador y su vista previa', borrador);
+await p.click('#qkCancel');
+await p.click('#quickBtn'); await p.waitForTimeout(300);
+const borradorDescartado = await p.inputValue('#qkText');
+ok(borradorDescartado === '', 'Cancelar descarta el borrador explícitamente', JSON.stringify(borradorDescartado));
+
 console.log('\n═══ LO QUE EL PARSER ENTIENDE, Y LO QUE SE NIEGA A ADIVINAR ═══');
 const prueba = async (texto) => {
   await p.fill('#qkText', texto); await p.waitForTimeout(220);
