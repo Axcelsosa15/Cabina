@@ -17918,8 +17918,13 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   @media (prefers-reduced-motion: reduce) { #tabnav .tabbtn, #quickBtn { transition: none !important; animation: none !important; } }
 
   @media (max-width: 700px) {
-    .empty, .deck-parts { min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: normal; }
+    .empty, .deck-parts { min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: normal; white-space: normal; }
     .tab[data-tab="cabina"] .deck-parts { white-space: normal; }
+    .tab[data-tab="estudio"] .deck-parts { display: block; width: 100%; flex: 1 1 100%; margin-left: 0; }
+    .tab[data-tab="playbook"] .empty, .tab[data-tab="ideas"] .empty {
+      display: block; width: 100%; box-sizing: border-box; white-space: normal; overflow-wrap: anywhere;
+    }
+    .tab[data-tab="playbook"] .empty code, .tab[data-tab="ideas"] .empty code { white-space: normal; overflow-wrap: anywhere; }
   }
 
 </style>
