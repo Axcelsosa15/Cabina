@@ -363,6 +363,27 @@ for (const f of tests) {
 ok(flojos.length === 0, 'ninguna recarga ni lectura de disco con <600 ms detrás',
    flojos.length ? flojos.slice(0, 4).join(' · ') + ' — usa enDisco()' : `hay dos debounces: el día 400 ms, los ajustes 500 ms`);
 
+/* Y QUE `enDisco` SIRVA DE VERDAD, porque la regla de arriba manda usarlo.
+   Mandaba el predicado a la pagina como texto y lo revivia con `eval`, dentro
+   de un `catch` que devolvia `false`. La CSP de index.html es `script-src
+   'unsafe-inline'` SIN `'unsafe-eval'`: el `eval` lanzaba `EvalError`, el
+   `catch` se lo tragaba, y la espera expiraba con el dato YA escrito en disco
+   -- medido imprimiendo el error desde dentro del propio sondeo. Peor aun: no
+   era determinista, pasaba en una pagina recien abierta y fallaba despues de
+   usar el editor, que es la forma mas cara de fallar.
+   Un ayudante que la §10 obliga a usar no puede depender de algo que la propia
+   pagina prohibe. Se sondea desde Node y el predicado no viaja. */
+const espera = leer(join(dirTest, 'espera.mjs'), 'utf8');
+const cuerpoEnDisco = (espera.match(/export const enDisco[\s\S]*?\n};/) || [''])[0];
+ok(cuerpoEnDisco !== '' && !/\beval\s*\(/.test(cuerpoEnDisco),
+   'enDisco no usa eval: la CSP de la página lo prohíbe y el fallo se tragaba',
+   cuerpoEnDisco === '' ? 'no se encontró enDisco' : /\beval\s*\(/.test(cuerpoEnDisco) ? 'volvió el eval' : 'sondea desde Node');
+/* Y que la CSP que lo prohibe siga ahi: si alguien añadiera 'unsafe-eval' la
+   regla de arriba dejaria de tener motivo, y hay que enterarse. */
+ok(/script-src 'unsafe-inline'/.test(codigo) && !/unsafe-eval/.test(codigo),
+   "la CSP sigue sin 'unsafe-eval', que es lo que hace necesaria la regla de arriba",
+   /unsafe-eval/.test(codigo) ? "apareció 'unsafe-eval' en la CSP" : "script-src 'unsafe-inline'");
+
 console.log('\n═══ 11 · el borrado en masa pasa por una sola puerta ═══');
 /* §11 — Nadie saca una cuenta fuera de la fachada.
 

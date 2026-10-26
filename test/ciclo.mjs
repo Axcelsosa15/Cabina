@@ -30,39 +30,26 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { quieto, trasAccion } from './espera.mjs';
+import { quieto, trasAccion, enDisco } from './espera.mjs';
 
-/* ── POR QUE ESTA PRUEBA NO USA `enDisco` ──────────────────────────────────
-   `persistSettings` guarda con 500 ms de retardo, asi que leer localStorage
-   justo despues de un clic mide la copia ANTERIOR (protocolo 4). Lo correcto
-   es esperar a la CONDICION, y para eso existe `enDisco`.
+/* POR QUE SE ESPERA AL DISCO Y NO AL RELOJ: `persistSettings` guarda con 500 ms
+   de retardo, asi que leer localStorage justo despues de un clic mide la copia
+   ANTERIOR (protocolo 4). Para eso esta `enDisco`.
 
-   Pero `enDisco` espera DENTRO de la pagina, con `waitForFunction` y
-   `polling: 50`. Medido aqui, con un contador dentro del propio predicado: el
-   poller corrio UNA SOLA VEZ en 4 segundos. Es decir que `enDisco` degrada en
-   silencio a «mirar una vez»: pasa si el dato ya estaba, y expira si llega
-   200 ms despues, que es justo el caso que viene a cubrir. No es un fallo
-   suyo que yo pueda afirmar sobre CI -- este contenedor corre un Chromium mas
-   nuevo que el que fija package.json, y los temporizadores de una pagina
-   headless se estrangulan -- asi que NO se toca el ayudante compartido por una
-   medicion hecha en una plataforma que no es la del repositorio (protocolo 13).
+   CORRECCION DE LA PRIMERA VERSION DE ESTA PRUEBA, y vale la pena dejarla
+   escrita porque el error era mio y de los que se repiten. Aqui habia un
+   ayudante propio, copiado de `enDisco`, con un comentario que afirmaba que
+   `enDisco` «corrio UNA SOLA VEZ en 4 segundos» y degradaba a «mirar una vez».
+   Era FALSO: lo medi con un contador en `window` dentro del predicado, y
+   `waitForFunction` corre en un MUNDO JS AISLADO -- escribia en un `window` y
+   leia en otro. Medido como toca, con un contador en `localStorage`, que si es
+   del mismo origen: 60 vueltas en 3 segundos, las que debe dar.
 
-   Se espera igual a la condicion, pero desde Node: cada vuelta es un
-   `p.evaluate` nuevo, que no depende de ningun temporizador de la pagina. No
-   hay ni una espera fija. */
-const enDiscoDesdeNode = async (pg, prueba, tope = 8000, paso = 60) => {
-  const t0 = Date.now();
-  for (;;) {
-    const hecho = await pg.evaluate(([src]) => {
-      let d = null;
-      try { d = JSON.parse(localStorage.getItem('cabina-mnq:v1')); } catch (e) { return false; }
-      try { return !!eval('(' + src + ')')(d); } catch (e) { return false; }
-    }, [typeof prueba === 'string' ? prueba : prueba.toString()]);
-    if (hecho) return Date.now() - t0;
-    if (Date.now() - t0 > tope) throw new Error(`el disco no llego a la condicion en ${tope} ms`);
-    await pg.waitForTimeout(paso);
-  }
-};
+   Lo que SI estaba roto era otra cosa, y el ayudante propio la heredaba entera
+   porque tambien usaba `eval`: la CSP de esta pagina es `script-src
+   'unsafe-inline'` SIN `'unsafe-eval'`, asi que el `eval` lanzaba `EvalError`,
+   el `catch` se lo tragaba y la espera expiraba con el dato ya en disco. Esta
+   arreglado en `espera.mjs`, sondeando desde Node y sin `eval`. */
 
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
@@ -288,10 +275,13 @@ const selloAntes = await p.evaluate(() => {
 });
 await p.click('#edSave');
 await trasAccion(p);
-await enDiscoDesdeNode(p, (d => {
+/* Ahora el predicado CIERRA sobre `selloAntes`. La version con texto no podia
+   —habia que incrustar el valor en la fuente a mano— y ese truco era otra cosa
+   que podia salir mal en silencio. */
+await enDisco(p, d => {
   const u = d && d.settings && d.settings.updatedAt;
-  return !!u && u !== SELLO;
-}).toString().replace(/SELLO/g, String(selloAntes)));
+  return !!u && u !== selloAntes;
+});
 /* `persistSettings` lleva 500 ms de retardo (protocolo 4): leer el disco justo
    despues de un clic mide la copia ANTERIOR, no la que acaba de guardarse. Aqui
    eso haria PASAR la asercion de la ausencia por el motivo equivocado --
@@ -338,7 +328,7 @@ await trasAccion(p);
    primera version de esta prueba leyo ese hueco como un fallo de la puerta de
    escritura y estuvo a punto de hacerme "arreglar" un codigo que estaba bien.
    Protocolo 4: para esto esta `enDisco`, que espera a la CONDICION. */
-const tardo = await enDiscoDesdeNode(p, d => {
+const tardo = await enDisco(p, d => {
   const a = d && d.settings && d.settings.accounts && d.settings.accounts.find(x => x.id === 'q2');
   return !!a && a.burnedOn === '2026-03-15';
 });

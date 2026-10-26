@@ -161,12 +161,57 @@ export const siembra = async (pg, url, datos) => {
    Antes de recargar o de leer el disco, se espera a que el disco tenga lo que
    se busca. `prueba` recibe el objeto ya parseado; si no hay nada guardado
    todavía, recibe null. */
-export const enDisco = (pg, prueba, tope = 6000) =>
-  pg.waitForFunction(([src]) => {
+/* ⚠ SE SONDEA DESDE NODE, Y NO ES UN CAPRICHO: `eval` NO SE PUEDE USAR AQUÍ.
+
+   La primera versión mandaba el predicado a la página como TEXTO y lo revivía
+   con `eval('(' + src + ')')`, con un `catch` alrededor que devolvía `false`.
+   Pero esta página se sirve con su propia CSP, y dice:
+
+       script-src 'unsafe-inline'      ← sin 'unsafe-eval'
+
+   O sea que `eval` lanza `EvalError`, el `catch` se lo traga, y el ayudante
+   degrada en silencio a «la condición no se cumple nunca»: expira siempre, con
+   el dato ya escrito en disco. Medido con el error impreso desde dentro del
+   propio sondeo:
+
+       EvalError: Evaluating a string as JavaScript violates the following
+       Content Security Policy directive because 'unsafe-eval' is not an
+       allowed source of script: script-src 'unsafe-inline'
+
+   Y lo peor es que NO ES DETERMINISTA: en una página recién abierta el `eval`
+   pasa, y después de abrir el editor de una cuenta y guardar, lanza. Un fallo
+   intermitente que además se traga su causa es peor que uno fijo — es el mismo
+   «un test intermitente es peor que no tener test» del encabezado de este
+   fichero, pero escondido dentro del ayudante que debía evitarlo.
+
+   Sondear desde Node quita la clase entera de problema: el predicado no viaja,
+   se queda aquí y se ejecuta aquí, como la función que es. No hay `eval`, no
+   hay CSP de por medio, y puede cerrar sobre variables del test —algo que la
+   versión con texto no permitía, y que obligaba a trucos para comparar contra
+   un valor leído antes—. El coste es un viaje de ida y vuelta por vuelta, que
+   a 50 ms durante unos segundos no se nota.
+
+   `prueba` recibe el objeto ya parseado; si no hay nada guardado todavía,
+   recibe null. Rechaza al agotar `tope`, porque una espera sin tope convierte
+   un fallo en un cuelgue. */
+export const enDisco = async (pg, prueba, tope = 6000, paso = 50) => {
+  const t0 = Date.now();
+  for (;;) {
+    const crudo = await pg.evaluate(() => {
+      try { return localStorage.getItem('cabina-mnq:v1'); } catch (e) { return null; }
+    });
     let d = null;
-    try { d = JSON.parse(localStorage.getItem('cabina-mnq:v1')); } catch (e) { return false; }
-    try { return !!eval('(' + src + ')')(d); } catch (e) { return false; }
-  }, [prueba.toString()], { timeout: tope, polling: 50 });
+    try { d = crudo == null ? null : JSON.parse(crudo); } catch (e) { d = null; }
+    let bien = false;
+    /* El predicado puede reventar con un documento a medio escribir: eso es
+       «todavía no», no un fallo del test. Lo que NO se traga es el timeout. */
+    try { bien = !!prueba(d); } catch (e) { bien = false; }
+    if (bien) return Date.now() - t0;
+    if (Date.now() - t0 >= tope)
+      throw new Error(`enDisco: el disco no llegó a la condición en ${tope} ms`);
+    await pg.waitForTimeout(paso);
+  }
+};
 
 /* Tras guardar en un editor hay dos oleadas: se cierra el overlay y se repinta
    lo que dependa del dato. Más calma y más tope que un simple cambio de vista. */
