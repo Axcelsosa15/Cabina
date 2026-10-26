@@ -10623,7 +10623,7 @@ tbody tr:last-child td{border-bottom:0}
     $("qkModoOp").setAttribute("aria-selected", String(m === "op"));
     $("qkModoNota").setAttribute("aria-selected", String(m === "nota"));
     $("qkDetalles").hidden = m !== "op";
-    $("qkSave").disabled = m === "nota" ? !$("qkNota").value.trim() : $("qkSave").disabled;
+    if (m === "nota") $("qkSave").disabled = !$("qkNota").value.trim(); else qkPinta();
     (m === "op" ? $("qkText") : $("qkNota")).focus();
   }
   function qkAbre() {
