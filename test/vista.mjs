@@ -29,13 +29,18 @@ const BASE = `http://127.0.0.1:${srv.address().port}/`;
 const b = await chromium.launch();
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
-/* LAS OCHO, no siete. `estudio` faltaba desde que se anadio la pestana, asi que
-   el comportamiento responsive de la pestana de la que sale el lenguaje visual de
-   toda la cabina no se medía en ningun ancho -- y la compuerta anunciaba esta fila
-   como «ninguna de las siete pestanas se sale de la pantalla». Son ocho botones en
-   #tabnav: cabina, futuros, edge, invest, playbook, ideas, estudio, calc.
-   Como las demas, se mide en su estado VACIO: este archivo no siembra datos. */
-const TABS = ['cabina', 'futuros', 'edge', 'invest', 'playbook', 'ideas', 'estudio', 'calc'];
+/* LAS NUEVE, y la lista se escribe a mano a proposito: cada vez que se anade una
+   pestana hay que venir aqui, y eso es la unica razon por la que se nota.
+   `estudio` falto desde que se creo, asi que el comportamiento responsive de la
+   pestana de la que sale el lenguaje visual de toda la cabina no se medía en
+   ningun ancho -- y la compuerta anunciaba la fila como «ninguna de las siete
+   pestanas se sale de la pantalla» cuando median seis.
+   Son nueve botones en #tabnav: cabina, futuros, cuentas, edge, invest, playbook,
+   ideas, estudio, calc.
+   `cuentas` se mide VACIA como las demas -- este archivo no siembra datos --, y
+   vacia tiene tres tablas que en 430px son justo lo que se desborda si alguien
+   les quita el `.twrap`. */
+const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'playbook', 'ideas', 'estudio', 'calc'];
 const ANCHOS = [[1440, 900, 'escritorio'], [834, 1000, 'tableta'], [430, 900, 'telefono']];
 
 const mide = p => p.evaluate(() => {
@@ -100,7 +105,7 @@ for (const [w, h, nombre] of ANCHOS) {
     ok(m.scrollX <= 2 && !m.peor, `${t.padEnd(9)} sin desborde horizontal`,
        m.peor ? `${m.peor.tag}${m.peor.id ? '#' + m.peor.id : ''}.${m.peor.cls} se sale ${m.peor.exceso}px` : `scrollX ${m.scrollX}`);
   }
-  /* ESTUDIO CON CONTENIDO, no sólo vacía. El resto de este archivo mide las ocho
+  /* ESTUDIO CON CONTENIDO, no sólo vacía. El resto de este archivo mide las nueve
      pestañas sin sembrar, así que la rejilla de ESTUDIO se medía siempre con su
      estado vacío -- y el estado vacío es justo el que NO puede desbordar, porque
      `.study-empty` ocupa la fila entera. El riesgo vive en `.study-card`.

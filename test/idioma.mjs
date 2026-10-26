@@ -94,12 +94,16 @@ console.log('\n═══ 2 · traducir no se lleva por delante lo que había den
   ok(antes.contador && despues.contador, 'el contador de operaciones sigue dentro del botón',
     `antes=${antes.contador} después=${despues.contador}`);
 
-  /* Las ocho pestañas, porque el modo de fallar no es «una se traduce mal»:
-     es «una se queda en español y parece que falta una traducción». */
+  /* Las nueve pestañas, porque el modo de fallar no es «una se traduce mal»:
+     es «una se queda en español y parece que falta una traducción».
+     LA LISTA DE PALABRAS HAY QUE AMPLIARLA AL AÑADIR UNA PESTAÑA. El filtro caza
+     las tildes y, sin ellas, sólo los nombres que están escritos aquí: «Cuentas»
+     no lleva ninguna, así que sin nombrarla esta prueba se quedaba verde con la
+     pestaña entera sin traducir. Se vio al añadirla. */
   const pend = await p.evaluate(() => [...document.querySelectorAll('#tabnav .tabbtn')]
     .map(b => { const n = [...b.childNodes].find(x => x.nodeType === 3 && x.data.trim()); return n ? n.data.trim() : ''; })
-    .filter(t => /[áéíóúñÁÉÍÓÚÑ]/.test(t) || t === 'Futuros' || t === 'Inversiones' || t === 'Calculadora'));
-  ok(pend.length === 0, 'ninguna de las ocho pestañas se queda en español', pend.join(' | ') || 'ninguna');
+    .filter(t => /[áéíóúñÁÉÍÓÚÑ]/.test(t) || t === 'Futuros' || t === 'Inversiones' || t === 'Calculadora' || t === 'Cuentas'));
+  ok(pend.length === 0, 'ninguna de las nueve pestañas se queda en español', pend.join(' | ') || 'ninguna');
   await ctx.close();
 }
 

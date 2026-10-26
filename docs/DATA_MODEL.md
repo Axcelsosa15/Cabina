@@ -52,6 +52,41 @@ versión vieja) pasa por ahí.
   **Las fees no mueven el balance**: se pagan fuera de la cuenta.
 - `accounts[].rulesets[]` y `accounts[].rulesetId` — **el contrato de la firma,
   versionado**. Ver abajo.
+- `accounts[].burnedOn` y `accounts[].lesson` — **el ciclo de vida de una cuenta
+  quemada**, y son los dos únicos campos que la pestaña de Cuentas pregunta.
+  `burnedOn` es la fecha en que se quemó: un hecho que la app no puede derivar,
+  porque una cuenta puede quemarse un día sin operaciones registradas. `lesson`
+  es texto libre y **no entra en ningún cálculo**: es la versión del usuario, y
+  se pinta etiquetada como tal al lado de la autopsia derivada.
+
+  **Los dos tienen tres estados, no dos** (protocolo 17): ausente — la cuenta es
+  anterior al campo—, presente y vacío — pasó por el editor y no se escribió— y
+  escrito. No son lo mismo y la pestaña los dice distinto, así que `normalize`
+  los conserva **sólo si la cuenta los trae** (`soloSiEsta`): nombrarlos de la
+  forma obvia, `String(a.burnedOn || "")`, le escribiría `""` a todas las cuentas
+  de un respaldo viejo y borraría la diferencia. Y el guardado del editor los
+  quita si la cuenta no los tenía y siguen vacíos, porque **abrir no es tocar**.
+
+  **Lo que NO hay es un campo «por qué se quemó».** El por qué se deriva de las
+  operaciones de esa cuenta con el clasificador de [ERRORES.md](ERRORES.md); un
+  desplegable de motivos lo rellenaría el acusado cuando ya sabe la sentencia.
+  Y **la fecha de compra tampoco es un campo**: es el primer movimiento de tipo
+  `fee` del `ledger`. Sin ninguno no se sabe, y no se rellena con la fecha de la
+  primera operación — eso contesta otra pregunta. Probado en `test/ciclo.mjs`.
+
+#### Lo que deriva la pestaña de Cuentas
+
+Nada de esto se persiste; todo sale de `accounts[]`, de su `ledger` y de las
+operaciones. Fachada: `FUT.ciclo`, `FUT.ciclos`, `FUT.autopsia`,
+`FUT.patronQuemadas`, `FUT.economia`.
+
+| | de dónde sale |
+|---|---|
+| la caja | `ledger`: lo cobrado (`payout`) menos lo pagado (`fee`), de todas las cuentas. **Sin un solo `fee` apuntado, lo pagado es UNKNOWN y el neto no se calcula** — un `$0` ahí sería una afirmación falsa que además sale a favor |
+| cuánto duró | del primer al último día **operado**, no de la compra a la quema |
+| la autopsia | `FUT.clasificaErrores(cuenta)`, el mismo clasificador de ERRORES.md |
+| cuánto del agujero es tuyo | lo perdido en operaciones de categoría 2 y 3 contra el resto. Es lo que separa «me falta disciplina» de «me falta sistema» |
+| el patrón | en **cuántas cuentas quemadas** aparece cada señal, no cuántas veces: cien «sin stop» en una cuenta son un mal día largo, no un patrón |
 
 ### Versiones del contrato de una firma
 
