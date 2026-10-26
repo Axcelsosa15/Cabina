@@ -51,14 +51,18 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SEMILLA } from './espera.mjs';
+import { SEMILLA, asentado } from './espera.mjs';
 
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(raiz, 'index.html'), 'utf8');
-const TABS = ['cabina', 'futuros', 'edge', 'invest', 'playbook', 'ideas', 'estudio', 'calc'];
+/* LAS NUEVE. `cuentas` faltaba desde que se creo, igual que a `vista`,
+   `idioma` y `seguridad`: cuatro listas escritas a mano y una pestaña nueva que
+   no entraba en ninguna. Sin ella, el sistema de diseño de la pestaña del ciclo
+   de vida -- sus tablas, su desplegable, sus estados vacios -- no se media. */
+const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'playbook', 'ideas', 'estudio', 'calc'];
 
 /* nombre → [selector, propiedades]. El selector excluye las variantes
    semánticas; `.panel .body` excluye los calendarios por su contenedor. */
@@ -96,6 +100,20 @@ for (const t of TABS) {
     const el = document.querySelector(`.tab[data-tab="${x}"]`);
     return el && el.classList.contains('active');
   }, t, { timeout: 10000 });
+  /* UNA CLASE YA CAMBIADA NO ES UNA TRANSICION YA TERMINADA.
+     `.tab.active` se pone de golpe, pero los elementos que hay debajo llevan
+     `transition`, asi que medir aqui lee colores A MEDIO INTERPOLAR. No es
+     teorico: CI reporto `rgb(12,18,24)` en los campos numericos, un valor que
+     NO ESTA en la hoja de estilo -- estan #0c1219 (12,18,25) y #0c1118
+     (12,17,24) --, o sea un punto entre los dos. Verde aqui y rojo en CI, que
+     es mas rapida y cae dentro de la transicion.
+     Ya paso una vez y se arreglo quitando UNA fuente de perturbacion (las
+     escrituras de `dataset` de la capa de idioma, ver index.html). Eso dejo la
+     carrera en pie: cualquier cambio que mueva el reloj del arranque la vuelve
+     a destapar, y volvio con una pestaña nueva. Se espera a las animaciones de
+     los PROPIOS elementos que se van a muestrear, que es lo que `asentado`
+     hace y lo que `vacios.mjs` ya hacia con el mismo sintoma. */
+  await asentado(pag, Object.values(PRIM).map(([sel]) => `.tab[data-tab="${t}"] ${sel}`).join(', '));
   const r = await pag.evaluate(([tab, PRIM]) => {
     const raiz = document.querySelector(`.tab[data-tab="${tab}"]`);
     const out = {};
