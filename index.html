@@ -18503,6 +18503,28 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
 @media (min-width: 701px) {
   #mobileMoreBtn, #mobileMoreOv { display: none !important; }
 }
+/* FIX: el display explícito no debe anular el atributo hidden del diálogo. */
+#mobileMoreOv[hidden] { display: none !important; }
+/* FIX: las tarjetas de texto largas nunca pueden ampliar el viewport móvil. */
+@media (max-width: 700px) {
+  .tab[data-tab="playbook"] .empty,
+  .tab[data-tab="ideas"] .empty {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+  .tab[data-tab="playbook"] .empty *,
+  .tab[data-tab="ideas"] .empty * {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
 
 </style>
 
