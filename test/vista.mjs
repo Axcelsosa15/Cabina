@@ -126,6 +126,17 @@ for (const [w, h, nombre] of ANCHOS) {
     await p.click('#mobileMoreBtn');
     await p.waitForFunction(() => !document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
     ok(await p.locator('#mobileMoreOv [data-mobile-more-tab]').count() === 5, 'Más expone las cinco secciones secundarias');
+    await p.keyboard.press('Shift+Tab');
+    await p.waitForFunction(() => document.activeElement?.dataset?.mobileMoreTab === 'calc', null, { timeout: 5000 });
+    ok(true, 'el foco queda dentro del menú al retroceder desde el primer control');
+    await p.keyboard.press('Tab');
+    await p.waitForFunction(() => document.activeElement?.id === 'mobileMoreClose', null, { timeout: 5000 });
+    ok(true, 'el foco vuelve al primer control al avanzar desde el último');
+    await p.keyboard.press('Escape');
+    await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden && document.activeElement?.id === 'mobileMoreBtn' && document.getElementById('mobileMoreBtn')?.getAttribute('aria-expanded') === 'false', null, { timeout: 5000 });
+    ok(true, 'Escape cierra Más y devuelve el foco al botón');
+    await p.click('#mobileMoreBtn');
+    await p.waitForFunction(() => !document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
     await p.click('#mobileMoreOv [data-mobile-more-tab="calc"]');
     await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden && document.querySelector('#tabnav .tabbtn[data-tab="calc"]')?.classList.contains('active'), null, { timeout: 5000 });
     ok(await p.locator('#mobileMoreOv').evaluate(el => getComputedStyle(el).display === 'none'),
