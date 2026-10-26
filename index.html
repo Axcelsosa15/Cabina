@@ -2132,7 +2132,7 @@ tbody tr:last-child td{border-bottom:0}
   <button class="tabbtn" data-tab="estudio">Estudio<span class="n" id="nResearch"></span></button>
   <button class="tabbtn" data-tab="calc">Calculadora</button>
 
-  <button type="button" id="mobileMoreBtn" aria-label="Más secciones" aria-expanded="false" aria-controls="mobileMoreOv">Más</button>
+  <button type="button" id="mobileMoreBtn" aria-label="Más secciones" aria-haspopup="dialog" aria-expanded="false" aria-controls="mobileMoreOv">Más</button>
 </nav>
 
 <div id="mobileMoreOv" class="mobile-more-ov" hidden>
@@ -17805,12 +17805,24 @@ tbody tr:last-child td{border-bottom:0}
     if (!nav || !trigger || !overlay || !close) return;
     const secondary = new Set(["cuentas", "edge", "playbook", "ideas", "calc"]);
     let previousOverflow = "";
+    const sheet = overlay.querySelector(".mobile-more-sheet");
+    const menuItems = [...overlay.querySelectorAll("[data-mobile-more-tab]")];
     function syncMoreActive() {
       const active = nav.querySelector(".tabbtn.active");
       const isSecondary = !!(active && secondary.has(active.dataset.tab));
       trigger.classList.toggle("active", isSecondary);
       if (isSecondary) trigger.setAttribute("aria-current", "page");
       else trigger.removeAttribute("aria-current");
+      for (const item of menuItems) {
+        const selected = !!active && item.dataset.mobileMoreTab === active.dataset.tab;
+        item.classList.toggle("is-active", selected);
+        if (selected) item.setAttribute("aria-current", "page");
+        else item.removeAttribute("aria-current");
+      }
+    }
+    function focusableItems() {
+      return [...overlay.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+        .filter(el => !el.hidden && el.getClientRects().length > 0);
     }
     function closeMenu(restoreFocus = true) {
       if (overlay.hidden) return;
@@ -17820,7 +17832,9 @@ tbody tr:last-child td{border-bottom:0}
       if (restoreFocus && window.innerWidth <= 700) trigger.focus();
     }
     function openMenu() {
+      if (!overlay.hidden) return;
       previousOverflow = document.body.style.overflow;
+      syncMoreActive();
       overlay.hidden = false;
       trigger.setAttribute("aria-expanded", "true");
       document.body.style.overflow = "hidden";
@@ -17845,7 +17859,29 @@ tbody tr:last-child td{border-bottom:0}
     });
     window.addEventListener("hashchange", syncMoreActive);
     window.addEventListener("resize", () => { if (window.innerWidth > 700) closeMenu(false); });
-    document.addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.hidden) closeMenu(); });
+    document.addEventListener("keydown", e => {
+      if (overlay.hidden) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeMenu();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusableItems();
+      if (!items.length) {
+        e.preventDefault();
+        (sheet || overlay).focus();
+        return;
+      }
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !overlay.contains(document.activeElement))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
     syncMoreActive();
   })();
 
@@ -18495,6 +18531,10 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
     font-size: 13px; line-height: 1.25; white-space: normal;
   }
   #mobileMoreOv [data-mobile-more-tab]:active { border-color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); }
+  #mobileMoreOv [data-mobile-more-tab].is-active { border-color: rgba(112,224,207,.55); background: rgba(112,224,207,.11); color: var(--accent, #70e0cf); }
+  #mobileMoreOv [data-mobile-more-tab].is-active::after { content: "Actual"; margin-left: auto; padding-left: 8px; font-size: 11px; font-weight: 700; }
+  #mobileMoreOv :is(button, [href], [tabindex]):focus-visible { outline: 2px solid var(--accent, #70e0cf); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { #mobileMoreOv, #mobileMoreOv * { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 }
 @media (min-width: 701px) {
   #mobileMoreBtn, #mobileMoreOv { display: none !important; }
