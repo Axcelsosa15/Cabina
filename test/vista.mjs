@@ -129,6 +129,12 @@ for (const [w, h, nombre] of ANCHOS) {
     await p.click('#mobileMoreOv [data-mobile-more-tab="calc"]');
     await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden && document.querySelector('#tabnav .tabbtn[data-tab="calc"]')?.classList.contains('active'), null, { timeout: 5000 });
     ok(await p.locator('#mobileMoreBtn').evaluate(el => el.classList.contains('active')), 'Más indica cuando una sección secundaria está activa');
+    await p.click('#mobileMoreBtn');
+    await p.waitForFunction(() => !document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
+    const calcMarked = await p.locator('#mobileMoreOv [data-mobile-more-tab="calc"]').evaluate(el => el.classList.contains('active') && el.getAttribute('aria-current') === 'page');
+    ok(calcMarked, 'Más marca dentro del panel la sección secundaria activa');
+    await p.click('#mobileMoreClose');
+    await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
     ok(mobile.minTouchHeight >= 44, 'objetivos táctiles de navegación ≥44px', String(mobile.minTouchHeight) + 'px');
     ok(mobile.pageOverflow <= 2, 'documento sin desborde horizontal', String(mobile.pageOverflow) + 'px');
     await p.click('#quickBtn');
