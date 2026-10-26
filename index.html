@@ -17902,6 +17902,7 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
     }
     input:not([type="checkbox"]):not([type="radio"]), select, textarea { max-width: 100%; }
     .ed, .ov, .dialog, [role="dialog"] { overscroll-behavior: contain; }
+    .ov { z-index: 100; } /* los diálogos deben quedar por encima de la navegación inferior */
     .ed input:not([type="checkbox"]):not([type="radio"]), .ed select, .ed textarea,
     .qk input:not([type="checkbox"]):not([type="radio"]), .qk select, .qk textarea { min-height: 44px; font-size: 16px; }
     .ed > footer button, .qk button, .btn, .editbtn { min-height: 44px; }
