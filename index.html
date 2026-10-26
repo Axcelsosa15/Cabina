@@ -17834,12 +17834,7 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
      que hay que ver, y partirlo lo escondería. */
   .save-state.nosave { flex: 1 1 100%; }
 }
-</style>
 
-
-<!-- CABINA MOBILE WORKSPACE v1 — navegación táctil y densidad responsive.
-     Sólo presentación: conserva los tabs, handlers y el modelo de datos existentes. -->
-<style id="cabina-mobile-workspace">
   @media (max-width: 700px) {
     :root { --mobile-nav-h: 68px; }
     html { scroll-padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 20px); }
@@ -17921,7 +17916,18 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   }
   @media (min-width: 701px) { #quickBtn { position: relative; } }
   @media (prefers-reduced-motion: reduce) { #tabnav .tabbtn, #quickBtn { transition: none !important; animation: none !important; } }
+
+  @media (max-width: 700px) {
+    .empty, .deck-parts { min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: normal; }
+    .tab[data-tab="cabina"] .deck-parts { white-space: normal; }
+  }
+
 </style>
+
+
+<!-- CABINA MOBILE WORKSPACE v1 — navegación táctil y densidad responsive.
+     Sólo presentación: conserva los tabs, handlers y el modelo de datos existentes. -->
+
 
 </body>
 </html>
