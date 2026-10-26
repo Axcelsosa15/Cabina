@@ -17822,7 +17822,7 @@ tbody tr:last-child td{border-bottom:0}
     }
     function focusableItems() {
       return [...overlay.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
-        .filter(el => !el.hidden && el.getClientRects().length > 0);
+        .filter(el => el.tabIndex >= 0 && !el.hidden && el.getClientRects().length > 0);
     }
     function closeMenu(restoreFocus = true) {
       if (overlay.hidden) return;
