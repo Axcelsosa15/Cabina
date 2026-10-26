@@ -111,7 +111,9 @@ for (const [w, h, nombre] of ANCHOS) {
         quickPosition: quick ? getComputedStyle(quick).position : '',
         quickAboveNav: !!qr && !!nr && qr.bottom <= nr.top + 2,
         overlayAboveNav: Number.parseInt(getComputedStyle(document.getElementById('quickOv')).zIndex, 10) > Number.parseInt(getComputedStyle(nav).zIndex, 10),
-        minTouchHeight: nav ? Math.min(...[...nav.querySelectorAll('.tabbtn')].map(x => x.getBoundingClientRect().height)) : 0,
+        visibleNavItems: nav ? [...nav.querySelectorAll('.tabbtn, #mobileMoreBtn')].filter(x => getComputedStyle(x).display !== 'none').length : 0,
+        moreVisible: !!document.getElementById('mobileMoreBtn') && getComputedStyle(document.getElementById('mobileMoreBtn')).display !== 'none',
+        minTouchHeight: nav ? Math.min(...[...nav.querySelectorAll('.tabbtn, #mobileMoreBtn')].filter(x => getComputedStyle(x).display !== 'none').map(x => x.getBoundingClientRect().height)) : 0,
         pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth
       };
     });
@@ -120,6 +122,13 @@ for (const [w, h, nombre] of ANCHOS) {
     ok(mobile.quickPosition === 'fixed' && mobile.quickAboveNav,
        'registro rápido accesible sobre la navegación', JSON.stringify({position:mobile.quickPosition,above:mobile.quickAboveNav}));
     ok(mobile.overlayAboveNav, 'diálogo de registro por encima de la navegación', String(mobile.overlayAboveNav));
+    ok(mobile.visibleNavItems === 5 && mobile.moreVisible, 'barra inferior compacta con cuatro destinos y Más', JSON.stringify({items:mobile.visibleNavItems,more:mobile.moreVisible}));
+    await p.click('#mobileMoreBtn');
+    await p.waitForFunction(() => !document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
+    ok(await p.locator('#mobileMoreOv [data-mobile-more-tab]').count() === 5, 'Más expone las cinco secciones secundarias');
+    await p.click('#mobileMoreOv [data-mobile-more-tab="calc"]');
+    await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden && document.querySelector('#tabnav .tabbtn[data-tab="calc"]')?.classList.contains('active'), null, { timeout: 5000 });
+    ok(await p.locator('#mobileMoreBtn').evaluate(el => el.classList.contains('active')), 'Más indica cuando una sección secundaria está activa');
     ok(mobile.minTouchHeight >= 44, 'objetivos táctiles de navegación ≥44px', String(mobile.minTouchHeight) + 'px');
     ok(mobile.pageOverflow <= 2, 'documento sin desborde horizontal', String(mobile.pageOverflow) + 'px');
     await p.click('#quickBtn');
@@ -133,7 +142,14 @@ for (const [w, h, nombre] of ANCHOS) {
   }
   console.log(`\n  ── ${nombre} ${w}×${h} ──────────────────────────────`);
   for (const t of TABS) {
-    await p.click(`[data-tab="${t}"]`); await p.waitForTimeout(320);
+    if (w <= 430 && ['cuentas', 'edge', 'playbook', 'ideas', 'calc'].includes(t)) {
+      await p.click('#mobileMoreBtn');
+      await p.click('#mobileMoreOv [data-mobile-more-tab="' + t + '"]');
+      await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
+    } else {
+      await p.click(`[data-tab="${t}"]`);
+    }
+    await p.waitForTimeout(320);
     const m = await mide(p);
     ok(m.scrollX <= 2 && !m.peor, `${t.padEnd(9)} sin desborde horizontal`,
        m.peor ? `${m.peor.tag}${m.peor.id ? '#' + m.peor.id : ''}.${m.peor.cls} se sale ${m.peor.exceso}px` : `scrollX ${m.scrollX}`);
