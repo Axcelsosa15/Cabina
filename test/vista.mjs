@@ -115,8 +115,16 @@ for (const [w, h, nombre] of ANCHOS) {
        'registro rápido accesible sobre la navegación', JSON.stringify({position:mobile.quickPosition,above:mobile.quickAboveNav}));
     ok(mobile.minTouchHeight >= 44, 'objetivos táctiles de navegación ≥44px', String(mobile.minTouchHeight) + 'px');
     ok(mobile.pageOverflow <= 2, 'documento sin desborde horizontal', String(mobile.pageOverflow) + 'px');
+    await p.click('#quickBtn');
+    await p.waitForFunction(() => document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
+    await p.fill('#qkText', 'MNQ +12');
+    await p.waitForFunction(() => !document.getElementById('qkSave')?.disabled, null, { timeout: 5000 });
+    const quickPreview = await p.locator('#qkPrev').innerText();
+    ok(/MNQ/.test(quickPreview) && /12/.test(quickPreview), 'registro rápido funciona en móvil', quickPreview.replace(/\\s+/g, ' ').slice(0, 80));
+    await p.click('#qkClose');
+    await p.waitForFunction(() => !document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
   }
-  console.log(`\n  ── ${nombre} ${w}×${h} ──────────────────────────────`);
+  console.log(`\\n  ── ${nombre} ${w}×${h} ──────────────────────────────`);
   for (const t of TABS) {
     await p.click(`[data-tab="${t}"]`); await p.waitForTimeout(320);
     const m = await mide(p);
