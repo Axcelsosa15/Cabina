@@ -28,6 +28,7 @@ Postgres local; el estado actual del proyecto Supabase real queda explícitament
 |---|---|
 | **Cabina** | la sesión del día: pre-sesión, niveles, resultado, reglas que bloquean, y **la ventana operativa** —horas y días— editable: las sesiones del mercado no se mueven con ella |
 | **Futuros** | journal, cuentas de prop firm (drawdown estático/trailing, consistencia, payouts, contrato de la firma **versionado por fecha de vigencia**), radiografía de la ventaja, supervivencia de la cuenta por Monte Carlo |
+| **Cuentas** | el ciclo de vida de las de prop firm: **la caja** —lo cobrado menos lo pagado en evaluaciones y resets, que es lo que dice si esto es un negocio—, qué costó y cuánto duró cada una, y **la autopsia de cada quemada**. El por qué no se pregunta: se deriva de las operaciones de esa cuenta con el clasificador de [docs/ERRORES.md](docs/ERRORES.md), y se dice cuánto del agujero lo cavaron tus errores y cuánto las pérdidas limpias. Debajo, **lo que se repite entre todas tus quemadas**, contado en cuentas y no en veces |
 | **Métricas / Edge** | expectancy, win rate, R:R, tamaño de posición, Kelly (referencia), profit factor, Sharpe, max drawdown, break-even, riesgo de ruina — netos de comisión. [docs/METRICAS.md](docs/METRICAS.md) |
 | **Inversiones** | posiciones, lotes, dividendos, TIR de la cartera |
 | **Playbook, tesis, ideas** | setups con condiciones y capturas, una tesis por jugada |
@@ -63,8 +64,8 @@ npm run compuerta    # todas las pruebas + la tabla de la cadena (lo que corre C
 
 | | |
 |---|---|
-| suites | **55**, 1.522 aserciones de navegador y guardianes en 52 archivos + 383 del motor |
-| compuerta | **29 PASS · 0 FAIL · 4 UNKNOWN** de 33 filas (3 fronteras de plataforma y 1 que depende de un CSV real del bróker) |
+| suites | **59**, 1.659 aserciones de navegador y guardianes en 56 archivos + 383 del motor |
+| compuerta | **33 PASS · 0 FAIL · 4 UNKNOWN** de 37 filas (3 fronteras de plataforma y 1 que depende de un CSV real del bróker) |
 | despliegue | GitHub Pages, sólo tras `pruebas` en verde, con comparación byte a byte |
 
 ## Darle Cabina a otra persona

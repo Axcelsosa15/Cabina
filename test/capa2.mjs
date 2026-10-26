@@ -65,7 +65,12 @@ console.log('\n═══ 2 · nadie se salta la memoria ═══');
 
    Los *Crudo son el cálculo caro. Sólo su envoltorio memorizado debe llamarlos:
    una llamada directa recalcula la curva entera de una cuenta sin necesidad. */
-for (const crudo of ['acctAggCrudo', 'futStatsCrudo']) {
+/* `autopsiaCruda` entra en la lista porque es la mas caja de las tres:
+   `clasificaErrores` recorre TODAS las operaciones para medir la esperanza de
+   cada setup, no solo las de la cuenta que se examina. Un render de la pestaña
+   de Cuentas la pedia dos veces por cuenta quemada -- el patron y la autopsia --
+   y la pestaña se repinta con cada operacion que se guarda. */
+for (const crudo of ['acctAggCrudo', 'futStatsCrudo', 'autopsiaCruda']) {
   const n = llamadas(crudo);
   ok(n === 1, `${crudo} se llama sólo desde su memoria`, `${n} llamada(s)`);
 }
@@ -144,6 +149,16 @@ const huella = (codigo.match(/JSON\.stringify\(\[a\.[^\]]*\]\)/) || [''])[0];
 const fuera = leidos.filter(f => !huella.includes('a.' + f));
 ok(fuera.length === 0, 'la huella cubre todo lo que acctAgg lee de la cuenta',
    fuera.length ? 'fuera de la huella: ' + fuera.join(', ') : leidos.join(', '));
+
+/* Y la de la autopsia: lee las operaciones a traves de `clasificaErrores`, asi
+   que su clave tiene que depender de la revision de la coleccion. Sin eso, una
+   operacion nueva no cambiaba de que murio la cuenta hasta recargar -- que es
+   justo el numero viejo que §4 y §5 existen para cazar. */
+const claveAut = cuerpoDe('autopsiaDe');
+ok(/coll\("trades"\)\.rev/.test(claveAut), 'la memoria de la autopsia depende de coll("trades").rev',
+   /coll\("trades"\)\.rev/.test(claveAut) ? '' : 'su clave no mira las operaciones');
+ok(/autoFeesOn\(\)/.test(claveAut), 'y de las comisiones automaticas, que cambian el P&L',
+   /autoFeesOn\(\)/.test(claveAut) ? '' : 'una comision nueva no recalcularia el signo de la esperanza');
 
 console.log('\n═══ 6 · inversiones: un rendimiento, una fuente ═══');
 /* §6 — Inversiones: un solo rendimiento.

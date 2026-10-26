@@ -220,11 +220,17 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
   dice('guardado', 'suite', 'Un cambio que no se guardo no parece guardado', 'persistencia');
   /* Una cabina que no se puede leer en el telefono no esta entregada. `diseno.mjs`
      mide UNA pestana a 1600px; esto mide las seis, y en 430px. */
-  dice('vista', 'suite', 'Ninguna de las siete pestanas se sale de la pantalla', 'index.html');
+  dice('vista', 'suite', 'Ninguna de las nueve pestanas se sale de la pantalla', 'index.html');
   /* Las cuatro categorias de error: la 4 se gana con esperanza positiva en limpio,
      los errores no entran en esa esperanza, y abrir una operacion vieja no la
      castiga. Ver docs/ERRORES.md. */
   dice('errores', 'suite', 'Las perdidas se clasifican sin absolver por defecto', 'index.html');
+  /* La misma idea una escala mas arriba: una CUENTA quemada. El por que no se
+     pregunta -- se deriva de sus operaciones con el mismo clasificador -- el
+     patron se cuenta en cuentas y no en veces, un coste que no se apunto no es
+     cero, y la fecha de quema ausente sigue ausente despues de abrir el editor.
+     Ver docs/ERRORES.md y docs/DATA_MODEL.md. */
+  dice('ciclo', 'suite', 'Una cuenta quemada dice de que murio, y no se absuelve', 'index.html');
   /* Un desconocido arranca vacio y nadie pierde lo suyo: la configuracion guardada
      no se toca, lo antiguo se recupera sin escribir, y no se guarda configuracion
      en la cuenta antes de que la base conteste. */
