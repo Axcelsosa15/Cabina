@@ -1,8 +1,8 @@
-/* VISTA · que ninguna de las OCHO pestanas se salga de la pantalla.
+/* VISTA · que ninguna de las NUEVE pestanas se salga de la pantalla.
 
    `diseno.mjs` mide una sola pestana a 1600x1200: espaciado, tipos, contraste. Esto
    mide algo mas tonto y mas facil de romper -- si la pagina desborda en horizontal --
-   en las OCHO pestanas y en seis anchos, desde 320px hasta escritorio.
+   en las NUEVE pestanas y en siete anchos, desde 320px hasta escritorio.
 
    Dos cosas que NO cuentan como desborde, y por que:
 
@@ -41,7 +41,7 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
    vacia tiene tres tablas que en 430px son justo lo que se desborda si alguien
    les quita el `.twrap`. */
 const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'playbook', 'ideas', 'estudio', 'calc'];
-const ANCHOS = [[1440, 900, 'escritorio'], [834, 1000, 'tableta'], [430, 900, 'telefono'], [390, 844, 'iPhone 390'], [360, 780, 'telefono 360'], [320, 700, 'telefono 320']];
+const ANCHOS = [[1440, 900, 'escritorio'], [834, 1000, 'tableta'], [430, 900, 'telefono'], [390, 844, 'iPhone 390'], [375, 812, 'iPhone 375'], [360, 780, 'telefono 360'], [320, 700, 'telefono 320']];
 
 const mide = p => p.evaluate(() => {
   const de = document.documentElement;
