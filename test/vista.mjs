@@ -105,6 +105,7 @@ for (const [w, h, nombre] of ANCHOS) {
         navVisible: !!nr && nr.width >= window.innerWidth - 2 && nr.height >= 60,
         quickPosition: quick ? getComputedStyle(quick).position : '',
         quickAboveNav: !!qr && !!nr && qr.bottom <= nr.top + 2,
+        overlayAboveNav: Number.parseInt(getComputedStyle(document.getElementById('quickOv')).zIndex, 10) > Number.parseInt(getComputedStyle(nav).zIndex, 10),
         minTouchHeight: nav ? Math.min(...[...nav.querySelectorAll('.tabbtn')].map(x => x.getBoundingClientRect().height)) : 0,
         pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth
       };
@@ -113,6 +114,7 @@ for (const [w, h, nombre] of ANCHOS) {
        'navegación inferior fija y visible', JSON.stringify({position:mobile.navPosition,bottom:mobile.navAtBottom,visible:mobile.navVisible}));
     ok(mobile.quickPosition === 'fixed' && mobile.quickAboveNav,
        'registro rápido accesible sobre la navegación', JSON.stringify({position:mobile.quickPosition,above:mobile.quickAboveNav}));
+    ok(mobile.overlayAboveNav, 'diálogo de registro por encima de la navegación', String(mobile.overlayAboveNav));
     ok(mobile.minTouchHeight >= 44, 'objetivos táctiles de navegación ≥44px', String(mobile.minTouchHeight) + 'px');
     ok(mobile.pageOverflow <= 2, 'documento sin desborde horizontal', String(mobile.pageOverflow) + 'px');
     await p.click('#quickBtn');
