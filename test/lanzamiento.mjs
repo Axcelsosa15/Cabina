@@ -39,7 +39,14 @@ for (const [w, nom] of [[1440, 'escritorio'], [430, 'telefono']]) {
   await p.waitForTimeout(1200);
   const vistos = [];
   for (const t of ['cabina', 'futuros', 'invest', 'playbook', 'ideas', 'calc']) {
-    await p.click(`[data-tab="${t}"]`); await p.waitForTimeout(200);
+    if (w <= 430 && ['playbook', 'ideas', 'calc'].includes(t)) {
+      await p.click('#mobileMoreBtn');
+      await p.click('#mobileMoreOv [data-mobile-more-tab="' + t + '"]');
+      await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
+    } else {
+      await p.click(`[data-tab="${t}"]`);
+    }
+    await p.waitForTimeout(200);
     const v = await p.evaluate(() => {
       const el = [...document.querySelectorAll('footer span')].find(s => /asesoramiento financiero/i.test(s.textContent));
       if (!el) return null;
