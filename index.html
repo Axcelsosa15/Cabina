@@ -2113,7 +2113,7 @@ tbody tr:last-child td{border-bottom:0}
          una ACCION, y una accion es un <button>: trae Enter, espacio, foco y
          semantica sin inventar nada. -->
     <button type="button" class="editbtn conflbtn" id="resolveConflict" hidden>Resolver conflicto</button>
-    <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)">+ Rápido</button>
+    <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)" aria-haspopup="dialog" aria-expanded="false" aria-controls="quickOv">+ Rápido</button>
     <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
     <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
     <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
@@ -10633,15 +10633,24 @@ tbody tr:last-child td{border-bottom:0}
     $("qkCal").innerHTML = QK_CAL.map(([v, l]) => `<button type="button" class="qkchip" data-cal="${v}" aria-pressed="${String(qk.cal === v)}">${esc(l)}</button>`).join("");
     $("qkTags").innerHTML = QK_TAGS.map(t => `<button type="button" class="qkchip" data-tag="${esc(t)}" aria-pressed="${String(qk.tags.includes(t))}">${esc(t)}</button>`).join("");
     $("quickOv").classList.add("open");
+    $("quickBtn").setAttribute("aria-expanded", "true");
     qkModo(qk.draftMode || "op"); qkPinta();
     if (qk.modo === "nota") $("qkSave").disabled = !$("qkNota").value.trim();
+    const focusTarget = qk.modo === "nota" ? $("qkNota") : $("qkText");
+    focusTarget.focus({ preventScroll: true });
   }
   function qkLimpiarBorrador() {
     qk.draftText = ""; qk.draftNote = ""; qk.draftCal = ""; qk.draftTags = []; qk.draftMode = "op";
     qk.cal = ""; qk.tags = []; qk.modo = "op";
   }
   function qkDescarta() { qkLimpiarBorrador(); qkCierra(); }
-  function qkCierra() { $("quickOv").classList.remove("open"); }
+  function qkCierra() {
+    const overlay = $("quickOv");
+    if (!overlay.classList.contains("open")) return;
+    overlay.classList.remove("open");
+    $("quickBtn").setAttribute("aria-expanded", "false");
+    if (window.innerWidth <= 700) $("quickBtn").focus({ preventScroll: true });
+  }
 
   $("quickBtn").addEventListener("click", qkAbre);
   $("qkClose").addEventListener("click", qkCierra);
@@ -10663,7 +10672,21 @@ tbody tr:last-child td{border-bottom:0}
   /* Enter guarda si se puede; Escape cierra. Un registro rápido que pide ratón no
      es rápido. */
   $("qkText").addEventListener("keydown", e => { if (e.key === "Enter" && !$("qkSave").disabled) { e.preventDefault(); qkGuarda(false); } });
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && $("quickOv").classList.contains("open")) qkCierra(); });
+  document.addEventListener("keydown", e => {
+    const overlay = $("quickOv");
+    if (!overlay.classList.contains("open")) return;
+    if (e.key === "Escape") { e.preventDefault(); qkCierra(); return; }
+    if (e.key !== "Tab") return;
+    const items = [...overlay.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')]
+      .filter(el => el.tabIndex >= 0 && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden");
+    if (!items.length) { e.preventDefault(); overlay.querySelector('[role="dialog"]')?.focus(); return; }
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && (document.activeElement === first || !overlay.contains(document.activeElement))) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && (document.activeElement === last || !overlay.contains(document.activeElement))) {
+      e.preventDefault(); first.focus();
+    }
+  });
 
   /* Acabas de guardar una operación: verla es lo que esperas. Si un filtro la
      escondería, se quita ese filtro y se dice cuál era, en vez de dejarte
