@@ -224,8 +224,17 @@ ok(mismos(R.porLargo, ['U_FUT1']),
 
 console.log('\n═══ 7 · EL CSV SALE DE LAS OPERACIONES, Y SALEN TODAS ═══');
 {
+  /* ESPERAR A LA DESCARGA QUE SE PIDIÓ, NO A LA PRIMERA QUE PASE. Cabina baja
+     un respaldo `cabina_pre_migracion.json` al arrancar si encuentra
+     operaciones antes de marcar la migración como hecha, y estas suites
+     siembran las suyas con `FUT.createTrade()` justo en esa ventana: la
+     carrera es real y se midió —tres de cada cuatro corridas leían el JSON del
+     respaldo en vez del CSV, y la cabecera salía «{»—. Ese respaldo es
+     correcto y no es asunto de esta prueba; lo que no puede pasar es
+     confundirlo con el fichero pedido. El predicado lo resuelve por nombre. */
   const lineas = async () => {
-    const espera = p.waitForEvent('download');
+    const espera = p.waitForEvent('download',
+      { predicate: d => d.suggestedFilename().startsWith('cabina-historial-') });
     await p.click('#hsExport');
     const f = await espera;
     return readFileSync(await f.path(), 'utf8').replace(/^\uFEFF/, '').trim().split('\r\n');
