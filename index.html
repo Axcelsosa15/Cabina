@@ -16609,7 +16609,10 @@ tbody tr:last-child td{border-bottom:0}
          hoja de cálculo no sirve para encontrar nada. */
       lectura.filas.forEach((f, i) => {
         const r = impFila(f, mapa, plan, i + 2);
-        if (r.ok) ops.push(r.op); else rechazadas.push(r);
+        if (r.ok) {
+          if (lectura._brokerFillIds) r.op.executionIds = lectura._brokerFillIds.map(ix => String(f[ix] == null ? "" : f[ix]).trim()).filter(Boolean);
+          ops.push(r.op);
+        } else rechazadas.push(r);
       });
     }
     return { plan, ops, rechazadas, faltan, repetidas, listo: puede && ops.length > 0 };
@@ -16642,10 +16645,40 @@ tbody tr:last-child td{border-bottom:0}
     el.className = "synced" + (mal ? " bad" : "");
     el.innerHTML = msg ? `<span class="dotg"></span><span>${esc(msg)}</span>` : "";
   }
+  function impAutoDetectarBroker(lectura) {
+    const norm = x => String(x || "").trim().toLowerCase().replace(/[ _-]+/g, "");
+    const ix = {};
+    lectura.cabecera.forEach((h, i) => { ix[norm(h)] = i; });
+    const required = ["symbol","buyfillid","sellfillid","qty","buyprice","sellprice","pnl","boughttimestamp","soldtimestamp"];
+    if (!required.every(k => ix[k] != null)) return null;
+    const parseTs = raw => {
+      const m = String(raw || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+      if (!m) return null;
+      const d = new Date(Number(m[3]), Number(m[1])-1, Number(m[2]), Number(m[4]), Number(m[5]), Number(m[6] || 0));
+      return Number.isFinite(d.getTime()) ? d : null;
+    };
+    const fields = ["date","time","instrument","direction","qty","entry","exit","pnl"];
+    const start = lectura.cabecera.length;
+    lectura.cabecera.push(...fields.map(k => "__cabina_" + k));
+    lectura._brokerFillIds = [ix.buyfillid, ix.sellfillid];
+    lectura.filas.forEach(row => {
+      const buy = parseTs(row[ix.boughttimestamp]), sell = parseTs(row[ix.soldtimestamp]);
+      const valid = !!buy && !!sell, long = valid ? buy <= sell : true;
+      const closeStamp = valid ? (long ? row[ix.soldtimestamp] : row[ix.boughttimestamp]) : "";
+      const stamp = String(closeStamp || "").trim().split(/\s+/);
+      row.push(stamp[0] || "", stamp[1] || "", row[ix.symbol] || "",
+        valid ? (long ? "long" : "short") : "", row[ix.qty] || "",
+        row[long ? ix.buyprice : ix.sellprice] || "",
+        row[long ? ix.sellprice : ix.buyprice] || "", row[ix.pnl] || "");
+    });
+    return { map: Object.fromEntries(fields.map((k,n) => [k,start+n])) };
+  }
   function impCargar(txt, nombre) {
     const l = csvLee(String(txt == null ? "" : txt));
     if (!l.filas.length) { impSay((l.avisos[0] || "El fichero no trae ninguna fila de datos.") + " No hay nada que importar.", true); return; }
-    imp.lectura = l; imp.nombre = nombre || "texto pegado"; imp.mapa = {}; imp.elegido = {};
+    const auto = impAutoDetectarBroker(l);
+    imp.lectura = l; imp.nombre = nombre || "texto pegado"; imp.mapa = auto ? auto.map : {}; imp.elegido = {};
+    if (auto) { imp.modo = "operaciones"; imp.elegido.orden = "mdy"; impSay("Formato de operaciones cerradas reconocido. Revisa la vista previa y selecciona la cuenta una sola vez."); }
     if (!imp.cuenta) imp.cuenta = (FUT.selectedAccountId && FUT.selectedAccountId()) || defaultAccountId() || "";
     renderImportar();
     impSay(`${imp.nombre}: ${plu(l.filas.length, "fila", "filas")} de datos y ${plu(l.cabecera.length, "columna", "columnas")}, separadas por «${l.sep === "\t" ? "tabulador" : l.sep}». ${l.avisos.join(" ")} Ahora di qué columna es qué.`);
