@@ -132,7 +132,24 @@ Y el interruptor entra en «Limpiar filtros», que es el fallo que la revisión
 cazó en el modo demo con `ft.q`: un filtro que no entra en el reinicio deja la
 lista recortada con todos los controles a cero.
 
-### 4 · Lo que NO conviene automatizar todavía
+### 4 · La cola de lo importado incompleto · hecha
+
+Es la pieza que convierte el importador en algo útil en vez de un volcado de
+P&L, y la única de esta lista que **no dependía del CSV real**. Un export de
+bróker no trae el stop, y sin stop `rPlanApp` y `rRealApp` devuelven `null`: cien
+operaciones importadas daban cien filas con P&L y ninguna R.
+
+En Futuros → Diario, el panel **Operaciones** cuenta ahora cuántas importadas se
+quedaron sin stop, deja verlas solas y lleva a completarlas de una en una
+encadenando una tras otra al guardar. Sólo entra lo importado —lo escrito a mano
+sin stop ya es un error de ejecución, y contarlo aquí también borraría esa
+distinción— y la cola se puede **vaciar** con «no recuerdo el stop», que no
+inventa un número y deja la operación donde está en el recuento de Edge. Una
+cola que no se puede vaciar se aprende a ignorar, que es el fallo que convierte
+un aviso en ruido. Ver la fase 5 de [`IMPORTAR.md`](IMPORTAR.md) y
+`test/cola-importadas.mjs`.
+
+### 5 · Lo que NO conviene automatizar todavía
 
 - **Detección automática de bróker** (fase 4 de `IMPORTAR.md`). Es la que más se
   luce y la única que no se puede hacer sin los ficheros. El propio documento ya

@@ -319,6 +319,15 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      interfaz de la compuerta. */
   dice('mapeador', 'suite', 'Un CSV entra por donde se le dice, o no entra', 'index.html');
   dice('emparejado', 'suite', 'Las ejecuciones se emparejan FIFO sin perder cierres parciales ni cantidades abiertas', 'importación');
+  /* LA COLA DE LO IMPORTADO INCOMPLETO, fase 5 de docs/IMPORTAR.md. El
+     importador llena el diario de operaciones a las que les falta el stop
+     —ningún bróker lo exporta—, y sin stop no hay R ni expectativa. Esta fila
+     vigila que la cola cuente SÓLO lo importado (meter las manuales devolvería
+     el envenenamiento de la pestaña de errores que la fase 1 cerró) y que se
+     pueda VACIAR: una cola que nunca llega a cero se aprende a ignorar. Lo que
+     esta fila NO certifica, igual que `mapeador`, es que las cifras importadas
+     cuadren con el bróker: eso sigue abajo, entre las fronteras. */
+  dice('cola-importadas', 'suite', 'Lo importado sin stop se cuenta, se completa y la cola se puede vaciar', 'index.html');
   /* LOS CINCO DIALECTOS DE FILTRO. La colección `trades` se filtra en cinco
      sitios con cinco vocabularios, y dos de ellos —Futuros y Métricas / Edge—
      leen las MISMAS operaciones de futuros con dos implementaciones distintas

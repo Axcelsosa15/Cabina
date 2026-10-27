@@ -1,6 +1,6 @@
 # Importar operaciones desde el bróker
 
-Estado al 24/10/2026: **fases 0.5 y 1 hechas; fase 2 implementada para CSV manual de ejecuciones; fase 3 parcial; fases 4 y 5 pendientes**. La fase 0 —un CSV real anonimizado— sigue sin hacerse: bloquea la detección automática (fase 4) y la comprobación de que los importes cuadren con el bróker al céntimo, no el desarrollo del mapeador.
+Estado al 27/10/2026: **fases 0.5, 1 y 5 hechas; fase 2 implementada para CSV manual de ejecuciones; fase 3 parcial; fase 4 pendiente**. La fase 0 —un CSV real anonimizado— sigue sin hacerse: bloquea la detección automática (fase 4) y la comprobación de que los importes cuadren con el bróker al céntimo, no el desarrollo del mapeador.
 La fase 2 reconstruye operaciones por FIFO y conserva el detalle de cada ejecución en `executionLedger`. La deduplicación por ID del bróker o huella determinista evita volver a importar ejecuciones reconocidas. La reconciliación incremental cierra o reduce una posición abierta importada cuando el ledger permite reconstruir su entrada; si la posición antigua no tiene evidencia suficiente, el rango se bloquea en vez de inventar una apertura. Sigue pendiente la detección automática de bróker y validar los importes contra un CSV real anonimizado.
 
 El `README.md` ya nombraba el hueco: no hay esquema canónico de operación
@@ -320,14 +320,49 @@ del resto del camino mientras falta un CSV real que valide cifras contra el bró
 > **Control:** el fixture se detecta solo y el mapeo propuesto es el correcto sin
 > tocarlo.
 
-### Fase 5 — La cola de operaciones incompletas
+### Fase 5 — La cola de operaciones incompletas *(hecha)*
 
 La operación importada entra marcada. La Cabina dice cuántas le faltan campos y
-lleva a completarlas de una en una. Las métricas que dependen de un campo que
-falta ya saben decir que falta: eso está hecho.
+lleva a completarlas de una en una. Vive en Futuros → Diario, en el panel
+**Operaciones**: un interruptor **«Sólo sin completar (N)»** y un botón
+**«Completar la siguiente»** que abre la más antigua y encadena con la siguiente
+al guardar, sin volver a la tabla entre una y otra.
+
+Las decisiones que no son obvias, y que `test/cola-importadas.mjs` fija:
+
+- **Sólo lo importado entra.** Una operación escrita a mano sin stop ya es un
+  error de EJECUCIÓN —categoría 2— y `senalesDe` exime a la importada justamente
+  porque a ella el campo le falta por construcción. Contar aquí también las
+  manuales duplicaría lo mismo y borraría esa distinción, que es la que impide
+  que cien filas de un CSV se conviertan en cien errores que nadie cometió.
+- **El contador se cuenta sobre los demás filtros**, no sobre lo que el propio
+  interruptor deja ver: si no, al activarlo el número pasaría a ser el de la
+  lista y dejaría de decir «cuántas de las que estás mirando te faltan». Mismo
+  razonamiento que la cola de revisiones de Estudio.
+- **Las abiertas SÍ entran**, al revés que en aquella cola. Allí una abierta no
+  tiene nada que revisar todavía; aquí una posición importada y abierta sin stop
+  escrito es lo más urgente que hay en la app.
+- **La cola se puede vaciar**, y es lo que la separa de un aviso permanente. De
+  una operación de hace meses no siempre se recuerda el stop, y una cola que
+  nunca llega a cero se aprende a ignorar —y el día que importa, también—.
+  `stopUnknown` es la salida honesta: dice «existió y no lo reconstruyo», no
+  inventa un número, no toca la R y sólo se ofrece en una operación importada.
+  En una manual, escribir el stop antes de entrar es el trabajo entero:
+  ofrecerle ahí un «no lo recuerdo» sería ofrecerle saltarse el plan.
+- **Un stop escrito gana siempre sobre la marca:** si deja de faltar, la marca
+  sobra y no se guarda. Igual que `invalida` y `plan`, la ausencia significa
+  algo y un `false` del editor no se escribe.
+- **Quedarse sin cola es un éxito y se dice como tal.** Completar la última con
+  el filtro puesto vacía la lista, y poner ahí «sin operaciones en este rango»
+  convertiría ese momento en un mensaje de error.
 
 > **Control:** con 20 operaciones importadas sin stop, Métricas/Edge dice que no
-> puede medir en R y nombra cuántas y por qué.
+> puede medir en R y nombra cuántas y por qué. **Cumplido:** `mxEdgeNotas` dice
+> «N de M operaciones no tienen stop: cuentan en $, pero no en R ni en la
+> simulación», y la tarjeta de expectancy dice «hace falta el stop para medir en
+> R». La cola no cambia ese recuento: una operación marcada con `stopUnknown`
+> sale de la cola y sigue contando entre las que Edge no puede medir, que es la
+> verdad.
 
 ---
 
