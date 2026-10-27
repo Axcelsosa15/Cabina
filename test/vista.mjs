@@ -114,7 +114,10 @@ for (const [w, h, nombre] of ANCHOS) {
         visibleNavItems: nav ? [...nav.querySelectorAll('.tabbtn, #mobileMoreBtn')].filter(x => getComputedStyle(x).display !== 'none').length : 0,
         moreVisible: !!document.getElementById('mobileMoreBtn') && getComputedStyle(document.getElementById('mobileMoreBtn')).display !== 'none',
         minTouchHeight: nav ? Math.min(...[...nav.querySelectorAll('.tabbtn, #mobileMoreBtn')].filter(x => getComputedStyle(x).display !== 'none').map(x => x.getBoundingClientRect().height)) : 0,
-        pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth
+        pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        cameraCapture: document.getElementById('tradeCameraFile')?.getAttribute('capture') || '',
+        cameraAccept: document.getElementById('tradeCameraFile')?.getAttribute('accept') || '',
+        galleryInput: !!document.getElementById('tradeFile')
       };
     });
     ok(mobile.navPosition === 'fixed' && mobile.navAtBottom && mobile.navVisible,
@@ -122,6 +125,9 @@ for (const [w, h, nombre] of ANCHOS) {
     ok(mobile.quickPosition === 'fixed' && mobile.quickAboveNav,
        'registro rápido accesible sobre la navegación', JSON.stringify({position:mobile.quickPosition,above:mobile.quickAboveNav}));
     ok(mobile.overlayAboveNav, 'diálogo de registro por encima de la navegación', String(mobile.overlayAboveNav));
+    ok(mobile.cameraCapture === 'environment' && mobile.cameraAccept === 'image/*' && mobile.galleryInput,
+       'capturas móviles ofrecen cámara trasera y mantienen galería',
+       JSON.stringify({capture:mobile.cameraCapture,accept:mobile.cameraAccept,gallery:mobile.galleryInput}));
     ok(mobile.visibleNavItems === 5 && mobile.moreVisible, 'barra inferior compacta con cuatro destinos y Más', JSON.stringify({items:mobile.visibleNavItems,more:mobile.moreVisible}));
     await p.click('#mobileMoreBtn');
     await p.waitForFunction(() => !document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
