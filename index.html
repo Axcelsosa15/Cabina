@@ -16664,7 +16664,8 @@ tbody tr:last-child td{border-bottom:0}
     lectura.filas.forEach(row => {
       const buy = parseTs(row[ix.boughttimestamp]), sell = parseTs(row[ix.soldtimestamp]);
       const valid = !!buy && !!sell, long = valid ? buy <= sell : true;
-      const stamp = String(row[ix.soldtimestamp] || "").trim().split(/\s+/);
+      const closeStamp = valid ? (long ? row[ix.soldtimestamp] : row[ix.boughttimestamp]) : "";
+      const stamp = String(closeStamp || "").trim().split(/\s+/);
       row.push(stamp[0] || "", stamp[1] || "", row[ix.symbol] || "",
         valid ? (long ? "long" : "short") : "", row[ix.qty] || "",
         row[long ? ix.buyprice : ix.sellprice] || "",
