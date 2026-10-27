@@ -2727,6 +2727,7 @@ tbody tr:last-child td{border-bottom:0}
   </div>
   <input type="file" id="pbFile" accept="image/*" hidden>
 <input type="file" id="tradeFile" accept="image/*" hidden>
+<input type="file" id="tradeCameraFile" accept="image/*" capture="environment" hidden>
   <p class="note-p" id="pbKindNote"></p>
   <div class="cards" id="pbCards"></div>
 </div>
@@ -10227,7 +10228,7 @@ tbody tr:last-child td{border-bottom:0}
         ? `<div class="pbimgs">${st.imgs.map((im, i) => `<figure class="pbimg" data-i="${i}"><img ${imgAttrs(im)} alt="captura ${i + 1}" loading="lazy"><input class="tin small cap" type="text" data-cap="${i}" value="${esc(im.caption || "")}" placeholder="qué se ve" aria-label="Nota de la captura ${i + 1}"><button type="button" class="icon del" data-act="rm" data-i="${i}" title="Quitar captura">×</button></figure>`).join("")}</div>`
         : "";
       box.innerHTML = `<span class="lab">Capturas · antes, durante y después</span>` + grid + (assetsReady()
-        ? `<div class="imgbar"><button type="button" class="btn sm" data-act="add">+ Añadir captura</button><span class="help">${st.imgs.length ? plu(st.imgs.length, "captura adjunta", "capturas adjuntas") : "sin gráfico, la lección se olvida en una semana"}</span></div>`
+        ? `<div class="imgbar"><button type="button" class="btn sm" data-act="add" data-source="gallery">+ Galería</button><button type="button" class="btn sm" data-act="add" data-source="camera">Tomar foto</button><span class="help">${st.imgs.length ? plu(st.imgs.length, "captura adjunta", "capturas adjuntas") : "adjunta el gráfico para revisar la entrada"}</span></div>`
         : `<p class="help" style="font-family:var(--font-mono);font-size:11.5px;color:var(--dim);margin:4px 0 0">${st.imgs.length ? plu(st.imgs.length, "captura adjunta", "capturas adjuntas") + ", traídas en un respaldo. Las capturas nuevas se guardan en tu cuenta: entra con ella para añadir más." : "Las capturas se guardan en tu cuenta, no en este navegador: entra con ella para adjuntarlas."}</p>`);
     };
     draw();
@@ -10242,12 +10243,15 @@ tbody tr:last-child td{border-bottom:0}
         return;
       }
       if (b.dataset.act === "add") {
-        const inp = $("tradeFile"); if (!inp) return; inp.value = "";
+        const inp = $(b.dataset.source === "camera" ? "tradeCameraFile" : "tradeFile");
+        if (!inp) return;
+        inp.value = "";
+        const label = b.textContent;
         inp.onchange = async () => {
           const f = inp.files && inp.files[0]; if (!f) return;
           b.disabled = true; b.textContent = "subiendo…";
           try { st.imgs.push(await uploadShot(f)); draw(); }
-          catch (err) { b.disabled = false; b.textContent = "+ Añadir captura"; flashEd(uploadErrMsg(err)); }
+          catch (err) { b.disabled = false; b.textContent = label; flashEd(uploadErrMsg(err)); }
         };
         inp.click();
       }
