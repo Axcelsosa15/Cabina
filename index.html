@@ -2563,7 +2563,18 @@ tbody tr:last-child td{border-bottom:0}
       </section>
       <section class="panel">
         <header><h2>Operaciones</h2><span class="meta" id="jrMeta"></span></header>
-        <div class="body"><div class="twrap" id="jrTable"></div></div>
+        <div class="body">
+          <!-- LA COLA DE LO IMPORTADO INCOMPLETO · fase 5 de docs/IMPORTAR.md.
+               Ningun export de broker trae el stop, asi que una operacion importada
+               entra sin el campo del que salen la R y la expectativa. Esto dice
+               cuantas son y lleva a completarlas de una en una. -->
+          <div class="bkbtns" id="jrCola" hidden>
+            <button type="button" class="btn ghost sm" id="jrSoloIncompletas" aria-pressed="false">Sólo sin completar</button>
+            <button type="button" class="btn sm" id="jrCompletarSig">Completar la siguiente</button>
+          </div>
+          <p class="synced" id="jrColaNota" hidden></p>
+          <div class="twrap" id="jrTable"></div>
+        </div>
       </section>
       <!-- IMPORTAR · mapeador manual de operaciones cerradas y modo FIFO de ejecuciones.
            La detección automática de plataforma (fase 4) y la validación contra un CSV
@@ -4315,11 +4326,15 @@ tbody tr:last-child td{border-bottom:0}
     "Simular 10.000 caminos": "Simulate 10,000 paths",
     "Stop (puntos)": "Stop (points)",
     "Subir lo de este navegador": "Upload what's in this browser",
+    "Sólo sin completar": "Incomplete only",
     "Sólo sin revisar": "Unreviewed only",
     "Tamaño de posición": "Position size",
     "Tasa libre de riesgo anual (%)": "Annual risk-free rate (%)",
     "Tipo": "Type",
     "Todas": "All",
+    "Completar la siguiente": "Complete the next one",
+    "Nada que completar": "Nothing to complete",
+    "Todas completadas": "All complete",
     "Todas las cuentas": "All accounts",
     "Todo": "All",
     "Todos": "All",
@@ -10415,11 +10430,26 @@ tbody tr:last-child td{border-bottom:0}
         }
         const sel = fieldsEl.querySelector("#ef_setupId");
         if (sel) { renderConds(fieldsEl, sel.value, vals.setupChecks); sel.addEventListener("change", () => renderConds(fieldsEl, sel.value, null)); }
+        /* LA SALIDA HONESTA DE LA COLA DE IMPORTADAS (fase 5 de IMPORTAR.md).
+           Sólo aparece en una operación importada: escribir el stop ANTES de
+           entrar es el trabajo entero de una manual, y ofrecerle ahí un «no lo
+           recuerdo» sería ofrecerle saltarse el plan. En una importada el campo
+           falta por construcción, y de una sesión de hace meses no siempre se
+           reconstruye: sin esta casilla la cola nunca llegaría a cero y se
+           aprendería a ignorar. No inventa un número ni toca la R: Edge la sigue
+           contando entre las que no puede medir. */
+        if (type === "futuros" && /^import:/.test(String(values.source || ""))) {
+          const ref = fieldsEl.querySelector("#ef_stop"), anchor = ref ? ref.closest(".fld") : null;
+          const box = document.createElement("div"); box.className = "fld w6"; box.id = "stopDesconocido";
+          box.innerHTML = `<label><input type="checkbox" id="ef_stopUnknown"${values.stopUnknown === true ? " checked" : ""}> No recuerdo el stop de esta operación</label><span class="help">Importada de un CSV, y ningún bróker exporta el stop. Marcarlo la saca de la cola sin inventar un número; seguirá sin contar en R.</span>`;
+          if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(box, anchor.nextSibling); else fieldsEl.appendChild(box);
+        }
         shots = attachShots(fieldsEl, vals.images);
       },
       read: (out, fieldsEl) => {
         const boxes = fieldsEl.querySelectorAll("#setupConds input[data-sc]"); if (boxes.length) { out.setupChecks = {}; boxes.forEach(b => { out.setupChecks[b.dataset.sc] = b.checked; }); } else out.setupChecks = null;
         out.images = shots ? shots.imgs : (values.images || []);
+        const su = fieldsEl.querySelector("#ef_stopUnknown"); if (su) out.stopUnknown = su.checked;
       },
       /* La cantidad VACÍA se toma como 1 y está documentado; un CERO escrito a
          propósito no. El motor hace `toNum(qty) || 1`, así que una operación de 0
@@ -10458,6 +10488,11 @@ tbody tr:last-child td{border-bottom:0}
            este campo existe para no inventar. Editar una vieja conserva su ausencia,
            porque `values` la arrastra tal cual. */
         if (isNew && !rec.source) rec.source = "manual";
+        /* Igual que `invalida` y `plan`: la ausencia significa algo. Sólo se
+           guarda cuando se marcó; un `false` escrito por el editor diría «alguien
+           miró y dijo que sí lo recuerda», que no es lo mismo que no haber mirado.
+           Y un stop escrito gana siempre: deja de faltar, así que la marca sobra. */
+        if (rec.stopUnknown !== true || !enBlanco(rec.stop)) delete rec.stopUnknown;
         coll("trades").set(rec.id, rec);
         /* Quien abrió el editor puede necesitar saber qué id salió — una tesis,
            por ejemplo, para enlazar su post-mortem sin que nadie copie la R. */
@@ -11779,8 +11814,86 @@ tbody tr:last-child td{border-bottom:0}
     jrTope = JR_TRAMO;
     renderFutures();
   }
+  /* ══════ LA COLA DE LO IMPORTADO INCOMPLETO · fase 5 de IMPORTAR.md ══════
+
+     Un export de bróker da fecha, hora, instrumento, lado, contratos, entrada,
+     salida y comisión. NO da el stop, y sin stop no hay R: `rPlanApp` y
+     `rRealApp` devuelven null, y Edge ya dice cuántas se quedan fuera. Un diario
+     importado y no completado da P&L y nada más —exactamente lo que ya da la
+     plataforma del bróker—, así que el importador no es el producto: es el que
+     llena esta cola.
+
+     SOLO LO IMPORTADO ENTRA. Una operación escrita a mano sin stop ya es un
+     error de EJECUCIÓN (`sin_stop`, categoría 2: sabías qué hacer y no lo
+     hiciste), y `senalesDe` exime a la importada justamente porque el campo le
+     falta POR CONSTRUCCIÓN. Meter aquí también las manuales contaría dos veces
+     lo mismo y borraría esa distinción, que es la que impide que cien filas de
+     un CSV se conviertan en cien errores que nadie cometió.
+
+     Y SE PUEDE VACIAR, que es lo que la separa de un aviso permanente. De una
+     operación de hace tres meses no siempre se recuerda el stop, y una cola que
+     nunca llega a cero se aprende a ignorar —y el día que importa, también—.
+     `stopUnknown` es la salida honesta: dice «existió y no lo reconstruyo», no
+     inventa un número, y saca la operación de la cola sin sacarla del recuento
+     de Edge, que sigue diciendo que no puede medirla en R.
+
+     LAS ABIERTAS SÍ ENTRAN, al revés que en la cola de revisiones de Estudio.
+     Allí una abierta no tiene nada que revisar todavía; aquí una posición
+     importada y abierta sin stop escrito es lo más urgente que hay en la app. */
+  const jrImportada = t => /^import:/.test(String((t && t.source) || ""));
+  const jrIncompleta = t => jrImportada(t) && enBlanco(t.stop) && t.stopUnknown !== true;
+  let jrSoloIncompletas = false;
+
+  /* El orden de la cola es CRONOLÓGICO y no el de la tabla: se completa
+     recordando la sesión, y saltar de un mes a otro porque la tabla está
+     ordenada por P&L hace imposible acordarse de nada. */
+  const jrColaOrden = ts => ts.slice().sort((a, b) =>
+    String(a.date || "").localeCompare(String(b.date || "")) ||
+    String(a.time || "").localeCompare(String(b.time || "")) ||
+    String(a.id || "").localeCompare(String(b.id || "")));
+
+  function jrPintaCola(list, pendientes) {
+    const cola = $("jrCola"), btn = $("jrSoloIncompletas"), sig = $("jrCompletarSig"), nota = $("jrColaNota");
+    if (!cola || !btn || !sig || !nota) return;
+    const importadas = list.filter(jrImportada).length;
+    /* Sin nada importado en el rango la cola NO existe en pantalla: un control
+       permanente para algo que no ha pasado nunca es ruido. Si el interruptor
+       está puesto se mantiene visible aunque no queden: apagar el control
+       dejando el filtro activo es cómo se queda uno mirando una lista vacía sin
+       ver por qué. */
+    cola.hidden = !importadas && !jrSoloIncompletas;
+    nota.hidden = cola.hidden || !pendientes.length;
+    btn.textContent = pendientes.length ? `Sólo sin completar (${pendientes.length})`
+      : importadas ? "Todas completadas" : "Sólo sin completar";
+    btn.setAttribute("aria-pressed", String(jrSoloIncompletas));
+    btn.disabled = !pendientes.length && !jrSoloIncompletas;
+    sig.disabled = !pendientes.length;
+    sig.textContent = pendientes.length ? "Completar la siguiente" : "Nada que completar";
+    if (!nota.hidden) nota.innerHTML = `<span class="dotg"></span><span>${plu(pendientes.length, "operación importada", "operaciones importadas")} sin stop escrito: cuentan en $, pero no en R ni en la simulación. Si no lo recuerdas, márcalo en el editor y sale de la cola sin inventar un número.</span>`;
+  }
+
+  /* Abre la más antigua sin completar y, al guardar, encadena con la siguiente:
+     la cola se recorre sin volver a la tabla entre una y otra. Se recalcula
+     DESPUÉS de guardar —no se congela una lista al empezar— porque la que
+     acaba de completarse tiene que salir, y porque guardar puede haber cambiado
+     el rango visible. */
+  let jrPendientes = [];
+  function jrCompletarSiguiente() {
+    const cola = jrColaOrden(jrPendientes.map(t => coll("trades").get(t.id)).filter(jrIncompleta));
+    if (!cola.length) return;
+    openTrade(cola[0], undefined, undefined, () => setTimeout(() => { renderFutures(); jrCompletarSiguiente(); }, 60));
+  }
+
   function renderJournalTable(list) {
     list = jrOrdena(list);
+    /* EL CONTADOR SE CUENTA SOBRE LOS DEMÁS FILTROS, no sobre lo que el propio
+       interruptor deja ver: contarlo después haría que al activarlo el número
+       pasara a ser el de la lista y dejara de decir «cuántas de las que estás
+       mirando te faltan». Mismo razonamiento que `studyTradeSinRevisar`. */
+    const pendientes = list.filter(jrIncompleta);
+    jrPendientes = pendientes;
+    jrPintaCola(list, pendientes);
+    if (jrSoloIncompletas) list = pendientes;
     const total = list.length;
     if (jrTope > JR_TRAMO && jrTope > total) jrTope = Math.max(JR_TRAMO, total);
     const visibles = total > jrTope ? list.slice(0, jrTope) : list;
@@ -11789,7 +11902,12 @@ tbody tr:last-child td{border-bottom:0}
       : "";
     const wrap = $("jrTable");
     list = visibles;
-    if (!list.length) { wrap.innerHTML = `<p class="empty">Sin operaciones de futuros en este rango. La primera fila es una entrada real con entrada, stop y salida — no una idea.</p>`; return; }
+    /* QUEDARSE SIN COLA ES EL ÉXITO, no un filtro que no encuentra nada.
+       Completar la última con el interruptor puesto vacía la lista, y poner ahí
+       «sin operaciones en este rango» convertiría ese momento en un error. */
+    if (!list.length) { wrap.innerHTML = jrSoloIncompletas
+      ? `<p class="empty">No queda ninguna importada sin completar en este rango. Suelta el filtro para ver todas.</p>`
+      : `<p class="empty">Sin operaciones de futuros en este rango. La primera fila es una entrada real con entrada, stop y salida — no una idea.</p>`; return; }
     const pbName = id => { const p = coll("playbooks").get(id); return p ? p.name : ""; };
     // [etiqueta, clave de orden o null si no se ordena, alineada a la derecha]
     const cols = [["Fecha", "date", 0], ["Hora", "time", 0], ["Sesión", "ses", 0], ["Cuenta", "acct", 0],
@@ -11825,6 +11943,8 @@ tbody tr:last-child td{border-bottom:0}
     const c = tradeCalc(Object.assign({}, rec));
     flash(c.pnlEff == null ? "cerrada en el stop" : `cerrada en el stop: ${money(c.pnlEff)}`);
   }
+  $("jrSoloIncompletas").addEventListener("click", () => { jrSoloIncompletas = !jrSoloIncompletas; jrTope = JR_TRAMO; renderFutures(); });
+  $("jrCompletarSig").addEventListener("click", jrCompletarSiguiente);
   $("jrTable").addEventListener("click", e => {
     if (e.target.closest("#jrMas")) { jrTope += JR_TRAMO; renderFutures(); return; }
     const so = e.target.closest("button[data-sort]");
