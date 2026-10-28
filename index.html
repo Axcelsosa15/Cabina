@@ -6,7 +6,7 @@
      inline, así que no impide que corra código inyectado; impide que ese código
      hable con alguien que no sea el proyecto Supabase o se chive pidiendo una
      imagen. Las fuentes de Google son el único recurso externo. test/seguridad.mjs. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src https://lazniuuedlhqomfyykvf.supabase.co; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; worker-src 'self'; manifest-src 'self'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src https://lazniuuedlhqomfyykvf.supabase.co; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cabina · cockpit de sesión</title>
 <meta name="description" content="Cabina: trading, inversiones y estudio profundo de mercados, macroeconomía y riesgo.">
@@ -27,6 +27,15 @@
 <meta name="twitter:card" content="summary_large_image">
 <!-- El icono va dentro del fichero: ningun recurso externo nuevo (test/seguridad.mjs). -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B0E13'/%3E%3Cpath d='M44 21a15 15 0 1 0 0 22' fill='none' stroke='%234FB3A0' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E">
+<!-- INSTALABLE Y SIN CONEXION. El manifiesto y el trabajador de servicio son del
+     propio origen: la CSP los permite con worker-src/manifest-src 'self' y con
+     nada mas. Los iconos salen del MISMO dibujo que el favicon de arriba
+     (engendrados, no copiados: ver test/pwa.mjs) y van TODOS en el manifiesto,
+     incluido el de 180 px de iOS: un <link rel="apple-touch-icon"> lo carga la
+     pagina, y bajo file:// —donde corre media suite— eso viola img-src porque
+     el origen es opaco y 'self' no lo cubre. Desde el manifiesto lo pide el
+     sistema operativo, no el documento. -->
+<link rel="manifest" href="./manifest.webmanifest">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0B0E13">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1845,6 +1854,10 @@ tbody tr:last-child td{border-bottom:0}
   }
 
   footer { margin-top:32px; font-family: var(--font-mono); font-size: 11px; color: var(--dim); display: flex; flex-wrap: wrap; gap:8px 24px; }
+  /* Los enlaces legales del pie: del color del texto apagado, subrayados sólo
+     al pasar, y con area de pulsacion suficiente en un telefono. */
+  footer .legal a { color: var(--dim); text-decoration: none; border-bottom: 1px solid transparent; padding: 2px 0; }
+  footer .legal a:hover, footer .legal a:focus-visible { color: var(--text); border-bottom-color: currentColor; }
 
   /* ---------- REGISTRO RÁPIDO ----------
      Una operación en 5 segundos. El panel es pequeño a propósito: si crece, deja
@@ -2919,6 +2932,10 @@ tbody tr:last-child td{border-bottom:0}
   <span id="footerStore"></span>
   <!-- Visible en las seis pestañas y en un teléfono: test/lanzamiento.mjs lo mide. -->
   <span class="aviso">Cabina es una herramienta de registro y análisis, no asesoramiento financiero. Operar futuros conlleva un riesgo alto de pérdida.</span>
+  <!-- Las tres páginas legales. Son ficheros aparte y del propio sitio: no
+       cargan nada, no miden nada y la publicación las verifica una por una
+       (pagina.yml). test/pwa.mjs exige que estos tres enlaces sigan aquí. -->
+  <span class="legal"><a href="./privacidad.html">Privacidad</a> · <a href="./terminos.html">Términos</a> · <a href="./seguridad.html">Seguridad</a></span>
 </footer>
 
 <!-- ═══ PALETA DE COMANDOS ═══
@@ -18122,6 +18139,26 @@ tbody tr:last-child td{border-bottom:0}
     });
     syncMoreActive();
   })();
+
+  /* ── SIN CONEXION · se registra el trabajador de servicio ─────────────────
+     TRES GUARDAS, Y CADA UNA TIENE SU MOTIVO MEDIDO:
+
+       · `serviceWorker in navigator` — no existe en todos los navegadores.
+       · el protocolo — 30 de las 62 pruebas de la suite cargan la pagina por
+         `file://`, donde registrar lanza. Una excepcion ahi seria un
+         `pageerror` y pondria roja media suite por algo que el usuario nunca
+         ve.
+       · el `.catch` — si `sw.js` no esta servido (los servidores de prueba
+         sirven solo lo que publica Pages), el registro RECHAZA. Sin este catch
+         seria un rechazo sin manejar.
+
+     Y va dentro de `load`: registrar antes compite por el ancho de banda con
+     la propia pagina en la primera visita, que es justo la que se mide. */
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').catch(function () {});
+    });
+  }
 
 </script>
 

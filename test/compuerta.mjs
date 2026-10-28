@@ -337,6 +337,16 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      verde. Esta fila existe para que esa unificación se haga con la puerta
      cerrada detrás, no delante. */
   dice('filtros', 'suite', 'El mismo filtro selecciona las mismas operaciones en Futuros y en Métricas', 'index.html');
+  /* LA INSTALACION Y EL CASCO SIN CONEXION. Esta fila vigila una cadena nueva,
+     y por eso tiene fila propia: el dia que la pagina dejo de ser un fichero
+     autosuficiente, `sw.js` y `pagina.yml` pasaron a declarar DOS listas de
+     ficheros que tienen que decir lo mismo. Si divergen, la pagina se ve
+     perfecta con red y abre rota sin ella — y nadie lo nota, porque nadie
+     prueba a mano el modo avion. La suite tambien corta la red de verdad y
+     recarga, y comprueba que la nube no entra en la cache: cachear una
+     respuesta de Supabase seria servir el journal de una sesion a la
+     siguiente. */
+  dice('pwa', 'suite', 'La página se instala, abre sin conexión y la nube nunca se cachea', 'instalación');
 }
 
 /* ── LO QUE LA PLATAFORMA NO PERMITE COMPROBAR ───────────────────────────────
@@ -344,6 +354,13 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
    compuerta no pueda dar una impresión de cobertura total que no tiene. */
 fila('pages', 'GitHub Pages sirve la página', 'UNKNOWN',
   'el despliegue ocurre DESPUÉS de esta compuerta (pagina.yml, cuando pruebas sale verde), y es ese flujo el que pide la URL publicada y comprueba que responde con la cabina');
+/* LA INSTALACION DE VERDAD. `pwa.mjs` demuestra que el trabajador se registra,
+   que el casco esta en la cache y que la pagina abre sin red EN CHROMIUM. No
+   demuestra que iOS acepte el icono, ni que Android ofrezca instalar, ni que un
+   telefono real conserve la cache entre sesiones: eso depende de cada sistema
+   y no se puede medir desde aqui. Queda nombrado en vez de omitido. */
+fila('pages', 'Un teléfono real instala la app y la conserva', 'UNKNOWN',
+  'pwa.mjs mide Chromium de escritorio por HTTP local: registro, casco en caché y recarga sin red. El prompt de instalación de Android, el icono de iOS y la persistencia de la caché entre sesiones los decide el sistema operativo, no el payload');
 fila('pages', 'El CDN de GitHub sirve el payload verificado', 'UNKNOWN',
   'humo.mjs verifica el MISMO payload en el MISMO protocolo, no el CDN de GitHub ni su configuración');
 /* Y UNA FRONTERA QUE NO ES DE LA PLATAFORMA: es del dueño de la cuenta. Se pone
