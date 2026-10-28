@@ -73,8 +73,8 @@ npm run compuerta    # todas las pruebas + la tabla de la cadena (lo que corre C
 
 | | |
 |---|---|
-| suites | **59**, 1.659 aserciones de navegador y guardianes en 56 archivos + 383 del motor |
-| compuerta | **33 PASS · 0 FAIL · 4 UNKNOWN** de 37 filas (3 fronteras de plataforma y 1 que depende de un CSV real del bróker) |
+| suites | **61**, 1.866 aserciones de navegador y guardianes en 58 archivos + 383 del motor |
+| compuerta | **35 PASS · 0 FAIL · 5 UNKNOWN** de 40 filas (4 fronteras de plataforma —una, que un teléfono real instale la app— y 1 que depende de un CSV real del bróker) |
 | despliegue | GitHub Pages, sólo tras `pruebas` en verde, con comparación byte a byte |
 
 ## Darle Cabina a otra persona
