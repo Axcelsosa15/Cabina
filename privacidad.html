@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<!-- Una página de texto. No corre JavaScript ni pide un solo recurso: su CSP lo
+     dice y el navegador lo impone. La vigila test/pwa.mjs. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<title>Privacidad · Cabina</title>
+<meta name="description" content="Dónde viven tus datos en Cabina, qué sale del navegador y qué no.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B0E13'/%3E%3Cpath d='M44 21a15 15 0 1 0 0 22' fill='none' stroke='%234FB3A0' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0B0E13">
+<style>
+  :root { color-scheme: dark; --bg:#0B0E13; --text:#E8ECF2; --dim:#8A94A6; --line:#1C222C; --acc:#4FB3A0; }
+  html { background: var(--bg); }
+  body { margin:0 auto; padding:40px 20px 80px; max-width:72ch; background:var(--bg); color:var(--text);
+         font:15px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--acc); }
+  h1 { font-size:26px; margin:0 0 4px; letter-spacing:-.01em; }
+  h2 { font-size:16px; margin:36px 0 10px; letter-spacing:-.005em; }
+  .sub { color:var(--dim); font-size:13px; margin:0 0 28px; }
+  table { border-collapse:collapse; width:100%; margin:14px 0; font-size:14px; }
+  th, td { border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+  th { color:var(--dim); font-weight:600; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; color:var(--acc); }
+  .volver { display:inline-block; margin-bottom:28px; color:var(--dim); text-decoration:none; font-size:13px; }
+  .volver:hover { color:var(--text); }
+  footer { margin-top:48px; padding-top:18px; border-top:1px solid var(--line); color:var(--dim); font-size:12px; }
+</style>
+</head>
+<body>
+<a class="volver" href="./index.html">← Cabina</a>
+
+<h1>Privacidad</h1>
+<p class="sub">Última revisión: 28 de octubre de 2026</p>
+
+<p>Cabina es una página estática. No hay servidor propio, no hay analítica, no hay
+publicidad y no hay cookies. Lo que sigue describe los dos únicos sitios donde
+pueden acabar tus datos, y lo hace sin adornos: si algo no está verificado, lo
+dice.</p>
+
+<h2>Dónde viven tus datos</h2>
+<table>
+  <tr><th></th><th>Sin cuenta</th><th>Con cuenta</th></tr>
+  <tr><td>Dónde</td><td>El <code>localStorage</code> de ese navegador</td><td>Supabase (proyecto «cabina»), en tu fila</td></tr>
+  <tr><td>Entre dispositivos</td><td>No</td><td>Sí, al volver a la pestaña</td></tr>
+  <tr><td>Capturas de gráficos</td><td>No</td><td>Sí, en un bucket privado</td></tr>
+  <tr><td>¿Sale algo del navegador?</td><td>Nada</td><td>Sólo a tu cuenta, con tu token</td></tr>
+</table>
+
+<p>Sin cuenta, ninguna petición sale de tu navegador con datos tuyos: la
+aplicación entera es un solo fichero y el único <code>fetch</code> que existe en
+su código apunta al proyecto Supabase, que sólo se usa si inicias sesión.</p>
+
+<h2>Lo que separa tus datos de los de otra persona</h2>
+<p>No está en la página: está en la base. Las tablas y el bucket de capturas
+llevan <em>Row Level Security</em> forzada, de modo que una sesión sólo puede
+leer y escribir las filas cuyo dueño es ella. El esquema y las políticas están
+comprobados contra Postgres; el estado del proyecto real en un momento dado es
+algo que sólo puede verificar quien lo administra.</p>
+
+<h2>Qué datos se guardan</h2>
+<ul>
+  <li>Lo que escribes: operaciones, cuentas, reglas, notas, tesis, posiciones de inversión y capturas que adjuntes.</li>
+  <li>Si creas cuenta: tu correo y la contraseña, gestionados por el servicio de
+      autenticación de Supabase. Cabina nunca ve tu contraseña en claro.</li>
+</ul>
+<p>No se recoge nada más. Sin telemetría, sin identificadores de dispositivo, sin
+perfilado y sin terceros publicitarios.</p>
+
+<h2>Los dos terceros que existen</h2>
+<ul>
+  <li><strong>Supabase</strong> — sólo si creas cuenta. Almacena tus datos y gestiona tu sesión.</li>
+  <li><strong>Google Fonts</strong> — la página pide dos tipografías a
+      <code>fonts.googleapis.com</code> después de cargar. Eso revela tu
+      dirección IP a Google, como cualquier web que use esas fuentes. No viaja
+      ningún dato tuyo de trading en esa petición, y si bloqueas el dominio la
+      página funciona igual con las tipografías del sistema.</li>
+</ul>
+<p>El alojamiento es GitHub Pages, que registra peticiones como cualquier
+servidor web. Esos registros son de GitHub, no de Cabina.</p>
+
+<h2>Cookies</h2>
+<p>Ninguna. Ni propias ni de terceros. La sesión, cuando existe, se guarda en el
+almacenamiento local del navegador, no en una cookie.</p>
+
+<h2>Tus datos son tuyos</h2>
+<ul>
+  <li><strong>Llevártelos</strong>: <em>Respaldo</em> descarga un JSON con todo, con las capturas dentro si quieres.</li>
+  <li><strong>Borrarlos</strong>: sin cuenta, basta con borrar los datos del sitio
+      en tu navegador. Con cuenta, borrar desde la aplicación quita las filas de
+      la base; para eliminar la cuenta entera, escribe por el canal de contacto
+      de abajo.</li>
+</ul>
+
+<h2>Menores y jurisdicción</h2>
+<p>Cabina no está dirigida a menores de 18 años. El proyecto lo mantiene una
+persona a título individual, no una empresa.</p>
+
+<h2>Contacto</h2>
+<p>Por el repositorio:
+<a href="https://github.com/Axcelsosa15/Cabina/issues">github.com/Axcelsosa15/Cabina</a>.
+Para algo sensible, lee <a href="./seguridad.html">Seguridad</a>.</p>
+
+<footer>
+  Cabina es una herramienta de registro y análisis, no asesoramiento financiero.
+  Operar futuros conlleva un riesgo alto de pérdida.
+  · <a href="./index.html">Cabina</a> · <a href="./terminos.html">Términos</a> · <a href="./seguridad.html">Seguridad</a>
+</footer>
+</body>
+</html>

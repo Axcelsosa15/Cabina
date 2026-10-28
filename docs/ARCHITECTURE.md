@@ -9,6 +9,11 @@ index.html                     la app: HTML + CSS + JS en un IIFE (~12.300 líne
   ├─ almacén                   una interfaz, dos sitios donde guardar
   └─ cuentas                   login y sesión contra Supabase (fetch, sin librería)
 
+sw.js                          el casco sin conexión (red primero para el código)
+manifest.webmanifest           lo que hace instalable la página
+icon-*.png                     generados del MISMO dibujo que el favicon
+privacidad · terminos · seguridad.html   texto, sin <script>, enlazadas desde el pie
+.well-known/security.txt       dónde reportar un fallo (RFC 9116)
 engine/quant/*.js              los 11 módulos FUENTE del motor
 engine/QuantEngine.bundle.js   generado por `npm run bundle`, se incrusta a mano
 supabase/migrations/           el esquema del proyecto «cabina» (tabla + bucket)
@@ -37,6 +42,8 @@ test/                          pruebas de navegador (Playwright) y guardianes
 | edge, Sharpe, drawdown, Monte Carlo | `QE.analizarEdge` · `metricasCurva` · `simularCuenta` | `edge`, `radiografia` |
 | dónde se guarda un dato | `almacen()` con `nubeDb()` o `localDb()` | `guardado`, `primer`, `cuentas` |
 | las imágenes | bucket privado `capturas` | `capturas`, `supabase/pruebas/capturas.sql` |
+| qué ficheros necesita la página instalada | `CASCO` en `sw.js` · lo copia `pagina.yml` | `pwa`, y la lista se lee del workflow en `test/publicado.mjs` |
+| qué se publica en Pages | el paso «Armar lo que se publica» de `pagina.yml` | `pwa` §1, `hojas` §4 |
 
 La app no recalcula ningún número del motor. Las funciones de la tarjeta de cuenta
 (`ddEngine`, `riskEngine`, `consistency`/`consEngine`, `gainCap`) son adaptadores de

@@ -17,13 +17,15 @@
    paso una vez con `.accts` y `minmax(620px, 1fr)` en un telefono de 430px, que
    cortaba cifras por la derecha. */
 import { chromium } from 'playwright';
-import { createServer } from 'node:http';
+import { sirvePublicado } from './publicado.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
-const html = readFileSync(join(raiz, 'index.html'));
-const srv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
+/* SERVIA index.html PARA CUALQUIER RUTA, y eso dejo de ser inocuo el dia que la
+   pagina pidio `./sw.js`: el navegador recibia HTML donde esperaba un script y
+   lo rechazaba por MIME, en los seis viewports a la vez. Ahora sirve lo que
+   publica Pages —leido del workflow, ver publicado.mjs— y 404 para lo demas. */
+const srv = sirvePublicado();
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${srv.address().port}/`;
 const b = await chromium.launch();

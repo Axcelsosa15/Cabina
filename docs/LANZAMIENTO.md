@@ -47,6 +47,8 @@ explicara. Al no estar, deja de exigirlo.
 | **Privacidad**: el pie dice dónde viven los datos. Sin cuenta, «no se envían a ningún servidor», y es cierto: ninguna petición sale. Con cuenta, «guardado en tu cuenta» y que sólo tu sesión puede leerlos. Un solo `fetch` en todo el código, al proyecto Supabase; ni `sendBeacon` ni `<script src>`. | `lanzamiento.mjs` · `seguridad.mjs` |
 | **El enlace compartido** muestra título y descripción de producto, e icono de pestaña — dentro del propio fichero, sin ningún recurso externo nuevo. | `lanzamiento.mjs` |
 | **Se ve bien** en las siete pestañas a 1440, 834 y 430 px, sin desborde. | `vista.mjs` |
+| **Se instala y abre sin conexión.** El trabajador de servicio se registra, guarda el casco —página, manifiesto e iconos— y con la red cortada la página recarga y la aplicación arranca. Medido cortando la red de verdad, no simulándola. Lo que la nube devuelve NUNCA entra en la caché: servir una respuesta de Supabase de una sesión a la siguiente movería la frontera entre dos usuarios de la base al disco del cliente. | `pwa.mjs` |
+| **Lo legal existe y se enlaza**: privacidad, términos y seguridad, sin una etiqueta `<script>` y sin pedir un solo recurso externo. El canal para reportar una vulnerabilidad es privado y no publica el correo de nadie. | `pwa.mjs` §5 |
 | **Un guardado que falla se dice**, en la barra y en las siete pestañas, también en un teléfono y también a un lector de pantalla. | `guardado.mjs` |
 | **Las pérdidas se clasifican** en análisis, ejecución, psicológico y sistema, sin absolver por defecto. | `errores.mjs` |
 

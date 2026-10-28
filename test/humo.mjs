@@ -13,20 +13,18 @@
    NO sustituye a abrir la URL publicada: esto verifica el mismo payload en el
    mismo protocolo, no el CDN de GitHub ni su configuracion. */
 import { chromium } from 'playwright';
-import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { sirvePublicado } from './publicado.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
-const PAYLOAD = { '/': ['text/html; charset=utf-8', readFileSync(join(raiz, 'index.html'))],
-                  '/index.html': ['text/html; charset=utf-8', readFileSync(join(raiz, 'index.html'))],
-                  '/.nojekyll': ['text/plain', readFileSync(join(raiz, '.nojekyll'))] };
-const srv = createServer((q, r) => {
-  const e = PAYLOAD[q.url];
-  if (!e) { r.writeHead(404); return r.end('no'); }
-  r.writeHead(200, { 'content-type': e[0] }); r.end(e[1]);
-});
+/* LA LISTA NO SE ESCRIBE AQUI. La cabecera de este fichero promete servir
+   «exactamente lo que sube pagina.yml», y mientras eso fueron dos ficheros la
+   promesa se sostenia sola. Desde que la pagina se instala son quince, y una
+   lista a mano acaba divergiendo del workflow sin que nadie lo note: la pagina
+   servida aqui dejaria de ser la publicada justo en los ficheros nuevos, que
+   son los que nadie mira. `publicado.mjs` la lee del propio workflow. */
+const srv = sirvePublicado();
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${srv.address().port}/`;
 

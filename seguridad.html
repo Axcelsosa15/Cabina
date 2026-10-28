@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<!-- Una página de texto. No corre JavaScript ni pide un solo recurso: su CSP lo
+     dice y el navegador lo impone. La vigila test/pwa.mjs. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<title>Seguridad · Cabina</title>
+<meta name="description" content="Cómo reportar una vulnerabilidad en Cabina y qué defiende la página.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B0E13'/%3E%3Cpath d='M44 21a15 15 0 1 0 0 22' fill='none' stroke='%234FB3A0' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0B0E13">
+<style>
+  :root { color-scheme: dark; --bg:#0B0E13; --text:#E8ECF2; --dim:#8A94A6; --line:#1C222C; --acc:#4FB3A0; }
+  html { background: var(--bg); }
+  body { margin:0 auto; padding:40px 20px 80px; max-width:72ch; background:var(--bg); color:var(--text);
+         font:15px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--acc); }
+  h1 { font-size:26px; margin:0 0 4px; letter-spacing:-.01em; }
+  h2 { font-size:16px; margin:36px 0 10px; letter-spacing:-.005em; }
+  .sub { color:var(--dim); font-size:13px; margin:0 0 28px; }
+  table { border-collapse:collapse; width:100%; margin:14px 0; font-size:14px; }
+  th, td { border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+  th { color:var(--dim); font-weight:600; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; color:var(--acc); }
+  .volver { display:inline-block; margin-bottom:28px; color:var(--dim); text-decoration:none; font-size:13px; }
+  .volver:hover { color:var(--text); }
+  footer { margin-top:48px; padding-top:18px; border-top:1px solid var(--line); color:var(--dim); font-size:12px; }
+</style>
+
+<h1>Seguridad</h1>
+<p class="sub">Última revisión: 28 de octubre de 2026</p>
+
+<h2>Reportar un fallo</h2>
+<p>Si encuentras una vulnerabilidad, repórtala <strong>en privado</strong> por el
+canal de avisos de seguridad de GitHub:
+<a href="https://github.com/Axcelsosa15/Cabina/security/advisories/new">abrir un aviso privado</a>.
+No abras una incidencia pública con los detalles hasta que esté arreglada.</p>
+<p>Qué ayuda en el reporte: qué hiciste, qué esperabas, qué pasó, y el navegador.
+Si implica datos de otra cuenta, <strong>no sigas adelante</strong>: describe
+cómo llegaste al borde y para ahí.</p>
+<p>Esto lo mantiene una persona: la respuesta llega cuando llega, no hay programa
+de recompensas y no hay plazo prometido. Lo que sí hay es que un reporte real se
+arregla y se cuenta.</p>
+
+<h2>Qué está dentro del alcance</h2>
+<ul>
+  <li>La página publicada y su código.</li>
+  <li>El aislamiento entre usuarios de la base: que una sesión pueda leer o
+      escribir datos de otra es el fallo más grave posible aquí.</li>
+  <li>Las capturas: su bucket es privado y se sirven con una URL firmada de corta
+      duración.</li>
+</ul>
+<p>Fuera de alcance: la infraestructura de GitHub o de Supabase —repórtalo a
+ellos—, y las denuncias automáticas de escáneres sin un camino real desde una
+entrada de usuario hasta el fallo.</p>
+
+<h2>Lo que la página hace por defensa, dicho sin vender de más</h2>
+<ul>
+  <li><strong>Una política de contenido</strong> declarada en la cabecera, con
+      <code>default-src 'none'</code>: el único destino de red permitido es el
+      proyecto Supabase, y las imágenes sólo pueden ser <code>data:</code> o
+      <code>blob:</code>. Un respaldo ajeno no puede convertir tu navegador en
+      una baliza que avise a nadie de que lo abriste.</li>
+  <li><strong>Cero código de terceros</strong>: no hay una sola etiqueta
+      <code>&lt;script src&gt;</code>. No hay CDN del que depender, así que no hay
+      una cadena de suministro que comprometer.</li>
+  <li><strong>Aislamiento en la base</strong>, no en la pantalla: RLS forzada en
+      la tabla y en el bucket.</li>
+  <li><strong>Sólo la clave pública</strong> del proyecto está en la página; la
+      clave secreta, que saltaría la RLS, no existe en el repositorio.</li>
+</ul>
+<p>Y lo que <strong>no</strong> hace, porque conviene saberlo: el código de la
+aplicación es <em>inline</em>, así que la política de contenido
+<strong>no</strong> impediría que se ejecutara código inyectado. Lo que impide
+es que ese código hable con alguien. Separar el código de la página para cerrar
+también esa puerta es trabajo pendiente y está escrito como tal.</p>
+
+<h2>Cómo se comprueba</h2>
+<p>Las propiedades de arriba no son promesas: son pruebas que corren en cada
+cambio y que ponen la publicación en rojo si dejan de cumplirse. Ninguna versión
+llega a la página sin pasar por ellas.</p>
+
+<h2>Contacto</h2>
+<p><a href="https://github.com/Axcelsosa15/Cabina/security/advisories/new">Aviso privado en GitHub</a>
+· <a href="./.well-known/security.txt">security.txt</a></p>
+
+<footer>
+  Cabina es una herramienta de registro y análisis, no asesoramiento financiero.
+  Operar futuros conlleva un riesgo alto de pérdida.
+  · <a href="./index.html">Cabina</a> · <a href="./privacidad.html">Privacidad</a> · <a href="./terminos.html">Términos</a>
+</footer>
+</body>
+</html>

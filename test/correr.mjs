@@ -14,7 +14,7 @@ const aqui = dirname(fileURLToPath(import.meta.url));
    pregunte por qué faltan. */
 /* compuerta.mjs LANZA este archivo. Sin excluirla, correr.mjs la descubriria como
    una prueba mas y se llamaria a si mismo sin fondo. Se detecto antes de ejecutarla. */
-const NO_SON_TESTS = new Set(['espera.mjs', 'nube-doble.mjs', 'correr.mjs', 'compuerta.mjs']);
+const NO_SON_TESTS = new Set(['espera.mjs', 'nube-doble.mjs', 'correr.mjs', 'compuerta.mjs', 'publicado.mjs']);
 const SIN_BASELINE = new Set();
 
 /* Las pruebas del motor viven fuera de test/, y por eso no se ejecutaban NUNCA:
