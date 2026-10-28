@@ -30,7 +30,11 @@ const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
-const src = readFileSync(join(raiz, 'index.html'), 'utf8');
+/* Los cuerpos de función, los envoltorios de render y el registro de zonas Z
+   viven en app.js desde que la aplicación salió del documento. Leyendo
+   index.html esta prueba encontraba CERO de todo y lo decía en rojo, que es
+   justo lo que un guardián bien escrito hace cuando le cambian el suelo. */
+const src = readFileSync(join(raiz, 'app.js'), 'utf8');
 const js = [...src.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n');
 
 /* Aristas que NO transportan dependencia de pintado. */
