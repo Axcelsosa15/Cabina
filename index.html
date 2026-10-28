@@ -2397,7 +2397,7 @@ tbody tr:last-child td{border-bottom:0}
       </div>
     </div>
     <p class="synced" id="bkNote"></p>
-    <input type="file" id="bkFile" accept="application/json,.json" hidden aria-hidden="true">
+    <input type="file" id="bkFile" accept="application/json,.json,text/csv,.csv" hidden aria-hidden="true">
   </div>
 </section>
 
@@ -17378,6 +17378,23 @@ tbody tr:last-child td{border-bottom:0}
     if (valla) t = valla[1].trim();
     return t;
   }
+  /* Dos o más líneas, y la primera con dos o más campos separados por coma, punto y
+     coma o tabulador. No se intenta leer el CSV aquí: eso lo hace `csvLee`, que es
+     quien sabe de comillas, decimales y separadores. */
+  function bkPareceCsv(t) {
+    if (/^[{\[<]/.test(t)) return false;
+    const lineas = t.split(/\r?\n/).filter(l => l.trim() !== "");
+    if (lineas.length < 2) return false;
+    return [",", ";", "\t"].some(sep => lineas[0].split(sep).length >= 2 && lineas[1].split(sep).length >= 2);
+  }
+  /* Lo lleva al panel de importar operaciones con el texto ya cargado: cambiar de
+     pestaña, abrir la vista Diario y llamar al mismo `impCargar` que usa ese panel. */
+  function bkDerivaCsv(txt, nombre) {
+    showTab("futuros"); setFtView("diario");
+    impCargar(txt, nombre || "texto pegado");
+    bkSay("Eso era un CSV del bróker, no una copia de Cabina: se ha abierto en «Importar operaciones» (Futuros › Diario).");
+    const panel = $("panelImportar"); if (panel && panel.scrollIntoView) { try { panel.scrollIntoView({ block: "start" }); } catch (e) { } }
+  }
   function bkParse(txt) {
     const t = bkLimpia(txt);
     if (!t) return { err: "No hay nada que leer: el texto está vacío." };
@@ -17388,7 +17405,14 @@ tbody tr:last-child td{border-bottom:0}
          (empieza bien y se corta) y una copia dañada de verdad. */
       const inicio = t.slice(0, 24).replace(/\s+/g, " ");
       if (/^</.test(t)) return { err: "Esto no es una copia de Cabina: parece una página web (empieza por «<»)." };
-      if (/^[^{\[]/.test(t)) return { err: `El texto no es JSON válido: una copia de Cabina empieza por «{» y esto empieza por «${inicio}…». Si es un CSV del bróker, va por «Importar un CSV», no por aquí.` };
+      /* UN CSV DEL BRÓKER PEGADO AQUÍ no es un error del usuario: es que hay dos
+         sitios donde pegar y éste es el que está más a mano. Medido: una exportación
+         de operaciones cerradas de Tradovate («symbol,_priceFormat,…») acababa aquí
+         y se rechazaba, y la pista «va por Importar un CSV» obligaba a buscar ese
+         panel —está en Futuros › Diario— y a pegar otra vez. Se reconoce y se
+         entrega al importador con el texto ya dentro. */
+      if (bkPareceCsv(t)) return { csv: true, err: `Esto es un CSV del bróker, no una copia de Cabina (empieza por «${inicio}…»). Va por «Importar operaciones», en Futuros › Diario.` };
+      if (/^[^{\[]/.test(t)) return { err: `El texto no es JSON válido: una copia de Cabina empieza por «{» y esto empieza por «${inicio}…».` };
       const corto = !/[}\]]\s*$/.test(t);
       return { err: corto
         ? "El texto no es JSON válido: empieza bien pero no termina. Parece que se pegó o se copió a medias; vuelve a copiar el archivo entero."
@@ -17449,8 +17473,9 @@ tbody tr:last-child td{border-bottom:0}
     return { escritos: hechos - fallos, fallos };
   }
   function bkMode() { const r = document.querySelector('input[name="bkmode"]:checked'); return r ? r.value : "replace"; }
-  function bkConfirmImport(txt) {
+  function bkConfirmImport(txt, nombre) {
     const r = bkParse(txt);
+    if (r.csv) { bkDerivaCsv(bkLimpia(txt), nombre); return; }
     if (r.err) { bkSay(r.err, true); return; }
     const modo = state.nube ? "merge" : bkMode();
     const cuando = r.bundle.exportedAt ? dmy(String(r.bundle.exportedAt).slice(0, 10)) : "fecha desconocida";
@@ -17495,12 +17520,13 @@ tbody tr:last-child td{border-bottom:0}
   $("bkFile").addEventListener("change", async e => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
     bkSay(`Leyendo ${f.name}…`);
-    try { const txt = await f.text(); setTimeout(() => bkConfirmImport(txt), 40); }
+    try { const txt = await f.text(); setTimeout(() => bkConfirmImport(txt, f.name), 40); }
     catch (err) { bkSay("No se pudo leer el archivo.", true); }
   });
   $("bkPaste").addEventListener("click", () => {
     openEditor({ title: "Pegar una copia de Cabina", fields: [{ key: "j", label: "Pega aquí el contenido del archivo", type: "textarea", w: 6, rows: 10 }], values: { j: "" },
-      validate: v => { if (!bkLimpia(v.j)) return "Pega algo primero"; const r = bkParse(String(v.j || "")); return r.err || null; },
+      // Un CSV no se rechaza: pasa la revisión y `bkConfirmImport` lo deriva al importador.
+      validate: v => { if (!bkLimpia(v.j)) return "Pega algo primero"; const r = bkParse(String(v.j || "")); return r.csv ? null : (r.err || null); },
       // El modal es uno solo: hay que dejar que este se cierre antes de abrir el de confirmación.
       onSave: v => { const txt = String(v.j || ""); setTimeout(() => bkConfirmImport(txt), 40); } });
     const sv = $("edSave"); sv.textContent = "Revisar";
