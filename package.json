@@ -15,9 +15,14 @@
     "ci:guardrails": "npm run check:bundle && npm run audit:security"
   },
   "devDependencies": {
+    "drizzle-kit": "^1.0.0-beta.22",
     "playwright": "1.56.1"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@netlify/database": "^2.0.1",
+    "drizzle-orm": "^1.0.0-beta.22"
   }
 }
