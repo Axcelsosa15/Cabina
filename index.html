@@ -270,9 +270,9 @@ tbody tr:last-child td{border-bottom:0}
        teléfono con el brillo bajo. Subidos al mínimo AA con un escalón claro
        entre niveles, conservando el tono:
 
-           text  17.02:1   el dato
-           muted  5.48:1   la etiqueta
-           dim    4.59:1   el matiz — el suelo AA, no menos
+           text  12.82:1   el dato
+           muted  6.50:1   la etiqueta
+           dim    4.61:1   el matiz — el suelo AA, no menos
 
        EL CIERRE DE ESTE COMENTARIO FALTABA, y durante ese tiempo los tres
        niveles de texto NO EXISTIERON. Los comentarios de CSS no anidan, así que
@@ -285,9 +285,9 @@ tbody tr:last-child td{border-bottom:0}
        secundario al mismo contraste que el dato. Justo la jerarquía que estas
        líneas describen. Lo vigila test/tokens.mjs. */
 
-    --text:  #16181C;
-    --muted: #66675F;
-    --dim:   #72736B;
+    --text:  #E8ECF2;
+    --muted: #A2AAB9;
+    --dim:   #848EA1;
 
     /* ── SEMÁNTICOS · para NÚMEROS y ESTADOS, nunca como fondo grande ──
        Un panel entero en verde o en rojo deja de significar nada a los diez
@@ -19048,7 +19048,7 @@ section.panel:hover, .card:hover, .study-card:hover {
   --dim: #777970;
   --accent: #16915B;
   --accent-soft: rgba(22,145,91,.09);
-  --accent-ink: #FFFFFF;
+  --accent-ink: #16181C;
   --good: #16915B;
   --good-soft: rgba(22,145,91,.09);
   --positive: #16915B;
@@ -19107,28 +19107,6 @@ section.panel:hover, .card:hover, .study-card:hover {
 .study-card h3, .study-empty b { color: #16181C !important; }
 :where(.btn, .editbtn, .qkbtn, .selbtn, .conflbtn, .study-filter) {
   font-family: Geist, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-
-/* Accessibility correction: no pure-white labels on pale controls. */
-:root {
-  --text: #16181C;
-  --muted: #66675F;
-  --dim: #72736B;
-  --ds-text: #16181C;
-  --ds-muted: #66675F;
-  --ds-subtle: #72736B;
-}
-button, .btn, .editbtn, .qkbtn, .selbtn, .conflbtn, .study-filter {
-  color: #16181C !important;
-}
-.btn.primary, button[style*="background:#16181C"] {
-  color: #16181C !important;
-  background: #F7F6F2 !important;
-  border-color: #DCD7CC !important;
-}
-.btn.primary:hover, button[style*="background:#16181C"]:hover {
-  background: #EDEBE4 !important;
 }
 
 </style>
