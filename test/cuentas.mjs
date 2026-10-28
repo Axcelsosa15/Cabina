@@ -31,6 +31,11 @@ const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 /* El origen y la clave están en app.js desde que la aplicación salió del
    documento; leerlos de index.html devolvería undefined y esta prueba se
    quedaría sin nube que comprobar. */
+/* DOS FUENTES, Y NO UNA: el documento es lo que se SIRVE al navegador, y
+   app.js es lo que se ANALIZA. Mientras fueron el mismo fichero una sola
+   variable bastaba; al separarlos, servir app.js como si fuera la página dejó
+   al navegador sin nada que pintar. */
+const documento = readFileSync(join(raiz, 'index.html'), 'utf8');
 const html = readFileSync(join(raiz, 'app.js'), 'utf8');
 const NUBE = (html.match(/const NUBE_URL = "([^"]+)"/) || [])[1];
 const CLAVE = (html.match(/const NUBE_CLAVE = "([^"]+)"/) || [])[1];
@@ -41,7 +46,7 @@ ok(!!NUBE && !!CLAVE, 'la página declara el origen y la clave pública de la nu
    donde esperaba un script, lo rechazaba por MIME y la página no arrancaba.
    `sirvePublicado` sirve lo que sube Pages —leído del propio workflow— y 404
    para lo demás, que es lo que hace útil a estas pruebas. */
-const srv = sirvePublicado(html);
+const srv = sirvePublicado(documento);
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${srv.address().port}/`;
 

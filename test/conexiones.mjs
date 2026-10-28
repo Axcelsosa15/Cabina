@@ -35,7 +35,11 @@ const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
    index.html esta prueba encontraba CERO de todo y lo decía en rojo, que es
    justo lo que un guardián bien escrito hace cuando le cambian el suelo. */
 const src = readFileSync(join(raiz, 'app.js'), 'utf8');
-const js = [...src.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n');
+/* DESENVOLVIA LOS <script> DEL DOCUMENTO. app.js ya ES ese contenido, sin
+   etiqueta que quitar: aplicarle la expresión devolvía cadena vacía y las
+   cuatro lecturas de abajo daban cero — cero funciones, cero envoltorios, cero
+   zonas — con la prueba en rojo diciéndolo. */
+const js = src;
 
 /* Aristas que NO transportan dependencia de pintado. */
 const NO_PINTAN = new Map([
