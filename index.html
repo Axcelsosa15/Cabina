@@ -19034,6 +19034,81 @@ section.panel:hover, .card:hover, .study-card:hover {
   .panel > header { background: #FFFFFF; }
 }
 
+
+/* Theme all existing component families, including the study library, with the same palette. */
+:root {
+  --bg: #FAF8F4;
+  --surface: #FFFFFF;
+  --surface-2: #F7F6F2;
+  --surface-3: #FBFAF6;
+  --line: #E7E4DC;
+  --line-strong: #DCD7CC;
+  --text: #16181C;
+  --muted: #777970;
+  --dim: #777970;
+  --accent: #16915B;
+  --accent-soft: rgba(22,145,91,.09);
+  --accent-ink: #FFFFFF;
+  --good: #16915B;
+  --good-soft: rgba(22,145,91,.09);
+  --positive: #16915B;
+  --bad: #D6483B;
+  --bad-soft: rgba(214,72,59,.09);
+  --negative: #D6483B;
+  --warn: #B87919;
+  --warn-soft: rgba(184,121,25,.10);
+  --warning: #B87919;
+  --blue: #3D6FB0;
+  --info: #3D6FB0;
+  --ui-panel: #FFFFFF;
+  --ui-panel-raised: #F7F6F2;
+  --ui-glow: rgba(22,145,91,.06);
+  --ui-focus: 0 0 0 3px rgba(61,111,176,.18);
+}
+.study-stat, .study-searchrow, .study-filter, .study-panel, .study-card, .study-empty {
+  color: #16181C !important;
+  border-color: #E7E4DC !important;
+  background: #FFFFFF !important;
+  box-shadow: none !important;
+}
+.study-stat-top, .study-card p, .study-card-foot, .study-empty { color: #777970 !important; }
+.study-searchicon, .study-kind, .study-card-foot a { color: #16915B !important; }
+.study-filter[aria-pressed="true"], .study-state {
+  color: #16915B !important;
+  background: rgba(22,145,91,.08) !important;
+  border-color: rgba(22,145,91,.28) !important;
+}
+.study-state.progressing {
+  color: #B87919 !important;
+  background: rgba(184,121,25,.08) !important;
+  border-color: rgba(184,121,25,.28) !important;
+}
+.study-state.mastered {
+  color: #3D6FB0 !important;
+  background: rgba(61,111,176,.08) !important;
+  border-color: rgba(61,111,176,.25) !important;
+}
+.study-tag, .study-shortcut {
+  color: #777970 !important;
+  background: #F7F6F2 !important;
+  border-color: #E7E4DC !important;
+}
+.study-card-foot { border-top-color: #E7E4DC !important; }
+.study-progress { background: #E7E4DC !important; }
+.study-progress span { background: #16915B !important; }
+.study-flash {
+  color: #16181C !important;
+  background: #F7F6F2 !important;
+  border-color: #E7E4DC !important;
+}
+.study-flash small, .study-flash-answer { color: #16915B !important; }
+.study-step i { color: #16915B !important; background: rgba(22,145,91,.08) !important; border-color: #E7E4DC !important; }
+.study-note { color: #777970 !important; }
+.study-card h3, .study-empty b { color: #16181C !important; }
+:where(.btn, .editbtn, .qkbtn, .selbtn, .conflbtn, .study-filter) {
+  font-family: Geist, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
 </style>
 
 </body>
