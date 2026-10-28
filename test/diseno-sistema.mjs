@@ -2,8 +2,10 @@ import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const css = html.match(/<style id="cabina-design-system-v3">([\s\S]*?)<\/style>/)?.[1] ?? '';
+const css = html.match(/\/\* CABINA DESIGN SYSTEM v3[\s\S]*?<\/style>/)?.[0] ?? '';
 assert.ok(css.length > 2500, 'La capa de diseño v3 debe estar presente');
+assert.equal((html.match(/<style\\b[^>]*>/g) || []).length, 5, 'No añadir bloques style: el guardián estructural espera cinco');
+for (const color of ['#FAF8F4', '#16181C', '#16915B', '#D6483B', '#3D6FB0']) assert.ok(css.includes(color), 'Falta color de Bitácora: ' + color);
 for (const token of ['--ds-bg:', '--ds-surface:', '--ds-line:', '--ds-text:', '--ds-accent:', '--ds-space-4:', '--ds-radius-md:', '--ds-focus:']) {
   assert.ok(css.includes(token), 'Falta token de diseño: ' + token);
 }
