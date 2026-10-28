@@ -18736,6 +18736,163 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
 }
 
 </style>
+<style id="cabina-design-system-v3">
+
+/* CABINA DESIGN SYSTEM v3 — presentación limpia inspirada en Bitácora.
+   Capa aditiva: no toca el modelo, el motor cuantitativo ni la persistencia. */
+:root {
+  --ds-bg: #0b0e13;
+  --ds-surface: #12161d;
+  --ds-surface-raised: #171d25;
+  --ds-surface-hover: #1c2530;
+  --ds-line: #26313d;
+  --ds-line-strong: #354352;
+  --ds-text: #e8edf3;
+  --ds-muted: #a6b0bd;
+  --ds-subtle: #8793a2;
+  --ds-accent: #70e0cf;
+  --ds-positive: #70c99a;
+  --ds-negative: #e47768;
+  --ds-warning: #e0b06d;
+  --ds-info: #83aee8;
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 24px;
+  --ds-space-6: 32px;
+  --ds-radius-sm: 7px;
+  --ds-radius-md: 10px;
+  --ds-radius-lg: 14px;
+  --ds-shadow-panel: 0 5px 18px rgba(0,0,0,.10);
+  --ds-focus: 0 0 0 3px rgba(112,224,207,.17);
+  --ds-motion: 140ms ease;
+}
+html { scroll-padding-top: 72px; }
+body {
+  background: var(--ds-bg);
+  color: var(--ds-text);
+  font-variant-numeric: tabular-nums lining-nums;
+  text-rendering: optimizeLegibility;
+}
+:where(button, input, select, textarea, a) { -webkit-tap-highlight-color: transparent; }
+:where(button, input, select, textarea, a):focus-visible {
+  outline: 2px solid var(--ds-accent) !important;
+  outline-offset: 2px;
+  box-shadow: var(--ds-focus);
+}
+.topbar {
+  gap: var(--ds-space-3) var(--ds-space-5);
+  padding-block: 16px 12px;
+}
+.brand h1 {
+  font-size: clamp(21px, 1.8vw, 26px);
+  letter-spacing: -.04em;
+  line-height: 1.12;
+}
+.brand .sub { line-height: 1.45; }
+.tabnav {
+  border-color: var(--ds-line);
+  box-shadow: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ds-line-strong) transparent;
+}
+.tabbtn {
+  min-height: 42px;
+  border-radius: var(--ds-radius-sm) var(--ds-radius-sm) 0 0;
+  letter-spacing: .045em;
+  font-weight: 650;
+}
+.tabbtn.active { box-shadow: none; }
+section.panel {
+  border: 1px solid var(--ds-line) !important;
+  border-radius: var(--ds-radius-lg) !important;
+  background: var(--ds-surface) !important;
+  box-shadow: var(--ds-shadow-panel) !important;
+}
+section.panel:hover {
+  border-color: var(--ds-line-strong) !important;
+  transform: none !important;
+}
+.panel > header {
+  padding: 14px 17px;
+  border-bottom: 1px solid var(--ds-line);
+}
+.panel > header h2 {
+  font-size: 12px;
+  letter-spacing: .055em;
+  line-height: 1.4;
+}
+.panel > header .meta { color: var(--ds-muted); }
+.panel .body { padding: 16px; }
+:where(.grid, .col) { gap: var(--ds-space-4); }
+.panel .body > :where(.grid, .col) { gap: var(--ds-space-3); }
+:where(.card, .metric, .study-card, .acc-metrics, .kpis) {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+:where(.metric, .card, .study-card) { border-radius: var(--ds-radius-md); }
+:where(.btn, .editbtn, .qkbtn, .selbtn, .conflbtn) {
+  border-radius: var(--ds-radius-sm);
+  min-height: 36px;
+  transition: background-color var(--ds-motion), border-color var(--ds-motion), color var(--ds-motion), box-shadow var(--ds-motion);
+}
+:where(.btn, .editbtn, .qkbtn, .selbtn, .conflbtn):hover {
+  box-shadow: none;
+}
+.btn.primary { box-shadow: none !important; }
+:where(input, select, textarea) {
+  border-radius: var(--ds-radius-sm);
+  max-width: 100%;
+  min-width: 0;
+}
+:where(input, select, textarea):focus-visible {
+  border-color: var(--ds-accent) !important;
+}
+:where(table) { border-collapse: separate; border-spacing: 0; }
+:where(th) {
+  color: var(--ds-muted);
+  font-weight: 650;
+  letter-spacing: .025em;
+}
+:where(td, th) { border-color: var(--ds-line); }
+:where(tbody tr:hover) { background: rgba(255,255,255,.025); }
+:where(.empty, .hint, .help, .meta, .sub) { text-wrap: pretty; }
+:where(.tab h1, .tab h2, .tab h3) { text-wrap: balance; }
+:where(.chartwrap, .twrap, .trades-scroll) {
+  min-width: 0;
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+}
+:where(.chartwrap svg, .chart svg) { max-width: 100%; }
+#mobileMoreOv [data-mobile-more-tab] {
+  border-radius: var(--ds-radius-md);
+  border-color: var(--ds-line);
+  box-shadow: none;
+}
+#mobileMoreOv [data-mobile-more-tab].is-active {
+  border-color: rgba(112,224,207,.55);
+}
+@media (max-width: 700px) {
+  .topbar { padding: 12px 0 10px; gap: 10px 12px; }
+  .tabnav { margin-bottom: 18px; }
+  .panel > header { padding: 12px 13px; }
+  .panel .body { padding: 13px; }
+  :where(.btn, .editbtn, .qkbtn, .selbtn, .conflbtn) { min-height: 40px; }
+  :where(input, select, textarea) { font-size: 16px; }
+  :where(.tab, .panel, .panel .body) { min-width: 0; }
+  :where(.twrap, .trades-scroll) { scrollbar-width: thin; }
+}
+@media (max-width: 380px) {
+  .panel .body { padding: 11px; }
+  .panel > header { padding-inline: 11px; }
+  .brand h1 { font-size: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --ds-motion: 0ms; }
+  *, *::before, *::after { scroll-behavior: auto !important; }
+}
+
+</style>
 
 </body>
 </html>
