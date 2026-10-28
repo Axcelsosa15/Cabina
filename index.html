@@ -17061,6 +17061,9 @@ tbody tr:last-child td{border-bottom:0}
     else if (k.startsWith("col_")) { const campo = k.slice(4); if (v === "") delete imp.mapa[campo]; else imp.mapa[campo] = Number(v); }
     else if (v === "") delete imp.elegido[k];
     else imp.elegido[k] = v;
+    /* Si el formato del bróker se reconoció y lo único que faltaba era la cuenta,
+       elegirla ES la última decisión: se importa sin pedir nada más. */
+    if (k === "cuenta" && v && imp.lectura && imp.lectura._brokerFillIds) { impAutomatico(); return; }
     renderImportar();
   });
 
