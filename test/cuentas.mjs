@@ -27,7 +27,10 @@ const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
-const html = readFileSync(join(raiz, 'index.html'), 'utf8');
+/* El origen y la clave están en app.js desde que la aplicación salió del
+   documento; leerlos de index.html devolvería undefined y esta prueba se
+   quedaría sin nube que comprobar. */
+const html = readFileSync(join(raiz, 'app.js'), 'utf8');
 const NUBE = (html.match(/const NUBE_URL = "([^"]+)"/) || [])[1];
 const CLAVE = (html.match(/const NUBE_CLAVE = "([^"]+)"/) || [])[1];
 ok(!!NUBE && !!CLAVE, 'la página declara el origen y la clave pública de la nube', NUBE);

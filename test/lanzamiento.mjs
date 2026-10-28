@@ -15,7 +15,7 @@
 
    Su modo de fallo: un aviso legal que existe en el HTML y no se ve. */
 import { chromium } from 'playwright';
-import { createServer } from 'node:http';
+import { sirvePublicado } from './publicado.mjs';
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,7 +25,12 @@ const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fuente = readFileSync(join(raiz, 'index.html'), 'utf8');
-const srv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(fuente); });
+/* SERVIA index.html PARA CUALQUIER RUTA. Con la aplicación dentro del
+   documento eso daba igual; desde que pide `./app.js`, el navegador recibía
+   HTML donde esperaba un script y lo rechazaba por MIME: la página no
+   arrancaba y esta prueba medía un cascarón. Ahora sirve lo que publica Pages
+   —leído del propio workflow, ver publicado.mjs— y 404 para lo demás. */
+const srv = sirvePublicado(fuente);
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const b = await chromium.launch();
 const errs = [];

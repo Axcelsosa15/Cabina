@@ -69,6 +69,11 @@ jobs:
         run: |
           mkdir -p sitio sitio/.well-known
           cp index.html sitio/index.html
+          # LA APLICACION. Desde que el script salio de index.html para que la
+          # CSP pueda prohibir el inline, la pagina sin este fichero es un
+          # cascaron: pinta la cabecera y nada mas. Se verifica byte a byte
+          # abajo, igual que el HTML.
+          cp app.js sitio/app.js
           cp .nojekyll sitio/.nojekyll
           cp og.png sitio/og.png
           # EL CASCO SIN CONEXION. index.html dejo de ser autosuficiente el dia
@@ -155,6 +160,21 @@ jobs:
               if [ "$recibido" = "$esperado" ]; then
                 echo "✅ $url sirve exactamente el HTML generado y probado (sha256 $recibido)"
                 echo "✅ $url sirve exactamente el HTML generado y probado" >> "$GITHUB_STEP_SUMMARY"
+                # Y LA APLICACION, con el mismo rigor. El HTML sin app.js es un
+                # cascaron, asi que verificar solo el HTML dejaria de significar
+                # «lo publicado es lo probado» justo en el fichero que ahora
+                # lleva las 15.000 lineas. Mismo hash, misma exigencia.
+                espapp="$(sha256sum sitio/app.js | cut -d' ' -f1)"
+                if ! curl -fsSL -H 'Cache-Control: no-cache' "${url%/}/app.js?cabina_verify=${GITHUB_RUN_ID}" -o publicado.js; then
+                  echo "::error::${url%/}/app.js no responde: la página publicada no arranca"
+                  exit 1
+                fi
+                recapp="$(sha256sum publicado.js | cut -d' ' -f1)"
+                if [ "$recapp" != "$espapp" ]; then
+                  echo "::error::app.js servido ($recapp) no es el probado ($espapp)"
+                  exit 1
+                fi
+                echo "✅ ${url%/}/app.js es exactamente el probado (sha256 $recapp)"
                 if ! curl -fsS -H 'Cache-Control: no-cache' -o /dev/null "${url%/}/og.png?cabina_verify=${GITHUB_RUN_ID}"; then
                   echo "::error::${url%/}/og.png no responde: el enlace compartido saldrá sin imagen"
                   exit 1
