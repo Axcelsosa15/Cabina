@@ -109,10 +109,27 @@ const R = await p.evaluate(async () => {
      app dejan de coincidir, la operación sembrada justo encima del borde lo
      dice. */
   const borde = (() => { const l = new Date(hoy + 'T12:00:00Z'); l.setUTCDate(l.getUTCDate() - 30); return l.toISOString().slice(0, 10); })();
+  /* Las cotas de «este mes» y «este año», que es lo que el preset tiene que
+     resolver. El día 0 del mes siguiente es el último de este: sin tabla de
+     28/30/31 y sin año bisiesto que se olvide. */
+  const mesIni = hoy.slice(0, 7) + '-01';
+  const mesFin = new Date(Date.UTC(Number(hoy.slice(0, 4)), Number(hoy.slice(5, 7)), 0, 12)).toISOString().slice(0, 10);
+  const anioIni = hoy.slice(0, 4) + '-01-01', anioFin = hoy.slice(0, 4) + '-12-31';
+  /* Una fecha del mes QUE VIENE y otra del año pasado. La primera es el caso
+     que separa las dos gramáticas: «este mes» la deja fuera porque acota por
+     arriba, y «últimos 30 días» la mete porque no acota por arriba — eso era
+     `d.slice(0,7) === hoy.slice(0,7)` contra `d >= lim`, y al convertir el
+     preset en cotas había que conservarlo exactamente. */
+  const mesQueViene = new Date(Date.UTC(Number(hoy.slice(0, 4)), Number(hoy.slice(5, 7)), 15, 12)).toISOString().slice(0, 10);
+  const anioPasado = (Number(hoy.slice(0, 4)) - 1) + '-06-15';
 
   FUT.createAccount({ id: 'FA', firm: 'Filtros', name: 'Cuenta A', kind: 'Evaluación',
     size: 50000, dd: 2500, ddKind: 'estatico', status: 'activa', ledger: [], total: 0, best: 0 });
   FUT.createAccount({ id: 'FB', firm: 'Filtros', name: 'Cuenta B', kind: 'Evaluación',
+    size: 50000, dd: 2500, ddKind: 'estatico', status: 'activa', ledger: [], total: 0, best: 0 });
+  /* Las dos operaciones que miden los presets van en SU PROPIA cuenta, para no
+     mover ninguna de las referencias doradas de FA y FB. */
+  FUT.createAccount({ id: 'FC', firm: 'Filtros', name: 'Cuenta C', kind: 'Evaluación',
     size: 50000, dd: 2500, ddKind: 'estatico', status: 'activa', ledger: [], total: 0, best: 0 });
 
   /* MNQ: 1 punto = $2 por contrato, así que cada resultado se comprueba de
@@ -127,14 +144,17 @@ const R = await p.evaluate(async () => {
     /* Sin cuenta: el filtro «sin cuenta asignada» es `__none` en los DOS
        objetos, y es la clase de valor centinela que un refactor pierde. */
     { id: 'T_hoy_SIN',  accountId: '',   date: hoy,        time: '12:00', entry: 21000, exit: 21020 },
+    /* Para los presets: una en el mes que viene y otra en el año pasado. */
+    { id: 'T_futura_C', accountId: 'FC', date: mesQueViene, time: '10:00', entry: 21000, exit: 21040 },
+    { id: 'T_ayer_C',   accountId: 'FC', date: anioPasado,  time: '10:00', entry: 21000, exit: 20960 },
   ];
   semilla.forEach(o => FUT.createTrade(Object.assign({ instrument: 'MNQ', qty: 1, direction: 'long', stop: 20990 }, o)));
   /* La abierta va aparte: sin salida no tiene neto, y es la diferencia nº 1. */
   FUT.createTrade({ id: 'T_ABIERTA', accountId: 'FA', instrument: 'MNQ', qty: 1, direction: 'long',
     date: hoy, time: '13:00', entry: 21000, stop: 20990 });
 
-  await window.hasta('las 6 operaciones cerradas con su P&L derivado',
-    () => FUT.trades().filter(t => t.pnlEff != null).length === 6);
+  await window.hasta('las 8 operaciones cerradas con su P&L derivado',
+    () => FUT.trades().filter(t => t.pnlEff != null).length === 8);
 
   const $ = id => document.getElementById(id);
   const idsJournal = () => [...document.querySelectorAll('#jrTable tbody tr[data-id]')].map(tr => tr.dataset.id);
@@ -171,18 +191,30 @@ const R = await p.evaluate(async () => {
   mide('cuenta + ventana de 30 días', () => {
     FUT.setFilters({ acct: 'FA', range: '30' }); pon('mxAcct', 'FA'); pon('mxDesde', borde);
   });
+  /* LOS PRESETS CONTRA SUS COTAS. Es la pareja que prueba el resolvedor: el
+     journal pide «este mes» con una palabra, Métricas pide el mismo mes con
+     dos fechas, y tienen que elegir lo mismo. Si el preset se resolviera mal
+     —un mes de 30 días donde toca 31, un año bisiesto, o perder la cota de
+     arriba— estas dos filas caen y las anteriores no. */
+  mide('preset «este mes» contra sus dos fechas', () => {
+    FUT.setFilters({ range: 'month' }); pon('mxDesde', mesIni); pon('mxHasta', mesFin);
+  });
+  mide('preset «este año» contra sus dos fechas', () => {
+    FUT.setFilters({ range: 'year' }); pon('mxDesde', anioIni); pon('mxHasta', anioFin);
+  });
 
   limpia();
   const todoJournal = idsJournal(), todoEdge = idsEdge();
   const opcionesMxAcct = [...$('mxAcct').options].map(o => o.value);
   limpia();
 
-  return { hoy, borde, escenarios, todoJournal, todoEdge, opcionesMxAcct,
+  return { hoy, borde, mesIni, mesFin, anioIni, anioFin, mesQueViene, anioPasado,
+    escenarios, todoJournal, todoEdge, opcionesMxAcct,
     sembradas: semilla.map(s => s.id).concat('T_ABIERTA') };
 });
 
 console.log('\n═══ LA MUESTRA ═══');
-ok(R.todoJournal.length === 7, 'el journal pinta las 7 operaciones sembradas', `${R.todoJournal.length}`);
+ok(R.todoJournal.length === 9, 'el journal pinta las 9 operaciones sembradas', `${R.todoJournal.length}`);
 ok(R.borde < R.hoy, 'el borde de los 30 días cae antes que hoy', `hoy ${R.hoy} · borde ${R.borde}`);
 ok(R.opcionesMxAcct.includes('__none'),
   'Métricas ofrece «sin cuenta asignada», o la comparación de ese caso no mediría nada',
@@ -201,12 +233,25 @@ ok(mismos(esc('una cuenta').cerradas, ['T_hoy_A', 'T_d10_A', 'T_d45_A']),
 ok(mismos(esc('sin cuenta asignada').cerradas, ['T_hoy_SIN']),
   '«sin cuenta asignada» trae sólo la que no tiene cuenta',
   esc('sin cuenta asignada').cerradas.sort().join(','));
-ok(mismos(esc('ventana de 30 días').cerradas, ['T_hoy_A', 'T_d10_A', 'T_d10_B', 'T_borde_B', 'T_hoy_SIN']),
-  'la ventana de 30 días incluye el borde y deja fuera la de hace 45',
+/* La futura entra en «últimos 30 días»: ese preset no acota por arriba, como
+   no lo acotaba el `d >= lim` original. Pinarlo aquí es lo que impide que un
+   refactor del resolvedor le ponga un techo «porque parece razonable». */
+ok(mismos(esc('ventana de 30 días').cerradas, ['T_hoy_A', 'T_d10_A', 'T_d10_B', 'T_borde_B', 'T_hoy_SIN', 'T_futura_C']),
+  'la ventana de 30 días incluye el borde y la futura, y deja fuera la de hace 45',
   esc('ventana de 30 días').cerradas.sort().join(','));
 ok(mismos(esc('cuenta + ventana de 30 días').cerradas, ['T_hoy_A', 'T_d10_A']),
   'dos filtros a la vez se cruzan, no se suman',
   esc('cuenta + ventana de 30 días').cerradas.sort().join(','));
+
+console.log('\n═══ LOS PRESETS DE FECHA · una palabra y dos fechas eligen lo mismo ═══');
+ok(!esc('preset «este mes» contra sus dos fechas').cerradas.includes('T_futura_C'),
+  '«este mes» deja fuera la del mes que viene: acota por arriba', `hasta ${R.mesFin} · futura ${R.mesQueViene}`);
+ok(!esc('preset «este mes» contra sus dos fechas').cerradas.includes('T_ayer_C'),
+  'y también la del año pasado', `desde ${R.mesIni} · vieja ${R.anioPasado}`);
+ok(!esc('preset «este año» contra sus dos fechas').cerradas.includes('T_ayer_C'),
+  '«este año» deja fuera la del año pasado', `desde ${R.anioIni} · vieja ${R.anioPasado}`);
+ok(esc('preset «este año» contra sus dos fechas').cerradas.includes('T_hoy_A'),
+  'y sí trae la de hoy', `hasta ${R.anioFin}`);
 
 console.log('\n═══ LAS DIFERENCIAS LEGÍTIMAS · declaradas, no descubiertas ═══');
 ok(R.todoJournal.includes('T_ABIERTA'),
