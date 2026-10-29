@@ -1387,7 +1387,7 @@ tbody tr:last-child td{border-bottom:0}
   /* registrar una operación sin salir de la Cabina */
   .qt { margin:16px 0 0; padding:12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); }
   .qt > .lab { display: block; margin-bottom:8px; }
-  .qgrid { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1.4fr) auto; gap:8px; align-items: center; }
+  .qgrid { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1.15fr) minmax(0,1.2fr) auto; gap:8px; align-items: center; }
   .qgrid input, .qgrid select { width: 100%; }
   .qgrid input { font-family: var(--font-mono); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
   .qgrid .btn { white-space: nowrap; }
@@ -2351,6 +2351,7 @@ tbody tr:last-child td{border-bottom:0}
           <div class="qgrid">
             <div><input type="text" id="qtSym" placeholder="MNQ, VTI, BTC, O…" aria-label="Instrumento"></div>
             <div><select id="qtDest" aria-label="Destino"></select></div>
+            <div><select id="qtAccount" aria-label="Cuenta de esta operación" title="La cuenta se asigna a esta operación, no a toda la sesión"></select></div>
             <div><button type="button" class="btn primary" id="qtGo">+ Registrar</button></div>
           </div>
           <p class="synced" id="qtNote"></p>
@@ -7205,7 +7206,7 @@ tbody tr:last-child td{border-bottom:0}
     $("jClose").hidden = d.closed; $("jReopen").hidden = !d.closed;
     [jResult, jTrades, jNote, jBroke].forEach(el => { el.disabled = d.closed; });
     renderDaySync();
-    fillQtDest(); renderQtNote();
+    fillQtDest(); fillQtAccount(); renderQtNote();
     try { paintGateButtons(); } catch (e) { }
   }
   /* ---------- puente Cabina ↔ Journal de futuros ----------
@@ -7287,7 +7288,7 @@ tbody tr:last-child td{border-bottom:0}
     if (!sym) { flash("escribe el instrumento y se archiva solo"); inp.focus(); return; }
     const dest = $("qtDest").value;
     const seed = dest === "futuros"
-      ? { date: state.day.date, instrument: sym, accountId: defaultAccountId() }
+      ? { date: state.day.date, instrument: sym, accountId: $("qtAccount").value || "" }
       : { date: state.day.date, asset: sym, market: dest };
     openTrade(null, dest === "futuros" ? "futuros" : "inversion", seed);
     inp.value = ""; qtTouched = false; renderQtNote();
@@ -7323,6 +7324,21 @@ tbody tr:last-child td{border-bottom:0}
     const prev = sel.value;
     sel.innerHTML = `<option value="futuros">Futuros</option>` + marketsMerged().filter(m => m.id !== "futuros").map(m => `<option value="${esc(m.id)}">Inversiones · ${esc(m.name)}</option>`).join("");
     if (prev) sel.value = prev;
+  }
+  /* La cuenta se selecciona POR OPERACIÓN. Se incluyen también cuentas pausadas,
+     quemadas o archivadas para atribuir operaciones históricas hechas en ellas.
+     No hay límite de cuentas por día. */
+  function fillQtAccount() {
+    const sel = $("qtAccount"); if (!sel) return;
+    const prev = sel.value;
+    const accounts = Array.isArray(state.settings.accounts) ? state.settings.accounts : [];
+    sel.innerHTML = "<option value=\"\">Sin cuenta asignada</option>" + accounts.map(a => {
+      const label = acctLabel(a.id) || a.name || a.firm || "Cuenta";
+      const status = estadoDe(a);
+      return "<option value=\"" + esc(a.id) + "\">" + esc(label) + (status ? " · " + esc(status) : "") + "</option>";
+    }).join("");
+    const preferred = prev && accounts.some(a => String(a.id) === prev) ? prev : defaultAccountId();
+    sel.value = preferred && accounts.some(a => String(a.id) === String(preferred)) ? preferred : "";
   }
   function renderQtNote() {
     const el = $("qtNote"), inp = $("qtSym"), sel = $("qtDest"); if (!el || !inp || !sel) return;
