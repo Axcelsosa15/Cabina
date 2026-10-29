@@ -7,7 +7,7 @@
    Su modo de fallo: que alguien «simplifique» imgSrc de vuelta a devolver im.data
    tal cual, y que importar un respaldo ajeno vuelva a delatar a quien lo abre. */
 import { chromium } from 'playwright';
-import { createServer } from 'node:http';
+import { sirvePublicado } from './publicado.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +16,19 @@ const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
-const html = readFileSync(join(raiz, 'index.html'), 'utf8');
+const documento = readFileSync(join(raiz, 'index.html'), 'utf8');
+const aplicacion = readFileSync(join(raiz, 'app.js'), 'utf8');
+/* `html` ERA EL FICHERO ENTERO, Y DURANTE 15.000 LINEAS ESO FUE LO MISMO QUE
+   «la aplicacion». Desde que el script salio a app.js —para que la CSP pueda
+   prohibir el inline— ya no lo es: si este guardian siguiera mirando solo el
+   documento, CADA UNA de las comprobaciones de abajo (cero eval, cero
+   sendBeacon, un solo fetch, la clave publicable, ni rastro de service_role)
+   pasaria en verde buscando en un fichero que ya no contiene codigo. Un verde
+   vacio, y sobre seguridad.
+   Asi que aqui `html` es LOS DOS ficheros: lo que se publica y se ejecuta. Lo
+   que necesita mirar solo el documento —los recursos externos de la cabecera,
+   la CSP— usa `documento` explicitamente. */
+const html = documento + '\n' + aplicacion;
 
 console.log('\n═══ SUPERFICIE DE EJECUCION · lo que no debe aparecer nunca ═══');
 /* SE CUENTA SOBRE EL CODIGO, NO SOBRE LA PROSA. La primera version de esta seccion
@@ -75,12 +87,23 @@ const decl = (sinComentarios.match(/function urlNavegable\([^)]*\)\s*\{[^}]*\}/)
 ok(/\^https\?:/.test(decl), 'la guardia ancla el esquema permitido al principio', decl ? 'anclada en ^https?:' : 'no se encontro la funcion');
 
 console.log('\n═══ RECURSOS EXTERNOS · la cadena de suministro del navegador ═══');
-const externos = Array.from(html.matchAll(/(?:src|href)="(https?:\/\/[^"]+)"/g)).map(m => m[1]);
+const externos = Array.from(documento.matchAll(/(?:src|href)="(https?:\/\/[^"]+)"/g)).map(m => m[1]);
 const hosts = Array.from(new Set(externos.map(u => { try { return new URL(u).host; } catch { return u; } })));
 ok(hosts.every(h => /(^|\.)fonts\.googleapis\.com$|(^|\.)fonts\.gstatic\.com$/.test(h)),
    'los unicos origenes externos son las fuentes de Google', hosts.join(' · ') || 'ninguno');
-ok(!/<script[^>]+src=/i.test(html), 'cero <script src>: no se carga codigo de terceros',
-   'el motor va incrustado');
+/* ESTA ASERCION CAMBIO DE FORMA, Y NO DE INTENCION. Decia «cero <script src>»
+   cuando la aplicacion era inline; hoy hay exactamente uno —./app.js— porque
+   sacarlo es lo que permite `script-src 'self'` sin 'unsafe-inline'. Lo que
+   defendia entonces y defiende ahora es lo mismo: que no se cargue codigo de
+   NADIE MAS. Asi que se exige que todo src sea relativo al propio sitio; un
+   `//cdn…`, un `https://…` o cualquier origen ajeno la pone roja. */
+{
+  const srcs = Array.from(documento.matchAll(/<script[^>]+src="([^"]*)"/gi)).map(m => m[1]);
+  const ajenos = srcs.filter(u => /^(https?:)?\/\//i.test(u));
+  ok(ajenos.length === 0, 'ningún <script src> de otro origen: no se carga codigo de terceros',
+     ajenos.length ? ajenos.join(' | ') : `${srcs.length} script(s), todos del propio sitio: ${srcs.join(' ') || 'ninguno'}`);
+  ok(srcs.length <= 1, 'un solo script, y es la aplicación', srcs.join(' ') || 'ninguno');
+}
 
 console.log('\n═══ LA RED · un solo destino, y sólo con cuenta ═══');
 /* Con las cuentas, la página habla con Supabase. Eso abre una puerta que antes no
@@ -108,7 +131,10 @@ const SOSPECHA = /(sk-[A-Za-z0-9]{20})|(ghp_[A-Za-z0-9]{20})|(AKIA[0-9A-Z]{16})|
 ok(!SOSPECHA.test(html), 'ningun patron de secreto en index.html', 'limpio');
 
 console.log('\n═══ EL FILTRO DE IMAGENES · el hallazgo 3.1 de la auditoria ═══');
-const srv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
+/* Servia el HTML para CUALQUIER ruta. Desde que la pagina pide `./app.js`,
+   eso le devolvia HTML donde esperaba un script: la pagina no arrancaba y esta
+   seccion medía un cascarón. Sirve lo que publica Pages. */
+const srv = sirvePublicado(documento);
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const b = await chromium.launch();
 const ctx = await b.newContext();
@@ -220,9 +246,17 @@ ok(JSON.stringify(dir['connect-src']) === JSON.stringify([NUBE]), 'connect-src e
 ok(JSON.stringify((dir['img-src'] || []).slice().sort()) === JSON.stringify(['blob:', 'data:']), 'img-src sólo data: y blob: — ninguna imagen se pide fuera', (dir['img-src'] || []).join(' '));
 ok(JSON.stringify(dir['base-uri']) === `["'none'"]` && JSON.stringify(dir['form-action']) === `["'none'"]`, "base-uri y form-action 'none'");
 ok(!(dir['script-src'] || []).some(x => /^https?:|\*/.test(x)), 'script-src no admite ningún origen externo', (dir['script-src'] || []).join(' '));
+/* Y LO QUE ANTES NO SE PODIA AFIRMAR. Mientras la aplicacion fue inline, la
+   politica tenia que llevar 'unsafe-inline' y la CSP NO impedia que corriera
+   codigo inyectado — estaba escrito asi, sin venderlo de otra forma. Con el
+   script en app.js si lo impide, y esta linea es lo que evita que vuelva a
+   abrirse esa puerta por comodidad. */
+ok(JSON.stringify(dir['script-src']) === `["'self'"]`,
+   "script-src es exactamente 'self': ni inline, ni eval, ni nadie mas",
+   (dir['script-src'] || []).join(' '));
 
 /* Y que la política no rompa la app: todas las pestañas, incluida ESTUDIO, sin una sola violación. */
-const csrv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
+const csrv = sirvePublicado(documento);
 await new Promise(r => csrv.listen(0, '127.0.0.1', r));
 const cb = await chromium.launch();
 const cctx = await cb.newContext();

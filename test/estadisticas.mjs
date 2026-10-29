@@ -40,7 +40,7 @@
    marcada: sin ella la comisión convertiría una plana en una perdedora de
    $1,50 y el bloque §3 se quedaría sin su caso. */
 import { chromium } from 'playwright';
-import { createServer } from 'node:http';
+import { sirvePublicado } from './publicado.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,7 +50,12 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(raiz, 'index.html'));
-const srv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
+/* SIRVE LO QUE SUBE PAGES, no el mismo HTML para cualquier ruta. Desde que la
+   aplicacion salio a `./app.js` (#77), un servidor que devuelve el documento para
+   toda peticion le da HTML al navegador donde espera un script: lo rechaza por
+   MIME y la pagina no arranca. Es el mismo arreglo que la #77 hizo en las otras
+   29 pruebas; estas dos son nuevas y no estaban en ese corte. */
+const srv = sirvePublicado(html);
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const b = await chromium.launch();
 const p = await (await b.newContext({ viewport: { width: 1500, height: 950 }, acceptDownloads: true })).newPage();

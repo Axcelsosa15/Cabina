@@ -28,6 +28,7 @@ var CACHE = 'cabina-v1';
 var CASCO = [
   './',
   './index.html',
+  './app.js',
   './manifest.webmanifest',
   './og.png',
   './icon-192.png',

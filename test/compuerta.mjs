@@ -121,30 +121,41 @@ dice('motor-bundle', 'suite', 'La fuente del motor coincide con el bundle', 'mot
    No es «parece bien»: son invariantes que, si se rompen, la página publicada
    deja de funcionar. Cada una con su número medido al lado. */
 {
+  /* LA INTEGRIDAD SE PARTIO EN DOS EL DIA QUE EL SCRIPT SALIO DEL DOCUMENTO,
+     y hay que decir por que no basta con mirar uno de los dos ficheros: el
+     documento sin app.js es un cascaron que pinta la cabecera, y app.js sin el
+     documento no tiene donde pintarse. Los invariantes de cada uno son
+     distintos y se comprueban por separado — y el ENLACE entre ambos, que el
+     HTML pida exactamente ese script, es el primero de todos. */
   const h = leer('index.html');
-  if (h === null) fila('index.html', 'Integridad estructural', 'FAIL', 'no se pudo leer index.html');
+  const a = leer('app.js');
+  if (h === null || a === null) fila('index.html', 'Integridad estructural', 'FAIL',
+    h === null ? 'no se pudo leer index.html' : 'no se pudo leer app.js');
   else {
-    const n = (re) => (h.match(re) || []).length;
+    const n = (re, t) => ((t === undefined ? h : t).match(re) || []).length;
     const estilos = n(/^<style(?:\s+[^>]*)?>$/gm);
-    const scripts = n(/^<script>$/gm);
-    const cierra = /<\/script>\s*(?:<style id="cabina-unified-estudio-system">[\s\S]*?<\/style>\s*)?<\/body>\s*<\/html>\s*$/.test(h);
-    const motor = n(/^  const QE = \(function \(\) \{$/gm);
-    const expone = n(/^  window\.QuantEngine = QE;$/gm);
-    const fachadas = ['window.FUT = FUT;', 'window.INV = INV;', 'window.TES = TES;'].filter(x => h.includes(x)).length;
-    const mal = [];
-    /* Los estilos originales, el estilo propio de ESTUDIO y la capa global. La capa global lleva
-       id propio para poder comprobarla sin confundirla con los estilos originales. */
     const sistema = n(/^<style id="cabina-unified-estudio-system">$/gm);
+    const enlaza = n(/^<script src="\.\/app\.js"><\/script>$/gm);
+    const inline = n(/^<script>$/gm);
+    const cierra = /<\/script>\s*(?:<style id="cabina-unified-estudio-system">[\s\S]*?<\/style>\s*)?<\/body>\s*<\/html>\s*$/.test(h);
+    const motor = n(/^  const QE = \(function \(\) \{$/gm, a);
+    const expone = n(/^  window\.QuantEngine = QE;$/gm, a);
+    const fachadas = ['window.FUT = FUT;', 'window.INV = INV;', 'window.TES = TES;'].filter(x => a.includes(x)).length;
+    const mal = [];
     if (estilos !== 5) mal.push(`${estilos} <style> (esperados 5)`);
     if (sistema !== 1) mal.push(`${sistema} capas cabina-unified-estudio-system (esperada 1)`);
-    if (scripts !== 1) mal.push(`${scripts} <script> (esperado 1)`);
+    if (enlaza !== 1) mal.push(`${enlaza} enlaces a ./app.js (esperado 1)`);
+    /* Un <script> inline de vuelta en el documento no es un detalle de estilo:
+       obligaria a devolver 'unsafe-inline' a la CSP, y entonces la politica
+       dejaria otra vez de impedir que corra codigo inyectado. */
+    if (inline !== 0) mal.push(`${inline} <script> inline (esperados 0: volverían a exigir 'unsafe-inline')`);
     if (!cierra) mal.push('no cierra con </script></body></html>');
-    if (motor !== 1) mal.push(`${motor} aperturas del IIFE del motor (esperada 1)`);
-    if (expone !== 1) mal.push(`${expone} asignaciones de window.QuantEngine (esperada 1)`);
-    if (fachadas !== 3) mal.push(`${fachadas}/3 fachadas expuestas`);
+    if (motor !== 1) mal.push(`${motor} aperturas del IIFE del motor en app.js (esperada 1)`);
+    if (expone !== 1) mal.push(`${expone} asignaciones de window.QuantEngine en app.js (esperada 1)`);
+    if (fachadas !== 3) mal.push(`${fachadas}/3 fachadas expuestas en app.js`);
     fila('index.html', 'Integridad estructural', mal.length ? 'FAIL' : 'PASS',
       mal.length ? mal.join(' · ')
-        : `${h.split('\n').length} líneas · 5 <style> · 1 <script> · IIFE del motor · window.QuantEngine · 3 fachadas`);
+        : `index.html ${h.split('\n').length} líneas · 5 <style> · 0 inline · 1 <script src> → app.js ${a.split('\n').length} líneas · IIFE del motor · window.QuantEngine · 3 fachadas`);
   }
 }
 

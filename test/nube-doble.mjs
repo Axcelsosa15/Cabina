@@ -19,9 +19,26 @@
 const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
 const PATH_OK = /^[A-Za-z0-9_.~:@+-]+(\/[A-Za-z0-9_.~:@+-]+)+$/;
 
-export function nubeDoble(html) {
-  const NUBE = (html.match(/const NUBE_URL = "([^"]+)"/) || [])[1];
-  const CLAVE = (html.match(/const NUBE_CLAVE = "([^"]+)"/) || [])[1];
+/* RECIBIA EL HTML Y SACABA DE AHI EL ORIGEN Y LA CLAVE. El dia que la
+   aplicacion salio a app.js, ese HTML dejo de contener las dos constantes: la
+   expresion devolvia undefined, `ctx.route(undefined + '/**')` no interceptaba
+   NADA, y las pruebas que dependen de esta doble seguian corriendo contra una
+   nube que no existia — con sintomas de interfaz («la imagen no aparece»), no
+   de configuracion. Medido en capturas.mjs y cola.mjs.
+
+   Ahora se leen de app.js, que es donde estan, y si faltan esto LANZA en vez
+   de devolver una doble muda: un ayudante que falla en silencio convierte a
+   todas sus pruebas en teatro. El parametro se mantiene por compatibilidad con
+   las llamadas existentes y no se usa. */
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+export function nubeDoble(_fuenteIgnorada) {
+  const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'app.js'), 'utf8');
+  const NUBE = (app.match(/const NUBE_URL = "([^"]+)"/) || [])[1];
+  const CLAVE = (app.match(/const NUBE_CLAVE = "([^"]+)"/) || [])[1];
+  if (!NUBE || !CLAVE) throw new Error('nubeDoble: no se encontraron NUBE_URL/NUBE_CLAVE en app.js');
   const e = {
     usuarios: new Map(), tokens: new Map(), refresh: new Map(), filas: new Map(), pedidas: [], n: 0,
     caida: false, roto: false, rutaRota: '', lecturasRotas: '', retraso: {},

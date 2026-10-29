@@ -1,5 +1,8 @@
-# La página es un único index.html sin hash en el nombre: el navegador revalida
-# siempre y la CDN sirve la copia vieja mientras trae la nueva.
+# La página son index.html y app.js, ninguno con hash en el nombre: el navegador
+# revalida siempre y la CDN sirve la copia vieja mientras trae la nueva.
+# app.js entra por la regla `/*` de abajo, y eso importa: lleva la aplicación
+# entera, así que servir una copia vieja sería servir una versión vieja de las
+# reglas. Si algún día se le pone caché larga, hay que ponerle hash primero.
 [[headers]]
   for = "/*"
   [headers.values]

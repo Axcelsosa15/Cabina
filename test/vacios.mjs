@@ -35,6 +35,7 @@
    SABOTAJES CORRIDOS, al pie del archivo. */
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
+import { sirvePublicado } from './publicado.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -53,7 +54,12 @@ const TABS = ['cabina', 'futuros', 'edge', 'invest', 'historial', 'playbook', 'i
    cualquier criterio, que es justo lo que tiene que vigilar. */
 const SOLO_GUIONES = /^[—\s/]*—[—\s/]*$/;
 
-const srv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
+/* SERVIA EL HTML PARA CUALQUIER RUTA. Con la aplicación dentro del documento
+   daba igual; desde que la página pide `./app.js`, el navegador recibía HTML
+   donde esperaba un script, lo rechazaba por MIME y la página no arrancaba.
+   `sirvePublicado` sirve lo que sube Pages —leído del propio workflow— y 404
+   para lo demás, que es lo que hace útil a estas pruebas. */
+const srv = sirvePublicado(html);
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const url = `http://127.0.0.1:${srv.address().port}/`;
 

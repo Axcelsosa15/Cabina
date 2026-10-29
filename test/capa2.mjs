@@ -12,7 +12,17 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'index.html'), 'utf8');
+/* `src` ES LA APLICACION, Y DESDE QUE SALIO DEL HTML ESO ES app.js. Todo lo
+   que este fichero vigila —funciones, fachadas, duplicaciones del motor, el
+   bundle incrustado— es codigo, y el codigo ya no esta en index.html. Si esta
+   linea siguiera apuntando al HTML, las diecinueve comprobaciones de abajo
+   buscarian en un fichero que ya no las contiene y pasarian TODAS en verde sin
+   mirar nada: el modo de fallo mas caro que tiene un guardian.
+   `html` se queda para las dos cosas que SI siguen en el documento: el CSS de
+   sus <style> y la politica de contenido de su <meta>. */
+const raizCapa2 = join(dirname(fileURLToPath(import.meta.url)), '..');
+const src = readFileSync(join(raizCapa2, 'app.js'), 'utf8');
+const html = readFileSync(join(raizCapa2, 'index.html'), 'utf8');
 /* Sin comentarios. La primera versión de este guardián marcaba como duplicado un
    comentario que dice «nunca calcules el P&L así»: buscaba nombres en el texto,
    no implementaciones. Un guardián que falla siempre acaba ignorado, que es peor
@@ -273,7 +283,7 @@ console.log('\n═══ 8 · ningún var(--x) que no exista ═══');
 
    Un fallo que no deja hueco es el más caro de todos, así que aquí se mira el
    CSS entero y no sólo lo que acabo de tocar. */
-const css = (src.match(/<style>([\s\S]*?)<\/style>/g) || []).join('\n');
+const css = (html.match(/<style>([\s\S]*?)<\/style>/g) || []).join('\n');
 const definidos = new Set([...css.matchAll(/(--[a-z0-9-]+)\s*:/gi)].map(m => m[1]));
 /* Los que llegan de fuera del CSS: el navegador, o una variable puesta por JS. */
 const DEL_NAVEGADOR = new Set(['--safe-b', '--safe-t']);
@@ -380,9 +390,16 @@ ok(cuerpoEnDisco !== '' && !/\beval\s*\(/.test(cuerpoEnDisco),
    cuerpoEnDisco === '' ? 'no se encontró enDisco' : /\beval\s*\(/.test(cuerpoEnDisco) ? 'volvió el eval' : 'sondea desde Node');
 /* Y que la CSP que lo prohibe siga ahi: si alguien añadiera 'unsafe-eval' la
    regla de arriba dejaria de tener motivo, y hay que enterarse. */
-ok(/script-src 'unsafe-inline'/.test(codigo) && !/unsafe-eval/.test(codigo),
-   "la CSP sigue sin 'unsafe-eval', que es lo que hace necesaria la regla de arriba",
-   /unsafe-eval/.test(codigo) ? "apareció 'unsafe-eval' en la CSP" : "script-src 'unsafe-inline'");
+/* La CSP vive en el <meta> de index.html, no en el codigo. Y desde que la
+   aplicacion salio del documento dice `script-src 'self'`: ni 'unsafe-eval'
+   —que es lo que hace necesaria la regla de arriba— ni 'unsafe-inline'. */
+{
+  const csp = (html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/) || [])[1] || '';
+  const scriptSrc = (csp.split(';').map(x => x.trim()).find(x => x.startsWith('script-src')) || '');
+  ok(/script-src 'self'/.test(scriptSrc) && !/unsafe-eval/.test(csp) && !/unsafe-inline/.test(scriptSrc),
+     "la CSP sigue sin 'unsafe-eval' ni 'unsafe-inline', que es lo que hace necesaria la regla de arriba",
+     scriptSrc || 'no se encontró script-src');
+}
 
 console.log('\n═══ 11 · el borrado en masa pasa por una sola puerta ═══');
 /* §11 — Nadie saca una cuenta fuera de la fachada.

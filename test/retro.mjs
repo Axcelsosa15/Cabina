@@ -18,7 +18,7 @@
    «sincronizado» sobre una cabina vacía. Es la misma mentira que ese rótulo
    existe para no contar, en la dirección que nadie había mirado. */
 import { chromium } from 'playwright';
-import { createServer } from 'node:http';
+import { sirvePublicado } from './publicado.mjs';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -103,7 +103,9 @@ const SEMILLA = {
    §2 · una lectura que falla deja de ser muda
    ══════════════════════════════════════════════════════════════════════════ */
 {
-  const srv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
+  /* Servía el HTML para cualquier ruta: desde que la página pide `./app.js`,
+     eso devolvía HTML donde el navegador esperaba un script. */
+  const srv = sirvePublicado(html);
   await new Promise(r => srv.listen(0, '127.0.0.1', r));
   const BASE = `http://127.0.0.1:${srv.address().port}/`;
   const d = nubeDoble(html);
