@@ -213,6 +213,18 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
   dice('rapido', 'suite', 'El registro rapido escribe en el modelo canonico, no en un segundo', 'divergencia');
 }
 {
+  /* La cuarta forma de mentir no es calcular mal: es RELLENAR. El formulario de
+     operacion nueva hereda ahora cuatro campos de tu ultima operacion en vez de
+     traer constantes, y eso ahorra teclear exactamente hasta el dia en que hereda
+     algo que no querias y lo guardas sin mirar. Lo que impide que eso pase son dos
+     propiedades, y esta fila es lo que las vigila: que la DIRECCION y la CALIDAD
+     NO se hereden —una decide el signo de todo lo derivado y la otra es un juicio,
+     y ninguna de las dos se nota equivocada mirando la ficha—, y que lo que si se
+     hereda quede DICHO en pantalla campo por campo. Un valor heredado y anunciado
+     es un atajo; el mismo valor sin anunciar es un dato inventado con tu nombre. */
+  dice('heredado', 'suite', 'El formulario hereda lo que se repite, no lo que se juzga, y lo dice', 'divergencia');
+}
+{
   /* Las propiedades de seguridad de la fase 0. Ninguna es visible en pantalla, que
      es justo por lo que necesitan un guardian: un cambio que las rompa no se nota
      hasta que alguien lo aprovecha. La mas concreta: sin el filtro de esquemas de
