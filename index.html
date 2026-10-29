@@ -3782,7 +3782,6 @@ body { color-scheme: light !important; }
 #tabnav .tabbtn::before { box-shadow: none !important; }
 #tabnav .tabbtn::after { background: var(--accent) !important; }
 #tabnav .tabbtn.active,
-#tabnav .tabbtn[data-tab="estudio"],
 #tabnav .tabbtn[data-tab="estudio"].active {
   color: var(--accent) !important;
   background: var(--accent-soft) !important;
@@ -3792,6 +3791,17 @@ body { color-scheme: light !important; }
 #tabnav .tabbtn[data-tab="estudio"]::before {
   background: var(--accent) !important;
   box-shadow: none !important;
+}
+#tabnav .tabbtn[data-tab="estudio"]:not(.active) {
+  color: var(--muted) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+@media (max-width: 700px) {
+  #tabnav .tabbtn[data-tab="estudio"]::before {
+    background: transparent !important;
+    color: var(--accent) !important;
+  }
 }
 .panel, .panel > header, .panel > .body, .study-panel, .study-card,
 .study-stat, .study-flash, .tile, .tiles, .acct, .jstrip, .deck,
@@ -3825,10 +3835,20 @@ body { color-scheme: light !important; }
   border-color: var(--line) !important;
   box-shadow: none !important;
 }
-.study-filter[aria-pressed="true"], .study-state, .study-kind {
+.study-filter[aria-pressed="true"], .study-state:not(.progressing):not(.mastered), .study-kind {
   color: var(--accent) !important;
   background: var(--accent-soft) !important;
   border-color: #b9ddd6 !important;
+}
+.study-state.progressing {
+  color: #8a4b08 !important;
+  background: #fff4df !important;
+  border-color: #efd4a3 !important;
+}
+.study-state.mastered {
+  color: var(--muted) !important;
+  background: #f1f4f7 !important;
+  border-color: var(--line) !important;
 }
 .study-searchrow:focus-within, .study-card:hover, #panelAccts .acct:hover {
   border-color: var(--line-strong) !important;
