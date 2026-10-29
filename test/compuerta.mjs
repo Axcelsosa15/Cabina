@@ -243,7 +243,14 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
   dice('guardado', 'suite', 'Un cambio que no se guardo no parece guardado', 'persistencia');
   /* Una cabina que no se puede leer en el telefono no esta entregada. `diseno.mjs`
      mide UNA pestana a 1600px; esto mide las seis, y en 430px. */
-  dice('vista', 'suite', 'Ninguna de las nueve pestanas se sale de la pantalla', 'index.html');
+  /* SIN NÚMERO EN EL RÓTULO. Esta fila decía «las siete pestañas» y medía OCHO
+     —test/vista.mjs lo documentaba como etiqueta caducada—, luego dijo nueve, y
+     con el historial serían diez. Un rótulo con una cuenta dentro caduca cada
+     vez que la app crece, y una fila de la compuerta que se describe mal es
+     peor que no tenerla: da una impresión de cobertura que no se ha
+     comprobado. La lista de verdad vive en test/vista.mjs, que SÍ lleva el
+     número porque ahí el número es la aserción. */
+  dice('vista', 'suite', 'Ninguna pestana se sale de la pantalla', 'index.html');
   /* Las cuatro categorias de error: la 4 se gana con esperanza positiva en limpio,
      los errores no entran en esa esperanza, y abrir una operacion vieja no la
      castiga. Ver docs/ERRORES.md. */
@@ -360,6 +367,31 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      verde. Esta fila existe para que esa unificación se haga con la puerta
      cerrada detrás, no delante. */
   dice('filtros', 'suite', 'El mismo filtro selecciona las mismas operaciones en Futuros y en Métricas', 'index.html');
+  /* EL HISTORIAL UNIFICADO. Es la pantalla que más fácil se convierte en una
+     tercera verdad: enseña dos familias que viven en colecciones distintas, con
+     dos espacios de nombres de cuenta y dos juegos de campos. Lo que esta fila
+     certifica no es que la tabla esté bien pintada, es que no calcula nada —
+     cada subconjunto sale de `FUT.filtered()`, y con el tipo en «sólo futuros»
+     elige exactamente lo que el journal. Se llama `unificado` y no `historial`
+     porque esa suite ya existe y vigila otra cosa.
+
+     Y desde que exporta, la fila certifica una segunda cosa con el mismo peso:
+     que el fichero sale de las OPERACIONES y salen TODAS. La tabla recorta a
+     250 filas; un export que copiara lo pintado daría 250 líneas de un
+     historial de mil sin decir que faltan setecientas cincuenta. La suite
+     siembra 260 a propósito para que la tabla recorte y el fichero no. */
+  dice('unificado', 'suite', 'El historial enseña las dos familias sin inventar una tercera lista, y las exporta enteras', 'index.html');
+  /* EL CATÁLOGO DE 160 ESTADÍSTICAS. El riesgo no es que una fila salga mal:
+     es que salga PLAUSIBLE y distinta de la tarjeta que tiene quince
+     centímetros más arriba, y que la pantalla enseñe dos profit factors sin
+     que nadie lo note. Por eso lo que esta fila certifica no es la aritmética
+     —de eso ya responde `edge`— sino que las dos superficies salen del mismo
+     `mxCalc`, que las tres tasas de acierto siguen siendo tres, y que una
+     cifra que no se puede medir se imprime con un guion y su razón en vez de
+     con un cero creíble — y que ese guion SOBREVIVE al CSV, que es donde más
+     barato sale convertirlo en un cero: en una hoja de cálculo ya no tiene la
+     definición al lado para desmentirlo. */
+  dice('estadisticas', 'suite', 'El catálogo de estadísticas no contradice a las métricas que tiene encima, ni al exportarse', 'index.html');
   /* LA INSTALACION Y EL CASCO SIN CONEXION. Esta fila vigila una cadena nueva,
      y por eso tiene fila propia: el dia que la pagina dejo de ser un fichero
      autosuficiente, `sw.js` y `pagina.yml` pasaron a declarar DOS listas de
