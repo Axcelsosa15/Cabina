@@ -103,7 +103,7 @@ const sirve = async (cuerpo) => {
     try {
       const b = readFileSync(join(raiz, f.replace(/^\//, '')));
       const ext = f.slice(f.lastIndexOf('.'));
-      r.writeHead(200, { 'content-type': ext === '.css' ? 'text/css; charset=utf-8' : ext === '.png' ? 'image/png' : 'application/octet-stream' });
+      r.writeHead(200, { 'content-type': ext === '.css' ? 'text/css; charset=utf-8' : ext === '.png' ? 'image/png' : ext === '.js' ? 'text/javascript; charset=utf-8' : 'application/octet-stream' });
       r.end(b);
     } catch { r.writeHead(404); r.end('no'); }
   });

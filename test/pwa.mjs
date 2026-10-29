@@ -42,6 +42,7 @@ const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lee = f => readFileSync(join(raiz, f), 'utf8');
 const html = lee('index.html');
 const sw = lee('sw.js');
+const app = lee('app.js');
 const wf = lee('.github/workflows/pagina.yml');
 
 /* Un servidor que sirve el repositorio tal cual, como Pages. No un mapa fijo de
@@ -189,15 +190,26 @@ ok(/Contact: https:\/\/github\.com\/Axcelsosa15\/Cabina\/security\/advisories\/n
 
 /* ═══ §6 · EL REGISTRO NO SE HACE EN file:// ═════════════════════════════ */
 console.log('\n═══ §6 · LA GUARDA QUE PROTEGE A LAS OTRAS 30 PRUEBAS ═══');
-const bloque = (html.match(/if \('serviceWorker' in navigator[\s\S]{0,320}?\n  \}/) || [''])[0];
+/* El registro vive en app.js desde que la aplicacion salio del documento.
+   Buscarlo en el HTML devolvia cadena vacia y las dos aserciones de abajo se
+   ponian rojas diciendo «no se encontro el bloque» — que es lo correcto, pero
+   el sitio donde mirar es este. */
+const bloque = (app.match(/if \('serviceWorker' in navigator[\s\S]{0,320}?\n  \}/) || [''])[0];
 ok(/location\.protocol/.test(bloque), 'el registro comprueba el protocolo antes de intentarlo',
    bloque ? bloque.split('\n')[0].trim() : 'no se encontró el bloque de registro');
 ok(/\.catch\(/.test(bloque), 'el registro atrapa su propio rechazo (sw.js puede no estar servido)');
 
 /* CONTROL POSITIVO · si se quita worker-src, el navegador TIENE que negarse.
    Sin esto, §2 y §3 podrian estar midiendo una politica que ya permite todo. */
-console.log('\n═══ §7 · CONTROL POSITIVO · sin worker-src, el navegador lo rechaza ═══');
-const htmlSinWorker = html.replace("worker-src 'self'; ", '');
+console.log('\n═══ §7 · CONTROL POSITIVO · con worker-src none, el navegador lo rechaza ═══');
+/* ESTE CONTROL CAMBIO CUANDO LA CSP DEJO DE SER 'unsafe-inline'. Antes bastaba
+   con QUITAR worker-src: la politica caia en `default-src 'none'` y el registro
+   moria. Hoy `script-src 'self'` es el respaldo de worker-src, asi que quitarlo
+   ya NO prohibe nada — medido: el trabajador se registraba igual y este control
+   se puso rojo diciendo exactamente eso, «SE REGISTRO IGUAL».
+   Un control positivo que deja de disparar es peor que no tenerlo, asi que se
+   prohibe de verdad: worker-src 'none'. */
+const htmlSinWorker = html.replace("worker-src 'self';", "worker-src 'none';");
 const { srv: srv2, base: base2 } = await sirve(htmlSinWorker);
 const ctx2 = await nav.newContext();
 const pag2 = await ctx2.newPage();
@@ -207,7 +219,7 @@ const activo2 = await pag2.evaluate(() => Promise.race([
   navigator.serviceWorker.ready.then(() => true),
   new Promise(r => setTimeout(() => r(false), 2500)),
 ]).catch(() => false));
-ok(activo2 === false, 'quitar worker-src impide que el trabajador se registre',
+ok(activo2 === false, "worker-src 'none' impide que el trabajador se registre",
    activo2 ? 'SE REGISTRÓ IGUAL: §2 y §3 no prueban nada' : 'rechazado por la CSP, como debe');
 
 await ctx2.close(); srv2.close();

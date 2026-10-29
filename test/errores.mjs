@@ -23,6 +23,7 @@
    Su modo de fallo: un clasificador que absuelve por defecto. */
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
+import { sirvePublicado } from './publicado.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,7 +33,12 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(raiz, 'index.html'));
-const srv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
+/* SERVIA EL HTML PARA CUALQUIER RUTA. Con la aplicación dentro del documento
+   daba igual; desde que la página pide `./app.js`, el navegador recibía HTML
+   donde esperaba un script, lo rechazaba por MIME y la página no arrancaba.
+   `sirvePublicado` sirve lo que sube Pages —leído del propio workflow— y 404
+   para lo demás, que es lo que hace útil a estas pruebas. */
+const srv = sirvePublicado(html);
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const b = await chromium.launch();
 const p = await (await b.newContext({ viewport: { width: 1440, height: 1000 } })).newPage();

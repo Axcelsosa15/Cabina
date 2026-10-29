@@ -30,6 +30,7 @@
         puede decir». */
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
+import { sirvePublicado } from './publicado.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,8 +45,21 @@ const igual = (a, b, t, d) => ok(casi(a, b), t, d != null ? d : `app ${a} · mot
 const PAREJAS = { safe: 'seguro', caution: 'precaucion', danger: 'peligro', locked: 'agotado' };
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
-const html = readFileSync(join(raiz, 'index.html'));
-const srv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
+/* `NIVEL_APP` y la tabla de umbrales son CODIGO, y el codigo esta en app.js
+   desde que la aplicacion salio del documento: leyendo index.html esta prueba
+   encontraba cero codigos traducidos y decia que las seis tarjetas se
+   quedarian sin color. */
+/* El documento se SIRVE; app.js se ANALIZA. Servir el código como si fuera
+   la página dejaba al navegador sin nada que pintar y la espera de arranque
+   expiraba a los 20 s. */
+const documento = readFileSync(join(raiz, 'index.html'));
+const html = readFileSync(join(raiz, 'app.js'));
+/* SERVIA EL HTML PARA CUALQUIER RUTA. Con la aplicación dentro del documento
+   daba igual; desde que la página pide `./app.js`, el navegador recibía HTML
+   donde esperaba un script, lo rechazaba por MIME y la página no arrancaba.
+   `sirvePublicado` sirve lo que sube Pages —leído del propio workflow— y 404
+   para lo demás, que es lo que hace útil a estas pruebas. */
+const srv = sirvePublicado(documento);
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const b = await chromium.launch();
 const p = await (await b.newContext()).newPage();
