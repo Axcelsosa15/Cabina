@@ -45,7 +45,8 @@ const TRADES = {
   // ABIERTA · sin salida, así que sin R ni P&L
   t5: op('t5', { date: '2026-09-16', exit: null, quality: 'B', tags: '', lesson: '' }),
 };
-const SEMILLA = { settings: { meta: { mx: { com: 0 } }, accounts: [CUENTA], rules: [] }, trades: TRADES };
+const CUENTA_B = { id: 'b2', name: 'Cuenta B', size: 25000, dd: 1000, ddKind: 'estatico', status: 'evaluacion', ledger: [] };
+const SEMILLA = { settings: { meta: { mx: { com: 0 } }, accounts: [CUENTA, CUENTA_B], rules: [] }, trades: TRADES };
 
 const p = await (await b.newContext({ viewport: { width: 1600, height: 1200 } })).newPage();
 p.on('pageerror', e => errs.push('PAGEERROR: ' + e.message));
@@ -168,8 +169,11 @@ const antesN = await n();
 // El registro rápido vive en la pestaña Cabina.
 await p.click('.tabbtn[data-tab="cabina"]'); await quieto(p);
 await p.fill('#qtSym', 'CL');
+ok(await p.locator('#qtAccount option').count() === 3, 'el registro rápido ofrece las dos cuentas y «sin cuenta»', await p.locator('#qtAccount option').count());
+await p.selectOption('#qtAccount', 'b2');
 // El registro rápido ABRE el editor precargado; guardar es el paso siguiente.
 await p.click('#qtGo'); await quieto(p);
+ok(await p.inputValue('#ef_accountId') === 'b2', 'la cuenta elegida se hereda en ESTA operación', await p.inputValue('#ef_accountId'));
 await p.click('#edSave'); await trasGuardar(p);
 await p.click('.tabbtn[data-tab="futuros"]'); await quieto(p);
 await p.click('#ftSeg button[data-v="diario"]'); await quieto(p);
