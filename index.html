@@ -3723,10 +3723,9 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   }
 }
 
-</style>
 
+/* Cabina · interfaz operativa clara. Presentación solamente. */
 
-<style id="cabina-light-operational">
 /* Cabina · interfaz operativa clara. Presentación solamente: no cambia datos,
    cálculos, flujos de guardado ni preferencias existentes. */
 :root {
@@ -3815,6 +3814,9 @@ body { color-scheme: light !important; }
   box-shadow: none !important;
   text-shadow: none !important;
 }
+/* Diferencia visual medible entre ausencia de dato y valor disponible. */
+.tab:not([data-tab="estudio"]) .tile:not(.sin-dato) { background: #f8fafc !important; }
+.tab:not([data-tab="estudio"]) .tile.sin-dato { background: #edf1f5 !important; }
 .panel > header { border-bottom-color: var(--line) !important; }
 .panel > header h2, .study-panel h3, .study-card h3, .study-dialog-head h3,
 .view-prefs-head h2, .deck-t { color: var(--text) !important; }
