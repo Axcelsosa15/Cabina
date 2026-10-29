@@ -6,7 +6,7 @@
      inline, así que no impide que corra código inyectado; impide que ese código
      hable con alguien que no sea el proyecto Supabase o se chive pidiendo una
      imagen. Las fuentes de Google son el único recurso externo. test/seguridad.mjs. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src https://lazniuuedlhqomfyykvf.supabase.co; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; worker-src 'self'; manifest-src 'self'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src https://lazniuuedlhqomfyykvf.supabase.co; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cabina · cockpit de sesión</title>
 <meta name="description" content="Cabina: trading, inversiones y estudio profundo de mercados, macroeconomía y riesgo.">
@@ -27,9 +27,19 @@
 <meta name="twitter:card" content="summary_large_image">
 <!-- El icono va dentro del fichero: ningun recurso externo nuevo (test/seguridad.mjs). -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B0E13'/%3E%3Cpath d='M44 21a15 15 0 1 0 0 22' fill='none' stroke='%234FB3A0' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E">
+<!-- INSTALABLE Y SIN CONEXION. El manifiesto y el trabajador de servicio son del
+     propio origen: la CSP los permite con worker-src/manifest-src 'self' y con
+     nada mas. Los iconos salen del MISMO dibujo que el favicon de arriba
+     (engendrados, no copiados: ver test/pwa.mjs) y van TODOS en el manifiesto,
+     incluido el de 180 px de iOS: un <link rel="apple-touch-icon"> lo carga la
+     pagina, y bajo file:// —donde corre media suite— eso viola img-src porque
+     el origen es opaco y 'self' no lo cubre. Desde el manifiesto lo pide el
+     sistema operativo, no el documento. -->
+<link rel="manifest" href="./manifest.webmanifest">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0B0E13">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Las fuentes de Google NO van aqui: una hoja de estilos en la cabecera bloquea
      el script y el evento load hasta que Google responde. Las pide el script
      cuando la pagina ya ha cargado (cargaFuentes). Ver test/lanzamiento.mjs. -->
@@ -1869,6 +1879,10 @@ tbody tr:last-child td{border-bottom:0}
   }
 
   footer { margin-top:32px; font-family: var(--font-mono); font-size: 11px; color: var(--dim); display: flex; flex-wrap: wrap; gap:8px 24px; }
+  /* Los enlaces legales del pie: del color del texto apagado, subrayados sólo
+     al pasar, y con area de pulsacion suficiente en un telefono. */
+  footer .legal a { color: var(--dim); text-decoration: none; border-bottom: 1px solid transparent; padding: 2px 0; }
+  footer .legal a:hover, footer .legal a:focus-visible { color: var(--text); border-bottom-color: currentColor; }
 
   /* ---------- REGISTRO RÁPIDO ----------
      Una operación en 5 segundos. El panel es pequeño a propósito: si crece, deja
@@ -2138,7 +2152,7 @@ tbody tr:last-child td{border-bottom:0}
          una ACCION, y una accion es un <button>: trae Enter, espacio, foco y
          semantica sin inventar nada. -->
     <button type="button" class="editbtn conflbtn" id="resolveConflict" hidden>Resolver conflicto</button>
-    <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)">+ Rápido</button>
+    <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)" aria-haspopup="dialog" aria-expanded="false" aria-controls="quickOv">+ Rápido</button>
     <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
     <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
     <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
@@ -2149,6 +2163,7 @@ tbody tr:last-child td{border-bottom:0}
 <nav class="tabnav" id="tabnav" aria-label="Secciones">
   <button class="tabbtn active" data-tab="cabina">Cabina</button>
   <button class="tabbtn" data-tab="futuros">Futuros<span class="n" id="nFut"></span></button>
+  <button class="tabbtn" data-tab="cuentas">Cuentas<span class="n" id="nCuentas"></span></button>
   <button class="tabbtn" data-tab="edge">Métricas / Edge</button>
   <button class="tabbtn" data-tab="invest">Inversiones<span class="n" id="nInvest"></span></button>
   <button class="tabbtn" data-tab="historial">Historial<span class="n" id="nHist"></span></button>
@@ -2156,7 +2171,28 @@ tbody tr:last-child td{border-bottom:0}
   <button class="tabbtn" data-tab="ideas">Formas de hacer dinero<span class="n" id="nIdeas"></span></button>
   <button class="tabbtn" data-tab="estudio">Estudio<span class="n" id="nResearch"></span></button>
   <button class="tabbtn" data-tab="calc">Calculadora</button>
+
+  <button type="button" id="mobileMoreBtn" aria-label="Más secciones" aria-haspopup="dialog" aria-expanded="false" aria-controls="mobileMoreOv">Más</button>
 </nav>
+
+<div id="mobileMoreOv" class="mobile-more-ov" hidden>
+  <button type="button" class="mobile-more-backdrop" data-mobile-more-close aria-label="Cerrar menú Más" tabindex="-1"></button>
+  <section class="mobile-more-sheet" role="dialog" aria-modal="true" aria-labelledby="mobileMoreTitle" tabindex="-1">
+    <header class="mobile-more-head">
+      <h2 id="mobileMoreTitle">Más secciones</h2>
+      <button type="button" class="mobile-more-close" id="mobileMoreClose" data-mobile-more-close aria-label="Cerrar">×</button>
+    </header>
+    <div class="mobile-more-grid">
+      <button type="button" data-mobile-more-tab="cuentas">Cuentas</button>
+      <button type="button" data-mobile-more-tab="edge">Métricas / Edge</button>
+      <button type="button" data-mobile-more-tab="historial">Historial</button>
+      <button type="button" data-mobile-more-tab="playbook">Playbook</button>
+      <button type="button" data-mobile-more-tab="ideas">Formas de hacer dinero</button>
+      <button type="button" data-mobile-more-tab="calc">Calculadora</button>
+    </div>
+  </section>
+</div>
+
 <div class="demobar" id="demoBar" hidden>
   <b>Modo demo</b>
   <span>Todo lo que ves está inventado para revisar el diseño: operaciones, setups, cuentas, niveles y cartera. <b>No se guarda nada</b>: al salir vuelven tus datos reales intactos.</span>
@@ -2401,7 +2437,7 @@ tbody tr:last-child td{border-bottom:0}
       </div>
     </div>
     <p class="synced" id="bkNote"></p>
-    <input type="file" id="bkFile" accept="application/json,.json" hidden aria-hidden="true">
+    <input type="file" id="bkFile" accept="application/json,.json,text/csv,.csv" hidden aria-hidden="true">
   </div>
 </section>
 
@@ -2568,7 +2604,18 @@ tbody tr:last-child td{border-bottom:0}
       </section>
       <section class="panel">
         <header><h2>Operaciones</h2><span class="meta" id="jrMeta"></span></header>
-        <div class="body"><div class="twrap" id="jrTable"></div></div>
+        <div class="body">
+          <!-- LA COLA DE LO IMPORTADO INCOMPLETO · fase 5 de docs/IMPORTAR.md.
+               Ningun export de broker trae el stop, asi que una operacion importada
+               entra sin el campo del que salen la R y la expectativa. Esto dice
+               cuantas son y lleva a completarlas de una en una. -->
+          <div class="bkbtns" id="jrCola" hidden>
+            <button type="button" class="btn ghost sm" id="jrSoloIncompletas" aria-pressed="false">Sólo sin completar</button>
+            <button type="button" class="btn sm" id="jrCompletarSig">Completar la siguiente</button>
+          </div>
+          <p class="synced" id="jrColaNota" hidden></p>
+          <div class="twrap" id="jrTable"></div>
+        </div>
       </section>
       <!-- IMPORTAR · mapeador manual de operaciones cerradas y modo FIFO de ejecuciones.
            La detección automática de plataforma (fase 4) y la validación contra un CSV
@@ -2611,6 +2658,42 @@ tbody tr:last-child td{border-bottom:0}
 <!-- ======================= PLAYBOOK ======================= -->
 <!-- MÉTRICAS / EDGE · sólo operaciones de FUTUROS del journal, netas de comisión.
      Las inversiones no entran nunca: tradesOf("futuros") las deja fuera por tipo. -->
+<div class="tab" data-tab="cuentas">
+<section class="deck" aria-label="Resumen de Cuentas"><span class="deck-n">09</span><h1 class="deck-t">Cuentas</h1><span class="deck-stage">Ciclo de vida</span><span class="deck-parts">Compradas &middot; Quemadas &middot; Autopsia</span></section>
+
+  <div class="toolbar">
+    <select id="cuFiltro" aria-label="Qué cuentas se ven">
+      <option value="todas">todas las cuentas</option>
+      <option value="quemadas">sólo las quemadas</option>
+      <option value="vivas">sólo las vivas</option>
+    </select>
+    <span class="sp"></span>
+    <span class="mono" id="cuN" style="font-size:12.5px;color:var(--muted)"></span>
+  </div>
+  <div class="stack">
+    <section class="panel">
+      <header><h2>La caja</h2><span class="meta" id="cuCajaMeta"></span></header>
+      <div class="body">
+        <div class="kpis" id="cuCaja"></div>
+        <div id="cuCajaNota"></div>
+        <div class="twrap" id="cuFirmas" style="margin-top:14px"></div>
+      </div>
+    </section>
+    <section class="panel">
+      <header><h2>Cada cuenta, de la compra al final</h2><span class="meta" id="cuTablaMeta"></span></header>
+      <div class="body"><div class="twrap" id="cuTabla"></div><div id="cuTablaNota"></div></div>
+    </section>
+    <section class="panel">
+      <header><h2>Lo que se repite entre tus quemadas</h2><span class="meta" id="cuPatronMeta"></span></header>
+      <div class="body" id="cuPatron"></div>
+    </section>
+    <section class="panel">
+      <header><h2>La autopsia de cada quemada</h2><span class="meta" id="cuAutoMeta"></span></header>
+      <div class="body" id="cuAutopsias"></div>
+    </section>
+  </div>
+</div>
+
 <div class="tab" data-tab="edge">
 <section class="deck" aria-label="Resumen de Métricas y Edge"><span class="deck-n">03</span><h1 class="deck-t">Métricas / Edge</h1><span class="deck-stage">Validación</span><span class="deck-parts">P&amp;L neto · Drawdown · Riesgo</span></section>
 
@@ -2707,6 +2790,7 @@ tbody tr:last-child td{border-bottom:0}
   </div>
   <input type="file" id="pbFile" accept="image/*" hidden>
 <input type="file" id="tradeFile" accept="image/*" hidden>
+<input type="file" id="tradeCameraFile" accept="image/*" capture="environment" hidden>
   <p class="note-p" id="pbKindNote"></p>
   <div class="cards" id="pbCards"></div>
 </div>
@@ -2926,6 +3010,10 @@ tbody tr:last-child td{border-bottom:0}
   <span id="footerStore"></span>
   <!-- Visible en las seis pestañas y en un teléfono: test/lanzamiento.mjs lo mide. -->
   <span class="aviso">Cabina es una herramienta de registro y análisis, no asesoramiento financiero. Operar futuros conlleva un riesgo alto de pérdida.</span>
+  <!-- Las tres páginas legales. Son ficheros aparte y del propio sitio: no
+       cargan nada, no miden nada y la publicación las verifica una por una
+       (pagina.yml). test/pwa.mjs exige que estos tres enlaces sigan aquí. -->
+  <span class="legal"><a href="./privacidad.html">Privacidad</a> · <a href="./terminos.html">Términos</a> · <a href="./seguridad.html">Seguridad</a></span>
 </footer>
 
 <!-- ═══ PALETA DE COMANDOS ═══
@@ -3778,6 +3866,18 @@ tbody tr:last-child td{border-bottom:0}
       : d.days.slice();
     return { start, end, days };
   }
+  /* LA AUSENCIA ES UN DATO, Y ESTA PUERTA ES DONDE SE PIERDE (protocolo 17).
+     `normalize` recorta cada cuenta a una lista blanca: un campo que no se
+     nombre aquí desaparece al guardar. Pero nombrarlo de la forma obvia
+     —`burnedOn: String(a.burnedOn || "")`— es peor que olvidarlo: le escribe
+     `""` a las cientos de cuentas anteriores al campo, y entonces «cuenta
+     quemada sin fecha apuntada» y «cuenta de antes de que existiera la fecha»
+     se vuelven indistinguibles. Son dos cosas distintas y la pestaña de
+     Cuentas las dice distinto.
+     Así que el campo sólo viaja si la cuenta LO TRAE. */
+  function soloSiEsta(o, k, limpia) {
+    return o && Object.prototype.hasOwnProperty.call(o, k) ? { [k]: limpia(o[k]) } : {};
+  }
   function normalize(s) {
     const out = clone(DEFAULT_SETTINGS);
     if (!s || typeof s !== "object") return out;
@@ -3786,7 +3886,7 @@ tbody tr:last-child td{border-bottom:0}
     if (Array.isArray(s.checks)) out.checks = s.checks.filter(c => c && c.id).map(c => ({ id: String(c.id), t: String(c.t || ""), s: String(c.s || ""), gate: !!c.gate }));
     if (Array.isArray(s.rules)) out.rules = s.rules.filter(r => r && r.id).map(r => ({ id: String(r.id), kind: r.kind === "fixed" ? "fixed" : "num", name: String(r.name || ""), why: String(r.why || ""), value: Number(r.value) || 0, prefix: String(r.prefix || ""), unit: String(r.unit || ""), allow: String(r.allow == null ? "" : r.allow), role: ROLE_KEYS.includes(r.role) ? r.role : (ROLE_SEED[String(r.id)] || "") }));
     else if (s.rules && typeof s.rules === "object") { const v = s.rules; for (const r of out.rules) { if (r.id === "maxloss" && v.maxLoss != null) r.value = Number(v.maxLoss); if (r.id === "maxlosses" && v.maxLosses != null) r.value = Number(v.maxLosses); if (r.id === "maxgain" && v.maxGain != null) r.value = Number(v.maxGain); if (r.id === "contracts" && v.maxContracts != null) r.value = Number(v.maxContracts); } if (v.custom) out.customized = true; }
-    if (Array.isArray(s.accounts)) out.accounts = s.accounts.filter(a => a && a.id).map(a => ({ id: String(a.id), firm: String(a.firm || ""), name: String(a.name || ""), kind: String(a.kind || ""), limit: Number(a.limit) || 50, total: Number(a.total) || 0, best: Number(a.best) || 0, size: Math.max(0, Number(a.size) || 0), dd: Math.max(0, Number(a.dd) || 0), target: Math.max(0, Number(a.target) || 0), ddKind: DD_KEYS.includes(a.ddKind) ? a.ddKind : "trailing_lock", trailBase: a.trailBase === "cierre" ? "cierre" : "intradia", ledger: Array.isArray(a.ledger) ? a.ledger.filter(e => e && e.id).map(e => ({ id: String(e.id), date: String(e.date || ""), kind: LEDGER_KEYS.includes(e.kind) ? e.kind : "payout", amount: Math.abs(Number(e.amount) || 0), note: String(e.note || "") })) : [], status: migraEstado(a.status, a.kind),
+    if (Array.isArray(s.accounts)) out.accounts = s.accounts.filter(a => a && a.id).map(a => (Object.assign({ id: String(a.id), firm: String(a.firm || ""), name: String(a.name || ""), kind: String(a.kind || ""), limit: Number(a.limit) || 50, total: Number(a.total) || 0, best: Number(a.best) || 0, size: Math.max(0, Number(a.size) || 0), dd: Math.max(0, Number(a.dd) || 0), target: Math.max(0, Number(a.target) || 0), ddKind: DD_KEYS.includes(a.ddKind) ? a.ddKind : "trailing_lock", trailBase: a.trailBase === "cierre" ? "cierre" : "intradia", ledger: Array.isArray(a.ledger) ? a.ledger.filter(e => e && e.id).map(e => ({ id: String(e.id), date: String(e.date || ""), kind: LEDGER_KEYS.includes(e.kind) ? e.kind : "payout", amount: Math.abs(Number(e.amount) || 0), note: String(e.note || "") })) : [], status: migraEstado(a.status, a.kind),
       /* El contrato de la firma. Un campo vacío NO es cero: es «no escrito», y
          se distingue con null para poder decir «sin configurar» en vez de
          «cero», que significaría «no puedes perder nada». */
@@ -3796,7 +3896,12 @@ tbody tr:last-child td{border-bottom:0}
          convertiría la cuenta en «la que diga la fecha», que es justo lo que el
          ancla existe para impedir. `reglasDe` lo dice con `sin_version_vigente`. */
       rulesets: Array.isArray(a.rulesets) ? a.rulesets.map(normRuleset).filter(Boolean) : [],
-      rulesetId: String(a.rulesetId == null ? "" : a.rulesetId).trim() }));
+      rulesetId: String(a.rulesetId == null ? "" : a.rulesetId).trim() },
+      /* El día que se quemó y la lección escrita a mano. Los dos sólo si la
+         cuenta los trae: ver `soloSiEsta`. La fecha se recorta a 10 caracteres
+         porque es una fecha, no un texto libre; la lección no se toca, es suya. */
+      soloSiEsta(a, "burnedOn", v => String(v == null ? "" : v).slice(0, 10)),
+      soloSiEsta(a, "lesson", v => String(v == null ? "" : v)))));
     if (s.customized) out.customized = true;
     /* EL SELLO DE LA ULTIMA EDICION. `days/<fecha>` y cada ficha de coleccion ya
        llevaban `updatedAt`, y `subscribeDay` ya lo usaba para no dejar que un
@@ -4225,6 +4330,18 @@ tbody tr:last-child td{border-bottom:0}
     "Fuente": "Source",
     "Fuentes": "Sources",
     "Futuros": "Futures",
+    "Cuentas": "Accounts",
+    "La caja": "The till",
+    "Cada cuenta, de la compra al final": "Every account, from purchase to end",
+    "Lo que se repite entre tus quemadas": "What repeats across your blown accounts",
+    "La autopsia de cada quemada": "An autopsy for every blown account",
+    "Ciclo de vida": "Life cycle",
+    "todas las cuentas": "all accounts",
+    "sólo las quemadas": "only the blown ones",
+    "sólo las vivas": "only the live ones",
+    "Si la quemaste": "If you blew it",
+    "Día en que se quemó": "Day it blew",
+    "Qué aprendiste": "What you learned",
     "Gestionar cuentas": "Manage accounts",
     "Guardar": "Save",
     "Guardar contraseña": "Save password",
@@ -4316,11 +4433,15 @@ tbody tr:last-child td{border-bottom:0}
     "Simular 10.000 caminos": "Simulate 10,000 paths",
     "Stop (puntos)": "Stop (points)",
     "Subir lo de este navegador": "Upload what's in this browser",
+    "Sólo sin completar": "Incomplete only",
     "Sólo sin revisar": "Unreviewed only",
     "Tamaño de posición": "Position size",
     "Tasa libre de riesgo anual (%)": "Annual risk-free rate (%)",
     "Tipo": "Type",
     "Todas": "All",
+    "Completar la siguiente": "Complete the next one",
+    "Nada que completar": "Nothing to complete",
+    "Todas completadas": "All complete",
     "Todas las cuentas": "All accounts",
     "Todo": "All",
     "Todos": "All",
@@ -5398,6 +5519,7 @@ tbody tr:last-child td{border-bottom:0}
       if (state.tab === "futuros") renderFutures();
       else if (state.tab === "invest") renderInvestMetrics();
       else if (state.tab === "edge") renderEdge();
+      else if (state.tab === "cuentas") renderCuentas();
       else if (state.tab === "calc") { if (cc.view === "risk") renderRisk(); else renderCalc(); }
     } catch (e) { }
   }
@@ -5513,40 +5635,62 @@ tbody tr:last-child td{border-bottom:0}
     const columnGroup = document.createElement("section"); columnGroup.className = "view-prefs-columns";
     const columnTitle = document.createElement("h3"); columnTitle.textContent = "Columnas de tablas"; columnGroup.append(columnTitle);
     const columnNote = document.createElement("p"); columnNote.className = "view-prefs-note"; columnNote.textContent = "Oculta columnas que no necesitas. Los datos se conservan y las preferencias se guardan por pestaña."; columnGroup.append(columnNote);
-    const activeTab = Array.from(document.querySelectorAll(".tab")).find(el => el.dataset.tab === tabName);
-    const tables = activeTab ? Array.from(activeTab.querySelectorAll("table")) : [];
+    // Escanea todas las pestañas, no solo la activa: así puedes configurar columnas
+    // de tablas de otras secciones sin que una pestaña vacía o sin datos bloquee el panel.
+    const tabsWithTables = Array.from(document.querySelectorAll(".tab")).map(tab => ({
+      tab,
+      tabName: tab.dataset.tab || "cabina",
+      tabLabel: (document.querySelector('#tabnav .tabbtn[data-tab="' + (tab.dataset.tab || "cabina") + '"]')?.textContent || tab.dataset.tab || "Cabina").replace(/\s+/g, " ").trim(),
+      tables: Array.from(tab.querySelectorAll("table"))
+    })).filter(item => item.tables.length);
     let columnCount = 0;
-    tables.forEach((table, tableIndex) => {
-      const headerRow = table.tHead?.rows?.[0] || table.querySelector("tr");
-      if (!headerRow) return;
-      const headers = Array.from(headerRow.cells).filter(cell => cell.tagName === "TH");
-      if (headers.length < 2) return;
-      const tableKey = viewTableKey(table, tabName, tableIndex);
-      const hiddenColumns = new Set(Array.isArray(prefs.columns?.[tabName]?.[tableKey]) ? prefs.columns[tabName][tableKey] : []);
-      const group = document.createElement("div"); group.className = "view-prefs-table-group";
-      const panel = table.closest(".panel, .study-panel");
-      const heading = document.createElement("strong"); heading.textContent = panel ? viewLabel(panel, tableIndex) : "Tabla " + (tableIndex + 1); group.append(heading);
-      headers.forEach((th, columnIndex) => {
-        const labelText = th.textContent.replace(/\s+/g, " ").trim() || ("Columna " + (columnIndex + 1));
-        const key = columnSlug(labelText, columnIndex);
-        const label = document.createElement("label"); label.className = "view-prefs-item view-prefs-column-item";
-        const input = document.createElement("input"); input.type = "checkbox"; input.checked = !hiddenColumns.has(key);
-        input.setAttribute("aria-label", "Mostrar columna " + labelText);
-        const text = document.createElement("span"); text.textContent = labelText;
-        const stateLabel = document.createElement("small"); stateLabel.textContent = input.checked ? "Visible" : "Oculta"; stateLabel.style.color = "var(--muted,#a5adbb)";
-        input.addEventListener("change", () => {
-          const current = readViewPrefs();
-          current.columns[tabName] = current.columns[tabName] && typeof current.columns[tabName] === "object" ? current.columns[tabName] : {};
-          const list = new Set(Array.isArray(current.columns[tabName][tableKey]) ? current.columns[tabName][tableKey] : []);
-          if (input.checked) list.delete(key); else list.add(key);
-          current.columns[tabName][tableKey] = Array.from(list);
-          writeViewPrefs(current); applyColumnPrefs(); stateLabel.textContent = input.checked ? "Visible" : "Oculta";
+    tabsWithTables.forEach(({tab, tabName: tableTabName, tabLabel, tables}) => {
+      const tabHeading = document.createElement("strong");
+      tabHeading.textContent = tabLabel;
+      tabHeading.dataset.viewTab = tableTabName;
+      tabHeading.style.display = "block";
+      tabHeading.style.margin = "12px 0 4px";
+      columnGroup.append(tabHeading);
+      tables.forEach((table, tableIndex) => {
+        const headerRow = table.tHead?.rows?.[0] || table.querySelector("tr");
+        if (!headerRow) return;
+        const headers = Array.from(headerRow.cells).filter(cell => cell.tagName === "TH");
+        if (headers.length < 2) return;
+        const tableKey = viewTableKey(table, tableTabName, tableIndex);
+        const hiddenColumns = new Set(Array.isArray(prefs.columns?.[tableTabName]?.[tableKey]) ? prefs.columns[tableTabName][tableKey] : []);
+        const group = document.createElement("div"); group.className = "view-prefs-table-group";
+        group.dataset.viewTab = tableTabName;
+        group.dataset.viewTableKey = tableKey;
+        const panel = table.closest(".panel, .study-panel");
+        const heading = document.createElement("strong");
+        heading.textContent = panel ? viewLabel(panel, tableIndex) : "Tabla " + (tableIndex + 1);
+        group.append(heading);
+        headers.forEach((th, columnIndex) => {
+          const labelText = th.textContent.replace(/\s+/g, " ").trim() || ("Columna " + (columnIndex + 1));
+          const key = columnSlug(labelText, columnIndex);
+          const label = document.createElement("label"); label.className = "view-prefs-item view-prefs-column-item";
+          const input = document.createElement("input"); input.type = "checkbox"; input.checked = !hiddenColumns.has(key);
+          input.setAttribute("aria-label", "Mostrar columna " + labelText);
+          const text = document.createElement("span"); text.textContent = labelText;
+          const stateLabel = document.createElement("small"); stateLabel.textContent = input.checked ? "Visible" : "Oculta"; stateLabel.style.color = "var(--muted,#a5adbb)";
+          input.addEventListener("change", () => {
+            const current = readViewPrefs();
+            current.columns[tableTabName] = current.columns[tableTabName] && typeof current.columns[tableTabName] === "object" ? current.columns[tableTabName] : {};
+            const list = new Set(Array.isArray(current.columns[tableTabName][tableKey]) ? current.columns[tableTabName][tableKey] : []);
+            if (input.checked) list.delete(key); else list.add(key);
+            current.columns[tableTabName][tableKey] = Array.from(list);
+            writeViewPrefs(current); applyColumnPrefs(); stateLabel.textContent = input.checked ? "Visible" : "Oculta";
+          });
+          label.append(input, text, stateLabel); group.append(label); columnCount++;
         });
-        label.append(input, text, stateLabel); group.append(label); columnCount++;
+        columnGroup.append(group);
       });
-      columnGroup.append(group);
     });
-    if (!columnCount) { const empty = document.createElement("p"); empty.className = "view-prefs-note"; empty.textContent = "Esta pestaña no tiene tablas con columnas configurables."; columnGroup.append(empty); }
+    if (!columnCount) {
+      const empty = document.createElement("p"); empty.className = "view-prefs-note";
+      empty.textContent = "Todavía no hay tablas con columnas configurables cargadas. Abre una pestaña con una tabla y vuelve a Personalizar vista.";
+      columnGroup.append(empty);
+    }
     viewPrefsList.append(columnGroup);
     document.getElementById("viewPrefsNote").textContent = "Pestaña: " + (document.querySelector('#tabnav .tabbtn.active')?.textContent || tabName).replace(/\s+/g," ").trim() + ". Los módulos ocultos conservan sus datos y vuelven al activar Mostrar.";
   }
@@ -6985,7 +7129,7 @@ tbody tr:last-child td{border-bottom:0}
     if (["firm", "name", "kind"].includes(f)) a[f] = e.target.value; else { const v = num(e.target.value); if (v == null) return; a[f] = v; renderAccountsMeters(); }
     persistSettings();
   });
-  acctsEl.addEventListener("change", e => { const card = e.target.closest(".acct"); if (!card) return; const a = state.settings.accounts.find(x => x.id === card.dataset.id); if (!a) return; if (e.target.dataset.f === "status") { a.status = e.target.value; persistSettings(); renderAccounts(); } });
+  acctsEl.addEventListener("change", e => { const card = e.target.closest(".acct"); if (!card) return; const a = state.settings.accounts.find(x => x.id === card.dataset.id); if (!a) return; if (e.target.dataset.f === "status") { a.status = e.target.value; persistSettings(); renderAccounts(); renderCuentas(); } });
   acctsEl.addEventListener("click", e => {
     if (e.target.closest("tr[data-tid]") && !e.target.closest("button")) {
       const tr = e.target.closest("tr[data-tid]"); const tt = coll("trades").get(tr.dataset.tid);
@@ -7030,7 +7174,7 @@ tbody tr:last-child td{border-bottom:0}
       arr.splice(i + 1, 0, copia); persistSettings(); renderAccounts();
       flash(`«${copia.name}» creada sin ganancia previa ni movimientos: es una cuenta nueva con la misma configuración.`); return;
     }
-    if (act === "arch") { a.status = estadoDe(a) === "pausada" ? "evaluacion" : "pausada"; persistSettings(); renderAccounts(); return; }
+    if (act === "arch") { a.status = estadoDe(a) === "pausada" ? "evaluacion" : "pausada"; persistSettings(); renderAccounts(); renderCuentas(); return; }
     if (act === "newtrade") { openTrade(null, "futuros", { accountId: a.id }); return; }
     if (act === "cfg") { openAccountEditor(a); return; }
     if (act === "journal") { FUT.setSelectedAccount(a.id); showTab("futuros"); setFtView("diario"); return; }
@@ -9835,6 +9979,15 @@ tbody tr:last-child td{border-bottom:0}
       const porId = new Map(tradesOf("futuros").map(t => [t.id, t]));
       return clasificaErrores(FUT.trades(accountId).map(t => porId.get(t.id) || t));
     },
+    /* EL CICLO DE VIDA, por la fachada y no por el DOM. La pestaña de Cuentas
+       pinta exactamente esto: si la prueba leyera la tabla, mediría el HTML en
+       vez de la aritmética, y un cambio de maquetación la pondría roja sin que
+       nada estuviera mal. */
+    ciclo(accountId) { const a = acctById(accountId); return a ? cicloDe(a) : null; },
+    ciclos() { return (state.settings.accounts || []).map(cicloDe); },
+    autopsia(accountId) { const a = acctById(accountId); return a ? autopsiaDe(a) : null; },
+    patronQuemadas() { return patronQuemadas(); },
+    economia() { return economiaCuentas(); },
     calculateEdge(accountId) {
       const ops = FUT.trades(accountId).filter(t => t.pnlEff != null).map(t => ({ pnl: t.pnlEff, r: t.rReal, fecha: t.date }));
       return QE.analizarEdge(ops).value;
@@ -10212,7 +10365,7 @@ tbody tr:last-child td{border-bottom:0}
         ? `<div class="pbimgs">${st.imgs.map((im, i) => `<figure class="pbimg" data-i="${i}"><img ${imgAttrs(im)} alt="captura ${i + 1}" loading="lazy"><input class="tin small cap" type="text" data-cap="${i}" value="${esc(im.caption || "")}" placeholder="qué se ve" aria-label="Nota de la captura ${i + 1}"><button type="button" class="icon del" data-act="rm" data-i="${i}" title="Quitar captura">×</button></figure>`).join("")}</div>`
         : "";
       box.innerHTML = `<span class="lab">Capturas · antes, durante y después</span>` + grid + (assetsReady()
-        ? `<div class="imgbar"><button type="button" class="btn sm" data-act="add">+ Añadir captura</button><span class="help">${st.imgs.length ? plu(st.imgs.length, "captura adjunta", "capturas adjuntas") : "sin gráfico, la lección se olvida en una semana"}</span></div>`
+        ? `<div class="imgbar"><button type="button" class="btn sm" data-act="add" data-source="gallery">+ Galería</button><button type="button" class="btn sm" data-act="add" data-source="camera">Tomar foto</button><span class="help">${st.imgs.length ? plu(st.imgs.length, "captura adjunta", "capturas adjuntas") : "adjunta el gráfico para revisar la entrada"}</span></div>`
         : `<p class="help" style="font-family:var(--font-mono);font-size:11.5px;color:var(--dim);margin:4px 0 0">${st.imgs.length ? plu(st.imgs.length, "captura adjunta", "capturas adjuntas") + ", traídas en un respaldo. Las capturas nuevas se guardan en tu cuenta: entra con ella para añadir más." : "Las capturas se guardan en tu cuenta, no en este navegador: entra con ella para adjuntarlas."}</p>`);
     };
     draw();
@@ -10227,12 +10380,15 @@ tbody tr:last-child td{border-bottom:0}
         return;
       }
       if (b.dataset.act === "add") {
-        const inp = $("tradeFile"); if (!inp) return; inp.value = "";
+        const inp = $(b.dataset.source === "camera" ? "tradeCameraFile" : "tradeFile");
+        if (!inp) return;
+        inp.value = "";
+        const label = b.textContent;
         inp.onchange = async () => {
           const f = inp.files && inp.files[0]; if (!f) return;
           b.disabled = true; b.textContent = "subiendo…";
           try { st.imgs.push(await uploadShot(f)); draw(); }
-          catch (err) { b.disabled = false; b.textContent = "+ Añadir captura"; flashEd(uploadErrMsg(err)); }
+          catch (err) { b.disabled = false; b.textContent = label; flashEd(uploadErrMsg(err)); }
         };
         inp.click();
       }
@@ -10400,11 +10556,26 @@ tbody tr:last-child td{border-bottom:0}
         }
         const sel = fieldsEl.querySelector("#ef_setupId");
         if (sel) { renderConds(fieldsEl, sel.value, vals.setupChecks); sel.addEventListener("change", () => renderConds(fieldsEl, sel.value, null)); }
+        /* LA SALIDA HONESTA DE LA COLA DE IMPORTADAS (fase 5 de IMPORTAR.md).
+           Sólo aparece en una operación importada: escribir el stop ANTES de
+           entrar es el trabajo entero de una manual, y ofrecerle ahí un «no lo
+           recuerdo» sería ofrecerle saltarse el plan. En una importada el campo
+           falta por construcción, y de una sesión de hace meses no siempre se
+           reconstruye: sin esta casilla la cola nunca llegaría a cero y se
+           aprendería a ignorar. No inventa un número ni toca la R: Edge la sigue
+           contando entre las que no puede medir. */
+        if (type === "futuros" && /^import:/.test(String(values.source || ""))) {
+          const ref = fieldsEl.querySelector("#ef_stop"), anchor = ref ? ref.closest(".fld") : null;
+          const box = document.createElement("div"); box.className = "fld w6"; box.id = "stopDesconocido";
+          box.innerHTML = `<label><input type="checkbox" id="ef_stopUnknown"${values.stopUnknown === true ? " checked" : ""}> No recuerdo el stop de esta operación</label><span class="help">Importada de un CSV, y ningún bróker exporta el stop. Marcarlo la saca de la cola sin inventar un número; seguirá sin contar en R.</span>`;
+          if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(box, anchor.nextSibling); else fieldsEl.appendChild(box);
+        }
         shots = attachShots(fieldsEl, vals.images);
       },
       read: (out, fieldsEl) => {
         const boxes = fieldsEl.querySelectorAll("#setupConds input[data-sc]"); if (boxes.length) { out.setupChecks = {}; boxes.forEach(b => { out.setupChecks[b.dataset.sc] = b.checked; }); } else out.setupChecks = null;
         out.images = shots ? shots.imgs : (values.images || []);
+        const su = fieldsEl.querySelector("#ef_stopUnknown"); if (su) out.stopUnknown = su.checked;
       },
       /* La cantidad VACÍA se toma como 1 y está documentado; un CERO escrito a
          propósito no. El motor hace `toNum(qty) || 1`, así que una operación de 0
@@ -10443,6 +10614,11 @@ tbody tr:last-child td{border-bottom:0}
            este campo existe para no inventar. Editar una vieja conserva su ausencia,
            porque `values` la arrastra tal cual. */
         if (isNew && !rec.source) rec.source = "manual";
+        /* Igual que `invalida` y `plan`: la ausencia significa algo. Sólo se
+           guarda cuando se marcó; un `false` escrito por el editor diría «alguien
+           miró y dijo que sí lo recuerda», que no es lo mismo que no haber mirado.
+           Y un stop escrito gana siempre: deja de faltar, así que la marca sobra. */
+        if (rec.stopUnknown !== true || !enBlanco(rec.stop)) delete rec.stopUnknown;
         coll("trades").set(rec.id, rec);
         /* Quien abrió el editor puede necesitar saber qué id salió — una tesis,
            por ejemplo, para enlazar su post-mortem sin que nadie copie la R. */
@@ -10481,7 +10657,7 @@ tbody tr:last-child td{border-bottom:0}
      «ver qué error se repite». No es una taxonomía nueva. */
   const QK_TAGS = ["fomo", "forzada", "entrada temprana", "entrada tarde", "revenge", "según el plan"];
   const QK_CAL = [["A", "A · según protocolo"], ["B", "B · desviación menor"], ["C", "C · fuera del protocolo"]];
-  const qk = { cal: "", tags: [], modo: "op", ultimo: null };
+  const qk = { cal: "", tags: [], modo: "op", ultimo: null, draftText: "", draftNote: "", draftCal: "", draftTags: [], draftMode: "op" };
 
   function qkHoraET() { const n = etNow(); return `${String(Math.floor(n.min / 60)).padStart(2, "0")}:${String(n.min % 60).padStart(2, "0")}`; }
   /* Un número con o sin signo, con $ y separadores de miles. Devuelve null si no lo es. */
@@ -10586,7 +10762,7 @@ tbody tr:last-child td{border-bottom:0}
     if (qk.tags.length) rec.tags = qk.tags.join(", ");
     coll("trades").set(rec.id, rec);
     qk.ultimo = rec.id;
-    qkCierra();
+    qkLimpiarBorrador(); qkCierra();
     if (abrirDetalles) { const t = coll("trades").get(rec.id); if (t) openTrade(t); return; }
     revealTrade(rec);
     flash(`${rec.instrument} ${(rec.pnl >= 0 ? "+" : "") + money(rec.pnl)} registrada · rápida`);
@@ -10598,10 +10774,10 @@ tbody tr:last-child td{border-bottom:0}
     state.day.note = prev ? prev.replace(/\s+$/, "") + "\n" + txt : txt;
     persistDay();
     if (typeof renderJournalDay === "function") renderJournalDay();
-    qkCierra(); flash("añadido a la nota del día");
+    qkLimpiarBorrador(); qkCierra(); flash("añadido a la nota del día");
   }
   function qkModo(m) {
-    qk.modo = m;
+    qk.modo = m; qk.draftMode = m;
     $("qkOp").hidden = m !== "op"; $("qkNotaBox").hidden = m !== "nota";
     $("qkModoOp").classList.toggle("active", m === "op");
     $("qkModoNota").classList.toggle("active", m === "nota");
@@ -10612,36 +10788,66 @@ tbody tr:last-child td{border-bottom:0}
     (m === "op" ? $("qkText") : $("qkNota")).focus();
   }
   function qkAbre() {
-    qk.cal = ""; qk.tags = [];
-    $("qkText").value = ""; $("qkNota").value = "";
-    $("qkCal").innerHTML = QK_CAL.map(([v, l]) => `<button type="button" class="qkchip" data-cal="${v}" aria-pressed="false">${esc(l)}</button>`).join("");
-    $("qkTags").innerHTML = QK_TAGS.map(t => `<button type="button" class="qkchip" data-tag="${esc(t)}" aria-pressed="false">${esc(t)}</button>`).join("");
+    qk.cal = qk.draftCal || "";
+    qk.tags = Array.isArray(qk.draftTags) ? qk.draftTags.slice() : [];
+    $("qkText").value = qk.draftText || ""; $("qkNota").value = qk.draftNote || "";
+    $("qkCal").innerHTML = QK_CAL.map(([v, l]) => `<button type="button" class="qkchip" data-cal="${v}" aria-pressed="${String(qk.cal === v)}">${esc(l)}</button>`).join("");
+    $("qkTags").innerHTML = QK_TAGS.map(t => `<button type="button" class="qkchip" data-tag="${esc(t)}" aria-pressed="${String(qk.tags.includes(t))}">${esc(t)}</button>`).join("");
     $("quickOv").classList.add("open");
-    qkModo("op"); qkPinta();
+    $("quickBtn").setAttribute("aria-expanded", "true");
+    qkModo(qk.draftMode || "op"); qkPinta();
+    if (qk.modo === "nota") $("qkSave").disabled = !$("qkNota").value.trim();
+    const focusTarget = qk.modo === "nota" ? $("qkNota") : $("qkText");
+    focusTarget.focus({ preventScroll: true });
   }
-  function qkCierra() { $("quickOv").classList.remove("open"); }
+  function qkLimpiarBorrador() {
+    qk.draftText = ""; qk.draftNote = ""; qk.draftCal = ""; qk.draftTags = []; qk.draftMode = "op";
+    qk.cal = ""; qk.tags = []; qk.modo = "op";
+  }
+  function qkDescarta() { qkLimpiarBorrador(); qkCierra(); }
+  function qkCierra() {
+    const overlay = $("quickOv");
+    if (!overlay.classList.contains("open")) return;
+    overlay.classList.remove("open");
+    $("quickBtn").setAttribute("aria-expanded", "false");
+    if (window.innerWidth <= 700) $("quickBtn").focus({ preventScroll: true });
+  }
 
   $("quickBtn").addEventListener("click", qkAbre);
   $("qkClose").addEventListener("click", qkCierra);
-  $("qkCancel").addEventListener("click", qkCierra);
+  $("qkCancel").addEventListener("click", qkDescarta);
   $("quickOv").addEventListener("click", e => { if (e.target === $("quickOv")) qkCierra(); });
-  $("qkText").addEventListener("input", qkPinta);
-  $("qkNota").addEventListener("input", () => { $("qkSave").disabled = !$("qkNota").value.trim(); });
+  $("qkText").addEventListener("input", () => { qk.draftText = $("qkText").value; qkPinta(); });
+  $("qkNota").addEventListener("input", () => { qk.draftNote = $("qkNota").value; $("qkSave").disabled = !$("qkNota").value.trim(); });
   $("qkModoOp").addEventListener("click", () => qkModo("op"));
   $("qkModoNota").addEventListener("click", () => qkModo("nota"));
   $("qkSave").addEventListener("click", () => { if (qk.modo === "nota") qkGuardaNota(); else qkGuarda(false); });
   $("qkDetalles").addEventListener("click", () => qkGuarda(true));
   $("qkCal").addEventListener("click", e => { const b = e.target.closest("[data-cal]"); if (!b) return;
-    qk.cal = qk.cal === b.dataset.cal ? "" : b.dataset.cal;
+    qk.cal = qk.cal === b.dataset.cal ? "" : b.dataset.cal; qk.draftCal = qk.cal;
     Array.prototype.forEach.call($("qkCal").children, x => x.setAttribute("aria-pressed", String(x.dataset.cal === qk.cal))); });
   $("qkTags").addEventListener("click", e => { const b = e.target.closest("[data-tag]"); if (!b) return;
     const t = b.dataset.tag, i = qk.tags.indexOf(t);
-    if (i >= 0) qk.tags.splice(i, 1); else qk.tags.push(t);
+    if (i >= 0) qk.tags.splice(i, 1); else qk.tags.push(t); qk.draftTags = qk.tags.slice();
     b.setAttribute("aria-pressed", String(i < 0)); });
   /* Enter guarda si se puede; Escape cierra. Un registro rápido que pide ratón no
      es rápido. */
   $("qkText").addEventListener("keydown", e => { if (e.key === "Enter" && !$("qkSave").disabled) { e.preventDefault(); qkGuarda(false); } });
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && $("quickOv").classList.contains("open")) qkCierra(); });
+  document.addEventListener("keydown", e => {
+    const overlay = $("quickOv");
+    if (!overlay.classList.contains("open")) return;
+    if (e.key === "Escape") { e.preventDefault(); qkCierra(); return; }
+    if (e.key !== "Tab") return;
+    const items = [...overlay.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')]
+      .filter(el => el.tabIndex >= 0 && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden");
+    if (!items.length) { e.preventDefault(); overlay.querySelector('[role="dialog"]')?.focus(); return; }
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && (document.activeElement === first || !overlay.contains(document.activeElement))) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && (document.activeElement === last || !overlay.contains(document.activeElement))) {
+      e.preventDefault(); first.focus();
+    }
+  });
 
   /* Acabas de guardar una operación: verla es lo que esperas. Si un filtro la
      escondería, se quita ese filtro y se dice cuál era, en vez de dejarte
@@ -10835,6 +11041,155 @@ tbody tr:last-child td{border-bottom:0}
         senales: i.sen.map(k => ({ clave: k, cat: SENAL[k].cat, texto: SENAL[k].t })) });
     }
     return { porTrade, resumen, setups, muestraMin: MUESTRA_MIN };
+  }
+
+  /* ═══════════════ EL CICLO DE VIDA DE UNA CUENTA ═══════════════
+     Una cuenta de prop firm se compra, se opera, y acaba de una de dos maneras:
+     cobrando o quemada. Cada tarjeta de cuenta ya contesta «¿cómo va ésta?».
+     Lo que ninguna puede contestar es lo que se ve mirando LA SERIE, y son las
+     tres preguntas de esta pestaña:
+
+     · ¿esto da dinero? Lo pagado en evaluaciones y resets contra lo cobrado.
+       Una fondeada con $2.000 retirados no dice nada si antes se quemaron
+       cinco a $150. El P&L de pantalla de una cuenta quemada NO SE COBRÓ.
+     · ¿de qué murió cada una? Y aquí está la decisión que importa:
+       NO SE PREGUNTA. Se DERIVA de las operaciones de esa cuenta, con el mismo
+       clasificador de docs/ERRORES.md. Un campo «¿por qué se quemó?» lo
+       rellenaría el acusado cuando ya sabe la sentencia, y acabaría siendo el
+       cajón donde se esconden las tres categorías que sí se arreglan — el
+       mismo fallo que ese documento existe para evitar, a escala de cuenta.
+     · ¿qué se repite entre las quemadas? Una señal en una cuenta es una
+       anécdota. La misma en cuatro de cinco es la razón por la que se van
+       quemando, y es lo único de aquí que de verdad enseña algo.
+
+     Lo que SÍ se pregunta son un hecho y una opinión marcada como tal: la
+     fecha en que se quemó —que la app no puede saber— y la lección escrita a
+     mano. La lección NO ENTRA EN NINGÚN CÁLCULO y se pinta al lado de la
+     autopsia derivada, precisamente para que se vea cuando las dos no dicen lo
+     mismo. Ver docs/ERRORES.md · test/ciclo.mjs. */
+
+  /* La compra no necesita un campo nuevo: ya la escribe el ledger. El primer
+     movimiento de tipo `fee` ES el día que se pagó. Si no hay ninguno, la fecha
+     NO SE SABE y se dice: derivarla del primer trade contestaría otra pregunta
+     —cuándo se empezó a operar— y la pondría en la columna «comprada». */
+  function compraDe(a) {
+    const fees = (a.ledger || []).filter(e => e && e.kind === "fee" && e.date).map(e => e.date).sort();
+    return fees.length ? fees[0] : "";
+  }
+  /* La fecha de quema tiene TRES estados, no dos: apuntada, apuntada en blanco
+     (la cuenta pasó por el editor y no se escribió) y ausente (la cuenta es
+     anterior al campo). Las dos últimas se pintan igual —«sin fecha»— pero no
+     son lo mismo, y `tieneCampo` deja que la prueba lo distinga. */
+  function quemaDe(a) {
+    const tiene = !!a && Object.prototype.hasOwnProperty.call(a, "burnedOn");
+    const v = String((a && a.burnedOn) || "").trim();
+    return { fecha: v, apuntada: !!v, tieneCampo: tiene };
+  }
+  function cicloDe(a) {
+    const g = acctAgg(a);
+    const cerradas = tradesDe(a.id, true);
+    const dias = [...new Set(cerradas.map(t => t.date).filter(Boolean))].sort();
+    const est = estadoDe(a), q = quemaDe(a);
+    return {
+      id: a.id, nombre: a.name || a.firm || "cuenta", firma: (a.firm || "").trim(), tipo: a.kind || "",
+      estado: est, label: EST_LABEL[est] || est, cls: EST_CLS[est] || "", viva: vivaLa(a), quemada: est === "quemada",
+      comprada: compraDe(a), quema: q,
+      leccion: String(a.lesson || ""),
+      primerDia: dias[0] || "", ultimoDia: dias[dias.length - 1] || "",
+      diasOperados: dias.length, ops: cerradas.length,
+      pnl: g.total, fees: g.fees, payouts: g.payouts, size: g.size,
+      /* EL RESULTADO DE VERDAD de una cuenta: lo que entró en tu bolsillo menos
+         lo que salió de él. No es `g.total`, que es P&L en la plataforma de la
+         firma, y en una cuenta quemada es dinero que nunca existió. */
+      caja: g.payouts - g.fees,
+    };
+  }
+  /* La autopsia. `clasificaErrores` ya sabe hacer esto —mismas señales, mismo
+     umbral de muestra, misma regla de que la esperanza del setup se mide con
+     todas las cuentas— así que aquí no se reimplementa nada: se le pasa la lista
+     de esta cuenta y se le añade UNA cifra que no está en ninguna otra pantalla.
+
+     Esa cifra es cuánto del agujero lo cavaron operaciones CON error —las
+     categorías 2 y 3, las que se arreglan— y cuánto las limpias. Es la
+     diferencia entre «me falta sistema» y «me falta disciplina», y es lo que
+     decide qué hay que cambiar ANTES de comprar la siguiente cuenta. */
+  /* MEMORIZADA, y por el mismo motivo que `acctAgg`: `clasificaErrores` recorre
+     TODAS las operaciones para construir la esperanza de cada setup, no sólo las
+     de esta cuenta. Un render de esta pestaña la pedía dos veces por cuenta
+     quemada —una el patrón, otra la autopsia—, así que con cinco quemadas y mil
+     operaciones eran diez mil clasificaciones por repintado, y la pestaña se
+     repinta con cada operación que se guarda.
+
+     La huella es la revisión de la colección de operaciones más la cuenta: si
+     entra, se edita o se borra una operación, la autopsia se recalcula sola. No
+     hay que acordarse de invalidar nada. Las comisiones automáticas entran en la
+     clave porque cambian el P&L, y el P&L decide el signo de la esperanza. */
+  const _autopsiaMemo = new Map();
+  function autopsiaDe(a) {
+    const clave = coll("trades").rev + "|" + (autoFeesOn() ? 1 : 0);
+    const cache = _autopsiaMemo.get(a.id);
+    if (cache && cache.key === clave) return cache.val;
+    const val = autopsiaCruda(a);
+    _autopsiaMemo.set(a.id, { key: clave, val });
+    return val;
+  }
+  function autopsiaCruda(a) {
+    const r = FUT.clasificaErrores(a.id);
+    const suma = f => r.porTrade.filter(f).reduce((s, x) => s + x.pnl, 0);
+    const conError = x => x.cat === 2 || x.cat === 3;
+    const veces = {};
+    r.porTrade.forEach(x => x.senales.forEach(sn => { veces[sn.clave] = (veces[sn.clave] || 0) + 1; }));
+    return {
+      resumen: r.resumen, perdidas: r.porTrade.length, porTrade: r.porTrade,
+      evitable: suma(conError), limpio: suma(x => !conError(x)),
+      senales: ordenaSenales(veces, "veces"),
+    };
+  }
+  /* Orden estable y una sola copia: por frecuencia, y a igualdad por gravedad
+     —una señal de categoría 3 pesa más que una de 2 con el mismo recuento—. */
+  function ordenaSenales(mapa, campo) {
+    return Object.keys(mapa).sort((x, y) => mapa[y] - mapa[x] || SENAL[y].cat - SENAL[x].cat)
+      .map(k => ({ clave: k, [campo]: mapa[k], cat: SENAL[k].cat, texto: SENAL[k].t }));
+  }
+  /* El patrón entre las quemadas. Se cuenta EN CUÁNTAS CUENTAS aparece cada
+     señal, no cuántas veces en total: cien «sin stop» en una sola cuenta son un
+     mal día largo; «sin stop» en cuatro cuentas de cinco es por qué se queman. */
+  function patronQuemadas() {
+    const q = (state.settings.accounts || []).filter(a => estadoDe(a) === "quemada");
+    const porCuenta = {};
+    q.forEach(a => { new Set(autopsiaDe(a).senales.map(s => s.clave)).forEach(k => { porCuenta[k] = (porCuenta[k] || 0) + 1; }); });
+    return { quemadas: q.length, senales: ordenaSenales(porCuenta, "cuentas") };
+  }
+  /* La economía, y la razón por la que no devuelve sólo números: si no has
+     apuntado NI UN movimiento de coste, lo pagado no es $0 — es desconocido, y
+     decir «has gastado $0» convierte un hueco en una afirmación falsa que
+     además sale a tu favor. Misma disciplina que `accountHealth` con los
+     factores ciegos: lo que no se puede medir se dice. */
+  function economiaCuentas() {
+    const todas = state.settings.accounts || [];
+    const porFirma = new Map();
+    let fees = 0, payouts = 0, conFee = 0, conPayout = 0;
+    todas.forEach(a => {
+      const g = acctAgg(a), est = estadoDe(a);
+      fees += g.fees; payouts += g.payouts;
+      if (g.fees > 0) conFee++;
+      if (g.payouts > 0) conPayout++;
+      const k = (a.firm || "").trim();
+      const o = porFirma.get(k) || { firma: k, fees: 0, payouts: 0, n: 0, quemadas: 0, vivas: 0 };
+      o.fees += g.fees; o.payouts += g.payouts; o.n++;
+      if (est === "quemada") o.quemadas++; else if (vivaLa(a)) o.vivas++;
+      porFirma.set(k, o);
+    });
+    const firmas = [...porFirma.values()].sort((x, y) => (y.payouts - y.fees) - (x.payouts - x.fees) || y.n - x.n);
+    return {
+      cuentas: todas.length, fees, payouts, caja: payouts - fees, firmas,
+      /* `costeDesconocido` NO es «fees === 0»: una cuenta gratuita existe. Es
+         «ninguna cuenta tiene un solo movimiento de coste apuntado», que es la
+         señal de que el ledger está vacío, no de que nada se pagó. */
+      costeDesconocido: conFee === 0, sinCobros: conPayout === 0,
+      quemadas: todas.filter(a => estadoDe(a) === "quemada").length,
+      vivas: todas.filter(a => vivaLa(a)).length,
+    };
   }
 
   const _tradesMemo = { key: null, val: null };
@@ -11682,8 +12037,86 @@ tbody tr:last-child td{border-bottom:0}
     jrTope = JR_TRAMO;
     renderFutures();
   }
+  /* ══════ LA COLA DE LO IMPORTADO INCOMPLETO · fase 5 de IMPORTAR.md ══════
+
+     Un export de bróker da fecha, hora, instrumento, lado, contratos, entrada,
+     salida y comisión. NO da el stop, y sin stop no hay R: `rPlanApp` y
+     `rRealApp` devuelven null, y Edge ya dice cuántas se quedan fuera. Un diario
+     importado y no completado da P&L y nada más —exactamente lo que ya da la
+     plataforma del bróker—, así que el importador no es el producto: es el que
+     llena esta cola.
+
+     SOLO LO IMPORTADO ENTRA. Una operación escrita a mano sin stop ya es un
+     error de EJECUCIÓN (`sin_stop`, categoría 2: sabías qué hacer y no lo
+     hiciste), y `senalesDe` exime a la importada justamente porque el campo le
+     falta POR CONSTRUCCIÓN. Meter aquí también las manuales contaría dos veces
+     lo mismo y borraría esa distinción, que es la que impide que cien filas de
+     un CSV se conviertan en cien errores que nadie cometió.
+
+     Y SE PUEDE VACIAR, que es lo que la separa de un aviso permanente. De una
+     operación de hace tres meses no siempre se recuerda el stop, y una cola que
+     nunca llega a cero se aprende a ignorar —y el día que importa, también—.
+     `stopUnknown` es la salida honesta: dice «existió y no lo reconstruyo», no
+     inventa un número, y saca la operación de la cola sin sacarla del recuento
+     de Edge, que sigue diciendo que no puede medirla en R.
+
+     LAS ABIERTAS SÍ ENTRAN, al revés que en la cola de revisiones de Estudio.
+     Allí una abierta no tiene nada que revisar todavía; aquí una posición
+     importada y abierta sin stop escrito es lo más urgente que hay en la app. */
+  const jrImportada = t => /^import:/.test(String((t && t.source) || ""));
+  const jrIncompleta = t => jrImportada(t) && enBlanco(t.stop) && t.stopUnknown !== true;
+  let jrSoloIncompletas = false;
+
+  /* El orden de la cola es CRONOLÓGICO y no el de la tabla: se completa
+     recordando la sesión, y saltar de un mes a otro porque la tabla está
+     ordenada por P&L hace imposible acordarse de nada. */
+  const jrColaOrden = ts => ts.slice().sort((a, b) =>
+    String(a.date || "").localeCompare(String(b.date || "")) ||
+    String(a.time || "").localeCompare(String(b.time || "")) ||
+    String(a.id || "").localeCompare(String(b.id || "")));
+
+  function jrPintaCola(list, pendientes) {
+    const cola = $("jrCola"), btn = $("jrSoloIncompletas"), sig = $("jrCompletarSig"), nota = $("jrColaNota");
+    if (!cola || !btn || !sig || !nota) return;
+    const importadas = list.filter(jrImportada).length;
+    /* Sin nada importado en el rango la cola NO existe en pantalla: un control
+       permanente para algo que no ha pasado nunca es ruido. Si el interruptor
+       está puesto se mantiene visible aunque no queden: apagar el control
+       dejando el filtro activo es cómo se queda uno mirando una lista vacía sin
+       ver por qué. */
+    cola.hidden = !importadas && !jrSoloIncompletas;
+    nota.hidden = cola.hidden || !pendientes.length;
+    btn.textContent = pendientes.length ? `Sólo sin completar (${pendientes.length})`
+      : importadas ? "Todas completadas" : "Sólo sin completar";
+    btn.setAttribute("aria-pressed", String(jrSoloIncompletas));
+    btn.disabled = !pendientes.length && !jrSoloIncompletas;
+    sig.disabled = !pendientes.length;
+    sig.textContent = pendientes.length ? "Completar la siguiente" : "Nada que completar";
+    if (!nota.hidden) nota.innerHTML = `<span class="dotg"></span><span>${plu(pendientes.length, "operación importada", "operaciones importadas")} sin stop escrito: cuentan en $, pero no en R ni en la simulación. Si no lo recuerdas, márcalo en el editor y sale de la cola sin inventar un número.</span>`;
+  }
+
+  /* Abre la más antigua sin completar y, al guardar, encadena con la siguiente:
+     la cola se recorre sin volver a la tabla entre una y otra. Se recalcula
+     DESPUÉS de guardar —no se congela una lista al empezar— porque la que
+     acaba de completarse tiene que salir, y porque guardar puede haber cambiado
+     el rango visible. */
+  let jrPendientes = [];
+  function jrCompletarSiguiente() {
+    const cola = jrColaOrden(jrPendientes.map(t => coll("trades").get(t.id)).filter(jrIncompleta));
+    if (!cola.length) return;
+    openTrade(cola[0], undefined, undefined, () => setTimeout(() => { renderFutures(); jrCompletarSiguiente(); }, 60));
+  }
+
   function renderJournalTable(list) {
     list = jrOrdena(list);
+    /* EL CONTADOR SE CUENTA SOBRE LOS DEMÁS FILTROS, no sobre lo que el propio
+       interruptor deja ver: contarlo después haría que al activarlo el número
+       pasara a ser el de la lista y dejara de decir «cuántas de las que estás
+       mirando te faltan». Mismo razonamiento que `studyTradeSinRevisar`. */
+    const pendientes = list.filter(jrIncompleta);
+    jrPendientes = pendientes;
+    jrPintaCola(list, pendientes);
+    if (jrSoloIncompletas) list = pendientes;
     const total = list.length;
     if (jrTope > JR_TRAMO && jrTope > total) jrTope = Math.max(JR_TRAMO, total);
     const visibles = total > jrTope ? list.slice(0, jrTope) : list;
@@ -11692,7 +12125,12 @@ tbody tr:last-child td{border-bottom:0}
       : "";
     const wrap = $("jrTable");
     list = visibles;
-    if (!list.length) { wrap.innerHTML = `<p class="empty">Sin operaciones de futuros en este rango. La primera fila es una entrada real con entrada, stop y salida — no una idea.</p>`; return; }
+    /* QUEDARSE SIN COLA ES EL ÉXITO, no un filtro que no encuentra nada.
+       Completar la última con el interruptor puesto vacía la lista, y poner ahí
+       «sin operaciones en este rango» convertiría ese momento en un error. */
+    if (!list.length) { wrap.innerHTML = jrSoloIncompletas
+      ? `<p class="empty">No queda ninguna importada sin completar en este rango. Suelta el filtro para ver todas.</p>`
+      : `<p class="empty">Sin operaciones de futuros en este rango. La primera fila es una entrada real con entrada, stop y salida — no una idea.</p>`; return; }
     const pbName = id => { const p = coll("playbooks").get(id); return p ? p.name : ""; };
     // [etiqueta, clave de orden o null si no se ordena, alineada a la derecha]
     const cols = [["Fecha", "date", 0], ["Hora", "time", 0], ["Sesión", "ses", 0], ["Cuenta", "acct", 0],
@@ -11728,6 +12166,8 @@ tbody tr:last-child td{border-bottom:0}
     const c = tradeCalc(Object.assign({}, rec));
     flash(c.pnlEff == null ? "cerrada en el stop" : `cerrada en el stop: ${money(c.pnlEff)}`);
   }
+  $("jrSoloIncompletas").addEventListener("click", () => { jrSoloIncompletas = !jrSoloIncompletas; jrTope = JR_TRAMO; renderFutures(); });
+  $("jrCompletarSig").addEventListener("click", jrCompletarSiguiente);
   $("jrTable").addEventListener("click", e => {
     if (e.target.closest("#jrMas")) { jrTope += JR_TRAMO; renderFutures(); return; }
     const so = e.target.closest("button[data-sort]");
@@ -11853,6 +12293,172 @@ tbody tr:last-child td{border-bottom:0}
       ? `<p class="note-p">Todas tus pérdidas salen del sistema. Antes de creerlo, relee la nota de las que marcaste <b>A</b>: si alguna no la merecía, el problema no era el sistema.</p>` : "";
     wrap.innerHTML = `<div class="errcats">${filas}</div>${motivos}${cuatro}`;
   }
+
+  /* ═══════════════ PESTAÑA DE CUENTAS ═══════════════
+     Pinta lo que calculan `economiaCuentas`, `cicloDe`, `autopsiaDe` y
+     `patronQuemadas`. Aquí no se calcula NADA: si una cifra no está en esos
+     motores, no se pinta. Es la misma regla que mantiene a `acctAgg` como la
+     única fuente de los números de una cuenta. */
+  const cuf = { ver: "todas" };
+  const CU_SIN = `<span class="dim">sin dato</span>`;
+  function renderCuentas() {
+    const todas = (state.settings.accounts || []);
+    const n = $("nCuentas"); if (n) n.textContent = todas.length ? String(todas.length) : "";
+    if (!$("cuTabla")) return;
+    renderCuCaja();
+    renderCuTabla(todas);
+    renderCuPatron();
+    renderCuAutopsias();
+  }
+  /* LA CAJA. El número que decide si esto es un negocio o un hobby caro, y el
+     único sitio de la app donde el coste de las cuentas quemadas se resta de lo
+     cobrado. Si no hay un solo movimiento de coste apuntado, lo pagado no es
+     $0: es desconocido, y el neto no se puede calcular. Se dice. */
+  function renderCuCaja() {
+    const e = FUT.economia();
+    $("cuCajaMeta").textContent = e.cuentas ? plu(e.cuentas, "cuenta", "cuentas") + ` · ${e.quemadas} quemadas · ${e.vivas} vivas` : "";
+    if (!e.cuentas) {
+      $("cuCaja").innerHTML = "";
+      $("cuCajaNota").innerHTML = `<p class="empty">Sin cuentas registradas. Añade una en Cabina y aquí verás lo que te cuesta y lo que te deja.</p>`;
+      $("cuFirmas").innerHTML = "";
+      return;
+    }
+    const cajaCls = e.caja > 0 ? "good" : e.caja < 0 ? "bad" : "";
+    $("cuCaja").innerHTML =
+      kpi("Pagado en cuentas", e.costeDesconocido ? "—" : money(e.fees), e.costeDesconocido ? "dim" : "bad", e.costeDesconocido ? "sin apuntar" : "evaluaciones y resets") +
+      kpi("Cobrado", money(e.payouts), e.payouts > 0 ? "good" : "dim", e.sinCobros ? "ningún retiro" : "retiros") +
+      kpi("Neto en tu bolsillo", e.costeDesconocido ? "—" : money(e.caja), e.costeDesconocido ? "dim" : cajaCls, e.costeDesconocido ? "falta el coste" : "cobrado menos pagado") +
+      kpi("Quemadas", String(e.quemadas), e.quemadas ? "bad" : "good", plu(e.cuentas, "cuenta en total", "cuentas en total"));
+    /* El hueco se nombra, no se rellena con un cero que además sale a favor. */
+    $("cuCajaNota").innerHTML = e.costeDesconocido
+      ? `<p class="note-p">No hay ni un movimiento de tipo <b>costo</b> apuntado, así que lo que llevas pagado en evaluaciones y resets <b>no se sabe</b> — y sin eso el neto no es calculable. No es cero: cero sería afirmar que las cuentas fueron gratis. Se apunta en la tarjeta de cada cuenta, en Movimientos.</p>`
+      : e.caja < 0
+        ? `<p class="note-p">Llevas <b>${money(-e.caja)}</b> de tu bolsillo. Eso no significa que el sistema no funcione; significa que todavía no ha pagado las cuentas que costó probarlo.</p>`
+        : e.payouts > 0 ? `<p class="note-p">Neto positivo: lo cobrado ya cubre lo que costaron todas las cuentas, incluidas las quemadas.</p>` : "";
+    const f = e.firmas.filter(x => x.n);
+    $("cuFirmas").innerHTML = f.length < 2 ? "" : `<table class="t"><thead><tr><th>Firma</th><th class="r">cuentas</th><th class="r">quemadas</th><th class="r">pagado</th><th class="r">cobrado</th><th class="r">neto</th></tr></thead><tbody>${f.map(x => `<tr>
+      <td class="ui">${x.firma ? esc(x.firma) : CU_SIN}</td>
+      <td class="r">${x.n}</td><td class="r ${x.quemadas ? "neg" : ""}">${x.quemadas || "—"}</td>
+      <td class="r">${x.fees ? money(x.fees) : "—"}</td><td class="r ${x.payouts ? "pos" : ""}">${x.payouts ? money(x.payouts) : "—"}</td>
+      <td class="r ${x.payouts - x.fees > 0 ? "pos" : x.payouts - x.fees < 0 ? "neg" : ""}">${money(x.payouts - x.fees)}</td></tr>`).join("")}</tbody></table>`;
+  }
+  /* LA TABLA. Una fila por cuenta: qué costó, cuánto duró, cómo acabó y qué
+     dejó. «Duró» se mide del primer al último día OPERADO, no de la compra a la
+     quema: es lo que se puede medir con lo que hay, y se dice así en la
+     cabecera para que no se lea como otra cosa. */
+  function renderCuTabla(todas) {
+    const ciclos = FUT.ciclos().filter(c => cuf.ver === "todas" || (cuf.ver === "quemadas" ? c.quemada : c.viva));
+    $("cuN").textContent = `${ciclos.length} de ${todas.length}`;
+    $("cuTablaMeta").textContent = ciclos.length ? plu(ciclos.length, "cuenta", "cuentas") : "";
+    if (!ciclos.length) {
+      $("cuTabla").innerHTML = `<p class="empty">${todas.length ? "Ninguna cuenta con ese filtro." : "Sin cuentas registradas."}</p>`;
+      $("cuTablaNota").innerHTML = "";
+      return;
+    }
+    /* Orden: las quemadas primero y las más recientes arriba. Es la pestaña de
+       aprender de los errores; la cuenta sana no es la noticia. */
+    ciclos.sort((a, b) => (b.quemada ? 1 : 0) - (a.quemada ? 1 : 0) ||
+      (b.quema.fecha || b.ultimoDia || "").localeCompare(a.quema.fecha || a.ultimoDia || ""));
+    const fila = c => {
+      const dur = c.diasOperados ? plu(c.diasOperados, "día", "días") : CU_SIN;
+      return `<tr data-cu="${esc(c.id)}">
+        <td class="ui"><b>${esc(c.nombre)}</b>${c.firma ? `<span class="dim"> · ${esc(c.firma)}</span>` : ""}</td>
+        <td><span class="chip ${c.cls}">${esc(c.label)}</span></td>
+        <td class="mono">${c.comprada ? esc(c.comprada) : CU_SIN}</td>
+        <td class="mono">${c.quemada ? (c.quema.apuntada ? esc(c.quema.fecha) : CU_SIN) : ""}</td>
+        <td class="r">${dur}</td>
+        <td class="r">${c.ops || "—"}</td>
+        <td class="r">${c.fees ? money(c.fees) : CU_SIN}</td>
+        <td class="r ${c.payouts ? "pos" : ""}">${c.payouts ? money(c.payouts) : "—"}</td>
+        <td class="r ${c.caja > 0 ? "pos" : c.caja < 0 ? "neg" : ""}">${c.fees || c.payouts ? money(c.caja) : CU_SIN}</td></tr>`;
+    };
+    $("cuTabla").innerHTML = `<table class="t"><thead><tr>
+      <th>Cuenta</th><th>Estado</th><th>Comprada</th><th>Quemada</th>
+      <th class="r">operados</th><th class="r">ops</th><th class="r">costó</th><th class="r">cobrado</th><th class="r">neto</th>
+      </tr></thead><tbody>${ciclos.map(fila).join("")}</tbody></table>`;
+    const sinFecha = ciclos.filter(c => c.quemada && !c.quema.apuntada).length;
+    const sinCompra = ciclos.filter(c => !c.comprada).length;
+    const avisos = [];
+    if (sinCompra) avisos.push(`${plu(sinCompra, "cuenta no tiene", "cuentas no tienen")} un movimiento de costo apuntado, así que no se sabe cuándo se compró ni qué costó`);
+    if (sinFecha) avisos.push(`${plu(sinFecha, "quemada no tiene", "quemadas no tienen")} fecha de quema: se apunta en ⚙ Ajustes de la cuenta`);
+    $("cuTablaNota").innerHTML = `<p class="note-p" style="margin-top:12px"><b>«Operados»</b> son los días con operaciones registradas en esa cuenta, del primero al último — no de la compra a la quema, que es otra cosa y casi nunca está entera.${avisos.length ? ` ${avisos.join(". ")}.` : ""}</p>`;
+  }
+  /* EL PATRÓN. Lo único de esta pestaña que enseña algo de verdad, porque es lo
+     único que mira varias cuentas a la vez. Cuenta en CUÁNTAS cuentas aparece
+     cada señal, no cuántas veces: ver `patronQuemadas`. */
+  function renderCuPatron() {
+    const p = FUT.patronQuemadas(), z = $("cuPatron");
+    $("cuPatronMeta").textContent = p.quemadas ? plu(p.quemadas, "cuenta quemada", "cuentas quemadas") : "";
+    if (!p.quemadas) { z.innerHTML = `<p class="empty">Ninguna cuenta marcada como quemada. Cuando marques una, aquí sale lo que se repitió en todas.</p>`; return; }
+    if (!p.senales.length) { z.innerHTML = `<p class="empty">Tus cuentas quemadas no tienen ni una pérdida con señal de error registrada. O no hay operaciones en ellas, o todas sus pérdidas salieron limpias — y entonces lo que hay que mirar es la esperanza de tus setups en Métricas, no tu disciplina.</p>`; return; }
+    /* Una señal en UNA sola cuenta es una anécdota y se dice que lo es: lo que
+       se señala como patrón es lo que aparece en más de una. */
+    const repetidas = p.senales.filter(x => x.cuentas > 1);
+    const unicas = p.senales.filter(x => x.cuentas === 1);
+    const linea = x => `<div class="errcat"><div class="eh"><span class="chip ${x.cat === 3 ? "bad" : "warn"}">${x.cat}</span><b>${esc(x.texto)}</b><span class="mono">en ${plu(x.cuentas, "cuenta", "cuentas")} de ${p.quemadas}</span></div></div>`;
+    z.innerHTML = (repetidas.length
+        ? `<div class="errcats">${repetidas.map(linea).join("")}</div><p class="note-p" style="margin-top:12px">Esto no es lo que pasó en una cuenta: es lo que pasó en <b>varias</b>. ${repetidas[0].cat === 3 ? "La primera es psicológica, y un checklist no la cura: hace falta una regla que no dependa de ti en caliente." : "La primera es de ejecución: se arregla con proceso —órdenes puestas antes de entrar—, no estudiando más gráficos."}</p>`
+        : `<p class="note-p">Ninguna señal se repite en más de una cuenta todavía. Con ${plu(p.quemadas, "cuenta quemada", "cuentas quemadas")} no hay patrón que mirar: hay ${p.quemadas === 1 ? "un caso" : "casos sueltos"}.</p>`)
+      + (unicas.length ? `<p class="note-p"><b>Sólo en una cuenta:</b> ${unicas.slice(0, 8).map(x => esc(x.texto)).join(" · ")}</p>` : "");
+  }
+  /* LA AUTOPSIA, cuenta por cuenta. Lo derivado primero y la lección escrita a
+     mano DESPUÉS, etiquetada como tu versión: si las dos no dicen lo mismo, eso
+     se ve, y ver eso es justamente para lo que sirve esta pestaña. */
+  function renderCuAutopsias() {
+    const q = (state.settings.accounts || []).filter(a => estadoDe(a) === "quemada");
+    const z = $("cuAutopsias");
+    $("cuAutoMeta").textContent = q.length ? plu(q.length, "autopsia", "autopsias") : "";
+    if (!q.length) { z.innerHTML = `<p class="empty">Nada que examinar: ninguna cuenta está marcada como quemada.</p>`; return; }
+    z.innerHTML = q.map(a => {
+      const c = FUT.ciclo(a.id), au = FUT.autopsia(a.id);
+      const cab = `<div class="eh"><b>${esc(c.nombre)}</b>${c.firma ? `<span class="chip">${esc(c.firma)}</span>` : ""}<span class="mono">${c.quema.apuntada ? "quemada el " + esc(c.quema.fecha) : "sin fecha de quema"}</span><span class="mono">${c.ops ? plu(c.ops, "operación cerrada", "operaciones cerradas") : "sin operaciones"}</span></div>`;
+      if (!au.perdidas)
+        return `<div class="errcat">${cab}<p>${c.ops ? "Esta cuenta no tiene ni una pérdida cerrada registrada, así que no hay nada que clasificar. Si se quemó, lo que la quemó no está en el journal." : "No hay operaciones registradas en esta cuenta. Sin ellas la autopsia no puede decir nada, y un campo de texto diciendo por qué se quemó tampoco: sería tu recuerdo, no el registro."}</p>${pintaLeccion(c)}</div>`;
+      const cats = CAT_FILAS.filter(([k]) => au.resumen[k]).map(([k, nom, cls]) =>
+        `<span class="chip ${cls}">${k === "1o4" ? "1 o 4" : k === "sin_datos" ? "—" : k}</span> ${esc(nom)} <span class="mono">×${au.resumen[k]}</span>`).join(" · ");
+      /* LA CIFRA QUE DECIDE QUÉ CAMBIAR. `evitable` y `limpio` son negativos
+         (son pérdidas), así que se imprimen en magnitud y el signo lo dice la
+         palabra, no el número — protocolo 22. */
+      const total = au.evitable + au.limpio;
+      const share = total < 0 ? au.evitable / total : null;
+      const veredicto = share == null ? "" : share >= 0.6
+        ? `<p class="note-p"><b>${pctFine(share)} del agujero lo cavaron operaciones con error tuyo.</b> Esta cuenta no la quemó el mercado: la quemó lo que hiciste fuera del plan. Comprar otra sin cambiar eso compra el mismo resultado.</p>`
+        : share <= 0.25
+          ? `<p class="note-p"><b>Sólo ${pctFine(share)} del agujero viene de operaciones con error.</b> El resto fueron pérdidas limpias: el plan se cumplió y perdió igual. Eso no se arregla con disciplina — se mira la esperanza de estos setups en Métricas, y si es negativa el setup es el problema.</p>`
+          : `<p class="note-p"><b>${pctFine(share)} del agujero viene de operaciones con error</b> y el resto de pérdidas limpias. Las dos cosas a la vez: hay disciplina que arreglar y encima el sistema no iba sobrado.</p>`;
+      const top = au.senales.slice(0, 6);
+      /* `kpis` y no `kv`: la rejilla de `.kv` está acotada a otro padre y aquí
+         resolvía a `display:block`, así que cada cifra salía pegada a su etiqueta
+         —«costó$147»— en una sola línea corrida. Medido con getComputedStyle, no
+         leído. `kpis` es la misma rejilla de recuadros que usa La caja, y estas
+         tres cifras son exactamente eso. */
+      return `<div class="errcat">${cab}
+        <p>${cats}</p>
+        <div class="kpis" style="margin:10px 0">
+          ${kpi("Con error tuyo", money(au.evitable), au.evitable < 0 ? "bad" : "", "categorías 2 y 3")}
+          ${kpi("Pérdidas limpias", money(au.limpio), au.limpio < 0 ? "warn" : "", "plan cumplido")}
+          ${kpi("Costó", c.fees ? money(c.fees) : "—", c.fees ? "" : "dim", c.fees ? "evaluación y resets" : "sin apuntar")}
+        </div>
+        ${top.length ? `<p class="note-p"><b>Lo que más se repitió:</b> ${top.map(x => `${esc(x.texto)} <span class="mono">×${x.veces}</span>`).join(" · ")}</p>` : ""}
+        ${veredicto}${pintaLeccion(c)}</div>`;
+    }).join("");
+  }
+  /* La lección va SIEMPRE al final y SIEMPRE etiquetada. No es un dato más: es
+     lo que recuerdas de un día que acabó mal, escrito después, y la autopsia de
+     arriba se deriva de lo que quedó registrado mientras pasaba. Cuando las dos
+     no coinciden, la de arriba es la que tiene pruebas. */
+  function pintaLeccion(c) {
+    return c.leccion
+      ? `<p class="note-p" style="border-left:2px solid var(--line);padding-left:10px"><span class="dim">tu versión, escrita a mano:</span> ${esc(c.leccion)}</p>`
+      : "";
+  }
+  $("cuFiltro").addEventListener("change", e => { cuf.ver = e.target.value; renderCuentas(); });
+  /* Clic en una fila: lleva al journal filtrado por esa cuenta. Es la pregunta
+     siguiente, siempre: «¿y qué operé ahí?». */
+  $("cuTabla").addEventListener("click", e => {
+    const tr = e.target.closest("tr[data-cu]"); if (!tr) return;
+    FUT.setSelectedAccount(tr.dataset.cu); showTab("futuros");
+  });
 
   function renderProto(s) {
     const wrap = $("prWrap"), out = $("prOut"); if (!wrap) return;
@@ -12014,6 +12620,21 @@ tbody tr:last-child td{border-bottom:0}
     { key: "status", label: "Estado de la cuenta", type: "select", options: ESTADOS.map(x => [x[0], x[1]]) },
     { key: "total", label: "Ganancia previa ($)", type: "number", step: "10", w: 3, help: "lo que ya llevaba la cuenta antes de empezar a registrar aquí · en rojo se escribe con signo: -450" },
     { key: "best", label: "Mejor día previo ($)", type: "number", step: "10", w: 3, help: "el día verde más grande antes de registrar aquí · 0 si nunca hubo uno" },
+    /* ─── SI LA QUEMASTE ───
+       Dos campos, y los dos para una sola cuenta ya muerta. Van al final porque
+       en una cuenta viva no se tocan, y sólo hay dos porque es lo único que la
+       app no puede derivar: la fecha es un hecho que no está en ningún sitio
+       —una cuenta puede quemarse un día sin operaciones registradas— y la
+       lección es tu versión de los hechos.
+       NO HAY «¿por qué se quemó?» con opciones. El por qué sale de las
+       operaciones, en la pestaña de Cuentas, y preguntarlo aquí sería dejarte
+       elegir tu propio veredicto después de la condena. Ver docs/ERRORES.md. */
+    { type: "seccion", n: "04", label: "Si la quemaste", help: "sólo esto se pregunta: el resto se deriva de tus operaciones" },
+    { key: "burnedOn", label: "Día en que se quemó", type: "date", w: 3,
+      help: "vacío = no apuntado · la autopsia funciona igual, pero sin él no se puede medir cuánto duró" },
+    { key: "lesson", label: "Qué aprendiste", type: "text", w: 6,
+      ph: "subí tamaño para recuperar el día anterior",
+      help: "tu versión · se pinta al lado de lo que dicen tus operaciones, y no entra en ningún cálculo" },
     /* ─── EL CONTRATO DE ESTA FIRMA ───
        Vacío significa «heredo el protocolo», no «cero». Por eso ninguno lleva
        valor por defecto: un 0 puesto por la app diría «no puedes perder nada»,
@@ -12093,9 +12714,19 @@ tbody tr:last-child td{border-bottom:0}
           rec.rulesets = (rec.rulesets || []).map(x => x && x.id === rige.id ? Object.assign({}, x, { rules: contrato }) : x);
         } else rec.rules = contrato;
         RULE_CAMPOS.forEach(k => { delete rec["r_" + k]; });
+        /* ABRIR NO ES TOCAR (protocolo 17). El editor genérico escribe `""` en
+           todo campo de texto vacío, así que entrar a una cuenta quemada de
+           antes de estos campos para corregirle una errata al nombre le
+           inventaba «fecha de quema en blanco» y «lección en blanco». Son
+           datos distintos de la ausencia —la pestaña de Cuentas los cuenta
+           aparte— así que si la cuenta no los traía y siguen vacíos, se quitan.
+           Es la misma guarda que ya protege a `invalida` en el editor de
+           operaciones, y allí la encontró la prueba del editor real. */
+        for (const k of ["burnedOn", "lesson"])
+          if (!(a && Object.prototype.hasOwnProperty.call(a, k)) && !String(rec[k] || "").trim()) delete rec[k];
         const i = arr.findIndex(x => x.id === rec.id);
         if (i >= 0) arr[i] = rec; else arr.push(rec);
-        persistSettings(); renderAccounts(); renderFutAccounts(); renderFutures();
+        persistSettings(); renderAccounts(); renderFutAccounts(); renderFutures(); renderCuentas();
       },
       /* Tercera implementación que había del mismo borrado. Ídem. */
       onDelete: isNew ? null : () => avisaHuerfanas(FUT.deleteAccount(a.id)),
@@ -12118,9 +12749,9 @@ tbody tr:last-child td{border-bottom:0}
         const rec = Object.assign({}, entry || { id: uid("le") }, v, { amount: Math.abs(Number(v.amount) || 0) });
         const i = a.ledger.findIndex(x => x.id === rec.id);
         if (i >= 0) a.ledger[i] = rec; else a.ledger.push(rec);
-        persistSettings(); renderFutAccounts(); renderAccounts();
+        persistSettings(); renderFutAccounts(); renderAccounts(); renderCuentas();
       },
-      onDelete: isNew ? null : () => { a.ledger = (a.ledger || []).filter(x => x.id !== entry.id); persistSettings(); renderFutAccounts(); renderAccounts(); },
+      onDelete: isNew ? null : () => { a.ledger = (a.ledger || []).filter(x => x.id !== entry.id); persistSettings(); renderFutAccounts(); renderAccounts(); renderCuentas(); },
     });
   }
   function renderFutAccounts() {
@@ -16185,13 +16816,23 @@ tbody tr:last-child td{border-bottom:0}
        guardar un futuro. Sin esta zona se quedaría con la lista del último
        repintado, que es el fallo que test/conexiones.mjs existe para cazar. */
     historial:  ["historial", () => renderHistorial()],
+    /* EL CICLO DE VIDA LEE LAS OPERACIONES: la autopsia de una cuenta quemada
+       se deriva de ellas, así que registrar, editar o borrar una operación
+       cambia de qué murió esa cuenta. Sin esta zona, la pestaña se quedaba con
+       la autopsia del momento en que se abrió. */
+    ciclo:      ["ciclo de vida de cuentas", () => renderCuentas()],
   };
   /* Al cambiar la CUENTA SELECCIONADA no cambian los datos, cambia el punto de
      vista: se repinta lo que depende de qué cuenta se está mirando. */
-  const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia, Z.edge];
+  /* `Z.ciclo` entra aquí porque esta lista no es sólo «cambió la selección»:
+     es la puerta por la que pasan `createAccount`, `updateAccount` y
+     `deleteAccount`. Crear una cuenta, marcarla quemada o apuntarle lo que
+     costó cambia la caja y la tabla del ciclo de vida, y sin esta zona la
+     pestaña se quedaba con los números de cuando se abrió. */
+  const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia, Z.edge, Z.ciclo];
   const FANOUT_TRADES = [Z.historial, Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
                          Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion, Z.edge,
-                         Z.estudio, Z.invDetalle, Z.importar, Z.ejecuciones];
+                         Z.estudio, Z.invDetalle, Z.importar, Z.ejecuciones, Z.ciclo];
   function pinta(lista) {
     /* Una actualización de datos no debe echar al usuario del campo donde está
        escribiendo ni devolver la página al inicio. Algunos renders reconstruyen
@@ -17204,7 +17845,10 @@ tbody tr:last-child td{border-bottom:0}
          hoja de cálculo no sirve para encontrar nada. */
       lectura.filas.forEach((f, i) => {
         const r = impFila(f, mapa, plan, i + 2);
-        if (r.ok) ops.push(r.op); else rechazadas.push(r);
+        if (r.ok) {
+          if (lectura._brokerFillIds) r.op.executionIds = lectura._brokerFillIds.map(ix => String(f[ix] == null ? "" : f[ix]).trim()).filter(Boolean);
+          ops.push(r.op);
+        } else rechazadas.push(r);
       });
     }
     return { plan, ops, rechazadas, faltan, repetidas, listo: puede && ops.length > 0 };
@@ -17237,10 +17881,40 @@ tbody tr:last-child td{border-bottom:0}
     el.className = "synced" + (mal ? " bad" : "");
     el.innerHTML = msg ? `<span class="dotg"></span><span>${esc(msg)}</span>` : "";
   }
+  function impAutoDetectarBroker(lectura) {
+    const norm = x => String(x || "").trim().toLowerCase().replace(/[ _-]+/g, "");
+    const ix = {};
+    lectura.cabecera.forEach((h, i) => { ix[norm(h)] = i; });
+    const required = ["symbol","buyfillid","sellfillid","qty","buyprice","sellprice","pnl","boughttimestamp","soldtimestamp"];
+    if (!required.every(k => ix[k] != null)) return null;
+    const parseTs = raw => {
+      const m = String(raw || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+      if (!m) return null;
+      const d = new Date(Number(m[3]), Number(m[1])-1, Number(m[2]), Number(m[4]), Number(m[5]), Number(m[6] || 0));
+      return Number.isFinite(d.getTime()) ? d : null;
+    };
+    const fields = ["date","time","instrument","direction","qty","entry","exit","pnl"];
+    const start = lectura.cabecera.length;
+    lectura.cabecera.push(...fields.map(k => "__cabina_" + k));
+    lectura._brokerFillIds = [ix.buyfillid, ix.sellfillid];
+    lectura.filas.forEach(row => {
+      const buy = parseTs(row[ix.boughttimestamp]), sell = parseTs(row[ix.soldtimestamp]);
+      const valid = !!buy && !!sell, long = valid ? buy <= sell : true;
+      const closeStamp = valid ? (long ? row[ix.soldtimestamp] : row[ix.boughttimestamp]) : "";
+      const stamp = String(closeStamp || "").trim().split(/\s+/);
+      row.push(stamp[0] || "", stamp[1] || "", row[ix.symbol] || "",
+        valid ? (long ? "long" : "short") : "", row[ix.qty] || "",
+        row[long ? ix.buyprice : ix.sellprice] || "",
+        row[long ? ix.sellprice : ix.buyprice] || "", row[ix.pnl] || "");
+    });
+    return { map: Object.fromEntries(fields.map((k,n) => [k,start+n])) };
+  }
   function impCargar(txt, nombre) {
     const l = csvLee(String(txt == null ? "" : txt));
     if (!l.filas.length) { impSay((l.avisos[0] || "El fichero no trae ninguna fila de datos.") + " No hay nada que importar.", true); return; }
-    imp.lectura = l; imp.nombre = nombre || "texto pegado"; imp.mapa = {}; imp.elegido = {};
+    const auto = impAutoDetectarBroker(l);
+    imp.lectura = l; imp.nombre = nombre || "texto pegado"; imp.mapa = auto ? auto.map : {}; imp.elegido = {};
+    if (auto) { imp.modo = "operaciones"; imp.elegido.orden = "mdy"; impSay("Formato de operaciones cerradas reconocido. Revisa la vista previa y selecciona la cuenta una sola vez."); }
     if (!imp.cuenta) imp.cuenta = (FUT.selectedAccountId && FUT.selectedAccountId()) || defaultAccountId() || "";
     renderImportar();
     impSay(`${imp.nombre}: ${plu(l.filas.length, "fila", "filas")} de datos y ${plu(l.cabecera.length, "columna", "columnas")}, separadas por «${l.sep === "\t" ? "tabulador" : l.sep}». ${l.avisos.join(" ")} Ahora di qué columna es qué.`);
@@ -17498,6 +18172,9 @@ tbody tr:last-child td{border-bottom:0}
     else if (k.startsWith("col_")) { const campo = k.slice(4); if (v === "") delete imp.mapa[campo]; else imp.mapa[campo] = Number(v); }
     else if (v === "") delete imp.elegido[k];
     else imp.elegido[k] = v;
+    /* Si el formato del bróker se reconoció y lo único que faltaba era la cuenta,
+       elegirla ES la última decisión: se importa sin pedir nada más. */
+    if (k === "cuenta" && v && imp.lectura && imp.lectura._brokerFillIds) { impAutomatico(); return; }
     renderImportar();
   });
 
@@ -17801,8 +18478,60 @@ tbody tr:last-child td{border-bottom:0}
     }
     return m;
   }
+  /* LO QUE LE PASA A UNA COPIA POR EL CAMINO. Medido con copias reales que la app
+     rechazaba como «no es JSON válido» siendo copias legítimas:
+       · un BOM (U+FEFF) al principio: lo pone el Bloc de notas de Windows al guardar
+         como UTF-8, y JSON.parse lo rechaza aunque sea invisible;
+       · espacios o saltos de línea alrededor, de seleccionar de más al copiar;
+       · una valla de Markdown (```json … ```) de haber pasado por un chat o unas notas.
+     Nada de esto cambia el contenido: se quita y se vuelve a intentar. Lo que NO se
+     toca son las comillas tipográficas: cambiarlas alteraría los datos del usuario. */
+  function bkLimpia(txt) {
+    let t = String(txt == null ? "" : txt).replace(/^\uFEFF/, "").replace(/\u0000/g, "").trim();
+    const valla = t.match(/^```[a-zA-Z]*\s*\n([\s\S]*?)\n```$/);
+    if (valla) t = valla[1].trim();
+    return t;
+  }
+  /* Dos o más líneas, y la primera con dos o más campos separados por coma, punto y
+     coma o tabulador. No se intenta leer el CSV aquí: eso lo hace `csvLee`, que es
+     quien sabe de comillas, decimales y separadores. */
+  function bkPareceCsv(t) {
+    if (/^[{\[<]/.test(t)) return false;
+    const lineas = t.split(/\r?\n/).filter(l => l.trim() !== "");
+    if (lineas.length < 2) return false;
+    return [",", ";", "\t"].some(sep => lineas[0].split(sep).length >= 2 && lineas[1].split(sep).length >= 2);
+  }
+  /* Lo lleva al panel de importar operaciones con el texto ya cargado: cambiar de
+     pestaña, abrir la vista Diario y llamar al mismo `impCargar` que usa ese panel. */
+  function bkDerivaCsv(txt, nombre) {
+    showTab("futuros"); setFtView("diario");
+    impCargar(txt, nombre || "texto pegado");
+    bkSay("Eso era un CSV del bróker, no una copia de Cabina: se ha abierto en «Importar operaciones» (Futuros › Diario).");
+    const panel = $("panelImportar"); if (panel && panel.scrollIntoView) { try { panel.scrollIntoView({ block: "start" }); } catch (e) { } }
+  }
   function bkParse(txt) {
-    let raw; try { raw = JSON.parse(txt); } catch { return { err: "El texto no es JSON válido." }; }
+    const t = bkLimpia(txt);
+    if (!t) return { err: "No hay nada que leer: el texto está vacío." };
+    let raw;
+    try { raw = JSON.parse(t); } catch (e) {
+      /* Decir CON QUÉ empieza el texto distingue tres casos que antes se leían igual:
+         el fichero equivocado (un CSV del bróker, una página HTML), un pegado a medias
+         (empieza bien y se corta) y una copia dañada de verdad. */
+      const inicio = t.slice(0, 24).replace(/\s+/g, " ");
+      if (/^</.test(t)) return { err: "Esto no es una copia de Cabina: parece una página web (empieza por «<»)." };
+      /* UN CSV DEL BRÓKER PEGADO AQUÍ no es un error del usuario: es que hay dos
+         sitios donde pegar y éste es el que está más a mano. Medido: una exportación
+         de operaciones cerradas de Tradovate («symbol,_priceFormat,…») acababa aquí
+         y se rechazaba, y la pista «va por Importar un CSV» obligaba a buscar ese
+         panel —está en Futuros › Diario— y a pegar otra vez. Se reconoce y se
+         entrega al importador con el texto ya dentro. */
+      if (bkPareceCsv(t)) return { csv: true, err: `Esto es un CSV del bróker, no una copia de Cabina (empieza por «${inicio}…»). Va por «Importar operaciones», en Futuros › Diario.` };
+      if (/^[^{\[]/.test(t)) return { err: `El texto no es JSON válido: una copia de Cabina empieza por «{» y esto empieza por «${inicio}…».` };
+      const corto = !/[}\]]\s*$/.test(t);
+      return { err: corto
+        ? "El texto no es JSON válido: empieza bien pero no termina. Parece que se pegó o se copió a medias; vuelve a copiar el archivo entero."
+        : "El texto no es JSON válido: " + String((e && e.message) || "").replace(/^JSON\.parse:?\s*/i, "").slice(0, 120) + "." };
+    }
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { err: "El archivo no tiene la forma de una copia de Cabina." };
     if (raw.format !== BK_FORMAT) return { err: "Esto no es una copia de Cabina: falta la marca del formato." };
     /* `Number("abc") > 1` es false, asi que una version no numerica se colaba por la
@@ -17858,8 +18587,9 @@ tbody tr:last-child td{border-bottom:0}
     return { escritos: hechos - fallos, fallos };
   }
   function bkMode() { const r = document.querySelector('input[name="bkmode"]:checked'); return r ? r.value : "replace"; }
-  function bkConfirmImport(txt) {
+  function bkConfirmImport(txt, nombre) {
     const r = bkParse(txt);
+    if (r.csv) { bkDerivaCsv(bkLimpia(txt), nombre); return; }
     if (r.err) { bkSay(r.err, true); return; }
     const modo = state.nube ? "merge" : bkMode();
     const cuando = r.bundle.exportedAt ? dmy(String(r.bundle.exportedAt).slice(0, 10)) : "fecha desconocida";
@@ -17904,12 +18634,13 @@ tbody tr:last-child td{border-bottom:0}
   $("bkFile").addEventListener("change", async e => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
     bkSay(`Leyendo ${f.name}…`);
-    try { const txt = await f.text(); setTimeout(() => bkConfirmImport(txt), 40); }
+    try { const txt = await f.text(); setTimeout(() => bkConfirmImport(txt, f.name), 40); }
     catch (err) { bkSay("No se pudo leer el archivo.", true); }
   });
   $("bkPaste").addEventListener("click", () => {
     openEditor({ title: "Pegar una copia de Cabina", fields: [{ key: "j", label: "Pega aquí el contenido del archivo", type: "textarea", w: 6, rows: 10 }], values: { j: "" },
-      validate: v => { const r = bkParse(String(v.j || "")); return r.err || null; },
+      // Un CSV no se rechaza: pasa la revisión y `bkConfirmImport` lo deriva al importador.
+      validate: v => { if (!bkLimpia(v.j)) return "Pega algo primero"; const r = bkParse(String(v.j || "")); return r.csv ? null : (r.err || null); },
       // El modal es uno solo: hay que dejar que este se cierre antes de abrir el de confirmación.
       onSave: v => { const txt = String(v.j || ""); setTimeout(() => bkConfirmImport(txt), 40); } });
     const sv = $("edSave"); sv.textContent = "Revisar";
@@ -18413,6 +19144,116 @@ tbody tr:last-child td{border-bottom:0}
   i18nArranca();
 
 })();
+
+  /* Navegación móvil «Más»: reutiliza los botones originales y showTab(), sin duplicar rutas ni estado. */
+  (function mobileMoreMenu() {
+    const nav = document.getElementById("tabnav");
+    const trigger = document.getElementById("mobileMoreBtn");
+    const overlay = document.getElementById("mobileMoreOv");
+    const close = document.getElementById("mobileMoreClose");
+    if (!nav || !trigger || !overlay || !close) return;
+    const secondary = new Set(["cuentas", "edge", "playbook", "ideas", "calc"]);
+    let previousOverflow = "";
+    const sheet = overlay.querySelector(".mobile-more-sheet");
+    const menuItems = [...overlay.querySelectorAll("[data-mobile-more-tab]")];
+    function syncMoreActive() {
+      const active = nav.querySelector(".tabbtn.active");
+      const isSecondary = !!(active && secondary.has(active.dataset.tab));
+      trigger.classList.toggle("active", isSecondary);
+      if (isSecondary) trigger.setAttribute("aria-current", "page");
+      else trigger.removeAttribute("aria-current");
+      for (const item of menuItems) {
+        const selected = !!active && item.dataset.mobileMoreTab === active.dataset.tab;
+        item.classList.toggle("is-active", selected);
+        if (selected) item.setAttribute("aria-current", "page");
+        else item.removeAttribute("aria-current");
+      }
+    }
+    function focusableItems() {
+      return [...overlay.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+        .filter(el => el.tabIndex >= 0 && !el.hidden && el.getClientRects().length > 0);
+    }
+    function closeMenu(restoreFocus = true) {
+      if (overlay.hidden) return;
+      overlay.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+      document.body.style.overflow = previousOverflow;
+      if (restoreFocus && window.innerWidth <= 700) trigger.focus();
+    }
+    function openMenu() {
+      if (!overlay.hidden) return;
+      previousOverflow = document.body.style.overflow;
+      syncMoreActive();
+      overlay.hidden = false;
+      trigger.setAttribute("aria-expanded", "true");
+      document.body.style.overflow = "hidden";
+      close.focus();
+    }
+    trigger.addEventListener("click", openMenu);
+    close.addEventListener("click", () => closeMenu());
+    overlay.addEventListener("click", e => {
+      if (e.target === overlay || e.target.closest("[data-mobile-more-close]")) closeMenu();
+    });
+    overlay.querySelectorAll("[data-mobile-more-tab]").forEach(button => {
+      button.addEventListener("click", () => {
+        const target = nav.querySelector('.tabbtn[data-tab="' + button.dataset.mobileMoreTab + '"]');
+        if (!target) return;
+        target.click();
+        syncMoreActive();
+        closeMenu();
+      });
+    });
+    nav.addEventListener("click", e => {
+      if (e.target.closest(".tabbtn")) requestAnimationFrame(syncMoreActive);
+    });
+    window.addEventListener("hashchange", syncMoreActive);
+    window.addEventListener("resize", () => { if (window.innerWidth > 700) closeMenu(false); });
+    document.addEventListener("keydown", e => {
+      if (overlay.hidden) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeMenu();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusableItems();
+      if (!items.length) {
+        e.preventDefault();
+        (sheet || overlay).focus();
+        return;
+      }
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !overlay.contains(document.activeElement))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+    syncMoreActive();
+  })();
+
+  /* ── SIN CONEXION · se registra el trabajador de servicio ─────────────────
+     TRES GUARDAS, Y CADA UNA TIENE SU MOTIVO MEDIDO:
+
+       · `serviceWorker in navigator` — no existe en todos los navegadores.
+       · el protocolo — 30 de las 62 pruebas de la suite cargan la pagina por
+         `file://`, donde registrar lanza. Una excepcion ahi seria un
+         `pageerror` y pondria roja media suite por algo que el usuario nunca
+         ve.
+       · el `.catch` — si `sw.js` no esta servido (los servidores de prueba
+         sirven solo lo que publica Pages), el registro RECHAZA. Sin este catch
+         seria un rechazo sin manejar.
+
+     Y va dentro de `load`: registrar antes compite por el ancho de banda con
+     la propia pagina en la primera visita, que es justo la que se mide. */
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').catch(function () {});
+    });
+  }
+
 </script>
 
 <style id="cabina-unified-estudio-system">
@@ -18905,6 +19746,185 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
      que hay que ver, y partirlo lo escondería. */
   .save-state.nosave { flex: 1 1 100%; }
 }
+@media (max-width: 700px) {
+    :root { --mobile-nav-h: 68px; }
+    html { scroll-padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 20px); }
+    body { overflow-x: clip; padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 24px); }
+    .tabnav#tabnav {
+      position: fixed; inset: auto 0 0; z-index: 80; display: flex; align-items: stretch;
+      gap: 2px; width: 100%; height: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px)); margin: 0;
+      padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px)); overflow-x: auto; overflow-y: hidden;
+      overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+      background: rgba(11,14,19,.96); border-top: 1px solid var(--line-strong, #303946);
+      border-bottom: 0; backdrop-filter: blur(20px); box-sizing: border-box;
+    }
+    .tabnav#tabnav::-webkit-scrollbar { display: none; }
+    #tabnav .tabbtn {
+      flex: 0 0 72px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+      gap: 5px; min-width: 72px; min-height: 44px; padding: 5px 3px 7px;
+      border: 1px solid transparent; border-radius: 10px; font-size: 10px; line-height: 1.1;
+      letter-spacing: -.01em; white-space: nowrap; text-align: center; background: transparent;
+      color: var(--muted, #a5adbb); scroll-snap-align: center;
+    }
+    #tabnav .tabbtn::before { display: block; font-size: 17px; line-height: 1; font-weight: 500; color: currentColor; }
+    #tabnav .tabbtn[data-tab="cabina"]::before { content: "⌂"; }
+    #tabnav .tabbtn[data-tab="futuros"]::before { content: "↗"; }
+    #tabnav .tabbtn[data-tab="cuentas"]::before { content: "◷"; }
+    #tabnav .tabbtn[data-tab="edge"]::before { content: "◫"; }
+    #tabnav .tabbtn[data-tab="invest"]::before { content: "◈"; }
+    #tabnav .tabbtn[data-tab="playbook"]::before { content: "▤"; }
+    #tabnav .tabbtn[data-tab="ideas"]::before { content: "✳"; }
+    #tabnav .tabbtn[data-tab="estudio"]::before { content: "◎"; }
+    #tabnav .tabbtn[data-tab="calc"]::before { content: "＋"; }
+    #tabnav .tabbtn.active { color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); border-color: rgba(112,224,207,.22); }
+    #tabnav .tabbtn { font-size: 0; }
+    #tabnav .tabbtn::after {
+      display: block; position: static; inset: auto; width: auto; height: auto; margin: 0;
+      background: none; border-radius: 0; box-shadow: none; opacity: 1; transform: none;
+      font-size: 10px; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap;
+    }
+    #tabnav .tabbtn[data-tab="cabina"]::after { content: "Cabina"; }
+    #tabnav .tabbtn[data-tab="futuros"]::after { content: "Futuros"; }
+    #tabnav .tabbtn[data-tab="cuentas"]::after { content: "Cuentas"; }
+    #tabnav .tabbtn[data-tab="edge"]::after { content: "Edge"; }
+    #tabnav .tabbtn[data-tab="invest"]::after { content: "Invertir"; }
+    #tabnav .tabbtn[data-tab="playbook"]::after { content: "Playbook"; }
+    #tabnav .tabbtn[data-tab="ideas"]::after { content: "Ideas"; }
+    #tabnav .tabbtn[data-tab="estudio"]::after { content: "Estudio"; }
+    #tabnav .tabbtn[data-tab="calc"]::after { content: "Calc"; }
+    #tabnav .tabbtn .n { position: absolute; top: 2px; right: 9px; min-width: 14px; padding: 1px 3px; border-radius: 9px; font-size: 9px; line-height: 1.25; background: var(--surface-3, #242d38); }
+    #quickBtn {
+      position: fixed; right: 12px; bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
+      z-index: 75; min-height: 46px; padding: 0 16px; border: 1px solid rgba(112,224,207,.42);
+      border-radius: 999px; background: var(--accent, #70e0cf); color: #07120f; font-size: 13px;
+      font-weight: 750; box-shadow: 0 8px 28px rgba(0,0,0,.35), 0 0 0 4px rgba(112,224,207,.08);
+    }
+    #quickBtn:active { transform: translateY(1px) scale(.98); }
+    .topbar, .topbar > *, .clock, .brand, .hgroup, .toolbar { min-width: 0; }
+    .tab, .tab > *, .panel, .panel > header, .panel > .body, .study-shell, .study-grid, .study-bottom, .deck { min-width: 0; max-width: 100%; }
+    .panel > header { flex-wrap: wrap; gap: 8px 10px; }
+    .panel > header h2 { overflow-wrap: anywhere; }
+    .toolbar, .hgroup, .actions, .filters, .jactions { flex-wrap: wrap; }
+    input:not([type="checkbox"]):not([type="radio"]), select, textarea, .btn, button.editbtn, .icon, .tabbtn {
+      scroll-margin-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
+    }
+    input:not([type="checkbox"]):not([type="radio"]), select, textarea { max-width: 100%; }
+    .ed, .ov, .dialog, [role="dialog"] { overscroll-behavior: contain; }
+    .ov { z-index: 100; } /* los diálogos deben quedar por encima de la navegación inferior */
+    .ed input:not([type="checkbox"]):not([type="radio"]), .ed select, .ed textarea,
+    .qk input:not([type="checkbox"]):not([type="radio"]), .qk select, .qk textarea { min-height: 44px; font-size: 16px; }
+    .ed > footer button, .qk button, .btn, .editbtn { min-height: 44px; }
+    table { max-width: 100%; }
+    .panel table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    img, canvas, video, svg { max-width: 100%; }
+    .study-hero, .study-grid, .study-bottom, .study-fields, .study-protocol { grid-template-columns: minmax(0, 1fr); }
+    .study-field.full { grid-column: auto; }
+    .study-toolbar { flex-wrap: wrap; }
+  }
+  @media (max-width: 380px) {
+    #tabnav .tabbtn { flex-basis: 68px; min-width: 68px; }
+    #quickBtn { right: 9px; padding-inline: 13px; }
+    .panel > header, .panel .body { padding-inline: 12px; }
+    .ed .fields { padding: 12px; }
+  }
+  @media (min-width: 701px) { #quickBtn { position: relative; } }
+  @media (prefers-reduced-motion: reduce) { #tabnav .tabbtn, #quickBtn { transition: none !important; animation: none !important; } }
+
+  @media (max-width: 700px) {
+    .empty, .deck-parts { min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: normal; white-space: normal; }
+    .tab[data-tab="cabina"] .deck-parts { white-space: normal; }
+    .tab[data-tab="estudio"] .deck-parts { display: block; width: 100%; flex: 1 1 100%; margin-left: 0; }
+    .tab[data-tab="playbook"] p.empty, .tab[data-tab="ideas"] p.empty {
+      display: block; box-sizing: border-box; min-width: 0; width: calc(100vw - 40px);
+      max-width: calc(100vw - 40px); white-space: normal; overflow-wrap: anywhere;
+      word-break: break-word; margin-right: 0;
+    }
+    .tab[data-tab="playbook"] .empty, .tab[data-tab="ideas"] .empty {
+      min-width: 0; max-width: calc(100vw - 40px); box-sizing: border-box;
+      white-space: normal; overflow-wrap: anywhere;
+    }
+    .tab[data-tab="playbook"] .empty code, .tab[data-tab="ideas"] .empty code { white-space: normal; overflow-wrap: anywhere; }
+  }
+
+
+
+@media (max-width: 700px) {
+  .tabnav#tabnav { overflow-x: hidden; justify-content: space-between; }
+  #tabnav .tabbtn { position: relative; }
+  #tabnav .tabbtn[data-tab="cuentas"],
+  #tabnav .tabbtn[data-tab="edge"],
+  #tabnav .tabbtn[data-tab="historial"],
+  #tabnav .tabbtn[data-tab="playbook"],
+  #tabnav .tabbtn[data-tab="ideas"],
+  #tabnav .tabbtn[data-tab="calc"] { display: none !important; }
+  #tabnav .tabbtn[data-tab="cabina"],
+  #tabnav .tabbtn[data-tab="futuros"],
+  #tabnav .tabbtn[data-tab="invest"],
+  #tabnav .tabbtn[data-tab="estudio"] { flex: 1 1 0; min-width: 0; }
+  #tabnav .tabbtn .n:empty { display: none; }
+  #tabnav #mobileMoreBtn {
+    display: flex; flex: 1 1 0; min-width: 0; min-height: 44px; padding: 5px 3px 7px;
+    flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+    border: 1px solid transparent; border-radius: 10px; background: transparent;
+    color: var(--muted, #a5adbb); font-size: 0; line-height: 1.1; white-space: nowrap;
+  }
+  #tabnav #mobileMoreBtn::before { content: "⋯"; display: block; font-size: 19px; line-height: 1; }
+  #tabnav #mobileMoreBtn::after {
+    content: "Más"; display: block; position: static; inset: auto; width: auto; height: auto;
+    margin: 0; background: none; border-radius: 0; box-shadow: none; opacity: 1; transform: none;
+    font-size: 10px; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap;
+  }
+  #tabnav #mobileMoreBtn.active { color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); border-color: rgba(112,224,207,.22); }
+  #mobileMoreOv {
+    position: fixed; inset: 0; z-index: 120; display: flex; align-items: flex-end; justify-content: center;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: rgba(3, 6, 12, .72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  }
+  #mobileMoreOv[hidden] { display: none !important; }
+  #mobileMoreOv .mobile-more-backdrop {
+    position: absolute; inset: 0; width: 100%; height: 100%; padding: 0;
+    border: 0; border-radius: 0; background: transparent;
+  }
+  #mobileMoreOv .mobile-more-sheet {
+    position: relative; width: min(100%, 520px); max-height: min(72dvh, 620px); overflow-y: auto;
+    padding: 16px; border: 1px solid var(--line-strong, #303946); border-radius: 18px;
+    background: var(--surface, #111821); box-shadow: 0 18px 50px rgba(0,0,0,.45);
+  }
+  #mobileMoreOv .mobile-more-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  #mobileMoreOv .mobile-more-head h2 { margin: 0; font-size: 13px; letter-spacing: .04em; }
+  #mobileMoreOv .mobile-more-close { min-width: 44px; min-height: 44px; }
+  #mobileMoreOv .mobile-more-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  #mobileMoreOv [data-mobile-more-tab] {
+    display: flex; align-items: center; justify-content: flex-start; min-width: 0; min-height: 52px;
+    width: 100%; padding: 12px; border: 1px solid var(--line-strong, #303946); border-radius: 12px;
+    background: var(--surface-2, #18212c); color: var(--text, #e4ebf2); text-align: left;
+    font-size: 13px; line-height: 1.25; white-space: normal;
+  }
+  #mobileMoreOv [data-mobile-more-tab]:active { border-color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); }
+  #mobileMoreOv [data-mobile-more-tab].is-active { border-color: rgba(112,224,207,.55); background: rgba(112,224,207,.11); color: var(--accent, #70e0cf); }
+  #mobileMoreOv [data-mobile-more-tab].is-active::after { content: "Actual"; margin-left: auto; padding-left: 8px; font-size: 11px; font-weight: 700; }
+  #mobileMoreOv :is(button, [href], [tabindex]):focus-visible { outline: 2px solid var(--accent, #70e0cf); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { #mobileMoreOv, #mobileMoreOv * { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+}
+@media (min-width: 701px) {
+  #mobileMoreBtn, #mobileMoreOv { display: none !important; }
+}
+/* Evita que estilos de display explícitos anulen el atributo hidden del menú. */
+#mobileMoreOv[hidden] { display: none !important; }
+/* Texto de estados vacíos limitado al viewport en pantallas estrechas. */
+@media (max-width: 700px) {
+  .tab[data-tab="playbook"] .empty,
+  .tab[data-tab="ideas"] .empty {
+    display: block; width: 100%; min-width: 0;
+    max-width: calc(100vw - 32px); box-sizing: border-box;
+    white-space: normal; overflow-wrap: anywhere; word-break: normal;
+  }
+  .tab[data-tab="playbook"] .empty *,
+  .tab[data-tab="ideas"] .empty * {
+    max-width: 100%; white-space: normal; overflow-wrap: anywhere;
+  }
+}
+
 </style>
 
 </body>

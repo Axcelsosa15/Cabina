@@ -1,0 +1,19 @@
+# La página es un único index.html sin hash en el nombre: el navegador revalida
+# siempre y la CDN sirve la copia vieja mientras trae la nueva.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Netlify-CDN-Cache-Control = "public, max-age=0, stale-while-revalidate=86400"
+
+# og.png y el bundle del motor no llevan hash: un día en el navegador, no un año,
+# para que un cambio llegue sin renombrar el fichero.
+[[headers]]
+  for = "/og.png"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+
+[[headers]]
+  for = "/engine/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"

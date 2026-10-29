@@ -67,11 +67,24 @@ jobs:
       # Lo vigila test/hojas.mjs.
       - name: Armar lo que se publica
         run: |
-          mkdir -p sitio
+          mkdir -p sitio sitio/.well-known
           cp index.html sitio/index.html
           cp .nojekyll sitio/.nojekyll
           cp og.png sitio/og.png
-          ls -la sitio
+          # EL CASCO SIN CONEXION. index.html dejo de ser autosuficiente el dia
+          # que se pudo instalar: el trabajador de servicio y el manifiesto son
+          # ficheros del propio origen, y sin publicarlos la pagina instalada
+          # simplemente no existe. Los iconos salen del mismo dibujo que el
+          # favicon. Que esta lista y la de `sw.js` no diverjan lo vigila
+          # test/pwa.mjs, no la buena memoria de nadie.
+          cp sw.js manifest.webmanifest sitio/
+          cp icon-192.png icon-512.png icon-maskable-512.png apple-touch-icon.png sitio/
+          # Las tres paginas legales, el sitemap, robots y el security.txt. Son
+          # ficheros de texto sin JavaScript; cada uno se comprueba abajo.
+          cp privacidad.html terminos.html seguridad.html sitio/
+          cp robots.txt sitemap.xml sitio/
+          cp .well-known/security.txt sitio/.well-known/security.txt
+          ls -la sitio sitio/.well-known
 
       # EL FALLO QUE ESTE PASO EXISTE PARA IMPEDIR, Y QUE YA OCURRIÓ UNA VEZ:
       # se añadió `og:image` apuntando a og.png, la imagen se commiteó, la suite
@@ -107,6 +120,30 @@ jobs:
       # LO PUBLICADO ES LO PROBADO. Pages/CDN puede tardar en propagar
       # el deployment; se usa una URL sin caché y un hash para evitar falsos rojos
       # y para mostrar qué versión responde realmente.
+      # CADA FICHERO DEL CASCO RESPONDE, NO SOLO LA PAGINA.
+      # El fallo que esto impide ya ocurrio una vez con og.png: se referencio,
+      # se commiteo, la suite paso en verde y Pages sirvio un 404 durante horas
+      # porque nadie lo habia copiado a sitio/. Con el manifiesto el sintoma
+      # seria peor y mas callado: la pagina se ve bien y simplemente no se puede
+      # instalar, que es justo lo que nadie prueba a mano.
+      - name: Todo el casco responde en la URL publicada
+        run: |
+          url="${{ steps.deploy.outputs.page_url }}"
+          faltan=0
+          for f in sw.js manifest.webmanifest icon-192.png icon-512.png \
+                   icon-maskable-512.png apple-touch-icon.png \
+                   privacidad.html terminos.html seguridad.html \
+                   robots.txt sitemap.xml .well-known/security.txt; do
+            if curl -fsS -H 'Cache-Control: no-cache' -o /dev/null \
+                 "${url%/}/$f?cabina_verify=${GITHUB_RUN_ID}"; then
+              echo "✅ $f responde"
+            else
+              echo "::error::${url%/}/$f no responde: lo publicado está incompleto"
+              faltan=1
+            fi
+          done
+          exit $faltan
+
       - name: La página publicada es exactamente index.html
         run: |
           url="${{ steps.deploy.outputs.page_url }}"

@@ -9,6 +9,11 @@ index.html                     la app: HTML + CSS + JS en un IIFE (~12.300 líne
   ├─ almacén                   una interfaz, dos sitios donde guardar
   └─ cuentas                   login y sesión contra Supabase (fetch, sin librería)
 
+sw.js                          el casco sin conexión (red primero para el código)
+manifest.webmanifest           lo que hace instalable la página
+icon-*.png                     generados del MISMO dibujo que el favicon
+privacidad · terminos · seguridad.html   texto, sin <script>, enlazadas desde el pie
+.well-known/security.txt       dónde reportar un fallo (RFC 9116)
 engine/quant/*.js              los 11 módulos FUENTE del motor
 engine/QuantEngine.bundle.js   generado por `npm run bundle`, se incrusta a mano
 supabase/migrations/           el esquema del proyecto «cabina» (tabla + bucket)
@@ -40,6 +45,8 @@ test/                          pruebas de navegador (Playwright) y guardianes
 | **qué operaciones entran en un filtro** | `ventanaDe` + `tradeFiltro`, expuestos como `FUT.filtered(spec)` · el preset de rango se **resuelve** a desde/hasta, así que las dos gramáticas de fecha no pueden divergir | `filtros`, `unificado` |
 | **cada una de las 160 estadísticas** | una entrada del catálogo `EST` · `estAgrega()` hace UNA pasada y las 160 la leen; `estFila()` la calcula una vez para la pantalla y para el CSV | `estadisticas` |
 | **cómo se escribe un CSV** | `tablaCsv(columnas, filas)` · BOM, comillas dobladas, CRLF y cabecera en un solo sitio para las tres exportaciones | `unificado`, `estadisticas`, `emparejado` |
+| qué ficheros necesita la página instalada | `CASCO` en `sw.js` · lo copia `pagina.yml` | `pwa`, y la lista se lee del workflow en `test/publicado.mjs` |
+| qué se publica en Pages | el paso «Armar lo que se publica» de `pagina.yml` | `pwa` §1, `hojas` §4 |
 
 Futuros, Métricas / Edge y el Historial no filtran por su cuenta: los tres piden
 el subconjunto a `FUT.filtered()`. El Historial además es la única pantalla que

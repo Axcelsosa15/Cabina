@@ -221,16 +221,23 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
   /* Una cabina que no se puede leer en el telefono no esta entregada. `diseno.mjs`
      mide UNA pestana a 1600px; esto mide las seis, y en 430px. */
   /* SIN NÚMERO EN EL RÓTULO. Esta fila decía «las siete pestañas» y medía OCHO
-     —test/vista.mjs lo documentaba como etiqueta caducada— y con la novena
-     habría dicho ocho midiendo nueve. Un rótulo con una cuenta dentro caduca
-     cada vez que la app crece, y una fila de la compuerta que se describe mal
-     es peor que no tenerla: da una impresión de cobertura que no se ha
-     comprobado. La lista de verdad vive en test/vista.mjs. */
+     —test/vista.mjs lo documentaba como etiqueta caducada—, luego dijo nueve, y
+     con el historial serían diez. Un rótulo con una cuenta dentro caduca cada
+     vez que la app crece, y una fila de la compuerta que se describe mal es
+     peor que no tenerla: da una impresión de cobertura que no se ha
+     comprobado. La lista de verdad vive en test/vista.mjs, que SÍ lleva el
+     número porque ahí el número es la aserción. */
   dice('vista', 'suite', 'Ninguna pestana se sale de la pantalla', 'index.html');
   /* Las cuatro categorias de error: la 4 se gana con esperanza positiva en limpio,
      los errores no entran en esa esperanza, y abrir una operacion vieja no la
      castiga. Ver docs/ERRORES.md. */
   dice('errores', 'suite', 'Las perdidas se clasifican sin absolver por defecto', 'index.html');
+  /* La misma idea una escala mas arriba: una CUENTA quemada. El por que no se
+     pregunta -- se deriva de sus operaciones con el mismo clasificador -- el
+     patron se cuenta en cuentas y no en veces, un coste que no se apunto no es
+     cero, y la fecha de quema ausente sigue ausente despues de abrir el editor.
+     Ver docs/ERRORES.md y docs/DATA_MODEL.md. */
+  dice('ciclo', 'suite', 'Una cuenta quemada dice de que murio, y no se absuelve', 'index.html');
   /* Un desconocido arranca vacio y nadie pierde lo suyo: la configuracion guardada
      no se toca, lo antiguo se recupera sin escribir, y no se guarda configuracion
      en la cuenta antes de que la base conteste. */
@@ -319,6 +326,15 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      interfaz de la compuerta. */
   dice('mapeador', 'suite', 'Un CSV entra por donde se le dice, o no entra', 'index.html');
   dice('emparejado', 'suite', 'Las ejecuciones se emparejan FIFO sin perder cierres parciales ni cantidades abiertas', 'importación');
+  /* LA COLA DE LO IMPORTADO INCOMPLETO, fase 5 de docs/IMPORTAR.md. El
+     importador llena el diario de operaciones a las que les falta el stop
+     —ningún bróker lo exporta—, y sin stop no hay R ni expectativa. Esta fila
+     vigila que la cola cuente SÓLO lo importado (meter las manuales devolvería
+     el envenenamiento de la pestaña de errores que la fase 1 cerró) y que se
+     pueda VACIAR: una cola que nunca llega a cero se aprende a ignorar. Lo que
+     esta fila NO certifica, igual que `mapeador`, es que las cifras importadas
+     cuadren con el bróker: eso sigue abajo, entre las fronteras. */
+  dice('cola-importadas', 'suite', 'Lo importado sin stop se cuenta, se completa y la cola se puede vaciar', 'index.html');
   /* LOS CINCO DIALECTOS DE FILTRO. La colección `trades` se filtra en cinco
      sitios con cinco vocabularios, y dos de ellos —Futuros y Métricas / Edge—
      leen las MISMAS operaciones de futuros con dos implementaciones distintas
@@ -353,6 +369,16 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      barato sale convertirlo en un cero: en una hoja de cálculo ya no tiene la
      definición al lado para desmentirlo. */
   dice('estadisticas', 'suite', 'El catálogo de estadísticas no contradice a las métricas que tiene encima, ni al exportarse', 'index.html');
+  /* LA INSTALACION Y EL CASCO SIN CONEXION. Esta fila vigila una cadena nueva,
+     y por eso tiene fila propia: el dia que la pagina dejo de ser un fichero
+     autosuficiente, `sw.js` y `pagina.yml` pasaron a declarar DOS listas de
+     ficheros que tienen que decir lo mismo. Si divergen, la pagina se ve
+     perfecta con red y abre rota sin ella — y nadie lo nota, porque nadie
+     prueba a mano el modo avion. La suite tambien corta la red de verdad y
+     recarga, y comprueba que la nube no entra en la cache: cachear una
+     respuesta de Supabase seria servir el journal de una sesion a la
+     siguiente. */
+  dice('pwa', 'suite', 'La página se instala, abre sin conexión y la nube nunca se cachea', 'instalación');
 }
 
 /* ── LO QUE LA PLATAFORMA NO PERMITE COMPROBAR ───────────────────────────────
@@ -360,6 +386,13 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
    compuerta no pueda dar una impresión de cobertura total que no tiene. */
 fila('pages', 'GitHub Pages sirve la página', 'UNKNOWN',
   'el despliegue ocurre DESPUÉS de esta compuerta (pagina.yml, cuando pruebas sale verde), y es ese flujo el que pide la URL publicada y comprueba que responde con la cabina');
+/* LA INSTALACION DE VERDAD. `pwa.mjs` demuestra que el trabajador se registra,
+   que el casco esta en la cache y que la pagina abre sin red EN CHROMIUM. No
+   demuestra que iOS acepte el icono, ni que Android ofrezca instalar, ni que un
+   telefono real conserve la cache entre sesiones: eso depende de cada sistema
+   y no se puede medir desde aqui. Queda nombrado en vez de omitido. */
+fila('pages', 'Un teléfono real instala la app y la conserva', 'UNKNOWN',
+  'pwa.mjs mide Chromium de escritorio por HTTP local: registro, casco en caché y recarga sin red. El prompt de instalación de Android, el icono de iOS y la persistencia de la caché entre sesiones los decide el sistema operativo, no el payload');
 fila('pages', 'El CDN de GitHub sirve el payload verificado', 'UNKNOWN',
   'humo.mjs verifica el MISMO payload en el MISMO protocolo, no el CDN de GitHub ni su configuración');
 /* Y UNA FRONTERA QUE NO ES DE LA PLATAFORMA: es del dueño de la cuenta. Se pone

@@ -217,3 +217,57 @@ Convierten «¿lo hice bien?» —que después de perder nadie contesta con honr
 
 Verificado en `test/errores.mjs`: 48 aserciones con las respuestas escritas a mano
 antes del código, y siete sabotajes —uno por propiedad— que la ponen en rojo.
+
+---
+
+## La misma idea una escala arriba: una cuenta quemada
+
+Una cuenta de prop firm quemada es una pérdida grande con la misma tentación
+dentro, y más fuerte: cuando se quema, lo que se escribe en caliente —si se
+escribe— es *«mal día, el mercado estaba raro»*. Un campo **«¿por qué se quemó?»**
+con un desplegable de motivos sería la categoría 4 otra vez, pero a nivel de
+cuenta: el cajón donde acaban escondidas las tres que sí se arreglan.
+
+Así que en la pestaña de **Cuentas** el por qué **no se pregunta**. Se deriva, con
+este mismo clasificador, de las operaciones que esa cuenta tiene en el journal:
+
+| | qué dice |
+|---|---|
+| las categorías de sus pérdidas | las mismas cuatro, sobre las operaciones de esa cuenta |
+| **cuánto del agujero es tuyo** | lo perdido en operaciones de categoría **2 y 3** contra lo perdido en limpio |
+| lo que más se repitió | la señal más frecuente de esa cuenta |
+| **el patrón entre todas tus quemadas** | en cuántas cuentas aparece cada señal |
+
+La cifra que decide algo es la segunda, porque separa las dos conclusiones que
+piden arreglos distintos:
+
+- **≥60% del agujero en operaciones con error** → no la quemó el mercado.
+  Comprar otra cuenta sin cambiar eso compra el mismo resultado.
+- **≤25%** → fueron pérdidas limpias. Eso no se arregla con disciplina: se mira
+  la esperanza de esos setups, y si es negativa el setup es el problema.
+- **en medio** → las dos cosas a la vez, y se dice así.
+
+Y **el patrón cuenta cuentas, no veces**: cien «sin stop» en una sola cuenta son
+un mal día largo; «sin stop» en cuatro cuentas de cinco es la razón por la que se
+van quemando. Con una sola cuenta quemada la pestaña dice que no hay patrón —
+hay un caso.
+
+### Lo único que se pregunta, y por qué son dos cosas distintas
+
+- **La fecha en que se quemó** es un hecho que la app no puede derivar: una
+  cuenta puede quemarse un día sin operaciones registradas. Ausente significa
+  «no apuntada», y no se rellena con la del último trade (protocolo 17).
+- **La lección escrita a mano** es tu versión, se pinta etiquetada como tal y
+  **no entra en ningún cálculo**. Va deliberadamente al lado de la autopsia
+  derivada: cuando las dos no dicen lo mismo, eso se ve — y ver eso es para lo
+  que sirve la pestaña. La de arriba es la que tiene pruebas.
+
+Lo que **no** se pregunta, además del motivo: lo que costó la cuenta ya está en
+el `ledger`, y **si no hay ni un movimiento de coste apuntado, lo pagado es
+desconocido, no cero**. Un `$0` ahí diría que las cuentas fueron gratis, que es
+una mentira que además sale a favor del usuario.
+
+Verificado en `test/ciclo.mjs`: 48 aserciones con los números calculados a mano
+antes del código, y seis sabotajes que la ponen en rojo —uno de ellos, el que
+inventaba la fecha de compra con la del primer trade, la dejó **en verde** la
+primera vez y obligó a añadir la aserción que faltaba.

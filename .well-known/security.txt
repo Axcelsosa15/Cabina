@@ -1,0 +1,17 @@
+# Cabina · https://axcelsosa15.github.io/Cabina/
+# Cómo reportar una vulnerabilidad. RFC 9116.
+# No se publica una dirección de correo personal a propósito: el canal privado
+# de GitHub deja el reporte cifrado en tránsito y con un hilo donde responder.
+#
+# DONDE ESTA ESTE FICHERO, Y DONDE DICE LA RFC QUE TENDRIA QUE ESTAR. La RFC
+# 9116 lo quiere en la RAIZ del dominio, y esta pagina vive en un proyecto de
+# GitHub Pages: la raiz es axcelsosa15.github.io, que no es nuestra. Asi que un
+# escaner que busque la ruta canonica NO va a encontrar esto. Se publica igual
+# porque la pagina de seguridad lo enlaza y porque el dia que haya dominio
+# propio el fichero ya esta escrito; lo que no se hace es fingir que cumple.
+
+Contact: https://github.com/Axcelsosa15/Cabina/security/advisories/new
+Expires: 2027-10-28T00:00:00.000Z
+Preferred-Languages: es, en
+Canonical: https://axcelsosa15.github.io/Cabina/.well-known/security.txt
+Policy: https://axcelsosa15.github.io/Cabina/seguridad.html

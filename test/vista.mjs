@@ -1,8 +1,8 @@
-/* VISTA · que ninguna de las OCHO pestanas se salga de la pantalla.
+/* VISTA · que ninguna de las NUEVE pestanas se salga de la pantalla.
 
    `diseno.mjs` mide una sola pestana a 1600x1200: espaciado, tipos, contraste. Esto
    mide algo mas tonto y mas facil de romper -- si la pagina desborda en horizontal --
-   en las OCHO pestanas y en tres anchos, incluido un telefono de 430px.
+   en las NUEVE pestanas y en siete anchos, desde 320px hasta escritorio.
 
    Dos cosas que NO cuentan como desborde, y por que:
 
@@ -17,26 +17,34 @@
    paso una vez con `.accts` y `minmax(620px, 1fr)` en un telefono de 430px, que
    cortaba cifras por la derecha. */
 import { chromium } from 'playwright';
-import { createServer } from 'node:http';
+import { sirvePublicado } from './publicado.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
-const html = readFileSync(join(raiz, 'index.html'));
-const srv = createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html); });
+/* SERVIA index.html PARA CUALQUIER RUTA, y eso dejo de ser inocuo el dia que la
+   pagina pidio `./sw.js`: el navegador recibia HTML donde esperaba un script y
+   lo rechazaba por MIME, en los seis viewports a la vez. Ahora sirve lo que
+   publica Pages —leido del workflow, ver publicado.mjs— y 404 para lo demas. */
+const srv = sirvePublicado();
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${srv.address().port}/`;
 const b = await chromium.launch();
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
-/* LAS OCHO, no siete. `estudio` faltaba desde que se anadio la pestana, asi que
-   el comportamiento responsive de la pestana de la que sale el lenguaje visual de
-   toda la cabina no se medía en ningun ancho -- y la compuerta anunciaba esta fila
-   como «ninguna de las siete pestanas se sale de la pantalla». Son ocho botones en
-   #tabnav: cabina, futuros, edge, invest, playbook, ideas, estudio, calc.
-   Como las demas, se mide en su estado VACIO: este archivo no siembra datos. */
-const TABS = ['cabina', 'futuros', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc'];
-const ANCHOS = [[1440, 900, 'escritorio'], [834, 1000, 'tableta'], [430, 900, 'telefono']];
+/* LAS DIEZ, y la lista se escribe a mano a proposito: cada vez que se anade una
+   pestana hay que venir aqui, y eso es la unica razon por la que se nota.
+   `estudio` falto desde que se creo, asi que el comportamiento responsive de la
+   pestana de la que sale el lenguaje visual de toda la cabina no se medía en
+   ningun ancho -- y la compuerta anunciaba la fila como «ninguna de las siete
+   pestanas se sale de la pantalla» cuando median seis.
+   Son diez botones en #tabnav: cabina, futuros, cuentas, edge, invest,
+   historial, playbook, ideas, estudio, calc.
+   `cuentas` se mide VACIA como las demas -- este archivo no siembra datos --, y
+   vacia tiene tres tablas que en 430px son justo lo que se desborda si alguien
+   les quita el `.twrap`. `historial` tambien: su barra lleva siete controles y
+   su tabla diez columnas, que es lo que se sale si pierde el suyo. */
+const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc'];
+const ANCHOS = [[1440, 900, 'escritorio'], [834, 1000, 'tableta'], [430, 900, 'telefono'], [390, 844, 'iPhone 390'], [375, 812, 'iPhone 375'], [360, 780, 'telefono 360'], [320, 700, 'telefono 320']];
 
 const mide = p => p.evaluate(() => {
   const de = document.documentElement;
@@ -93,14 +101,126 @@ for (const [w, h, nombre] of ANCHOS) {
   await p.goto(BASE, { waitUntil: 'load' });
   await p.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
   await p.waitForTimeout(1500);
+  if (w <= 430) {
+    const mobile = await p.evaluate(() => {
+      const nav = document.getElementById('tabnav');
+      const quick = document.getElementById('quickBtn');
+      const nr = nav?.getBoundingClientRect();
+      const qr = quick?.getBoundingClientRect();
+      return {
+        navPosition: nav ? getComputedStyle(nav).position : '',
+        navAtBottom: !!nr && Math.abs(window.innerHeight - nr.bottom) <= 2,
+        navVisible: !!nr && nr.width >= window.innerWidth - 2 && nr.height >= 60,
+        quickPosition: quick ? getComputedStyle(quick).position : '',
+        quickAboveNav: !!qr && !!nr && qr.bottom <= nr.top + 2,
+        overlayAboveNav: Number.parseInt(getComputedStyle(document.getElementById('quickOv')).zIndex, 10) > Number.parseInt(getComputedStyle(nav).zIndex, 10),
+        visibleNavItems: nav ? [...nav.querySelectorAll('.tabbtn, #mobileMoreBtn')].filter(x => getComputedStyle(x).display !== 'none').length : 0,
+        moreVisible: !!document.getElementById('mobileMoreBtn') && getComputedStyle(document.getElementById('mobileMoreBtn')).display !== 'none',
+        minTouchHeight: nav ? Math.min(...[...nav.querySelectorAll('.tabbtn, #mobileMoreBtn')].filter(x => getComputedStyle(x).display !== 'none').map(x => x.getBoundingClientRect().height)) : 0,
+        pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        cameraCapture: document.getElementById('tradeCameraFile')?.getAttribute('capture') || '',
+        cameraAccept: document.getElementById('tradeCameraFile')?.getAttribute('accept') || '',
+        galleryInput: !!document.getElementById('tradeFile')
+      };
+    });
+    ok(mobile.navPosition === 'fixed' && mobile.navAtBottom && mobile.navVisible,
+       'navegación inferior fija y visible', JSON.stringify({position:mobile.navPosition,bottom:mobile.navAtBottom,visible:mobile.navVisible}));
+    ok(mobile.quickPosition === 'fixed' && mobile.quickAboveNav,
+       'registro rápido accesible sobre la navegación', JSON.stringify({position:mobile.quickPosition,above:mobile.quickAboveNav}));
+    ok(mobile.overlayAboveNav, 'diálogo de registro por encima de la navegación', String(mobile.overlayAboveNav));
+    ok(mobile.cameraCapture === 'environment' && mobile.cameraAccept === 'image/*' && mobile.galleryInput,
+       'capturas móviles ofrecen cámara trasera y mantienen galería',
+       JSON.stringify({capture:mobile.cameraCapture,accept:mobile.cameraAccept,gallery:mobile.galleryInput}));
+    ok(mobile.visibleNavItems === 5 && mobile.moreVisible, 'barra inferior compacta con cuatro destinos y Más', JSON.stringify({items:mobile.visibleNavItems,more:mobile.moreVisible}));
+    await p.click('#mobileMoreBtn');
+    await p.waitForFunction(() => !document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
+    /* EL NÚMERO SALÍA DE LA ASERCIÓN, Y CADUCÓ A LA PRIMERA PESTAÑA NUEVA.
+       Decía `=== 5` y con el historial son seis: una cuenta dentro de una
+       aserción se pone roja por CRECER, no por romperse, y este archivo ya
+       lleva dos rótulos caducados documentados por la misma razón.
+       La propiedad que de verdad importa no es «son cinco»: es que TODA
+       pestaña que la barra inferior esconde se pueda alcanzar desde «Más».
+       Una pestaña nueva que nadie meta en ninguna de las dos listas queda
+       invisible en un teléfono, y eso es lo que se mide. El suelo de uno
+       queda porque un selector roto devolvería dos conjuntos vacíos y la
+       igualdad se cumpliría sin haber mirado nada. */
+    const menu = await p.evaluate(() => {
+      const nav = document.getElementById('tabnav');
+      const ocultas = [...nav.querySelectorAll('.tabbtn')]
+        .filter(b => getComputedStyle(b).display === 'none')
+        .map(b => b.dataset.tab).sort();
+      const enMas = [...document.querySelectorAll('#mobileMoreOv [data-mobile-more-tab]')]
+        .map(b => b.dataset.mobileMoreTab).sort();
+      return { ocultas, enMas };
+    });
+    ok(menu.enMas.length > 0 && menu.ocultas.join('|') === menu.enMas.join('|'),
+       'toda pestaña que la barra esconde se alcanza desde «Más»',
+       `escondidas [${menu.ocultas}] · en Más [${menu.enMas}]`);
+    await p.keyboard.press('Shift+Tab');
+    await p.waitForFunction(() => document.activeElement?.dataset?.mobileMoreTab === 'calc', null, { timeout: 5000 });
+    ok(true, 'el foco queda dentro del menú al retroceder desde el primer control');
+    await p.keyboard.press('Tab');
+    await p.waitForFunction(() => document.activeElement?.id === 'mobileMoreClose', null, { timeout: 5000 });
+    ok(true, 'el foco vuelve al primer control al avanzar desde el último');
+    await p.keyboard.press('Escape');
+    await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden && document.activeElement?.id === 'mobileMoreBtn' && document.getElementById('mobileMoreBtn')?.getAttribute('aria-expanded') === 'false', null, { timeout: 5000 });
+    ok(true, 'Escape cierra Más y devuelve el foco al botón');
+    await p.click('#mobileMoreBtn');
+    await p.waitForFunction(() => !document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
+    await p.click('#mobileMoreOv [data-mobile-more-tab="calc"]');
+    await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden && document.querySelector('#tabnav .tabbtn[data-tab="calc"]')?.classList.contains('active'), null, { timeout: 5000 });
+    ok(await p.locator('#mobileMoreOv').evaluate(el => getComputedStyle(el).display === 'none'),
+       'el menú Más deja de interceptar toques al cerrarse', 'display:none');
+    ok(await p.locator('#mobileMoreBtn').evaluate(el => el.classList.contains('active')), 'Más indica cuando una sección secundaria está activa');
+    ok(await p.locator('#mobileMoreOv [data-mobile-more-tab="calc"]').getAttribute('aria-current') === 'page', 'el menú anuncia accesiblemente la sección actual');
+    ok(mobile.minTouchHeight >= 44, 'objetivos táctiles de navegación ≥44px', String(mobile.minTouchHeight) + 'px');
+    ok(mobile.pageOverflow <= 2, 'documento sin desborde horizontal', String(mobile.pageOverflow) + 'px');
+    await p.click('#quickBtn');
+    await p.waitForFunction(() => document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
+    ok(await p.locator('#qkText').evaluate(el => document.activeElement === el), 'registro rápido enfoca el campo principal');
+    ok(await p.locator('#quickBtn').getAttribute('aria-expanded') === 'true', 'el botón anuncia que el diálogo está abierto');
+    await p.locator('#qkClose').focus();
+    await p.keyboard.press('Shift+Tab');
+    ok(await p.locator('#quickOv').evaluate(el => el.contains(document.activeElement) && document.activeElement.id !== 'qkClose'), 'el foco retrocede en ciclo dentro de Registro rápido');
+    await p.keyboard.press('Tab');
+    ok(await p.locator('#qkClose').evaluate(el => document.activeElement === el), 'el foco avanza en ciclo dentro de Registro rápido');
+    await p.keyboard.press('Escape');
+    await p.waitForFunction(() => !document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
+    ok(await p.locator('#quickBtn').evaluate(el => document.activeElement === el && el.getAttribute('aria-expanded') === 'false'), 'Escape cierra Registro rápido y devuelve el foco');
+    await p.click('#quickBtn');
+    await p.waitForFunction(() => document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
+    await p.fill('#qkText', 'MNQ +12');
+    await p.waitForFunction(() => !document.getElementById('qkSave')?.disabled, null, { timeout: 5000 });
+    const quickPreview = await p.locator('#qkPrev').innerText();
+    ok(/MNQ/.test(quickPreview) && /12/.test(quickPreview), 'registro rápido funciona en móvil', quickPreview.replace(/\\s+/g, ' ').slice(0, 80));
+    await p.click('#qkClose');
+    await p.waitForFunction(() => !document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
+    await p.click('#quickBtn');
+    await p.waitForFunction(() => document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
+    await p.click('#qkModoNota');
+    await p.click('#qkClose');
+    await p.waitForFunction(() => !document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
+    await p.click('#quickBtn');
+    await p.waitForFunction(() => document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
+    ok(await p.locator('#qkNota').evaluate(el => document.activeElement === el), 'el modo Nota enfoca su campo al reabrir');
+    await p.keyboard.press('Escape');
+    await p.waitForFunction(() => !document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
+  }
   console.log(`\n  ── ${nombre} ${w}×${h} ──────────────────────────────`);
   for (const t of TABS) {
-    await p.click(`[data-tab="${t}"]`); await p.waitForTimeout(320);
+    if (w <= 430 && ['cuentas', 'edge', 'playbook', 'ideas', 'calc'].includes(t)) {
+      await p.click('#mobileMoreBtn');
+      await p.click('#mobileMoreOv [data-mobile-more-tab="' + t + '"]');
+      await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
+    } else {
+      await p.click(`[data-tab="${t}"]`);
+    }
+    await p.waitForTimeout(320);
     const m = await mide(p);
     ok(m.scrollX <= 2 && !m.peor, `${t.padEnd(9)} sin desborde horizontal`,
        m.peor ? `${m.peor.tag}${m.peor.id ? '#' + m.peor.id : ''}.${m.peor.cls} se sale ${m.peor.exceso}px` : `scrollX ${m.scrollX}`);
   }
-  /* ESTUDIO CON CONTENIDO, no sólo vacía. El resto de este archivo mide las ocho
+  /* ESTUDIO CON CONTENIDO, no sólo vacía. El resto de este archivo mide las nueve
      pestañas sin sembrar, así que la rejilla de ESTUDIO se medía siempre con su
      estado vacío -- y el estado vacío es justo el que NO puede desbordar, porque
      `.study-empty` ocupa la fila entera. El riesgo vive en `.study-card`.

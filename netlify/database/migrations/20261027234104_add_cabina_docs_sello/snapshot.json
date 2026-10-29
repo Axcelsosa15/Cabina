@@ -1,0 +1,165 @@
+{
+  "id": "baee9b32-c12e-4c69-beab-10b7d7d45de4",
+  "prevIds": [
+    "87561d9c-bc47-4819-87be-a9ff44121b16"
+  ],
+  "version": "8",
+  "dialect": "postgres",
+  "ddl": [
+    {
+      "isRlsEnabled": false,
+      "name": "cabina_docs",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cabina_docs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "path",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cabina_docs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": {
+        "as": "regexp_replace(path, '/[^/]+$', '')",
+        "type": "stored"
+      },
+      "identity": null,
+      "name": "coll",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cabina_docs"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "name": "data",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cabina_docs"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cabina_docs"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "name": "version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cabina_docs"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "coll",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "cabina_docs_coll",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "cabina_docs"
+    },
+    {
+      "columns": [
+        "user_id",
+        "path"
+      ],
+      "nameExplicit": false,
+      "name": "cabina_docs_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "cabina_docs"
+    },
+    {
+      "value": "char_length(\"path\") <= 1000 and \"path\" ~ '^[A-Za-z0-9_.~:@+-]+(/[A-Za-z0-9_.~:@+-]+)+$'",
+      "name": "cabina_docs_path_forma",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "cabina_docs"
+    },
+    {
+      "value": "jsonb_typeof(\"data\") = 'object'",
+      "name": "cabina_docs_data_objeto",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "cabina_docs"
+    },
+    {
+      "value": "pg_column_size(\"data\") <= 262144",
+      "name": "cabina_docs_data_tamano",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "cabina_docs"
+    },
+    {
+      "value": "\"version\" >= 1",
+      "name": "cabina_docs_version_positiva",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "cabina_docs"
+    }
+  ],
+  "renames": []
+}

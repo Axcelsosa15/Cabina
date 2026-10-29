@@ -65,7 +65,12 @@ console.log('\n═══ 2 · nadie se salta la memoria ═══');
 
    Los *Crudo son el cálculo caro. Sólo su envoltorio memorizado debe llamarlos:
    una llamada directa recalcula la curva entera de una cuenta sin necesidad. */
-for (const crudo of ['acctAggCrudo', 'futStatsCrudo']) {
+/* `autopsiaCruda` entra en la lista porque es la mas caja de las tres:
+   `clasificaErrores` recorre TODAS las operaciones para medir la esperanza de
+   cada setup, no solo las de la cuenta que se examina. Un render de la pestaña
+   de Cuentas la pedia dos veces por cuenta quemada -- el patron y la autopsia --
+   y la pestaña se repinta con cada operacion que se guarda. */
+for (const crudo of ['acctAggCrudo', 'futStatsCrudo', 'autopsiaCruda']) {
   const n = llamadas(crudo);
   ok(n === 1, `${crudo} se llama sólo desde su memoria`, `${n} llamada(s)`);
 }
@@ -144,6 +149,16 @@ const huella = (codigo.match(/JSON\.stringify\(\[a\.[^\]]*\]\)/) || [''])[0];
 const fuera = leidos.filter(f => !huella.includes('a.' + f));
 ok(fuera.length === 0, 'la huella cubre todo lo que acctAgg lee de la cuenta',
    fuera.length ? 'fuera de la huella: ' + fuera.join(', ') : leidos.join(', '));
+
+/* Y la de la autopsia: lee las operaciones a traves de `clasificaErrores`, asi
+   que su clave tiene que depender de la revision de la coleccion. Sin eso, una
+   operacion nueva no cambiaba de que murio la cuenta hasta recargar -- que es
+   justo el numero viejo que §4 y §5 existen para cazar. */
+const claveAut = cuerpoDe('autopsiaDe');
+ok(/coll\("trades"\)\.rev/.test(claveAut), 'la memoria de la autopsia depende de coll("trades").rev',
+   /coll\("trades"\)\.rev/.test(claveAut) ? '' : 'su clave no mira las operaciones');
+ok(/autoFeesOn\(\)/.test(claveAut), 'y de las comisiones automaticas, que cambian el P&L',
+   /autoFeesOn\(\)/.test(claveAut) ? '' : 'una comision nueva no recalcularia el signo de la esperanza');
 
 console.log('\n═══ 6 · inversiones: un rendimiento, una fuente ═══');
 /* §6 — Inversiones: un solo rendimiento.
@@ -347,6 +362,27 @@ for (const f of tests) {
 }
 ok(flojos.length === 0, 'ninguna recarga ni lectura de disco con <600 ms detrás',
    flojos.length ? flojos.slice(0, 4).join(' · ') + ' — usa enDisco()' : `hay dos debounces: el día 400 ms, los ajustes 500 ms`);
+
+/* Y QUE `enDisco` SIRVA DE VERDAD, porque la regla de arriba manda usarlo.
+   Mandaba el predicado a la pagina como texto y lo revivia con `eval`, dentro
+   de un `catch` que devolvia `false`. La CSP de index.html es `script-src
+   'unsafe-inline'` SIN `'unsafe-eval'`: el `eval` lanzaba `EvalError`, el
+   `catch` se lo tragaba, y la espera expiraba con el dato YA escrito en disco
+   -- medido imprimiendo el error desde dentro del propio sondeo. Peor aun: no
+   era determinista, pasaba en una pagina recien abierta y fallaba despues de
+   usar el editor, que es la forma mas cara de fallar.
+   Un ayudante que la §10 obliga a usar no puede depender de algo que la propia
+   pagina prohibe. Se sondea desde Node y el predicado no viaja. */
+const espera = leer(join(dirTest, 'espera.mjs'), 'utf8');
+const cuerpoEnDisco = (espera.match(/export const enDisco[\s\S]*?\n};/) || [''])[0];
+ok(cuerpoEnDisco !== '' && !/\beval\s*\(/.test(cuerpoEnDisco),
+   'enDisco no usa eval: la CSP de la página lo prohíbe y el fallo se tragaba',
+   cuerpoEnDisco === '' ? 'no se encontró enDisco' : /\beval\s*\(/.test(cuerpoEnDisco) ? 'volvió el eval' : 'sondea desde Node');
+/* Y que la CSP que lo prohibe siga ahi: si alguien añadiera 'unsafe-eval' la
+   regla de arriba dejaria de tener motivo, y hay que enterarse. */
+ok(/script-src 'unsafe-inline'/.test(codigo) && !/unsafe-eval/.test(codigo),
+   "la CSP sigue sin 'unsafe-eval', que es lo que hace necesaria la regla de arriba",
+   /unsafe-eval/.test(codigo) ? "apareció 'unsafe-eval' en la CSP" : "script-src 'unsafe-inline'");
 
 console.log('\n═══ 11 · el borrado en masa pasa por una sola puerta ═══');
 /* §11 — Nadie saca una cuenta fuera de la fachada.

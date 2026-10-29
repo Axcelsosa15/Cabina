@@ -7,18 +7,15 @@
    Levanta su propio servidor: sin puerto fijo (0 = el sistema elige, así dos
    corridas en paralelo no se pisan) y sirviendo sólo lo que Pages publica. */
 import { chromium } from 'playwright';
-import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { sirvePublicado } from './publicado.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
-const pagina = readFileSync(join(raiz, 'index.html'));
-const srv = createServer((req, res) => {
-  if (req.url === '/' || req.url === '/index.html') {
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(pagina);
-  } else { res.writeHead(404); res.end('no'); }
-});
+/* La lista de lo publicado se lee del workflow, no se escribe aqui: ver
+   publicado.mjs. Una ruta que Pages no publique sigue dando 404, que es lo que
+   hace util a esta prueba. */
+const srv = sirvePublicado();
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${srv.address().port}/`;
 

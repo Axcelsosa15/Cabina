@@ -51,14 +51,19 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SEMILLA } from './espera.mjs';
+import { SEMILLA, asentado } from './espera.mjs';
 
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(raiz, 'index.html'), 'utf8');
-const TABS = ['cabina', 'futuros', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc'];
+/* LAS DIEZ. Esta lista, la de `vista`, la de `idioma` y la de `seguridad` se
+   escriben a mano, y cada una se quedó corta en su momento: `estudio` faltaba
+   desde que se creó, `cuentas` desde el ciclo de vida, `historial` desde que
+   las dos familias se juntaron en una tabla. Añadir una pestaña es venir a las
+   cuatro; que haya que venir es la señal, no la molestia. */
+const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc'];
 
 /* nombre → [selector, propiedades]. El selector excluye las variantes
    semánticas; `.panel .body` excluye los calendarios por su contenedor. */
@@ -96,59 +101,47 @@ for (const t of TABS) {
     const el = document.querySelector(`.tab[data-tab="${x}"]`);
     return el && el.classList.contains('active');
   }, t, { timeout: 10000 });
-  /* ESPERAR A QUE EL COLOR DEJE DE MOVERSE, NO A QUE LA PESTAÑA ESTÉ ACTIVA.
-     `.tab.active` sólo dice que el panel se mostró; las transiciones de CSS
-     siguen corriendo encima. Muestreado ahí, `getComputedStyle` devuelve un
-     punto A MEDIO INTERPOLAR: se han leído `rgb(12, 17, 24)` y
-     `rgba(12, 18, 25, 0.996)` en los campos numéricos — valores que no están
-     en ninguna hoja de estilo, y una alfa de 0,996 no es una decisión de
-     diseño de nadie. La prueba caía entonces con «dos definiciones» de la
-     misma primitiva que en realidad eran la misma, fotografiada dos veces
-     durante el viaje.
+  /* UNA CLASE YA CAMBIADA NO ES UNA TRANSICION YA TERMINADA.
+     `.tab.active` se pone de golpe, pero los elementos que hay debajo llevan
+     `transition`, asi que medir aqui lee colores A MEDIO INTERPOLAR. No es
+     teorico: CI reporto `rgb(12,18,24)` en los campos numericos, un valor que
+     NO ESTA en la hoja de estilo -- estan #0c1219 (12,18,25) y #0c1118
+     (12,17,24) --, o sea un punto entre los dos. Verde aqui y rojo en CI, que
+     es mas rapida y cae dentro de la transicion.
+     Ya paso una vez y se arreglo quitando UNA fuente de perturbacion (las
+     escrituras de `dataset` de la capa de idioma, ver index.html). Eso dejo la
+     carrera en pie: cualquier cambio que mueva el reloj del arranque la vuelve
+     a destapar, y volvio con una pestaña nueva. Se espera a las animaciones de
+     los PROPIOS elementos que se van a muestrear, que es lo que `asentado`
+     hace y lo que `vacios.mjs` ya hacia con el mismo sintoma.
 
-     `idioma.mjs` ya documenta este fallo desde el otro lado: quitó unas
-     escrituras en el DOM que reiniciaban las transiciones justo en esta
-     ventana. Lo que faltaba es esto, y es la misma regla que el resto de la
-     suite — esperar a la CONDICIÓN, no al reloj ni a una clase. Aquí la
-     condición es «el valor dejó de moverse»: dos muestras seguidas iguales,
-     separadas por un fotograma.
-
-     NO AFLOJA LO QUE SE MIDE. Dos primitivas con colores de verdad distintos
-     siguen dando dos valores asentados y la fila sigue roja; lo único que
-     desaparece es el tercer valor que no existía. */
-  const r = await pag.evaluate(async ([tab, PRIM]) => {
+     ESTA RAMA LLEVABA SU PROPIO ARREGLO DE LA MISMA CARRERA —muestrear dos
+     veces separadas por un fotograma hasta que el valor dejara de moverse— y
+     al fusionar se queda el de `main`: espera a las animaciones de los
+     elementos concretos en vez de sondear, el ayudante vive en `espera.mjs`
+     donde `vacios.mjs` ya lo usa, y dos arreglos de una misma carrera son
+     exactamente la clase de duplicado que este repositorio persigue. */
+  await asentado(pag, Object.values(PRIM).map(([sel]) => `.tab[data-tab="${t}"] ${sel}`).join(', '));
+  const r = await pag.evaluate(([tab, PRIM]) => {
     const raiz = document.querySelector(`.tab[data-tab="${tab}"]`);
-    const leer = () => {
-      const out = {};
-      for (const [nombre, [sel, props]] of Object.entries(PRIM)) {
-        out[nombre] = [];
-        if (!raiz) continue;
-        for (const el of raiz.querySelectorAll(sel)) {
-          if (!el.offsetParent) continue;
-          const q = el.getBoundingClientRect();
-          if (!q.width || !q.height) continue;
-          const cs = getComputedStyle(el);
-          /* El color de un borde que no se dibuja no es un valor del sistema. */
-          if (nombre === 'celda con borde' && parseFloat(cs.borderBottomWidth) === 0) continue;
-          out[nombre].push({
-            id: `${el.tagName.toLowerCase()}${el.className ? '.' + String(el.className).trim().split(/\s+/).slice(0, 2).join('.') : ''}`,
-            v: Object.fromEntries(props.map(p => [p, cs.getPropertyValue(p)])),
-          });
-        }
+    const out = {};
+    for (const [nombre, [sel, props]] of Object.entries(PRIM)) {
+      out[nombre] = [];
+      if (!raiz) continue;
+      for (const el of raiz.querySelectorAll(sel)) {
+        if (!el.offsetParent) continue;
+        const q = el.getBoundingClientRect();
+        if (!q.width || !q.height) continue;
+        const cs = getComputedStyle(el);
+        /* El color de un borde que no se dibuja no es un valor del sistema. */
+        if (nombre === 'celda con borde' && parseFloat(cs.borderBottomWidth) === 0) continue;
+        out[nombre].push({
+          id: `${el.tagName.toLowerCase()}${el.className ? '.' + String(el.className).trim().split(/\s+/).slice(0, 2).join('.') : ''}`,
+          v: Object.fromEntries(props.map(p => [p, cs.getPropertyValue(p)])),
+        });
       }
-      return out;
-    };
-    const fotograma = () => new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
-    /* Tope duro de un segundo: una transición que no termine nunca tiene que
-       salir como prueba lenta, no como prueba colgada. */
-    let prev = JSON.stringify(leer());
-    for (let i = 0; i < 60; i++) {
-      await fotograma();
-      const cur = JSON.stringify(leer());
-      if (cur === prev) break;
-      prev = cur;
     }
-    return JSON.parse(prev);
+    return out;
   }, [t, PRIM]);
   for (const [nombre, lista] of Object.entries(r)) {
     mapa[nombre] = mapa[nombre] || {};

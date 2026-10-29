@@ -71,40 +71,74 @@ jobs:
         run: npx playwright install chromium
 
       - name: Dependencias del sistema para Chromium
-        timeout-minutes: 12
+        # 18 min es el TOPE DURO del runner, y no debería dispararse nunca: el
+        # presupuesto interno son 15 min y se respeta solo. Si este tope salta,
+        # es que el presupuesto dejó de cuadrar otra vez — ver abajo.
+        timeout-minutes: 18
         run: |
           # SE ESPERA EL LOCK, NO SE DUERME A CIEGAS.
           #
-          # Qué falló: la corrida de `c4b6557` en main agotó los tres intentos
-          # con «E: Unable to acquire the dpkg frontend lock». La imagen del
-          # runner arranca `unattended-upgrades`, que puede retener ese lock
-          # varios minutos; los sleeps de 20/40/60 s suman ~2 min y se quedaron
-          # cortos. Consecuencia: el paso de la compuerta quedó SKIPPED, main se
-          # puso rojo sin que corriera UNA SOLA prueba, y `pagina.yml` no
-          # desplegó. Un rojo que no mide nada es el peor tipo de rojo: cuesta
-          # lo mismo que uno real y no dice nada.
+          # Qué falló la primera vez: la corrida de `c4b6557` en main agotó los
+          # tres intentos con «E: Unable to acquire the dpkg frontend lock». La
+          # imagen del runner arranca `unattended-upgrades`, que puede retener
+          # ese lock varios minutos; los sleeps de 20/40/60 s suman ~2 min y se
+          # quedaron cortos. Consecuencia: el paso de la compuerta quedó
+          # SKIPPED, main se puso rojo sin que corriera UNA SOLA prueba, y
+          # `pagina.yml` no desplegó. Un rojo que no mide nada es el peor tipo
+          # de rojo: cuesta lo mismo que uno real y no dice nada.
           #
-          # Dormir no es esperar: se pregunta por el lock y sólo se intenta
-          # cuando está libre. Lo que NO cambia es el final — si apt no
-          # responde, el paso sigue fallando duro y no se desactiva nada. La
-          # suite no corre con dependencias a medias.
+          # Y QUÉ FALLÓ LA SEGUNDA, que es por lo que esto está reescrito. El
+          # arreglo de entonces —esperar el lock hasta 6 min— se sumó a los
+          # tres intentos sin recalcular el tope del paso, que seguía en 12 min:
+          #
+          #     3 intentos × (360 s de espera + 180 s de apt) + 60 s de sleeps
+          #       = hasta 1680 s   contra un tope de 720 s
+          #
+          # O sea que el intento 3 NUNCA podía llegar a ejecutarse, y el paso no
+          # fallaba: lo MATABA el runner a mitad de una espera. Medido en la
+          # corrida 40310728511: aviso del intento 2 a las 11:03:11 y muerte por
+          # tope a las 11:06:01, dentro de la espera del intento 3. Un «timed
+          # out after 12 minutes» no dice qué pasaba; el log de arriba sí.
+          #
+          # Por eso ahora hay UN SOLO PRESUPUESTO y todo lo demás se deriva de
+          # él: cada espera se corta contra lo que queda, así que el total no
+          # puede pasarse por construcción. Añadir un cuarto intento no vuelve a
+          # romper la aritmética — sencillamente no cabrá, y lo dirá.
+          #
+          # Lo que NO cambia es el final: si apt no responde, el paso falla duro
+          # y no se desactiva nada. La suite no corre con dependencias a medias.
+          PRESUPUESTO=900   # 15 min para TODO este paso
+          MARGEN=60         # por debajo de esto no se empieza algo que no cabe
+          PASO=5            # cada cuánto se pregunta por el lock
+          APT_TOPE=180      # lo máximo que se le da a un intento de apt
+          FIN=$(( SECONDS + PRESUPUESTO ))
+          restante() { echo $(( FIN - SECONDS )); }
+          lock_tomado() {
+            sudo fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock >/dev/null 2>&1
+          }
           espera_lock() {
-            for _ in $(seq 1 72); do
-              if ! sudo fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock >/dev/null 2>&1; then
-                return 0
-              fi
-              sleep 5
+            while [ "$(restante)" -gt "$MARGEN" ]; do
+              lock_tomado || return 0
+              sleep "$PASO"
             done
-            echo "::warning::el lock de dpkg sigue tomado tras 6 min; se intenta de todos modos"
+            echo "::warning::el lock de dpkg sigue tomado y quedan $(restante) s de presupuesto; se intenta de todos modos"
           }
           for i in 1 2 3; do
+            if [ "$(restante)" -le "$MARGEN" ]; then
+              echo "::warning::sin presupuesto para el intento $i; no se empieza algo que no cabe"
+              break
+            fi
             espera_lock
-            if timeout 180 npx playwright install-deps chromium; then exit 0; fi
-            echo "::warning::intento $i de apt fallado o colgado; reintento en $((i * 20)) s"
-            sleep $((i * 20))
+            t=$(restante); [ "$t" -gt "$APT_TOPE" ] && t=$APT_TOPE
+            if timeout "$t" npx playwright install-deps chromium; then exit 0; fi
+            espera=$(( i * 20 )); r=$(( $(restante) - MARGEN ))
+            [ "$r" -lt 0 ] && r=0
+            [ "$espera" -gt "$r" ] && espera=$r
+            echo "::warning::intento $i de apt fallado o colgado; reintento en $espera s"
+            sleep "$espera"
           done
-          echo "::error::apt no respondió en tres intentos. No se desactiva nada:"
-          echo "::error::si a Chromium le falta una biblioteca, la suite lo dirá al arrancar."
+          echo "::error::apt no respondió dentro del presupuesto de $PRESUPUESTO s, y el paso no midió nada."
+          echo "::error::No se desactiva nada: si a Chromium le falta una biblioteca, la suite lo dirá al arrancar."
           exit 1
 
       # npm run compuerta, no npm test: la compuerta LANZA la suite una sola vez
