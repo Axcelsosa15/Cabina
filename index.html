@@ -1390,7 +1390,7 @@ tbody tr:last-child td{border-bottom:0}
   /* registrar una operación sin salir de la Cabina */
   .qt { margin:16px 0 0; padding:12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); }
   .qt > .lab { display: block; margin-bottom:8px; }
-  .qgrid { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1.4fr) auto; gap:8px; align-items: center; }
+  .qgrid { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1.15fr) minmax(0,1.2fr) auto; gap:8px; align-items: center; }
   .qgrid input, .qgrid select { width: 100%; }
   .qgrid input { font-family: var(--font-mono); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
   .qgrid .btn { white-space: nowrap; }
@@ -2354,6 +2354,7 @@ tbody tr:last-child td{border-bottom:0}
           <div class="qgrid">
             <div><input type="text" id="qtSym" placeholder="MNQ, VTI, BTC, O…" aria-label="Instrumento"></div>
             <div><select id="qtDest" aria-label="Destino"></select></div>
+            <div><label class="lab" for="qtAccount">Cuenta</label><select id="qtAccount" aria-label="Cuenta de esta operación" title="La cuenta se asigna a esta operación, no a toda la sesión"></select></div>
             <div><button type="button" class="btn primary" id="qtGo">+ Registrar</button></div>
           </div>
           <p class="synced" id="qtNote"></p>
