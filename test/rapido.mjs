@@ -294,8 +294,217 @@ ok(nota.enPantalla != null && /respete el plan/.test(nota.enPantalla),
    'la nota acaba en el campo de la nota del dia que ya existia',
    `«${String(nota.enPantalla).slice(0, 60)}»`);
 
+/* ===================================================================== */
+console.log('\n═══ EL PLAN EN LA MISMA LINEA · lo que antes obligaba a abrir el formulario ═══');
+/* Hasta aqui la linea solo podia llevar instrumento, direccion y resultado, asi
+   que la operacion se guardaba SIN entrada ni stop y el motor no podia dar la R
+   ni el riesgo. Lo decia honradamente —«R y riesgo quedan vacios»— pero el unico
+   camino para tenerlos era el formulario de 28 campos, que es exactamente la
+   razon por la que una operacion no se registra cuando estas cansado.
+
+   Lo que se vigila aqui no es que el parser lea mas tokens: es que CADA dato
+   nuevo llegue hasta el motor y vuelva convertido en una cifra que antes no
+   existia, y que ninguno se adivine por su posicion en la frase. */
+await p.click('#quickBtn'); await p.waitForTimeout(300);
+
+r = await prueba('MNQZ5 +100');
+ok(r.puede && /MNQ/.test(r.prev), 'un simbolo con codigo de mes se reduce a su raiz: «MNQZ5» es MNQ',
+   r.prev.slice(0, 50));
+
+r = await prueba('NQ L 2x @20150 sl20120');
+/* NQ: tick 0.25 y $5 por tick, o sea multiplicador 20. 30 puntos de riesgo por
+   20 por 2 contratos = $1.200. El numero importa: si saliera otro, el parser
+   habria leido la entrada y el stop en el campo equivocado. */
+ok(/riesgo/i.test(r.prev) && /1.200|1,200|1200/.test(r.prev),
+   'con entrada y stop el motor YA da el riesgo en dolares, que antes era imposible', r.prev.slice(0, 120));
+ok(!r.puede && /falta el resultado/i.test(r.prev),
+   'pero sin resultado sigue sin poderse guardar: el plan no es el resultado', 'bloqueado');
+
+r = await prueba('NQ @20150 out20190 2x');
+ok(!r.puede && /direcci[oó]n/i.test(r.prev),
+   'entrada y salida SIN direccion no se guardan: suponer «long» seria inventar el signo', r.prev.slice(0, 110));
+
+r = await prueba('NQ L 2x @20150 sl20120 tp20250 out20190');
+ok(r.puede, 'con direccion si se puede: el resultado lo calcula el motor', `puede=${r.puede}`);
+ok(/R planificada/i.test(r.prev) && /R real/i.test(r.prev),
+   'y aparecen las dos R: la planificada del objetivo y la real de la salida', r.prev.slice(0, 150));
+
+console.log('\n═══ EL RESULTADO SIN ESCRIBIRLO · de la entrada y la salida, por el motor ═══');
+const antesDerivada = await p.evaluate(() => FUT.trades('RAP').length);
+await p.fill('#qkText', 'NQ L 2x @20150 sl20120 out20190'); await p.waitForTimeout(260);
+await p.click('#qkSave'); await p.waitForTimeout(900);
+/* Los campos derivados se leen de `FUT.trades()`, que es la puerta por la que los
+   lee la app: el motor vive dentro del cierre de la pagina y no es global. Leerlos
+   de aqui comprueba ademas que llegan hasta la capa que pintan las pestañas, no
+   solo que el calculo sabe hacerse. */
+const der = await p.evaluate(() => {
+  const t = FUT.trades('RAP').slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
+  return { guardado: { entry: t.entry, stop: t.stop, exit: t.exit, qty: t.qty, pnl: t.pnl,
+                       direction: t.direction, source: t.source },
+           calc: { pnlEff: t.pnlEff, riskUsd: t.riskUsd, rReal: t.rReal } };
+});
+ok(der.guardado.entry === 20150 && der.guardado.stop === 20120 && der.guardado.exit === 20190 && der.guardado.qty === 2,
+   'los cuatro numeros del plan llegan al registro tal cual', JSON.stringify(der.guardado));
+/* EL CAMPO `pnl` SE QUEDA AUSENTE A PROPOSITO. La regla del motor es que un P&L
+   escrito a mano gana sobre el calculado; si el registro rapido escribiera aqui
+   su propia multiplicacion, TAPARIA el calculo del motor con una copia bruta y
+   sin comisiones. Que falte es lo que deja que el motor haga su trabajo. */
+ok(der.guardado.pnl === undefined || der.guardado.pnl === null,
+   'y `pnl` NO se escribe: el resultado lo deriva el motor, no se le copia encima',
+   `pnl=${JSON.stringify(der.guardado.pnl)}`);
+/* 40 puntos x 20 x 2 = $1.600, BRUTOS. Esta linea esperaba 1.592 —los 1.600 menos
+   $4 de comision por contrato— y dio roja con la app correcta: `calcularTradeApp`
+   trae `incluirComisiones: false` y esta app no lo cambia en NINGUNA llamada, asi
+   que el derivado es bruto en todas las pestañas, no solo aqui. Se deja escrito
+   porque la vista previa lo ROTULA, y si algun dia la app empieza a descontar
+   comisiones esta linea tiene que caerse para que el rotulo se actualice con ella. */
+ok(casi(der.calc.pnlEff, 1600, 0.5),
+   'el resultado derivado son los 1.600 BRUTOS: la app no descuenta comisiones en ningun sitio',
+   String(der.calc.pnlEff));
+ok(casi(der.calc.riskUsd, 1200, 0.5), 'y el riesgo son los 1.200 del stop', String(der.calc.riskUsd));
+ok(der.calc.rReal !== null && der.calc.rReal > 1.2,
+   'y por primera vez una operacion rapida tiene R real sin pasar por el formulario', String(der.calc.rReal));
+
+console.log('\n═══ PUNTOS EN VEZ DE DOLARES · la multiplicacion que no hay que hacer de cabeza ═══');
+/* Guardar CIERRA el panel, asi que hay que volver a abrirlo antes de seguir
+   escribiendo lineas. Sin esto `fill` espera 30 s a un input invisible y el
+   archivo muere por timeout — que es un fallo del test, no de la app, y de los
+   que cuestan media hora de mirar el sitio equivocado. */
+await p.click('#quickBtn'); await p.waitForTimeout(300);
+r = await prueba('NQ +12p');
+ok(r.puede && /240/.test(r.prev), '«+12p» en NQ son $240: 12 x 20 x 1, y la vista previa lo enseña entero',
+   r.prev.slice(0, 120));
+r = await prueba('MNQ -9pts 3x');
+/* MNQ: $0,50 por 0,25 de tick = multiplicador 2. -9 x 2 x 3 = -$54. */
+ok(r.puede && /54/.test(r.prev), '«-9pts» en 3 MNQ son -$54: el multiplicador del contrato, no uno generico',
+   r.prev.slice(0, 120));
+r = await prueba('+12p');
+ok(!r.puede && /instrumento/i.test(r.prev),
+   'puntos SIN instrumento no se convierten: sin contrato no hay multiplicador', r.prev.slice(0, 100));
+r = await prueba('NQ +12.1p');
+ok(/rejilla/i.test(r.prev),
+   'y 12,1 puntos avisa: no cae en la rejilla de 0,25 de NQ, asi que casi siempre es un dedo', r.prev.slice(0, 130));
+r = await prueba('NQ +185 +12p');
+ok(!r.puede && /dos veces/i.test(r.prev),
+   'el resultado escrito en dolares Y en puntos es ambiguo: no se reconcilia solo', r.prev.slice(0, 110));
+
+console.log('\n═══ CERO CONTRATOS · la segunda puerta a un defecto que ya tenia guardia ═══');
+/* El editor completo bloquea esto desde hace tiempo, y su comentario trae el daño
+   medido: el motor hace `toNum(qty) || 1`, asi que una operacion de 0 contratos
+   se guardaba y CONTABA COMO UNA — «0 contratos con 10 puntos a favor metian $20
+   de ganancia inventada en la cuenta». Aceptar «2x» en esta linea abrio una
+   segunda puerta al mismo sitio. Una puerta nueva a un defecto conocido es peor
+   que el defecto: la primera ya tenia guardia. */
+r = await prueba('NQ +185 0x');
+ok(!r.puede && /cero/i.test(r.prev),
+   'cero contratos NO se guarda, igual que en el formulario completo', r.prev.slice(-110));
+r = await prueba('NQ +12p 0x');
+ok(!r.puede,
+   'y tampoco por el camino de los puntos, que es por donde entro el agujero', `puede=${r.puede}`);
+r = await prueba('NQ +185 1x');
+ok(r.puede, 'pero un contrato si, obviamente', `puede=${r.puede}`);
+
+console.log('\n═══ EL CAZA-ERRATAS · dos respuestas para el mismo hecho ═══');
+r = await prueba('NQ L 2x @20150 out20190 +185');
+ok(r.puede, 'con resultado escrito Y entrada/salida se puede guardar: el tuyo es un hecho reportado');
+ok(/1.600|1,600|1600/.test(r.prev) && /comisiones/i.test(r.prev),
+   'pero avisa de que de 20150 a 20190 salen 1.600 y no 185, y que la diferencia no son comisiones',
+   r.prev.slice(0, 190));
+/* 8 puntos x 20 x 1 = $160 brutos. La comision de NQ son $4 por contrato ida y
+   vuelta, asi que $156 es exactamente lo que diria el broker y NO es una errata.
+   El umbral son 1,5 comisiones: $6. La primera version de esta linea usaba 152
+   —dif 8, por encima de 6— y daba roja con el detector correcto. */
+r = await prueba('NQ L 1x @20150 out20158 +156');
+ok(r.puede && !/no la explican/i.test(r.prev),
+   'y NO avisa cuando la diferencia es justo la comision: 160 brutos y 156 netos es correcto',
+   r.prev.slice(0, 110));
+
+console.log('\n═══ NI POSICION NI SILENCIO · el orden no significa nada y nada se pierde ═══');
+const a1 = await prueba('NQ L 2x @20150 sl20120 out20190');
+const a2 = await prueba('out20190 2x sl20120 L @20150 NQ');
+ok(a1.prev === a2.prev, 'la misma operacion en otro orden da la MISMA vista previa',
+   a1.prev === a2.prev ? 'identicas' : `A≠B`);
+/* La propiedad que se vigila es que NO se repartan por posicion. El mecanismo con
+   el que la app lo consigue es declararlos ambiguos —tres numeros sueltos para un
+   solo campo de resultado— y bloquear; no «no reconocidos», que es lo que esta
+   linea esperaba al escribirse. Se comprueba el efecto Y que los numeros salen
+   nombrados, que es lo que permite al usuario entender por que esta bloqueado. */
+r = await prueba('NQ 20150 20120 +185');
+ok(!r.puede && /20150/.test(r.prev) && /20120/.test(r.prev),
+   'tres numeros sin marca NO se reparten en entrada y stop: se bloquea y se nombran',
+   r.prev.slice(-90));
+ok(!(await p.evaluate(() => /entrada/.test(document.querySelector('#qkPrev .kv').textContent))),
+   'y en particular NINGUNO acaba en la fila de la entrada', 'sin fila de entrada');
+/* UN «+» DELANTE DESCARTA QUE SEA UN PRECIO. Antes de esta regla «NQ sl +185»
+   guardaba 185 COMO STOP, y la operacion salia con un riesgo de veinte mil
+   dolares sin que nada en pantalla lo dijera. */
+r = await prueba('NQ sl +185');
+ok(/sin reconocer/i.test(r.prev) && /stop/i.test(r.prev),
+   'una marca que se queda sin numero se NOMBRA, no se come el resultado', r.prev.slice(-100));
+ok(!(await p.evaluate(() => /stop/.test(document.querySelector('#qkPrev .kv').textContent))),
+   'y «+185» NO acaba de stop: un precio con signo mas no es un precio', 'sin fila de stop');
+r = await prueba('NQ sl -37 +185');
+ok(await p.evaluate(() => /stop/.test(document.querySelector('#qkPrev .kv').textContent)),
+   'pero un MENOS si se acepta como precio: el crudo cotizo a -37 en 2020',
+   r.prev.slice(0, 120));
+r = await prueba('NQ L +185 jajaja');
+ok(r.puede && /sin reconocer/i.test(r.prev) && /jajaja/.test(r.prev),
+   'y un token basura sigue nombrandose sin bloquear lo que si se entendio', r.prev.slice(0, 120));
+
+console.log('\n═══ LA HORA ESCRITA · una operacion apuntada tarde no entro tarde ═══');
+r = await prueba('NQ L +185 9:45');
+ok(/09:45/.test(r.prev) && /escrita/.test(r.prev),
+   'la hora escrita sale en la vista previa marcada COMO escrita, no como la de apuntarla',
+   r.prev.slice(0, 140));
+await p.click('#qkSave'); await p.waitForTimeout(900);
+const conHora = await p.evaluate(() => {
+  const t = FUT.trades('RAP').slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
+  return { time: t.time, pnl: t.pnl };
+});
+ok(conHora.time === '09:45', 'y es la que se guarda, no la del reloj', conHora.time);
+ok(conHora.pnl === 185, 'con el resultado intacto', String(conHora.pnl));
+
+console.log('\n═══ LO QUE SIGUE SIN INVENTARSE ═══');
+await p.click('#quickBtn'); await p.waitForTimeout(300);
+const simple = await prueba('NQ +185');
+ok(simple.puede && /quedan vac[ií]os/i.test(simple.prev),
+   'una linea sin entrada ni stop SIGUE diciendo que R y riesgo quedan vacios: nada cambio ahi',
+   simple.prev.slice(-120));
+/* Y NO dice «el motor no pudo calcular». Preguntarle al motor en todos los casos
+   —para poder enseñar el riesgo del plan antes del resultado— hizo que el caso mas
+   comun de todos, tres tokens, sacara un aviso rojo: sin precio de entrada el motor
+   no puede valorar nada POR CONSTRUCCION, y eso no es un fallo que reportar. */
+ok(!/no pudo calcular/i.test(simple.prev),
+   'y NO saca ningun error del motor: que falte la entrada no es un fallo que reportar',
+   simple.prev.slice(-70));
+/* LOS AVISOS DEL MOTOR, que el formulario completo enseña desde siempre y esta
+   pantalla no leia. Un stop POR ENCIMA de la entrada en un long no es un stop, y
+   quien lo detecta es el motor: aqui solo se comprueba que su aviso llega. */
+const stopMal = await prueba('NQ L 1x @20150 sl20160 out20190');
+ok(/stop/i.test(stopMal.prev) && /(incoherente|por debajo|por encima|mismo lado|no protege)/i.test(stopMal.prev),
+   'y con entrada escrita, un stop del lado equivocado saca el aviso DEL MOTOR',
+   stopMal.prev.slice(-150));
+const fueraRejilla = await prueba('NQ L 1x @20150.1 sl20120 out20190');
+ok(/rejilla/i.test(fueraRejilla.prev),
+   'y un precio que no cae en la rejilla de ticks tambien, por la misma puerta',
+   fueraRejilla.prev.slice(-150));
+const sinR = await p.evaluate(() => {
+  const t = FUT.trades('RAP').filter(x => x.source === 'quick_add' && x.entry == null);
+  return { cuantas: t.length, conR: t.filter(x => x.rReal != null || x.riskUsd != null).length };
+});
+ok(sinR.cuantas > 0 && sinR.conR === 0,
+   'y ninguna de las rapidas sin entrada tiene R ni riesgo guardados',
+   `${sinR.cuantas} sin entrada, ${sinR.conR} con R`);
+await p.click('#qkClose'); await p.waitForTimeout(250);
+
 console.log('\n═══ SOBREVIVE A RECARGAR · persistencia real ═══');
 const idsAntes = await p.evaluate(() => FUT.trades('RAP').map(t => t.id).sort().join(','));
+/* SE LE PREGUNTA, NO SE RECUERDA. Esta linea decia `=== 4`, y 4 era el numero de
+   guardados rapidos que tenia el archivo el dia que se escribio. Cualquier prueba
+   nueva que guarde una operacion mas la ponia roja — y roja por CRECER la suite,
+   no por romperse la persistencia, que es lo unico que mide. Es el mismo defecto
+   que las cuatro listas de pestañas escritas a mano de `vista.mjs`. */
+const rapidasAntes = await p.evaluate(() => FUT.trades('RAP').filter(t => t.source === 'quick_add').length);
 /* pestaña NUEVA en vez de recargar: sobre file:// Chromium tira el area de
    localStorage al recargar, y esta prueba mide persistencia, no ese fallo. */
 const p2 = await ctx.newPage();
@@ -309,7 +518,9 @@ const tras = await p2.evaluate(() => {
 });
 ok(tras.ids === idsAntes, 'las operaciones siguen ahi tras abrir la app de nuevo',
    `${tras.ids.split(',').length} operaciones`);
-ok(tras.rapidas === 4, 'y las cuatro rapidas conservan su procedencia', String(tras.rapidas));
+ok(tras.rapidas === rapidasAntes && rapidasAntes > 0,
+   'y TODAS las rapidas conservan su procedencia tras recargar',
+   `${tras.rapidas} de ${rapidasAntes}`);
 ok(/respete el plan/.test(tras.nota), 'la nota del dia tambien persiste', `«${tras.nota.slice(0, 40)}»`);
 await p2.close();
 
