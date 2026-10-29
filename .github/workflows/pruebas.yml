@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   suite:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # 32 y no 25: con los reintentos de apt el peor caso de la instalación son 12
     # minutos, y la compuerta tarda ~13. Con 25 el trabajo moría por su propio tope
     # justo cuando los reintentos funcionaban, que es la forma más tonta de perder
