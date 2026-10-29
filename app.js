@@ -1205,6 +1205,7 @@
     "Día": "Day",
     "Edge": "Edge",
     "Editar": "Edit",
+    "El orden no importa y nada se adivina por la posición: lo que no lleve marca y no se reconozca sale nombrado en la vista previa, sin guardarse.": "Order does not matter and nothing is guessed from position: anything without a marker that is not recognised is named in the preview and not saved.",
     "El protocolo, ¿paga?": "Does the protocol pay?",
     "Elegir archivo…": "Choose file…",
     "Eliminar": "Remove",
@@ -1257,10 +1258,10 @@
     "Inflación anual (%) · opcional": "Annual inflation (%) · optional",
     "Ingresos cobrados": "Payouts received",
     "Instrumento": "Instrument",
-    "Instrumento, dirección y resultado": "Instrument, direction and result",
     "Interpretación / conclusión provisional": "Interpretation / provisional conclusion",
     "Interés compuesto": "Compound interest",
     "Inversiones": "Investments",
+    "La operación en una línea": "The trade on one line",
     "Lección y siguiente acción": "Lesson and next action",
     "Leídas": "Read",
     "Limpiar filtros": "Clear filters",
@@ -1295,6 +1296,7 @@
     "Pre-sesión": "Pre-session",
     "Pregunta de investigación / resumen": "Research question / summary",
     "Protocolo de investigación": "Research protocol",
+    "Qué entiende de la línea": "What it reads from the line",
     "Rachas y disciplina": "Streaks and discipline",
     "Radiografía cuantitativa": "Quantitative breakdown",
     "Reabrir": "Reopen",
@@ -1349,11 +1351,24 @@
     "anual": "annual",
     "archivados": "archived",
     "diaria": "daily",
+    /* El vocabulario del registro rápido. Las marcas —«@20150», «sl20120», «2x»—
+       NO se traducen: son lo que hay que teclear, y traducirlas rompería el
+       parser para quien lea la app en inglés. Se traduce lo que las explica. */
+    "el instrumento, también con el código de mes que escribe el bróker.": "the instrument, month code included, the way the broker writes it.",
+    "el objetivo. Con el stop da la R planificada.": "the target. With the stop it gives the planned R.",
+    "el resultado en dólares.": "the result in dollars.",
+    "el resultado en puntos, que el multiplicador del contrato traduce a dólares.": "the result in points, which the contract multiplier turns into dollars.",
     "el riesgo del cálculo de tamaño": "the risk from position sizing",
+    "el stop.": "the stop.",
     "en prueba": "in testing",
     "este año": "this year",
     "este mes": "this month",
+    "la dirección.": "the direction.",
+    "la entrada. Con el stop, de ahí sale el riesgo.": "the entry. With the stop, that is where the risk comes from.",
+    "la hora de entrada. Sin ella se usa la de apuntarla.": "the entry time. Without it, the time you logged it is used.",
+    "la salida real. Con la entrada, el motor calcula el resultado y ya no hace falta escribirlo.": "the actual exit. With the entry, the engine works out the result and you no longer have to write it.",
     "lo escribo a mano": "I write it by hand",
+    "los contratos.": "the contracts.",
     "mensual": "monthly",
     "mi regla de pérdida máx. diaria": "my max daily loss rule",
     "mi riesgo medio real por operación": "my real average risk per trade",
@@ -7427,9 +7442,70 @@
     });
   }
 
+  /* ---------- LO QUE YA ESCRIBISTE, EN VEZ DE UNA CONSTANTE ----------
+     El formulario nuevo venía con «MNQ» y 1 contrato escritos a fuego. No son los
+     datos de nadie: son los de quien escribió esa línea. Quien opera NQ de dos en
+     dos los reescribía en CADA operación, y son dos de los seis campos que hay que
+     tocar antes de llegar al plan.
+
+     Se heredan sólo los campos que se REPITEN dentro de una sesión y que, si
+     salen mal, se ven de un vistazo en el propio formulario: el instrumento, los
+     contratos, la cuenta y el setup.
+
+     LA DIRECCIÓN NO SE HEREDA, y es deliberado. Cambia de una operación a la
+     siguiente, decide el signo de todo lo que el motor deriva, y una dirección
+     equivocada no se ve: la ficha queda plausible. «Siempre long» es un valor
+     ciego, pero es ciego de forma PREDECIBLE y se aprende a corregirlo; «lo que
+     hiciste la vez anterior» acierta más a menudo y por eso se deja de mirar, que
+     es justo el fallo que cuesta caro. Acertar más no compensa dejar de mirar.
+
+     LA CALIDAD TAMPOCO: es un juicio sobre la operación, no un dato que se repita.
+     Heredarla sería pre-juzgar la operación nueva con la nota de la anterior.
+
+     Ninguno de estos campos se escribe sin que se vea: `after` deja una línea en
+     la cabecera del formulario diciendo cuáles vienen de la última operación. */
+  function ultimaOperacion(type) {
+    let mejor = null;
+    for (const t of coll("trades").items) {
+      if (t.type !== type) continue;
+      const c = t.createdAt || 0;
+      if (!mejor || c > (mejor.createdAt || 0)) mejor = t;
+    }
+    return mejor;
+  }
+  function semillaHeredada(type) {
+    const u = ultimaOperacion(type);
+    if (!u) return { heredado: [], vals: {} };
+    const campos = type === "futuros"
+      ? [["instrument", "el instrumento"], ["qty", "los contratos"], ["accountId", "la cuenta"], ["setupId", "el setup"]]
+      : [["market", "el mercado"], ["asset", "el activo"], ["accountId", "la cuenta"], ["setupId", "la estrategia"]];
+    /* UNA REFERENCIA MUERTA NO SE HEREDA. La cuenta y el setup de la última
+       operación son punteros, y el usuario puede haber borrado cualquiera de los
+       dos desde entonces: la operación conserva el id, pero el desplegable ya no
+       tiene esa opción. Heredarlo igual deja al navegador eligiendo la PRIMERA
+       opción de la lista mientras el aviso de arriba afirma «viene de tu última
+       operación: la cuenta» — y entonces el aviso, que existe para que lo
+       heredado se pueda comprobar de un vistazo, es justo lo que miente. */
+    const vive = {
+      accountId: id => (type === "futuros" ? !!acctById(id)
+                                           : investmentAccounts().some(a => a.id === id)),
+      setupId: id => !!coll("playbooks").get(id),
+    };
+    const vals = {}, heredado = [];
+    for (const [k, nombre] of campos) {
+      if (u[k] === undefined || u[k] === null || u[k] === "") continue;
+      if (vive[k] && !vive[k](u[k])) continue;
+      vals[k] = u[k]; heredado.push(nombre);
+    }
+    return { heredado, vals, de: u };
+  }
   function openTrade(t, typeForNew, seed, alGuardar) {
     const type = t ? t.type : typeForNew; const isNew = !t; let shots = null;
-    const values = t || Object.assign(type === "futuros" ? { date: ft.day || todayISO(), type, instrument: "MNQ", direction: "long", qty: 1, quality: "A", accountId: defaultAccountId() } : { date: todayISO(), type, op: "compra", horizon: "largo", market: "etfs", accountId: defaultInvestmentAccountId() }, seed || {});
+    const hered = isNew ? semillaHeredada(type) : { heredado: [], vals: {} };
+    /* El orden importa: primero los valores de fábrica, encima lo heredado de tu
+       última operación, y encima del todo la `seed` que pasa quien abre el editor
+       —porque ésa sí es una intención explícita de esta llamada concreta. */
+    const values = t || Object.assign(type === "futuros" ? { date: ft.day || todayISO(), type, instrument: "MNQ", direction: "long", qty: 1, quality: "A", accountId: defaultAccountId() } : { date: todayISO(), type, op: "compra", horizon: "largo", market: "etfs", accountId: defaultInvestmentAccountId() }, hered.vals, seed || {});
     const renderConds = (fieldsEl, setupId, checks) => {
       let box = fieldsEl.querySelector("#setupConds"); const p = coll("playbooks").get(setupId); const conds = pbConditions(p);
       if (!conds.length) { if (box) box.remove(); return; }
@@ -7440,6 +7516,24 @@
       title: isNew ? (type === "futuros" ? "Nueva operación · Futuros" : "Nueva operación · Inversión") : "Editar operación",
       fields: tradeFields(type), values,
       after: (fieldsEl, vals) => {
+        /* LO HEREDADO SE DICE. Un campo relleno que el usuario no escribió y que
+           nadie nombra es indistinguible de un campo que él mismo puso la semana
+           pasada — y entonces deja de leerlo. Se nombran sólo los que de verdad
+           quedaron heredados: si quien abrió el editor pasó una `seed`, ésa gana
+           sobre lo heredado y ese campo ya no viene de la última operación. */
+        if (isNew && hered.heredado.length) {
+          const puestos = (seed && typeof seed === "object") ? Object.keys(seed) : [];
+          const campos = type === "futuros"
+            ? { instrument: "el instrumento", qty: "los contratos", accountId: "la cuenta", setupId: "el setup" }
+            : { market: "el mercado", asset: "el activo", accountId: "la cuenta", setupId: "la estrategia" };
+          const vivos = Object.keys(hered.vals).filter(k => puestos.indexOf(k) < 0).map(k => campos[k]).filter(Boolean);
+          if (vivos.length) {
+            const d = document.createElement("div");
+            d.className = "fld w6";
+            d.innerHTML = `<div class="hered">Vienen de tu última operación: <b>${esc(vivos.join(", "))}</b>. Cámbialos si esta no es igual.</div>`;
+            fieldsEl.insertBefore(d, fieldsEl.firstChild);
+          }
+        }
         if (isNew && type === "futuros") {
           const g = tradeGate();
           if (g.blocked) { const d = document.createElement("div"); d.innerHTML = gateHtml(g); const node = d.firstElementChild; if (node) fieldsEl.insertBefore(node, fieldsEl.firstChild); }
@@ -7556,98 +7650,359 @@
     if (!m) return null;
     const v = Number(m[2].replace(",", "."));
     if (!Number.isFinite(v)) return null;
-    return { valor: m[1] === "-" ? -v : v, conSigno: m[1] !== "" };
+    /* `mas` aparte de `conSigno` porque los dos signos no significan lo mismo. Un
+       precio negativo existe —el crudo cotizó a −37 en abril de 2020— así que un
+       menos delante de un número no descarta que sea un precio. Un MÁS sí: «+185»
+       no es ningún precio, es un resultado. Ver qkParse. */
+    return { valor: m[1] === "-" ? -v : v, conSigno: m[1] !== "", mas: m[1] === "+" };
   }
+  /* ---------- EL VOCABULARIO ----------
+     Cada dato tiene su marca, y la marca puede ir pegada al número («sl20120») o
+     suelta delante («sl 20120»). NO HAY POSICIÓN IMPLÍCITA: nada se entiende por
+     el orden en que se escribió. «NQ 20150 20120» no es una entrada y un stop; son
+     dos números sin marca, y el parser lo dice en vez de repartirlos.
+
+     Por qué importa que las marcas existan. Sin ellas el campo sólo podía llevar
+     instrumento, dirección y resultado, y la operación se guardaba SIN entrada ni
+     stop — con lo cual el motor no podía calcular la R ni el riesgo, y lo decía:
+     «R y riesgo quedan vacíos». Con entrada y stop escritos en la misma línea, ya
+     puede. Y con entrada y salida, el resultado en dólares lo calcula él, así que
+     no hay que hacer la multiplicación de cabeza al final del día. */
+  const QK_MARCAS = {
+    entrada: "entry", entry: "entry",
+    sl: "stop", stop: "stop",
+    tp: "target", obj: "target", objetivo: "target", target: "target",
+    out: "exit", sal: "exit", salida: "exit", exit: "exit",
+  };
+  /* El nombre con el que se le habla al usuario de cada campo. Un mensaje que dice
+     «falta exit» habla de la base de datos; éste habla de la operación. */
+  const QK_CAMPO_ES = {
+    instrument: "el instrumento", direction: "la dirección", qty: "los contratos",
+    entry: "la entrada", stop: "el stop", target: "el objetivo", exit: "la salida",
+    time: "la hora", puntos: "el resultado en puntos", pnl: "el resultado",
+  };
+  /* Y el plural propio de cada uno para cuando llega dos veces. Una plantilla
+     genérica —«dos valores para el instrumento»— sale gramaticalmente torpe en
+     castellano justo en el mensaje que tiene que frenar un guardado; y además
+     estas tres frases son las que una prueba vigila desde que existe el parser,
+     con razón: el motivo que se le enseña al usuario ES el comportamiento. */
+  const QK_DOS = {
+    instrument: "dos instrumentos", direction: "dos direcciones", qty: "dos cantidades de contratos",
+    entry: "dos entradas", stop: "dos stops", target: "dos objetivos", exit: "dos salidas",
+    time: "dos horas", puntos: "dos resultados en puntos", pnl: "dos números",
+  };
+  /* Las marcas pegadas, de más larga a más corta: si «obj» se probara antes que
+     «objetivo», «objetivo20200» fallaría por la cola que le sobra. */
+  const QK_PEGADA = /^(@|entrada|entry|objetivo|obj|target|stop|sl|tp|salida|sal|out|exit)[:=]?([+-]?\d+(?:[.,]\d+)?)$/;
+
   /* El parser. Devuelve lo entendido, lo que sobra y lo que es ambiguo. No decide
      nada por su cuenta: quien decide es la vista previa y el botón de guardar. */
   function qkParse(texto) {
-    const simbolos = Object.keys(QE.CONTRACTS || {});
     const tok = String(texto || "").trim().split(/[\s\n,;]+/).filter(Boolean);
-    const r = { instrument: null, direction: null, pnl: null, pnlConSigno: false,
+    const r = { instrument: null, direction: null, qty: null,
+                entry: null, stop: null, target: null, exit: null,
+                pnl: null, pnlConSigno: false, puntos: null, time: null,
                 sobra: [], ambiguo: [], vacio: !tok.length };
+    /* Un campo escrito dos veces con valores distintos es AMBIGUO, no «el último
+       gana». El último gana es una decisión, y aquí no se decide por el usuario. */
+    const pon = (campo, valor) => {
+      if (r[campo] !== null && r[campo] !== valor) r.ambiguo.push(`${QK_DOS[campo]}: «${r[campo]}» y «${valor}»`);
+      else r[campo] = valor;
+    };
+    /* Una marca suelta recuerda a qué campo pertenece el número siguiente. Sin
+       esto «stop» y «20120» serían dos tokens sin relación, y el número caería en
+       el resultado — que es otro dato y en otra unidad. */
+    let pendiente = null;
     for (const t of tok) {
       const alto = t.toUpperCase(), bajo = t.toLowerCase();
-      if (simbolos.indexOf(alto) >= 0) {
-        if (r.instrument && r.instrument !== alto) r.ambiguo.push(`dos instrumentos: «${r.instrument}» y «${alto}»`);
-        else r.instrument = alto;
-        continue;
+      /* 1 · una marca suelta no es un dato: dice qué será el número siguiente. */
+      if (QK_MARCAS[bajo]) { pendiente = QK_MARCAS[bajo]; continue; }
+      /* 2 · el número que una marca estaba esperando.
+
+            UN «+» DELANTE DESCARTA QUE SEA UN PRECIO. Las cuatro marcas sueltas
+            —entrada, stop, objetivo, salida— esperan un precio, y «+185» no es un
+            precio: es un resultado. Sin esta regla «NQ sl +185» guardaba 185 COMO
+            STOP y la operación salía con un riesgo de veinte mil dólares, sin que
+            nada en la pantalla lo dijera. Medido antes de escribir la regla.
+
+            El menos no descarta nada: un precio negativo existe —el crudo cotizó
+            a −37 en abril de 2020— así que «sl -37» se acepta como stop. */
+      if (pendiente) {
+        const n = qkNum(t);
+        if (n && !n.mas) { pon(pendiente, n.valor); pendiente = null; continue; }
+        /* La marca se quedó sin número suyo. Se NOMBRA; perderla en silencio sería
+           guardar una operación a la que le falta justo lo que se escribió. Y NO
+           se corta el token: cae por las ramas de abajo, que es donde «+185» se
+           lee como lo que es. */
+        r.sobra.push(`«${QK_CAMPO_ES[pendiente]}» sin número detrás`);
+        pendiente = null;
       }
-      if (QK_DIR[bajo]) {
-        const d = QK_DIR[bajo];
-        if (r.direction && r.direction !== d) r.ambiguo.push(`dos direcciones: «${r.direction}» y «${d}»`);
-        else r.direction = d;
-        continue;
-      }
+      /* 3 · la marca pegada al número: «@20150», «sl20120», «tp=20200». Misma
+             regla del «+»: «sl+185» tampoco es un stop. */
+      const peg = bajo.match(QK_PEGADA);
+      if (peg && peg[2][0] !== "+") { pon(peg[1] === "@" ? "entry" : QK_MARCAS[peg[1]], Number(peg[2].replace(",", "."))); continue; }
+      /* 4 · la hora de entrada, cuando la operación no se apunta en el momento. */
+      const hm = t.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+      if (hm) { pon("time", `${String(hm[1]).padStart(2, "0")}:${hm[2]}`); continue; }
+      /* 5 · los contratos: «2x», «x2», «2c», «2 contratos» (ya tokenizado). */
+      const cant = bajo.match(/^(?:(\d+)x|x(\d+)|(\d+)(?:c|cto|ctos|contrato|contratos))$/);
+      if (cant) { pon("qty", Number(cant[1] || cant[2] || cant[3])); continue; }
+      /* 6 · el resultado en PUNTOS, que el multiplicador del contrato traduce. */
+      const pts = bajo.match(/^([+-]?\d+(?:[.,]\d+)?)(?:pts|pt|puntos|punto|p)$/);
+      if (pts) { pon("puntos", Number(pts[1].replace(",", "."))); continue; }
+      /* 7 · el instrumento POR SU RAÍZ, así que «MNQZ5» —lo que enseña el bróker—
+             vale igual que «MNQ». Antes se comparaba contra las 18 claves exactas
+             y un símbolo con código de mes caía en «sin reconocer». */
+      const raiz = QE.rootOf(alto);
+      if (QE.CONTRACTS[raiz]) { pon("instrument", raiz); continue; }
+      /* 8 · la dirección. */
+      if (QK_DIR[bajo]) { pon("direction", QK_DIR[bajo]); continue; }
+      /* 9 · un número suelto es el resultado en dólares. Se prueba el ÚLTIMO:
+             cualquier dato con marca ya se fue por su rama, así que llegar aquí
+             significa que de verdad venía sin marca. */
       const n = qkNum(t);
       if (n) {
-        if (r.pnl !== null) r.ambiguo.push(`dos números: ${r.pnl} y ${n.valor}`);
+        if (r.pnl !== null && r.pnl !== n.valor) r.ambiguo.push(`${QK_DOS.pnl}: ${r.pnl} y ${n.valor}`);
         else { r.pnl = n.valor; r.pnlConSigno = n.conSigno; }
         continue;
       }
       /* Nada silencioso: un token que no se entiende se NOMBRA. */
       r.sobra.push(t);
     }
+    if (pendiente) r.sobra.push(`«${QK_CAMPO_ES[pendiente]}» sin número detrás`);
+    /* El resultado escrito dos veces y en dos unidades no se reconcilia solo. */
+    if (r.pnl !== null && r.puntos !== null) r.ambiguo.push(`el resultado está dos veces: ${r.pnl} $ y ${r.puntos} puntos`);
     return r;
+  }
+
+  /* LOS PUNTOS NO SON UN CAMPO DEL MOTOR: son una forma de escribir el resultado.
+     Se traducen aquí, con el multiplicador del propio contrato, y entran como un
+     P&L escrito a mano — que es exactamente lo que son: un hecho que tú reportas.
+     BRUTO, sin comisiones, igual que si hubieras escrito «+240»: el motor respeta
+     un manual tal cual.
+
+     Y lo que se deriva de entrada y salida también va bruto, aunque cueste creerlo
+     leyendo el motor: `calcularTradeApp` trae `incluirComisiones: false` y esta app
+     no lo cambia en ninguna llamada. Medido: «NQ L 2x @20150 out20190» da pnlEff
+     1600, no 1592. Así que la vista previa dice «bruto» en los dos caminos. Decía
+     «neto» en uno de ellos, y era una etiqueta falsa sobre una cifra correcta —que
+     es la peor clase de etiqueta, porque invita a no comprobar. */
+  function qkPuntosADolares(p) {
+    if (p.puntos === null) return { usd: null, por: "", aviso: "" };
+    if (!p.instrument) return { usd: null, por: "", aviso: "sin instrumento no hay multiplicador, así que los puntos no se pueden convertir" };
+    const res = QE.resolveContract(p.instrument);
+    if (!QE.isOk(res)) return { usd: null, por: "", aviso: `«${p.instrument}» no tiene especificación, así que los puntos no se pueden convertir` };
+    const c = res.value, q = p.qty === null ? 1 : p.qty;
+    /* Un número de puntos que no cae en la rejilla del contrato no es un precio
+       posible, y el P&L que sale de él tampoco. No se bloquea —el bróker manda—,
+       pero se dice: casi siempre es una errata de tecla. */
+    const fuera = Math.abs(p.puntos / c.tickSize - Math.round(p.puntos / c.tickSize)) > 1e-9;
+    return {
+      usd: QE.roundTo(p.puntos * c.multiplier * q, 2),
+      por: `${p.puntos} puntos × ${c.multiplier} × ${q} ${q === 1 ? "contrato" : "contratos"}`,
+      aviso: fuera ? `${p.puntos} puntos no cae en la rejilla de ${c.symbol}, cuyo tick es ${c.tickSize}` : "",
+    };
   }
   /* Lo que la app ya sabe y por tanto puede completar. Nada más. */
   function qkEnrich(p) {
     const n = etNow();
-    const hora = qkHoraET();
+    /* LA HORA ESCRITA GANA SOBRE LA DE APUNTARLA, y sólo si se escribió. La hora
+       por defecto sigue siendo la de teclear la línea —no la de entrar al mercado,
+       que esta cabina no puede saber—; pero una operación que se apunta a las seis
+       de la tarde no entró a las seis de la tarde, y hasta ahora no había forma de
+       decirlo sin abrir el formulario completo. Ahora «9:45» en la misma línea lo
+       dice, y la sesión se deriva de ESA hora. */
+    const hora = p.time || qkHoraET();
     const min = minOfTime(hora);
     const cerrado = marketClosed(n);
     return {
       date: state.today || n.date,
       time: hora,
+      horaEscrita: !!p.time,
       accountId: FUT.selectedAccountId() || "",
-      /* La sesión es DERIVADA, no un campo: se muestra, no se guarda. Y si el
-         mercado está cerrado no se afirma ninguna de las ocho sesiones. */
-      sesionDerivada: cerrado ? null : (sesAt(min) || null),
+      /* La sesión es DERIVADA, no un campo: se muestra, no se guarda. Si el
+         mercado está cerrado no se afirma ninguna de las ocho sesiones — salvo que
+         la hora venga escrita, porque entonces se está apuntando una operación
+         pasada y lo que importa es la sesión de SU hora, no la de ahora. */
+      sesionDerivada: (cerrado && !p.time) ? null : (sesAt(min) || null),
       mercadoCerrado: cerrado,
       instrument: p.instrument, direction: p.direction, pnl: p.pnl,
     };
   }
+  /* EL MISMO REGISTRO QUE SE VA A GUARDAR, construido una sola vez por una sola
+     función. La vista previa enseña lo que el motor dice de ÉL, no de una copia
+     parecida: con dos constructores, enseñar y guardar pueden divergir, y entonces
+     la vista previa deja de ser una garantía y pasa a ser una decoración.
+
+     Un campo que no se escribió NO SE ESCRIBE. La ausencia significa algo en este
+     modelo —el editor completo tiene tres comentarios dedicados a eso—, así que
+     aquí tampoco se rellena con ceros ni con vacíos. */
+  function qkRegistro(p, e, pts) {
+    const rec = {
+      type: "futuros",
+      date: e.date, time: e.time, accountId: e.accountId,
+      instrument: p.instrument,
+      /* La procedencia. Ausente en las operaciones de antes: eso significa
+         «desconocida», no «manual». No se rellena hacia atrás porque inventarlo
+         sería exactamente lo que este campo existe para evitar. */
+      source: "quick_add",
+    };
+    if (p.direction) rec.direction = p.direction;
+    if (p.qty !== null) rec.qty = p.qty;
+    if (p.entry !== null) rec.entry = p.entry;
+    if (p.stop !== null) rec.stop = p.stop;
+    if (p.target !== null) rec.target = p.target;
+    if (p.exit !== null) rec.exit = p.exit;
+    /* El resultado en dólares, escrito o traducido de puntos. Si no hay ninguno
+       de los dos, NO se escribe `pnl`: con entrada y salida el motor lo calcula, y
+       un `pnl` escrito aquí ganaría sobre ese cálculo y lo taparía. */
+    if (p.pnl !== null) rec.pnl = p.pnl;
+    else if (pts.usd !== null) rec.pnl = pts.usd;
+    return rec;
+  }
+  /* Lo que el motor puede decir del registro, o por qué no puede. Una sola llamada
+     a la misma puerta que usa el resto de la app: aquí no se calcula ninguna R. */
+  function qkMotor(rec) {
+    if (!rec.instrument) return null;
+    try { return QE.calcularTradeApp(rec); } catch (err) { return null; }
+  }
+  /* ¿Se puede guardar? Hace falta instrumento y un resultado, y el resultado puede
+     llegar por tres caminos: escrito en dólares, escrito en puntos, o calculable
+     desde entrada y salida. El tercero necesita la dirección, y sin ella NO se
+     supone «long»: suponerla es inventar el signo del resultado. */
+  function qkFalta(p, pts) {
+    const falta = [];
+    if (!p.instrument) falta.push("el instrumento");
+    /* CERO CONTRATOS SE PARA AQUÍ TAMBIÉN. El editor completo lo bloquea desde
+       hace tiempo y su comentario trae el daño medido: el motor hace
+       `toNum(qty) || 1`, así que una operación de 0 contratos se guardaba y
+       CONTABA COMO UNA —«0 contratos con 10 puntos a favor metían $20 de ganancia
+       inventada en la cuenta»—. Aceptar «2x» en esta línea abrió una segunda
+       puerta al mismo defecto, y una puerta nueva a un defecto conocido es peor
+       que el defecto: la primera ya tenía guardia. El cero del usuario no se
+       reescribe por un 1; se dice que no vale. */
+    if (p.qty !== null && !(p.qty > 0)) falta.push("una cantidad de contratos mayor que cero");
+    const hayResultado = p.pnl !== null || pts.usd !== null ||
+                         (p.entry !== null && p.exit !== null && p.direction);
+    if (!hayResultado) {
+      if (p.entry !== null && p.exit !== null && !p.direction)
+        falta.push("la dirección, que es lo único que falta para calcular el resultado desde la entrada y la salida");
+      else falta.push("el resultado");
+    }
+    return falta;
+  }
   function qkPinta() {
     const el = $("qkPrev"); if (!el) return;
     const p = qkParse($("qkText").value), e = qkEnrich(p);
-    $("qkSave").disabled = $("qkDetalles").disabled = !(p.instrument && p.pnl !== null && !p.ambiguo.length);
+    const pts = qkPuntosADolares(p);
+    const falta = qkFalta(p, pts);
+    const rec = qkRegistro(p, e, pts);
+    /* SE LE PREGUNTA AL MOTOR AUNQUE FALTE EL RESULTADO. La primera versión de
+       esta línea sólo preguntaba cuando el registro ya era guardable, y con eso
+       «NQ L 2x @20150 sl20120» —el plan, escrito antes de entrar, que es cuando
+       de verdad se escribe— no enseñaba el riesgo. Enseñar ese riesgo ES el
+       motivo para escribir la entrada y el stop en la línea; esconderlo hasta
+       que llegue el resultado lo deja justo para cuando ya no sirve de nada. */
+    const m = qkMotor(rec);
+    $("qkSave").disabled = $("qkDetalles").disabled = !(!falta.length && !p.ambiguo.length);
     if (p.vacio) { el.innerHTML = `<span class="na">Escribe el instrumento, la dirección y el resultado. La vista previa aparece aquí antes de guardar nada.</span>`; return; }
-    const falta = [];
-    if (!p.instrument) falta.push("el instrumento");
-    if (p.pnl === null) falta.push("el resultado");
     const cta = e.accountId ? acctLabel(e.accountId) : null;
+    const usd = m && m.pnlEff !== null && m.pnlEff !== undefined ? m.pnlEff : (p.pnl !== null ? p.pnl : pts.usd);
     const filas = [
       ["cuenta", cta, cta ? "" : "ninguna seleccionada · la operación queda sin cuenta"],
       ["sesión", e.sesionDerivada ? e.sesionDerivada.short : null,
         e.mercadoCerrado ? "mercado cerrado · no se afirma ninguna sesión" : "sin hora válida"],
-      ["fecha", e.date, ""], ["hora", e.time + " ET", ""],
+      ["fecha", e.date, ""],
+      ["hora", e.time + " ET" + (e.horaEscrita ? " · escrita" : " · de apuntarla"), ""],
       ["dirección", p.direction, "no escrita · queda vacía"],
+      /* Las cuatro del plan sólo salen si se escribieron: una fila «entrada —» en
+         cada vista previa enseña a no leer las filas. */
+      ...(p.qty !== null ? [["contratos", p.qty, ""]] : []),
+      ...(p.entry !== null ? [["entrada", p.entry, ""]] : []),
+      ...(p.stop !== null ? [["stop", p.stop, ""]] : []),
+      ...(p.target !== null ? [["objetivo", p.target, ""]] : []),
+      ...(p.exit !== null ? [["salida", p.exit, ""]] : []),
     ];
+    /* LO QUE EL MOTOR DERIVA, nombrado como derivado. Antes esta zona sólo podía
+       decir que la R y el riesgo quedaban vacíos; con entrada y stop en la línea
+       ya tiene algo que decir, y decirlo aquí es lo que hace que valga la pena
+       escribirlos. */
+    const der = [];
+    if (m && m.riskUsd) der.push(`riesgo ${money(m.riskUsd)}`);
+    if (m && m.rPlanned !== null && m.rPlanned !== undefined) der.push(`R planificada ${(m.rPlanned >= 0 ? "+" : "") + m.rPlanned}`);
+    if (m && m.rReal !== null && m.rReal !== undefined) der.push(`R real ${(m.rReal >= 0 ? "+" : "") + m.rReal}`);
+    const sinR = m && !m.riskUsd && (p.entry === null || p.stop === null);
+    /* EL ERROR DEL MOTOR SÓLO SE ENSEÑA SI HAY ENTRADA. Sin precio de entrada el
+       motor no puede valorar la operación por construcción, así que devuelve
+       `calcError` en el caso MÁS COMÚN de todos: «NQ +185». Enseñarlo ahí ponía un
+       «El motor no pudo calcular» rojo en la línea de tres tokens que esta
+       pantalla existe para hacer fácil — y la ausencia ya la explica la frase de
+       abajo, que dice qué falta y cómo escribirlo. Con entrada escrita, en cambio,
+       un error SÍ significa algo real —un stop incoherente, un precio fuera de la
+       rejilla— y entonces se enseña. */
+    const errMotor = m && m.calcError && p.entry !== null
+      ? `<div class="warn">El motor no pudo calcular: ${esc(String(m.calcError))}. Se guarda lo escrito tal cual.</div>` : "";
+    /* LOS AVISOS DEL MOTOR, que ya existían y aquí no se leían. El formulario
+       completo los enseña desde siempre (`edRevisarPrecios` filtra justo estos
+       tres: precio fuera de la rejilla, stop incoherente, objetivo incoherente).
+       Mientras esta pantalla sólo aceptaba instrumento y resultado no tenía
+       ninguno que enseñar; ahora acepta los cuatro precios, así que el mismo
+       «sl20160» en un long —el stop del lado equivocado— tiene que decir aquí lo
+       que diría allí. Son del motor: no se juzgan los precios por segunda vez. */
+    const avisosMotor = (m && m.avisos || [])
+      .map(a => `<div class="warn">${esc(a.mensaje)}</div>`).join("");
     el.innerHTML = `
-      <div class="big ${p.pnl > 0 ? "pos" : p.pnl < 0 ? "neg" : ""}">${p.instrument || "—"} ${p.direction ? p.direction.toUpperCase() : ""} ${p.pnl === null ? "" : (p.pnl >= 0 ? "+" : "") + money(p.pnl)}</div>
-      <div class="kv">${filas.map(([k, v, no]) => `<b>${k}</b>${v ? `<span>${esc(String(v))}</span>` : `<span class="na">${esc(no)}</span>`}`).join("")}
+      <div class="big ${usd > 0 ? "pos" : usd < 0 ? "neg" : ""}">${p.instrument || "—"} ${p.direction ? p.direction.toUpperCase() : ""} ${p.qty !== null && p.qty !== 1 ? `×${p.qty} ` : ""}${usd === null || usd === undefined ? "" : (usd >= 0 ? "+" : "") + money(usd)}</div>
+      <div class="kv">${filas.map(([k, v, no]) => `<b>${k}</b>${v || v === 0 ? `<span>${esc(String(v))}</span>` : `<span class="na">${esc(no)}</span>`}`).join("")}
         <b>procedencia</b><span>quick_add</span></div>
+      ${der.length ? `<div class="na">El motor deriva: ${esc(der.join(" · "))}.</div>` : ""}
+      ${pts.usd !== null ? `<div class="na">Resultado traducido de puntos: ${esc(pts.por)} = ${money(pts.usd)}. Entra como escrito a mano, así que va BRUTO, sin comisiones.</div>` : ""}
+      ${pts.usd === null && p.pnl === null && m && m.pnlEff !== null && m.pnlEff !== undefined ? `<div class="na">Resultado calculado por el motor desde la entrada y la salida, y BRUTO: esta cabina no descuenta comisiones por su cuenta. Si el bróker dice otra cosa —y con comisiones dirá otra cosa—, escribe tu cifra y gana la tuya.</div>` : ""}
       ${falta.length ? `<div class="bad">No se puede guardar: falta ${falta.join(" y ")}.</div>` : ""}
       ${p.ambiguo.length ? `<div class="bad">Ambiguo, no se interpreta solo: ${esc(p.ambiguo.join(" · "))}.</div>` : ""}
       ${p.sobra.length ? `<div class="warn">Sin reconocer, no se guarda: ${esc(p.sobra.join(" · "))}.</div>` : ""}
+      ${pts.aviso ? `<div class="warn">${esc(pts.aviso)}.</div>` : ""}
+      ${errMotor}
+      ${avisosMotor}
       ${p.pnl !== null && !p.pnlConSigno ? `<div class="warn">Escribiste ${p.pnl} sin signo y se lee como GANANCIA. Escribe −${p.pnl} si fue pérdida.</div>` : ""}
-      ${p.instrument && p.pnl !== null ? `<div class="na">R y riesgo quedan vacíos: sin entrada ni stop el motor no los puede calcular, y no se inventan. Se completan en «Añadir detalles».</div>` : ""}`;
+      ${qkDiscrepa(p, rec)}
+      ${sinR ? `<div class="na">R y riesgo quedan vacíos: sin entrada y stop el motor no los puede calcular, y no se inventan. Escríbelos en esta misma línea —«@20150 sl20120»— o complétalos en «Añadir detalles».</div>` : ""}`;
+  }
+  /* EL CAZA-ERRATAS. Si escribiste el resultado Y la entrada y la salida, hay dos
+     respuestas para el mismo hecho. La tuya gana —es un hecho reportado, regla del
+     motor— pero una diferencia grande casi siempre es un dedo: un cero de más en
+     el precio, o el resultado de la operación anterior. Avisar cuesta una línea y
+     el error que pilla es de los que envenenan el balance entero. */
+  function qkDiscrepa(p, rec) {
+    if (p.pnl === null || p.entry === null || p.exit === null || !p.direction) return "";
+    const res = QE.resolveContract(p.instrument);
+    if (!QE.isOk(res)) return "";
+    /* El bruto se le PREGUNTA AL MOTOR, sobre una copia sin el `pnl` escrito: con
+       él puesto devolvería el manual, que es justo la cifra que se quiere
+       comparar. Repetir aquí la multiplicación por el multiplicador sería tener
+       dos aritméticas del dinero en el repositorio, y la segunda se queda atrás. */
+    const sin = Object.assign({}, rec); delete sin.pnl;
+    const mb = qkMotor(sin);
+    if (!mb || mb.pnlEff === null || mb.pnlEff === undefined) return "";
+    const q = p.qty === null ? 1 : p.qty;
+    const dif = Math.abs(mb.pnlEff - p.pnl);
+    /* El umbral no es cosmético: por debajo, la diferencia es la comisión, que es
+       exactamente lo que separa el bruto que calcula el motor del neto que dice el
+       bróker, y no es ninguna errata. Por encima, casi siempre es un dedo: un cero
+       de más en un precio, o el resultado de la operación anterior. */
+    const comision = res.value.commissionPerContract * q;
+    if (dif <= Math.max(comision * 1.5, 1)) return "";
+    return `<div class="warn">Escribiste ${money(p.pnl)}, pero de ${p.entry} a ${p.exit} en ${q} ${q === 1 ? "contrato" : "contratos"} de ${res.value.symbol} salen ${money(mb.pnlEff)} brutos. Gana el tuyo —es lo que reportas—, pero la diferencia de ${money(dif)} no la explican las comisiones.</div>`;
   }
   /* Guardar: un solo registro canónico, por la puerta de siempre. */
   function qkGuarda(abrirDetalles) {
     const p = qkParse($("qkText").value);
-    if (!p.instrument || p.pnl === null || p.ambiguo.length) return;
+    const pts = qkPuntosADolares(p);
+    if (qkFalta(p, pts).length || p.ambiguo.length) return;
     const e = qkEnrich(p);
-    const rec = {
-      id: uid("t"), type: "futuros",
-      date: e.date, time: e.time, accountId: e.accountId,
-      instrument: p.instrument, pnl: p.pnl,
-      /* La procedencia. Absente en las operaciones de antes: eso significa
-         «desconocida», no «manual». No se rellena hacia atrás porque inventarlo
-         sería exactamente lo que este campo existe para evitar. */
-      source: "quick_add",
-      createdAt: Date.now(), updatedAt: Date.now(),
-    };
-    if (p.direction) rec.direction = p.direction;
+    const rec = Object.assign(qkRegistro(p, e, pts), {
+      id: uid("t"), createdAt: Date.now(), updatedAt: Date.now(),
+    });
     if (qk.cal) rec.quality = qk.cal;
     if (qk.tags.length) rec.tags = qk.tags.join(", ");
     coll("trades").set(rec.id, rec);
@@ -7655,7 +8010,12 @@
     qkLimpiarBorrador(); qkCierra();
     if (abrirDetalles) { const t = coll("trades").get(rec.id); if (t) openTrade(t); return; }
     revealTrade(rec);
-    flash(`${rec.instrument} ${(rec.pnl >= 0 ? "+" : "") + money(rec.pnl)} registrada · rápida`);
+    /* El aviso dice el resultado QUE SE GUARDÓ, que ya no es siempre `rec.pnl`:
+       cuando viene de entrada y salida lo calcula el motor. Preguntárselo evita
+       que el aviso diga «undefined» justo en el camino nuevo. */
+    const m = qkMotor(rec);
+    const usd = m && m.pnlEff !== null && m.pnlEff !== undefined ? m.pnlEff : rec.pnl;
+    flash(`${rec.instrument} ${usd === null || usd === undefined ? "" : (usd >= 0 ? "+" : "") + money(usd)} registrada · rápida`);
   }
   function qkGuardaNota() {
     const txt = $("qkNota").value.trim(); if (!txt) return;
