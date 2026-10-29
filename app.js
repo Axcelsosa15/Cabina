@@ -2540,7 +2540,7 @@
       const label = document.createElement("label"); label.className = "view-prefs-item";
       const input = document.createElement("input"); input.type = "checkbox"; input.checked = !hidden.has(key); input.dataset.viewPrefKey = key; input.setAttribute("aria-label", "Mostrar " + viewLabel(el, i));
       const text = document.createElement("span"); text.textContent = viewLabel(el, i);
-      const stateLabel = document.createElement("small"); stateLabel.textContent = input.checked ? "Visible" : "Oculto"; stateLabel.style.color = "var(--muted,#a5adbb)";
+      const stateLabel = document.createElement("small"); stateLabel.textContent = input.checked ? "Visible" : "Oculto"; stateLabel.style.color = "var(--muted,var(--muted))";
       input.addEventListener("change", () => {
         const current = readViewPrefs(); const list = new Set(Array.isArray(current.hidden[tabName]) ? current.hidden[tabName] : []);
         if (input.checked) list.delete(key); else list.add(key);
@@ -2588,7 +2588,7 @@
           const input = document.createElement("input"); input.type = "checkbox"; input.checked = !hiddenColumns.has(key);
           input.setAttribute("aria-label", "Mostrar columna " + labelText);
           const text = document.createElement("span"); text.textContent = labelText;
-          const stateLabel = document.createElement("small"); stateLabel.textContent = input.checked ? "Visible" : "Oculta"; stateLabel.style.color = "var(--muted,#a5adbb)";
+          const stateLabel = document.createElement("small"); stateLabel.textContent = input.checked ? "Visible" : "Oculta"; stateLabel.style.color = "var(--muted,var(--muted))";
           input.addEventListener("change", () => {
             const current = readViewPrefs();
             current.columns[tableTabName] = current.columns[tableTabName] && typeof current.columns[tableTabName] === "object" ? current.columns[tableTabName] : {};
@@ -9468,10 +9468,10 @@
     const fmt = opts.fmt || (v => Math.abs(v) >= 1e3 ? "$" + (v / 1e3).toFixed(1) + "k" : "$" + Math.round(v));
     const every = Math.max(1, Math.ceil(items.length / (opts.maxLabels || 16)));
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.aria || "gráfico")}">
-      <g class="grid">${ticks.map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line><text style="fill:#c8d5df!important;color:#c8d5df;font-size:12px;font-weight:500" x="${pl - 8}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${fmt(v)}</text>`).join("")}</g>
+      <g class="grid">${ticks.map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line><text style="fill:var(--muted)!important;color:var(--muted);font-size:12px;font-weight:500" x="${pl - 8}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${fmt(v)}</text>`).join("")}</g>
       <line class="zero" x1="${pl}" x2="${W - pr}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}"></line>
       ${items.map((it, i) => { const top = Math.min(y(it.value), y(0)), h = Math.max(1, Math.abs(y(it.value) - y(0)));
-        return `<rect class="bar ${it.cls || (it.value >= 0 ? "pos" : "neg")}" ${it.color ? `style="fill:${it.color}"` : ""} x="${(pl + i * bw + (bw - bwUse) / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${bwUse.toFixed(1)}" height="${h.toFixed(1)}" rx="3"><title>${esc(it.title || (it.label + ": " + fmt(it.value)))}</title></rect>${i % every === 0 ? `<text style="fill:#c8d5df!important;color:#c8d5df;font-size:12px;font-weight:500" x="${(pl + i * bw + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${esc(it.label)}</text>` : ""}`; }).join("")}
+        return `<rect class="bar ${it.cls || (it.value >= 0 ? "pos" : "neg")}" ${it.color ? `style="fill:${it.color}"` : ""} x="${(pl + i * bw + (bw - bwUse) / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${bwUse.toFixed(1)}" height="${h.toFixed(1)}" rx="3"><title>${esc(it.title || (it.label + ": " + fmt(it.value)))}</title></rect>${i % every === 0 ? `<text style="fill:var(--muted)!important;color:var(--muted);font-size:12px;font-weight:500" x="${(pl + i * bw + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${esc(it.label)}</text>` : ""}`; }).join("")}
     </svg>`;
   }
   const fmtK$ = v => Math.abs(v) >= 1e3 ? "$" + (v / 1e3).toFixed(1) + "k" : "$" + Math.round(v);
@@ -11892,7 +11892,14 @@
     const entries = Object.keys(s.byMarket).map(id => { const m = mm.find(x => x.id === id); return { id, name: marketName(id), short: (m && m.short) || marketName(id).slice(0, 4).toUpperCase(), val: s.byMarket[id].val, n: s.byMarket[id].n }; }).sort((a, b) => b.val - a.val);
     if (!entries.length || s.cur <= 0) { wrap.innerHTML = `<p class="empty">Sin posiciones. Añade una en el mercado que corresponda, más abajo.</p>`; tbl.innerHTML = ""; $("ivAllocMeta").textContent = ""; return; }
     $("ivAllocMeta").innerHTML = `${money(s.cur)} en ${entries.length} ${entries.length === 1 ? "mercado" : "mercados"}`;
-    const marketColors = ["#70e0cf", "#78a9ff", "#b39bff", "#e4b86a", "#91c9a7", "#e58eaa", "#91a4b3", "#c8d5df"];
+    /* PALETA DE SERIES · la anterior era pastel pensada para fondo negro: sobre
+       papel, #70e0cf daba 1.47:1 y #c8d5df 1.38:1 contra el fondo, o sea líneas
+       que no se ven. Estas ocho están calculadas para 3:1 como mínimo contra
+       #f5f6f8 —el mínimo de un objeto gráfico, no de un texto— conservando el
+       tono de origen. El orden separa el teal del ocre, que son el par más
+       parecido en claridad (1.02:1): distinguirlos depende del tono, así que no
+       van seguidos. */
+    const marketColors = ["#176f65", "#2a5fa8", "#3f7f58", "#8a5a12", "#6b4a8f", "#a14a66", "#45586b", "#748da3"];
     wrap.innerHTML = chartBars(entries.map((e, i) => ({ label: e.short, value: e.val, cls: "pos", color: marketColors[i % marketColors.length], title: `${e.name} · ${money(e.val)} · ${pct(e.val / s.cur)} · ${plu(e.n, "posición", "posiciones")}` })), { W: chartW(wrap), H: 205, pl: 58, aria: "Asignación por mercado", maxLabels: 8 });
     tbl.innerHTML = `<div class="twrap" style="margin-top:12px"><table class="t"><thead><tr><th>Mercado</th><th class="r">Pos.</th><th class="r">Valor</th><th class="r">Peso</th></tr></thead><tbody>${entries.map(e => `<tr><td class="ui">${esc(e.name)}</td><td class="r">${e.n}</td><td class="r pos">${money(e.val)}</td><td class="r ${e.val / s.cur > .5 ? "neg" : ""}">${pct(e.val / s.cur)}</td></tr>`).join("")}</tbody></table></div>`;
   }
@@ -15239,19 +15246,19 @@
     h += '<div class="impgrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">';
     campos.forEach(([k, label, , oblig, ayuda]) => {
       const v = imp.mapa[k] == null || imp.mapa[k] < 0 ? "" : String(imp.mapa[k]);
-      h += `<div><label class="lab">${esc(label)}${oblig ? ' <span style="color:#e0604f">*</span>' : ""}</label>`
+      h += `<div><label class="lab">${esc(label)}${oblig ? ' <span style="color:var(--negative)">*</span>' : ""}</label>`
         + impSel("col_" + k, v, cols, "— ninguna —")
         + (ayuda ? `<p class="help" style="margin:4px 0 0">${esc(ayuda)}</p>` : "") + "</div>";
     });
-    h += `<div><label class="lab">Cuenta <span style="color:#e0604f">*</span></label>`
+    h += `<div><label class="lab">Cuenta <span style="color:var(--negative)">*</span></label>`
       + (ctas.length ? impSel("cuenta", imp.cuenta, ctas, "— elige —")
          : '<p class="help" style="margin:4px 0 0">No hay ninguna cuenta registrada. Créala en Futuros → Cuentas: sin cuenta, una operación no entra en el drawdown de nada.</p>')
       + "</div></div>";
     /* Lo ambiguo se pregunta, no se adivina, y se dice POR QUÉ es ambiguo: sin
        el motivo parece un formulario más y se contesta a boleo. */
     if (p.plan.ambiguas.length) {
-      h += '<div class="impamb" style="margin-top:14px;padding:12px;border:1px solid #5b4a31;border-radius:10px">';
-      h += '<p class="csub" style="margin:0 0 10px;color:#f0c479">Esto no se puede decidir mirando el fichero, y adivinarlo cambia los números sin dar ningún error. Dilo tú:</p>';
+      h += '<div class="impamb" style="margin-top:14px;padding:12px;border:1px solid var(--warning);border-radius:10px">';
+      h += '<p class="csub" style="margin:0 0 10px;color:var(--warning)">Esto no se puede decidir mirando el fichero, y adivinarlo cambia los números sin dar ningún error. Dilo tú:</p>';
       h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">';
       p.plan.ambiguas.forEach(a => {
         if (a.que === "orden") {
@@ -15293,7 +15300,7 @@
          silencio es perder una operación sin saberlo, que es exactamente lo
          que este fichero existe para no hacer. */
       if (p.rechazadas.length) {
-        h += `<h3 style="margin:18px 0 8px;font-size:14px;color:#e0604f">${plu(p.rechazadas.length, "fila que NO entra", "filas que NO entran")}</h3>`;
+        h += `<h3 style="margin:18px 0 8px;font-size:14px;color:var(--negative)">${plu(p.rechazadas.length, "fila que NO entra", "filas que NO entran")}</h3>`;
         h += '<p class="csub" style="margin:0 0 8px">No se descartan a tus espaldas y no se arreglan a medias: se quedan fuera y aquí está por qué. Arréglalas en el fichero y vuelve a cargarlo, o impórtalas a mano.</p><ul class="csub" style="margin:0;padding-left:18px">';
         p.rechazadas.slice(0, 15).forEach(r => { h += `<li>fila ${r.n}: ${esc(r.problemas.join("; "))}</li>`; });
         h += "</ul>";
@@ -16116,7 +16123,7 @@
     win.textContent=pnl.length?((pnl.filter(v=>v>0).length/pnl.length)*100).toFixed(1)+"%":"—";
     net.textContent=pnl.length?estudioDinero(pnl.reduce((sum,v)=>sum+v,0)):"—";
     avgR.textContent=rs.length?(rs.reduce((sum,v)=>sum+v,0)/rs.length).toFixed(2)+"R":"—";
-    const pnlLabel=$("studyTradeMetricPnl");if(pnlLabel)pnlLabel.style.color=pnl.length&&pnl.reduce((sum,v)=>sum+v,0)<0?"#f08f86":pnl.length&&pnl.reduce((sum,v)=>sum+v,0)>0?"#70e0cf":"";
+    const pnlLabel=$("studyTradeMetricPnl");if(pnlLabel)pnlLabel.style.color=pnl.length&&pnl.reduce((sum,v)=>sum+v,0)<0?"var(--negative)":pnl.length&&pnl.reduce((sum,v)=>sum+v,0)>0?"var(--positive)":"";
   }
   function renderEstudioTradeBreakdown(trades){
     const root=$("studyTradeBreakdown");if(!root)return;
@@ -16186,7 +16193,7 @@
        decirlo con «no hay operaciones con esos filtros» convierte el momento en
        el que acabas de revisar la última en un mensaje de error. */
     if(!visibles.length){list.innerHTML='<div class="study-empty"><b>'+(estudioSoloSinRevisar&&filtered.length?"No queda ninguna sin revisar":trades.length?"No hay operaciones con esos filtros":"Todavía no hay trades en FUTUROS")+'</b><p class="study-note">'+(estudioSoloSinRevisar&&filtered.length?"Las "+filtered.filter(t=>t.pnlEff!=null).length+" cerradas de esta vista tienen su revisión. Suelta el filtro para verlas.":trades.length?"Cambia la cuenta o la búsqueda.":"Registra una operación en FUTUROS y vuelve a ESTUDIO.")+'</p></div>';$("studyTradeReviewForm").hidden=true;$("studyTradeTitle").textContent="Selecciona una operación";$("studyTradeMeta").textContent=trades.length?"No hay operaciones para mostrar con estos filtros.":"Registra un trade en FUTUROS para comenzar."; $("studyTradeStats").textContent="";return;}
-    list.innerHTML=visibles.map(t=>'<button type="button" class="study-card" style="width:100%;text-align:left;cursor:pointer;border-color:'+(String(t.id)===estudioTradeSeleccionado?'#70e0cf':'')+'" data-study-trade="'+estudioEsc(t.id)+'"><div class="study-card-head"><span class="study-kind">'+estudioEsc(t.instrument||"Instrumento sin indicar")+'</span><span class="study-state">'+estudioEsc(t.direction||"Dirección no indicada")+'</span>'+(estudioSinRevisar(t)?'<span class="study-state" style="color:#f0c479;border-color:#5b4a31">sin revisar</span>':'')+'</div><h3 style="font-size:14px;margin:8px 0">'+estudioEsc(estudioTradeFecha(t))+'</h3><div class="study-card-foot"><span>'+estudioEsc(String(t.qty==null?"—":t.qty)+" contratos")+'</span><b>'+estudioEsc(estudioDinero(t.pnlEff))+'</b></div></button>').join("");
+    list.innerHTML=visibles.map(t=>'<button type="button" class="study-card" style="width:100%;text-align:left;cursor:pointer;border-color:'+(String(t.id)===estudioTradeSeleccionado?'var(--accent)':'')+'" data-study-trade="'+estudioEsc(t.id)+'"><div class="study-card-head"><span class="study-kind">'+estudioEsc(t.instrument||"Instrumento sin indicar")+'</span><span class="study-state">'+estudioEsc(t.direction||"Dirección no indicada")+'</span>'+(estudioSinRevisar(t)?'<span class="study-state" style="color:var(--warning);border-color:var(--warning)">sin revisar</span>':'')+'</div><h3 style="font-size:14px;margin:8px 0">'+estudioEsc(estudioTradeFecha(t))+'</h3><div class="study-card-foot"><span>'+estudioEsc(String(t.qty==null?"—":t.qty)+" contratos")+'</span><b>'+estudioEsc(estudioDinero(t.pnlEff))+'</b></div></button>').join("");
     list.querySelectorAll("[data-study-trade]").forEach(b=>b.addEventListener("click",()=>{estudioTradeSeleccionado=b.dataset.studyTrade;renderEstudioTrades();estudioCargarReview(estudioTradeSeleccionado);}));
     if(visibles.length&&!visibles.some(t=>String(t.id)===estudioTradeSeleccionado)){estudioTradeSeleccionado=String(visibles[0].id);renderEstudioTrades();estudioCargarReview(estudioTradeSeleccionado);}
     else if(estudioTradeSeleccionado&&visibles.some(t=>String(t.id)===estudioTradeSeleccionado))estudioCargarReview(estudioTradeSeleccionado);
@@ -16372,7 +16379,7 @@
   /* ── TILES SIN DATO ──────────────────────────────────────
      Con una cuenta nueva, 23 de los 27 tiles de la aplicación muestran «—»:
      FUTUROS 13 de 13, INVERSIONES 8 de 10, CABINA 2 de 4. Y los 23 se pintaban a
-     peso 800, 26px y #E8ECF2 — EXACTAMENTE lo mismo que una cifra real. El ojo
+     peso 800, 26px y var(--text) — EXACTAMENTE lo mismo que una cifra real. El ojo
      no tenía dónde posarse: con la semilla puesta, los ocho guiones de
      INVERSIONES competían a igualdad de tinta con el «$556» de FUTUROS.
 
