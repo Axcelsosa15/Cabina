@@ -1265,6 +1265,15 @@
     "Lección y siguiente acción": "Lesson and next action",
     "Leídas": "Read",
     "Limpiar filtros": "Clear filters",
+    "Historial": "History",
+    "Todas las operaciones": "All trades",
+    "futuros e inversiones": "futures and investments",
+    "sólo futuros": "futures only",
+    "sólo inversiones": "investments only",
+    "sin cuenta asignada": "no account assigned",
+    "Ver todo": "Show all",
+    "desde": "from",
+    "hasta": "to",
     "Buscar": "Search",
     "Exportar CSV": "Export CSV",
     "Historial de ejecuciones": "Execution history",
@@ -1489,7 +1498,10 @@
   function i18nArranca() {
     traduce(idioma());
     const b = document.getElementById("idiomaBtn");
-    if (b) b.addEventListener("click", () => { const v = idioma() === "en" ? "es" : "en"; idiomaGuarda(v); traduce(v); });
+    if (b) b.addEventListener("click", () => {
+      const v = idioma() === "en" ? "es" : "en"; idiomaGuarda(v); traduce(v);
+      repintaEstadisticas();
+    });
   }
 
   /* `occ`: ¿la base tiene la columna `version`, o sea, hay control de concurrencia?
@@ -6741,6 +6753,19 @@
     account(id) { return acctById(id); },
     rules() { return state.settings.rules || []; },
     trades(accountId) { return accountId ? tradesDe(accountId) : tradesOf("futuros"); },
+    /* LA PUERTA DEL FILTRO. Una pantalla que quiera un subconjunto de
+       operaciones lo pide aquí, no reimplementando los `filter`. `spec` admite
+       acct (con "__none"), setup, instr, ses, q, y la fecha en las dos
+       gramáticas: `rango` como preset o `desde`/`hasta` exactas — el preset se
+       resuelve a fechas, así que las dos no pueden divergir. `tipo` elige la
+       familia: "futuros" por defecto, "inversion" para la cartera. */
+    filtered(spec) {
+      const s = spec || {};
+      return tradesOf(s.tipo || "futuros").filter(tradeFiltro(s));
+    },
+    /* El filtro que tiene puesto Futuros ahora mismo, para quien quiera
+       enseñar lo mismo que el journal sin copiar su estado. */
+    filterSpec() { return ftSpec(); },
     tradesOn(accountId, date) { return FUT.trades(accountId).filter(t => t.date === date); },
 
     /* ── selección de cuenta ──
@@ -8452,14 +8477,77 @@
     _tradesMemo.key = key; _tradesMemo.val = val;
     return val;
   }
-  function inRange(t) {
-    const d = t.date || ""; const today = state.today;
-    if (ft.range === "month") return d.slice(0, 7) === today.slice(0, 7);
-    if (ft.range === "year") return d.slice(0, 4) === today.slice(0, 4);
-    if (ft.range === "30" || ft.range === "90") { const lim = new Date(today + "T12:00:00Z"); lim.setUTCDate(lim.getUTCDate() - Number(ft.range)); return d >= lim.toISOString().slice(0, 10); }
-    return true;
+  /* ══════════════════ UN SOLO FILTRO DE OPERACIONES ══════════════════
+     La colección `trades` se filtraba en cinco sitios con cinco vocabularios:
+     Futuros con presets de rango, Métricas y el historial de ejecuciones con
+     desde/hasta, Inversiones con cuenta y estrategia, las pre-sesiones con
+     presets otra vez. Cinco implementaciones de «¿qué operaciones entran?»
+     sobre los MISMOS datos, y la de Métricas decide la expectativa, el profit
+     factor y el drawdown — el número que dice si el sistema paga.
+
+     No es una abstracción nueva: la fachada FUT ya se declara más abajo como
+     «CAPA DE DATOS — PUERTA ÚNICA», con la regla escrita de que si dos
+     pantallas discrepan es porque una se saltó la puerta. `mxOps()` se la
+     saltaba. Esto la termina.
+
+     LO QUE HACE QUE LAS DOS GRAMÁTICAS DE FECHA NO PUEDAN DIVERGIR: el preset
+     se RESUELVE a desde/hasta, y de ahí abajo hay UNA comparación. Antes
+     «últimos 30 días» era `d >= lim` en un sitio y `d >= mx.desde` en otro —
+     dos expresiones que daban lo mismo por suerte, no por construcción. Las
+     dos gramáticas siguen existiendo porque las dos pantallas las necesitan de
+     verdad: Futuros quiere «este mes» de un clic, y las métricas necesitan una
+     ventana cerrada. Lo que no puede haber es dos implementaciones de ella.
+     test/filtros.mjs afirma la equivalencia, y cae si se rompe. */
+  function ventanaDe(spec) {
+    /* Devuelve { desde, hasta } en ISO; "" es «sin cota por ese lado».
+       Los límites de cada preset son EXACTAMENTE los que calculaba `inRange`:
+       «este mes» y «este año» acotan por los dos lados —eran una igualdad de
+       prefijo— y los de 30/90 días sólo por abajo, que es lo que hacía
+       `d >= lim`. Cambiar eso aquí movería en silencio qué entra en el edge. */
+    const hoy = state.today;
+    const r = spec.rango || "all";
+    let desde = spec.desde || "", hasta = spec.hasta || "";
+    if (r === "month") {
+      const mes = hoy.slice(0, 7);
+      // El 0 del mes siguiente es el último día de este: no hay tabla de 28/30/31.
+      const fin = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0, 12));
+      desde = desde || mes + "-01"; hasta = hasta || fin.toISOString().slice(0, 10);
+    } else if (r === "year") {
+      const anio = hoy.slice(0, 4);
+      desde = desde || anio + "-01-01"; hasta = hasta || anio + "-12-31";
+    } else if (r === "30" || r === "90") {
+      const lim = new Date(hoy + "T12:00:00Z"); lim.setUTCDate(lim.getUTCDate() - Number(r));
+      desde = desde || lim.toISOString().slice(0, 10);
+    }
+    return { desde, hasta };
   }
-  function acctMatch(t) { return !ft.acct || (ft.acct === "__none" ? !t.accountId : t.accountId === ft.acct); }
+  /* El predicado. `spec` lleva sólo lo que acota; lo ausente no filtra.
+       acct   id de cuenta, o "__none" para «sin cuenta asignada»
+       setup  id de playbook        instr  instrumento exacto
+       ses    sesión de mercado, o "__sin" para «sin hora»
+       rango  preset                desde / hasta  fechas exactas
+       q      búsqueda libre (varios términos = AND) */
+  function tradeFiltro(spec) {
+    const s = spec || {};
+    const { desde, hasta } = ventanaDe(s);
+    const terms = normQ(s.q || "").trim().split(/\s+/).filter(Boolean);
+    return t => {
+      const d = t.date || "";
+      if (desde && d < desde) return false;
+      if (hasta && d > hasta) return false;
+      if (s.acct && (s.acct === "__none" ? !!t.accountId : t.accountId !== s.acct)) return false;
+      if (s.setup && t.setupId !== s.setup) return false;
+      // `instrument` en futuros, `asset` en inversiones: la misma pregunta.
+      if (s.instr && (t.instrument || t.asset) !== s.instr) return false;
+      if (s.ses && (tradeSes(t) || "__sin") !== s.ses) return false;
+      if (terms.length && !qMatch(t, terms)) return false;
+      return true;
+    };
+  }
+  /* Los dos que quedan por compatibilidad con quien ya los llamaba, ahora
+     delegando: una sola respuesta, dos nombres viejos. */
+  function inRange(t) { return tradeFiltro({ rango: ft.range })(t); }
+  function acctMatch(t) { return tradeFiltro({ acct: ft.acct })(t); }
   const FT_FILTROS = [
     { k: "acct", lb: "Cuenta", txt: v => v === "__none" ? "sin cuenta asignada" : acctLabel(v) },
     { k: "range", lb: "Rango", txt: v => ({ month: "este mes", "30": "últimos 30 días", "90": "últimos 90 días", year: "este año" })[v] || v, off: "all" },
@@ -8494,8 +8582,17 @@
   function normQ(v) { return String(v == null ? "" : v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
   function qMatch(t, terms) {
     const pb = coll("playbooks").get(t.setupId);
+    const esFut = t.type !== "inversion";
+    /* LAS PALABRAS DE DIRECCIÓN SÓLO SI HAY DIRECCIÓN. Esto ponía «largo long l»
+       en el pajar de CUALQUIER operación sin `direction` —el else de un ternario
+       sin tercera salida—, así que en cuanto el historial dejó buscar en las
+       inversiones, buscar «largo» devolvía todos los dividendos. Para una
+       operación de futuros no cambia nada: siempre trae dirección. */
     const hay = normQ([t.instrument, t.tags, t.lesson, t.quality, t.note,
-      t.direction === "short" ? "corto short s" : "largo long l",
+      esFut ? (t.direction === "short" ? "corto short s" : "largo long l") : "",
+      /* Lo de la familia de inversión: activo, tipo de operación, mercado y el
+         nombre de SU cuenta, que vive en otro espacio de nombres. */
+      esFut ? "" : [t.asset, t.op, t.market, investmentAccountName(t.accountId)].join(" "),
       pb ? pb.name : "", acctLabel(t.accountId) || "", t.date, t.time || "",
       t.exit == null ? "abierta" : ""].join(" "));
     return terms.every(term => hay.indexOf(term) >= 0);
@@ -8515,15 +8612,17 @@
          quién encuentra la búsqueda sin mover la clave. */
       (ft.q ? "|" + coll("playbooks").rev + "|" + (state.settings.accounts || []).map(a => a.id + ":" + (acctLabel(a.id) || "")).join(",") : "");  // inRange mira state.today
     if (_filtMemo.key === key) return _filtMemo.val;
-    let l = tradesOf("futuros").filter(inRange);
-    if (ft.setup) l = l.filter(t => t.setupId === ft.setup);
-    if (ft.instr) l = l.filter(t => t.instrument === ft.instr);
-    if (ft.ses) l = l.filter(t => (tradeSes(t) || "__sin") === ft.ses);
-    if (ft.acct) l = l.filter(acctMatch);
-    const terms = normQ(ft.q).trim().split(/\s+/).filter(Boolean);
-    if (terms.length) l = l.filter(t => qMatch(t, terms));
+    /* Seis `filter` en cadena pasan a UNA pasada por el predicado de la puerta.
+       Lo que se filtra y en qué orden no cambia —el predicado hace las mismas
+       seis preguntas— pero ahora las hace en el mismo sitio que Métricas. */
+    const l = tradesOf("futuros").filter(tradeFiltro(ftSpec()));
     _filtMemo.key = key; _filtMemo.val = l;
     return l;
+  }
+  /* El estado de los filtros de Futuros, dicho como spec de la puerta. Vive
+     aquí y no dentro de futFiltered porque lo lee también `FUT.filtered()`. */
+  function ftSpec() {
+    return { rango: ft.range, setup: ft.setup, instr: ft.instr, ses: ft.ses, acct: ft.acct, q: ft.q };
   }
   /* futStats hace seis pasadas sobre la lista y dos filtros más dentro de grp().
      Con 1.500 operaciones en el journal, guardar UNA repetía ese trabajo sobre
@@ -10125,6 +10224,175 @@
   $("ivOps").addEventListener("click", e => {
     if (e.target.classList.contains("thumb")) { openLightbox(e.target.src, e.target.alt); return; }
     const btn = e.target.closest("button[data-act='edit']"); if (!btn) return; const t = coll("trades").get(btn.closest("tr").dataset.id); if (t) openTrade(t);
+  });
+
+
+  /* ══════════════════ HISTORIAL · LAS DOS FAMILIAS, UNA TABLA ══════════════════
+     Lo que el usuario pedía al principio: un sitio donde ver todo lo que ha
+     hecho. No es una tercera verdad: cada consulta sale de `FUT.filtered()`,
+     la misma puerta que usan el journal y las métricas. Esta pantalla no
+     calcula un P&L, ni un neto, ni un total propio — enseña el que la
+     operación ya trae resuelto.
+
+     EL FILTRO DE CUENTA LLEVA LA FAMILIA DENTRO (`f:` / `i:`) porque los dos
+     espacios de nombres son independientes y dos cuentas de distinta familia
+     pueden compartir id. Elegir una cuenta de futuros acota a futuros por
+     definición, no por efecto secundario: es lo que significa. */
+  const hs = { tipo: "", acct: "", rango: "all", desde: "", hasta: "", q: "" };
+  /* Mismo tramo que el journal: 250 filas y un botón. Un historial de años no
+     puede pintar diez mil <tr> de golpe, y el journal ya resolvió cuánto. */
+  const HS_TRAMO = 250;
+  let hsTope = HS_TRAMO;
+
+  /* Una consulta por familia, porque `FUT.filtered` pide UN tipo. Lo que no
+     hace esta función es filtrar: sólo decide a qué le pregunta. */
+  function hsConsultas() {
+    const base = { rango: hs.rango, desde: hs.desde, hasta: hs.hasta, q: hs.q };
+    const familias = hs.tipo ? [hs.tipo] : ["futuros", "inversion"];
+    if (hs.acct === "__none") return familias.map(tipo => Object.assign({}, base, { tipo, acct: "__none" }));
+    const m = /^([fi]):(.*)$/.exec(hs.acct || "");
+    if (m) {
+      const tipo = m[1] === "f" ? "futuros" : "inversion";
+      /* Una cuenta de futuros con el filtro puesto en «sólo inversiones» no es
+         un error: es un conjunto vacío, y se dice vacío en vez de ignorar uno
+         de los dos filtros. */
+      if (hs.tipo && hs.tipo !== tipo) return [];
+      return [Object.assign({}, base, { tipo, acct: m[2] })];
+    }
+    return familias.map(tipo => Object.assign({}, base, { tipo }));
+  }
+  function hsLista() {
+    const l = hsConsultas().reduce((acc, q) => acc.concat(FUT.filtered(q)), []);
+    /* `FUT.filtered` devuelve cada familia ya ordenada, pero dos listas
+       ordenadas concatenadas no están ordenadas. El desempate por id mantiene
+       el orden estable: sin él, dos operaciones del mismo minuto podían
+       cambiar de sitio entre dos repintados. */
+    return l.sort((a, b) => (b.date || "").localeCompare(a.date || "")
+      || (b.time || "").localeCompare(a.time || "")
+      || String(b.id).localeCompare(String(a.id)));
+  }
+  /* El nombre de la cuenta, de su propio espacio de nombres. */
+  function hsCuenta(t) {
+    if (t.type === "inversion") return investmentAccountName(t.accountId);
+    return acctLabel(t.accountId) || "";
+  }
+  function hsOpciones() {
+    const sel = $("hsAcct"); if (!sel || document.activeElement === sel) return;
+    const fut = (state.settings.accounts || []).map(a => ["f:" + a.id, (acctLabel(a.id) || "cuenta") + " · futuros"]);
+    const inv = investmentAccounts().map(a => ["i:" + a.id, (a.name || "cuenta") + " · inversiones"]);
+    sel.innerHTML = '<option value="">todas las cuentas</option>'
+      + fut.concat(inv).map(([v, l]) => `<option value="${esc(v)}"${hs.acct === v ? " selected" : ""}>${esc(l)}</option>`).join("")
+      + `<option value="__none"${hs.acct === "__none" ? " selected" : ""}>sin cuenta asignada</option>`;
+  }
+  function renderHistorial() {
+    const wrap = $("hsTabla"); if (!wrap) return;
+    hsOpciones();
+    { const q = $("hsQ"); if (q && q.value !== hs.q) q.value = hs.q; }
+    { const r = $("hsRango"); if (r && r.value !== hs.rango) r.value = hs.rango; }
+    { const d = $("hsDesde"); if (d && d.value !== hs.desde) d.value = hs.desde; }
+    { const h = $("hsHasta"); if (h && h.value !== hs.hasta) h.value = hs.hasta; }
+    { const t = $("hsTipo"); if (t && t.value !== hs.tipo) t.value = hs.tipo; }
+    const lista = hsLista();
+    const total = lista.length;
+    if (hsTope > HS_TRAMO && hsTope > total) hsTope = Math.max(HS_TRAMO, total);
+    const visibles = total > hsTope ? lista.slice(0, hsTope) : lista;
+    /* Un botón que descarga un fichero con la cabecera y nada debajo es peor
+       que uno apagado: parece que la exportación funcionó. */
+    { const b = $("hsExport"); if (b) b.disabled = !total; }
+    const nFut = lista.filter(t => t.type !== "inversion").length;
+    $("hsMeta").textContent = total
+      ? (total > visibles.length ? `${plu(visibles.length, "operación", "operaciones")} de ${total}` : plu(total, "operación", "operaciones"))
+        + ` · ${nFut} de futuros · ${total - nFut} de inversión`
+      : "";
+    if (!total) {
+      wrap.innerHTML = `<p class="empty">Sin operaciones que coincidan con estos filtros. Las de futuros se registran en Futuros y las de inversión en Inversiones; aquí se ven juntas.</p>`;
+      return;
+    }
+    const filas = visibles.map(t => {
+      const inv = t.type === "inversion";
+      const res = inv ? t.pnl : t.pnlEff;
+      const precio = inv
+        ? (t.price != null ? money(t.price, 2) : "—")
+        : (t.entry == null ? "—" : esc(String(t.entry)) + (t.exit == null ? " → abierta" : " → " + esc(String(t.exit))));
+      const op = inv
+        ? `<span class="chip ${t.op === "compra" || t.op === "aporte" ? "inv" : t.op === "venta" ? "warn" : "good"}">${esc(t.op || "—")}</span>`
+        : `<span class="${t.direction === "short" ? "neg" : "pos"}">${t.direction === "short" ? "S" : "L"}</span>`;
+      const nota = inv ? t.note : (t.lesson || t.tags);
+      return `<tr data-id="${esc(String(t.id))}" title="Abrir esta operación">`
+        + `<td>${esc(t.date || "—")}</td>`
+        + `<td>${esc(t.time ? h12(t.time) : "—")}</td>`
+        + `<td><span class="chip ${inv ? "inv" : ""}">${inv ? "inversión" : "futuros"}</span></td>`
+        + `<td class="ui">${esc(hsCuenta(t)) || '<span class="dim">—</span>'}</td>`
+        + `<td>${esc(inv ? (t.asset || "—") : (t.instrument || "—"))}</td>`
+        + `<td>${op}</td>`
+        + `<td class="r">${t.qty ?? "—"}</td>`
+        + `<td class="r">${precio}</td>`
+        + `<td class="r ${res > 0 ? "pos" : res < 0 ? "neg" : ""}">${res == null ? '<span class="dim">—</span>' : money(res, inv ? 2 : undefined)}</td>`
+        + `<td class="notes">${esc(nota || "")}</td></tr>`;
+    }).join("");
+    wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Cuenta</th><th>Activo</th><th>Op.</th><th class="r">Cant.</th><th class="r">Precio</th><th class="r">Resultado</th><th>Nota</th></tr></thead><tbody>${filas}</tbody></table>`
+      + (total > visibles.length
+        ? `<div style="padding:12px 0;text-align:center"><button type="button" class="btn ghost" id="hsMas">Mostrar ${Math.min(HS_TRAMO, total - visibles.length)} más · quedan ${total - visibles.length}</button></div>`
+        : "");
+  }
+  /* EL CSV SALE DE LAS OPERACIONES, NO DE LA TABLA, Y SALEN TODAS. Dos
+     trampas, las dos con antecedentes en este repositorio:
+
+     1. Raspar las celdas fue el defecto que tenía el export de ejecuciones:
+        una columna nueva, un `<span>` dentro de una celda o el chip de
+        «abierta» cambiaban el fichero sin que nadie tocara el export. Aquí
+        cada columna es una función de la OPERACIÓN.
+
+     2. La tabla pinta 250 filas y un botón. Exportar lo PINTADO daría 250
+        líneas de un historial de mil, y el fichero no diría nada de las otras
+        setecientas cincuenta — ni que faltan. Se exporta `hsLista()` entera,
+        que es lo que el filtro selecciona y lo que el usuario cree estar
+        mirando.
+
+     Los números van en crudo, sin `money()`: «$1,234» no es un número para
+     ninguna hoja de cálculo. Es la misma regla que ya seguía EXEC_CSV.
+
+     «Estado» queda VACÍO en una operación de inversión a propósito. Una compra
+     no está «abierta» ni «cerrada» en el sentido en que lo está un futuro
+     —eso lo resuelve la posición, no la operación—, y rellenar la celda con
+     cualquiera de las dos palabras sería inventar un dato. */
+  function hsRes(t) { return t.type === "inversion" ? t.pnl : t.pnlEff; }
+  const HS_CSV = [
+    ["Fecha",      t => t.date || ""],
+    ["Hora",       t => t.time || ""],
+    ["Tipo",       t => t.type === "inversion" ? "inversión" : "futuros"],
+    ["Cuenta",     t => hsCuenta(t)],
+    ["Activo",     t => t.type === "inversion" ? (t.asset || "") : (t.instrument || "")],
+    ["Operación",  t => t.type === "inversion" ? (t.op || "") : (t.direction === "short" ? "corto" : "largo")],
+    ["Cantidad",   t => t.qty ?? ""],
+    ["Entrada",    t => t.type === "inversion" ? (t.price ?? "") : (t.entry ?? "")],
+    ["Salida",     t => t.type === "inversion" ? "" : (t.exit ?? "")],
+    ["Estado",     t => t.type === "inversion" ? "" : (t.exit == null ? "abierta" : "cerrada")],
+    ["Resultado",  t => { const r = hsRes(t); return r == null ? "" : r; }],
+    ["R",          t => t.type === "inversion" ? "" : (t.rReal ?? "")],
+    ["Nota",       t => (t.type === "inversion" ? t.note : (t.lesson || t.tags)) || ""],
+  ];
+  $("hsExport").addEventListener("click", () => {
+    const lista = hsLista();
+    if (!lista.length) return;
+    descarga("cabina-historial-" + new Date().toISOString().slice(0, 10) + ".csv",
+      tablaCsv(HS_CSV, lista), "text/csv;charset=utf-8");
+  });
+
+  /* Un cambio de filtro vuelve al primer tramo: dejar el tope de un filtro
+     anterior enseña «250 de 3» y pide pulsar «mostrar más» para nada. */
+  function hsCambia(patch) { Object.assign(hs, patch); hsTope = HS_TRAMO; renderHistorial(); }
+  $("hsTipo").addEventListener("change", e => hsCambia({ tipo: e.target.value }));
+  $("hsAcct").addEventListener("change", e => hsCambia({ acct: e.target.value }));
+  $("hsRango").addEventListener("change", e => hsCambia({ rango: e.target.value }));
+  $("hsDesde").addEventListener("change", e => hsCambia({ desde: e.target.value }));
+  $("hsHasta").addEventListener("change", e => hsCambia({ hasta: e.target.value }));
+  $("hsQ").addEventListener("input", e => hsCambia({ q: e.target.value }));
+  $("hsLimpiar").addEventListener("click", () => hsCambia({ tipo: "", acct: "", rango: "all", desde: "", hasta: "", q: "" }));
+  $("hsTabla").addEventListener("click", e => {
+    if (e.target.closest("#hsMas")) { hsTope += HS_TRAMO; renderHistorial(); return; }
+    const tr = e.target.closest("tr[data-id]"); if (!tr) return;
+    const t = coll("trades").get(tr.dataset.id); if (t) openTrade(t);
   });
 
 
@@ -12532,7 +12800,7 @@
   }, true);
 
   /* =============================== WIRING =============================== */
-  function counts() { $("nFut").textContent = coll("trades").items.filter(t => t.type === "futuros").length || ""; $("nPlaybook").textContent = coll("playbooks").items.length || ""; $("nIdeas").textContent = coll("ideas").items.length || ""; $("nInvest").textContent = coll("positions").items.length || ""; }
+  function counts() { $("nFut").textContent = coll("trades").items.filter(t => t.type === "futuros").length || ""; $("nPlaybook").textContent = coll("playbooks").items.length || ""; $("nIdeas").textContent = coll("ideas").items.length || ""; $("nInvest").textContent = coll("positions").items.length || ""; $("nHist").textContent = coll("trades").items.length || ""; }
   /* Antes esto era `try { renderHistory(); renderAccounts(); renderRules(); } catch {}`.
      Si renderHistory lanzaba, las otras dos NO corrían — y nadie se enteraba: los
      números se quedaban clavados sin un solo error en consola. Ahora cada render
@@ -12590,13 +12858,15 @@
   }
   const mxNum = v => { if (v == null || v === "") return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
   function mxPv(instr) { const r = QE.resolveContract(instr); return r.ok ? r.value.multiplier : null; }
+  /* LAS MÉTRICAS ENTRAN POR LA MISMA PUERTA QUE EL JOURNAL. Aquí había cuatro
+     `filter` en línea que contestaban lo mismo que `inRange` + `acctMatch` con
+     otra letra, y nada obligaba a que coincidieran: `>=` contra `>` en la fecha
+     o un centinela `__none` olvidado movían qué operaciones alimentan la
+     expectativa y el drawdown sin que ninguna prueba lo notara. Ahora es el
+     mismo predicado, y test/filtros.mjs afirma que las dos pantallas eligen el
+     mismo conjunto. */
   function mxOps() {
-    let l = tradesOf("futuros");
-    if (mx.acct) l = l.filter(t => mx.acct === "__none" ? !t.accountId : t.accountId === mx.acct);
-    if (mx.setup) l = l.filter(t => t.setupId === mx.setup);
-    if (mx.desde) l = l.filter(t => (t.date || "") >= mx.desde);
-    if (mx.hasta) l = l.filter(t => (t.date || "") <= mx.hasta);
-    return l;
+    return FUT.filtered({ acct: mx.acct, setup: mx.setup, desde: mx.desde, hasta: mx.hasta });
   }
   /* El neto de UNA operación. Si el journal ya descontó la comisión (campo
      «Comisiones $» o comisiones automáticas), se respeta; si no, se descuenta la
@@ -12717,6 +12987,711 @@
     return { riesgo: f.v, pv, tick, stop, porContrato, contratos, usado: contratos * porContrato, fueraRejilla };
   }
 
+  /* ══════════════════ ESTADÍSTICAS · EL CATÁLOGO ══════════════════
+     Ciento sesenta cifras sobre las MISMAS operaciones que ya alimentan la
+     expectativa, el profit factor y el drawdown de arriba. Tres decisiones que
+     sostienen eso y que no son de estilo:
+
+     1 · NO HAY UNA SEGUNDA VERDAD. Esto no vuelve a leer `coll("trades")` ni
+         recalcula el neto: recibe `c.filas`, que es exactamente la lista que
+         `mxCalc` usó para la expectativa, con el mismo P&L neto, la misma
+         cantidad resuelta por el motor y la misma comisión. Si el catálogo y
+         el panel de Edge dieran números distintos sería porque alguien pasó
+         una lista distinta, y sólo hay un sitio desde donde se llama.
+
+     2 · UNA CIFRA QUE NO SE PUEDE MEDIR NO SE IMPRIME COMO CERO. El P&L no
+         realizado necesita precio en vivo y Cabina no lo tiene; la duración
+         necesita hora de salida y el journal la pide opcional. Esas filas
+         salen con «—» y con la razón escrita al lado. Un cero en el sitio de
+         un dato ausente es una mentira que nadie detecta.
+
+     3 · CADA FILA LLEVA SU DEFINICIÓN DEBAJO. No es decoración: «win rate» son
+         TRES números distintos sobre las mismas operaciones —45/81, 47/81 y
+         45/79— y los tres son defendibles. Una pantalla que enseña «56,96%» a
+         secas obliga a adivinar cuál. Aquí el divisor está escrito.
+
+     El inglés va en el catálogo, no en el diccionario: estas etiquetas las
+     GENERA un render, que es la frontera declarada de la capa de idioma (el
+     cromo generado vuelve a español al repintarse). Con el par es/en dentro de
+     cada entrada, el render elige y no hay nada que se quede a medias. */
+
+  /* Duración en minutos. Hace falta hora de entrada Y de salida; `exitTime` es
+     opcional en el journal, así que casi ninguna operación escrita a mano la
+     trae. Eso no se rellena: las filas de tiempo dicen sobre cuántas se midió. */
+  function estDur(t) {
+    const a = minOfTime(t && t.time), b = minOfTime(t && t.exitTime);
+    if (a == null || b == null) return null;
+    const d1 = t.date, d2 = t.exitDate || t.date;
+    if (!d1 || !d2) return null;
+    const dias = Math.round((Date.parse(d2 + "T12:00:00Z") - Date.parse(d1 + "T12:00:00Z")) / 86400000);
+    if (!Number.isFinite(dias) || dias < 0) return null;
+    const m = dias * 1440 + (b - a);
+    return m >= 0 ? m : null;
+  }
+
+  const estSuma  = xs => xs.reduce((s, x) => s + x, 0);
+  const estMedia = xs => xs.length ? estSuma(xs) / xs.length : null;
+  const estMayor = xs => xs.length ? xs.reduce((m, x) => x > m ? x : m, xs[0]) : null;
+  const estMenor = xs => xs.length ? xs.reduce((m, x) => x < m ? x : m, xs[0]) : null;
+  const estDiv   = (a, b) => b ? a / b : null;
+  /* Desviación MUESTRAL (n−1). Es la que usa el SQN de abajo y la que
+     corresponde: estas operaciones son una muestra del sistema, no su
+     población entera. Con una sola operación no hay dispersión que medir. */
+  function estDesv(xs) {
+    if (xs.length < 2) return null;
+    const m = estMedia(xs);
+    return Math.sqrt(estSuma(xs.map(x => (x - m) * (x - m))) / (xs.length - 1));
+  }
+  /* El extremo de un mapa de cubos, con su clave. `dir` −1 busca el mínimo.
+     Devuelve null si el mapa está vacío, no un cubo inventado. */
+  function estTop(map, fn, dir) {
+    let ck = null, cv = null;
+    for (const [k, o] of map) {
+      if (!k) continue;
+      const v = fn(o); if (v == null || !Number.isFinite(v)) continue;
+      if (cv === null || (dir < 0 ? v < cv : v > cv)) { cv = v; ck = k; }
+    }
+    return ck === null ? null : { k: ck, v: cv };
+  }
+  const estCubo = () => ({ n: 0, pnl: 0, vol: 0, gan: 0, per: 0, mejor: null, peor: null });
+  function estMete(map, k, f) {
+    if (!k) return;
+    let o = map.get(k); if (!o) map.set(k, o = estCubo());
+    o.n++; o.pnl += f.neto; o.vol += f.qty;
+    if (f.neto > 0) o.gan++; else if (f.neto < 0) o.per++;
+    if (o.mejor === null || f.neto > o.mejor) o.mejor = f.neto;
+    if (o.peor === null || f.neto < o.peor) o.peor = f.neto;
+  }
+
+  /* Una pasada sobre las operaciones; todo lo demás se lee de aquí. Las 160
+     filas del catálogo NO vuelven a recorrer la lista: si lo hicieran, abrir la
+     pestaña con un historial grande costaría 160 barridos. */
+  function estAgrega(list, c) {
+    const filas = c.filas;
+    const a = {
+      c, list, filas,
+      abiertas: list.filter(t => t.pnlEff == null),
+      gan: [], per: [], pla: [],
+      dia: new Map(), mes: new Map(), ano: new Map(), sim: new Map(),
+      dur: [], durGan: [], durPer: [],
+      rs: [], pnls: [], vol: 0, volGan: 0, volPer: 0, pnl: 0,
+      largas: 0, cortas: 0,
+      rachaGan: null, rachaPer: null,
+    };
+    for (const f of filas) {
+      (f.neto > 0 ? a.gan : f.neto < 0 ? a.per : a.pla).push(f);
+      a.pnl += f.neto; a.vol += f.qty; a.pnls.push(f.neto);
+      if (f.neto > 0) a.volGan += f.qty; else if (f.neto < 0) a.volPer += f.qty;
+      if (f.r != null) a.rs.push(f.r);
+      const d = f.t.date || "";
+      estMete(a.dia, d, f); estMete(a.mes, d.slice(0, 7), f);
+      estMete(a.ano, d.slice(0, 4), f); estMete(a.sim, f.t.instrument || "", f);
+      const du = estDur(f.t);
+      if (du != null) { a.dur.push(du); if (f.neto > 0) a.durGan.push(du); else if (f.neto < 0) a.durPer.push(du); }
+    }
+    /* Largo y corto se cuentan sobre TODAS las operaciones del filtro, abiertas
+       incluidas: la dirección se sabe en cuanto se abre la posición. */
+    for (const t of list) {
+      const d = String(t.direction || "").toLowerCase();
+      if (d === "short" || d === "corto" || d === "venta") a.cortas++;
+      else if (d) a.largas++;
+    }
+    a.dias = [...a.dia.values()]; a.meses = [...a.mes.values()]; a.anos = [...a.ano.values()];
+    a.diasGan = a.dias.filter(o => o.pnl > 0); a.diasPer = a.dias.filter(o => o.pnl < 0);
+    a.mesesGan = a.meses.filter(o => o.pnl > 0); a.mesesPer = a.meses.filter(o => o.pnl < 0);
+    a.anosGan = a.anos.filter(o => o.pnl > 0); a.anosPer = a.anos.filter(o => o.pnl < 0);
+
+    /* «El último día» es el último que OPERASTE, no el de hoy: con el filtro
+       puesto en un trimestre cerrado, «hoy» no tiene operaciones y la fila
+       diría 0 sobre un periodo que sí las tiene. La semana es la ventana de
+       siete días naturales que termina ahí; el mes y el año, su cubo. */
+    const claves = m => [...m.keys()].filter(Boolean).sort();
+    const ultDia = claves(a.dia).pop() || "";
+    a.ultimaFecha = ultDia;
+    a.ultimoDia = a.dia.get(ultDia) || null;
+    a.ultimoMes = a.mes.get(ultDia.slice(0, 7)) || null;
+    a.ultimoAno = a.ano.get(ultDia.slice(0, 4)) || null;
+    const desdeSem = ultDia ? new Date(Date.parse(ultDia + "T12:00:00Z") - 6 * 86400000).toISOString().slice(0, 10) : "";
+    const sem = estCubo();
+    if (ultDia) for (const f of filas) { const d = f.t.date || ""; if (d >= desdeSem && d <= ultDia) estMete2(sem, f); }
+    a.semana = sem; a.semanaDesde = desdeSem;
+
+    /* Rachas con sus fechas. El motor ya devuelve la LONGITUD máxima; lo que
+       aquí hace falta además es DÓNDE pasó, que es lo que convierte un número
+       en algo que se puede ir a mirar en el journal. */
+    a.rachaGan = estRacha(filas, +1); a.rachaPer = estRacha(filas, -1);
+
+    /* La fecha del drawdown máximo sale de la misma curva que pinta el panel de
+       arriba, no de un segundo recorrido con otra regla. */
+    let peor = null;
+    for (const p of (c.curva && c.curva.pts) || []) if (p.f && (peor === null || p.dd < peor.dd)) peor = p;
+    a.ddFecha = peor && peor.f && peor.f.t ? peor.f.t.date : null;
+    return a;
+  }
+  function estMete2(o, f) {
+    o.n++; o.pnl += f.neto; o.vol += f.qty;
+    if (f.neto > 0) o.gan++; else if (f.neto < 0) o.per++;
+  }
+  /* La racha más larga del signo pedido, con la fecha de su primera y su última
+     operación. Una plana CORTA la racha: no es una victoria ni una derrota, y
+     encadenar a través de ella inflaría la cifra que se usa para decidir si el
+     sistema se rompió. */
+  function estRacha(filas, signo) {
+    let mejor = null, ini = null, largo = 0;
+    for (const f of filas) {
+      const s = f.neto > 0 ? 1 : f.neto < 0 ? -1 : 0;
+      if (s === signo) { if (!largo) ini = f; largo++; if (!mejor || largo > mejor.n) mejor = { n: largo, desde: ini, hasta: f }; }
+      else largo = 0;
+    }
+    return mejor;
+  }
+
+  const EST_CATS = [
+    { id: "pl",        es: "Rendimiento y P&L",  en: "Performance & P&L" },
+    { id: "acierto",   es: "Acierto y calidad",  en: "Win rate & quality" },
+    { id: "actividad", es: "Actividad",          en: "Trade activity" },
+    { id: "tiempo",    es: "Tiempo en operación", en: "Timing" },
+    { id: "simbolos",  es: "Símbolos",           en: "Symbols" },
+  ];
+
+  function estHora(min) {
+    if (min == null) return "—";
+    const h = Math.floor(min / 60), m = Math.round(min % 60);
+    return h ? `${h} h ${String(m).padStart(2, "0")} min` : `${m} min`;
+  }
+  const EST_FMT = {
+    m:  v => qeM(v),
+    m0: v => v == null ? "—" : money(v),
+    p:  v => v == null ? "—" : (v * 100).toFixed(2) + "%",
+    n:  v => v == null ? "—" : Number(v).toFixed(3),
+    n2: v => v == null ? "—" : Number(v).toFixed(2),
+    i:  v => v == null ? "—" : Math.round(v).toLocaleString("es-ES"),
+    r:  v => v == null ? "—" : (v >= 0 ? "+" : "") + Number(v).toFixed(2) + "R",
+    t:  v => v == null || v === "" ? "—" : esc(String(v)),
+    d:  v => estHora(v),
+  };
+  /* El color sólo lo llevan las cifras que TIENEN signo económico. Pintar de
+     verde un recuento de operaciones o una duración sugiere un juicio que no
+     existe: 45 operaciones no son «buenas». */
+  const EST_SIGNO = { m: 1, m0: 0, p: 0, n: 0, n2: 0, i: 0, r: 1, t: 0, d: 0 };
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     EL CATÁLOGO. Una entrada = una pregunta con UNA respuesta y su definición.
+     `calc` devuelve el número o null; `sub` escribe de dónde sale. Un null con
+     un `sub` que explica por qué es una respuesta completa; un null a secas,
+     no. Añadir una estadística es añadir una línea aquí: no hay un segundo
+     sitio donde registrarla, ni un `switch` que actualizar.
+     ───────────────────────────────────────────────────────────────────────── */
+  const EST = [];
+  const E = (cat, id, es, en, fmt, calc, sub) => EST.push({ cat, id, es, en, fmt, calc, sub: sub || null });
+  const pctDe = (x, n) => n ? x / n : null;
+  const capFalta = (a, en) => en
+    ? `needs a reference capital · set it in Parameters, above`
+    : `hace falta un capital de referencia · se pone en «Parámetros», arriba`;
+  const sobreCap = (a, en) => en
+    ? `over the reference capital ${money(a.c.capital)}`
+    : `sobre el capital de referencia ${money(a.c.capital)}`;
+  const pctCap = v => a => a.c.capital > 0 ? v(a) / a.c.capital : null;
+  /* EL EXTREMO NO ES LA PÉRDIDA. Con ocho días operados y ninguno en rojo, el
+     «peor día» es el menos bueno, no un día perdedor: la fila lo dice en vez
+     de dejar que la palabra «peor» lo insinúe. Al revés igual — en una racha
+     mala el «mejor mes» puede seguir siendo rojo. */
+  const extremo = (map, dir, es, en0) => (a, en) => {
+    const t = estTop(map(a), o => o.pnl, dir);
+    if (!t) return "";
+    const contra = dir < 0 ? t.v >= 0 : t.v <= 0;
+    if (!contra) return esc(t.k);
+    return esc(t.k) + " · " + (dir < 0
+      ? (en ? `no ${en0} closed red: this is the least good one` : `ningún ${es} cerró en rojo: es el menos bueno`)
+      : (en ? `no ${en0} closed green: this is the least bad one` : `ningún ${es} cerró en verde: es el menos malo`));
+  };
+  const subCap = () => (a, en) => a.c.capital > 0 ? sobreCap(a, en) : capFalta(a, en);
+
+  /* ── rendimiento y P&L ───────────────────────────────────────────────── */
+  E("pl", "pnlTotal", "P&L total", "Total PnL", "m", a => a.pnl,
+    (a, en) => en ? `${a.filas.length} closed trades · net of commission` : `${a.filas.length} operaciones cerradas · neto de comisión`);
+  E("pl", "pnlCerrado", "P&L total (cerrado)", "Total PnL (closed)", "m", a => a.pnl,
+    (a, en) => en ? "the same figure: in Cabina P&L only exists once a trade closes" : "la misma cifra: en Cabina el P&L sólo existe al cerrar");
+  E("pl", "pnlAbierto", "P&L no realizado", "Unrealized PnL", "m", () => null,
+    (a, en) => en ? `needs a live price and Cabina has none · ${a.abiertas.length} open trades` : `hace falta precio en vivo y Cabina no lo tiene · ${a.abiertas.length} operaciones abiertas`);
+  E("pl", "pnlGanado", "Ganancia bruta", "Profit PnL", "m", a => estSuma(a.gan.map(f => f.neto)),
+    (a, en) => en ? `sum of the ${a.gan.length} winning trades` : `suma de las ${a.gan.length} operaciones ganadoras`);
+  E("pl", "pnlPerdido", "Pérdida bruta", "Loss PnL", "m", a => estSuma(a.per.map(f => f.neto)),
+    (a, en) => en ? `sum of the ${a.per.length} losing trades` : `suma de las ${a.per.length} operaciones perdedoras`);
+  E("pl", "pnlGanadoPct", "Ganancia bruta (% del capital)", "Total winning PnL %", "p",
+    pctCap(a => estSuma(a.gan.map(f => f.neto))), subCap());
+  E("pl", "pnlPerdidoPct", "Pérdida bruta (% del capital)", "Total losing PnL %", "p",
+    pctCap(a => estSuma(a.per.map(f => f.neto))), subCap());
+  E("pl", "mejorOp", "Mejor operación", "Per trade best winning PnL", "m", a => estMayor(a.gan.map(f => f.neto)),
+    (a, en) => { const f = a.gan.length ? a.gan.reduce((m, x) => x.neto > m.neto ? x : m) : null;
+      return f ? `${esc(f.t.instrument || "—")} · ${esc(f.t.date || "")}` : (en ? "no winning trades" : "sin operaciones ganadoras"); });
+  E("pl", "peorOp", "Peor operación", "Per trade worst losing PnL", "m", a => estMenor(a.per.map(f => f.neto)),
+    (a, en) => { const f = a.per.length ? a.per.reduce((m, x) => x.neto < m.neto ? x : m) : null;
+      return f ? `${esc(f.t.instrument || "—")} · ${esc(f.t.date || "")}` : (en ? "no losing trades" : "sin operaciones perdedoras"); });
+  E("pl", "pnlPorContrato", "P&L por contrato", "PnL per quantity", "m", a => estDiv(a.pnl, a.vol),
+    (a, en) => en ? `${money(a.pnl)} ÷ ${a.vol} contracts traded` : `${money(a.pnl)} ÷ ${a.vol} contratos operados`);
+  E("pl", "minGanadora", "Ganancia más pequeña", "Per trade min. winning PnL", "m", a => estMenor(a.gan.map(f => f.neto)),
+    (a, en) => en ? "smallest trade that still closed green" : "la operación verde más pequeña");
+  E("pl", "minPerdedora", "Pérdida más pequeña", "Per trade min. losing PnL", "m", a => estMayor(a.per.map(f => f.neto)),
+    (a, en) => en ? "smallest trade that still closed red" : "la operación roja más pequeña");
+  E("pl", "pnlMedio", "P&L medio por operación", "Per trade average PnL", "m", a => estMedia(a.pnls),
+    (a, en) => en ? `${money(a.pnl)} ÷ ${a.filas.length} · this is the expectancy` : `${money(a.pnl)} ÷ ${a.filas.length} · es la expectativa`);
+  E("pl", "pnlMedioPct", "P&L medio (% del capital)", "Per trade average PnL %", "p",
+    pctCap(a => estMedia(a.pnls) || 0), subCap());
+  E("pl", "gananciaMedia", "Ganancia media", "Per trade average winning PnL", "m", a => estMedia(a.gan.map(f => f.neto)),
+    (a, en) => en ? `over the ${a.gan.length} winners` : `sobre las ${a.gan.length} ganadoras`);
+  E("pl", "perdidaMedia", "Pérdida media", "Per trade average losing PnL", "m", a => estMedia(a.per.map(f => f.neto)),
+    (a, en) => en ? `over the ${a.per.length} losers` : `sobre las ${a.per.length} perdedoras`);
+  E("pl", "gananciaMediaPct", "Ganancia media (% del capital)", "Per trade average winning PnL %", "p",
+    pctCap(a => estMedia(a.gan.map(f => f.neto)) || 0), subCap());
+  E("pl", "perdidaMediaPct", "Pérdida media (% del capital)", "Per trade average losing PnL %", "p",
+    pctCap(a => estMedia(a.per.map(f => f.neto)) || 0), subCap());
+
+  E("pl", "pnlUltimoDia", "P&L del último día", "PnL last day", "m", a => a.ultimoDia ? a.ultimoDia.pnl : null,
+    (a, en) => a.ultimaFecha ? (en ? `${a.ultimaFecha} — the last day you traded, not today` : `${a.ultimaFecha} — el último día que operaste, no hoy`) : (en ? "no trades" : "sin operaciones"));
+  E("pl", "pnlUltimaSemana", "P&L de la última semana", "PnL last week", "m", a => a.ultimaFecha ? a.semana.pnl : null,
+    (a, en) => a.ultimaFecha ? (en ? `${a.semanaDesde} → ${a.ultimaFecha} · ${a.semana.n} trades` : `${a.semanaDesde} → ${a.ultimaFecha} · ${a.semana.n} operaciones`) : "");
+  E("pl", "pnlUltimoMes", "P&L del último mes", "PnL last month", "m", a => a.ultimoMes ? a.ultimoMes.pnl : null,
+    (a, en) => a.ultimaFecha ? `${a.ultimaFecha.slice(0, 7)}` : "");
+  E("pl", "pnlUltimoAno", "P&L del último año", "PnL last year", "m", a => a.ultimoAno ? a.ultimoAno.pnl : null,
+    (a, en) => a.ultimaFecha ? `${a.ultimaFecha.slice(0, 4)}` : "");
+
+  E("pl", "pnlMedioDia", "P&L medio por día", "Per day average PnL", "m", a => estMedia(a.dias.map(o => o.pnl)),
+    (a, en) => en ? `over ${a.dias.length} trading days` : `sobre ${a.dias.length} días operados`);
+  E("pl", "pnlMedioDiaGan", "P&L medio de un día verde", "Per day average winning PnL", "m", a => estMedia(a.diasGan.map(o => o.pnl)),
+    (a, en) => en ? `over the ${a.diasGan.length} green days` : `sobre los ${a.diasGan.length} días verdes`);
+  E("pl", "pnlMedioDiaPer", "P&L medio de un día rojo", "Per day average losing PnL", "m", a => estMedia(a.diasPer.map(o => o.pnl)),
+    (a, en) => en ? `over the ${a.diasPer.length} red days` : `sobre los ${a.diasPer.length} días rojos`);
+  E("pl", "mejorDia", "Mejor día", "Best day", "m", a => { const t = estTop(a.dia, o => o.pnl, 1); return t ? t.v : null; },
+    extremo(a => a.dia, 1, "día", "day"));
+  E("pl", "peorDia", "Peor día", "Worst day", "m", a => { const t = estTop(a.dia, o => o.pnl, -1); return t ? t.v : null; },
+    extremo(a => a.dia, -1, "día", "day"));
+
+  E("pl", "pnlMedioMes", "P&L medio por mes", "Per month average PnL", "m", a => estMedia(a.meses.map(o => o.pnl)),
+    (a, en) => en ? `over ${a.meses.length} months with trades` : `sobre ${a.meses.length} meses con operaciones`);
+  E("pl", "pnlMedioMesGan", "P&L medio de un mes verde", "Per month average winning PnL", "m", a => estMedia(a.mesesGan.map(o => o.pnl)),
+    (a, en) => en ? `over the ${a.mesesGan.length} green months` : `sobre los ${a.mesesGan.length} meses verdes`);
+  E("pl", "pnlMedioMesPer", "P&L medio de un mes rojo", "Per month average losing PnL", "m", a => estMedia(a.mesesPer.map(o => o.pnl)),
+    (a, en) => en ? `over the ${a.mesesPer.length} red months` : `sobre los ${a.mesesPer.length} meses rojos`);
+  E("pl", "mejorMes", "Mejor mes", "Highest PnL month", "m", a => { const t = estTop(a.mes, o => o.pnl, 1); return t ? t.v : null; },
+    extremo(a => a.mes, 1, "mes", "month"));
+  E("pl", "peorMes", "Peor mes", "Lowest PnL month", "m", a => { const t = estTop(a.mes, o => o.pnl, -1); return t ? t.v : null; },
+    extremo(a => a.mes, -1, "mes", "month"));
+
+  E("pl", "pnlMedioAno", "P&L medio por año", "Per year average PnL", "m", a => estMedia(a.anos.map(o => o.pnl)),
+    (a, en) => en ? `over ${a.anos.length} years with trades` : `sobre ${a.anos.length} años con operaciones`);
+  E("pl", "pnlMedioAnoGan", "P&L medio de un año verde", "Per year average winning PnL", "m", a => estMedia(a.anosGan.map(o => o.pnl)),
+    (a, en) => en ? `over the ${a.anosGan.length} green years` : `sobre los ${a.anosGan.length} años verdes`);
+  E("pl", "pnlMedioAnoPer", "P&L medio de un año rojo", "Per year average losing PnL", "m", a => estMedia(a.anosPer.map(o => o.pnl)),
+    (a, en) => en ? `over the ${a.anosPer.length} red years` : `sobre los ${a.anosPer.length} años rojos`);
+  E("pl", "mejorAno", "Mejor año", "Highest PnL year", "m", a => { const t = estTop(a.ano, o => o.pnl, 1); return t ? t.v : null; },
+    extremo(a => a.ano, 1, "año", "year"));
+  E("pl", "peorAno", "Peor año", "Lowest PnL year", "m", a => { const t = estTop(a.ano, o => o.pnl, -1); return t ? t.v : null; },
+    extremo(a => a.ano, -1, "año", "year"));
+
+  /* ── acierto y calidad ───────────────────────────────────────────────── */
+  E("acierto", "ganadoras", "Operaciones ganadoras", "Total winning trades", "i", a => a.gan.length,
+    (a, en) => en ? "net P&L above zero" : "P&L neto por encima de cero");
+  E("acierto", "perdedoras", "Operaciones perdedoras", "Total losing trades", "i", a => a.per.length,
+    (a, en) => en ? "net P&L below zero" : "P&L neto por debajo de cero");
+  E("acierto", "planas", "Operaciones planas", "Total breakeven trades", "i", a => a.pla.length,
+    (a, en) => en ? "net P&L exactly zero · they are not losses" : "P&L neto exactamente cero · no son pérdidas");
+  E("acierto", "cerradasGan", "Cerradas en verde", "Total closed winning trades", "i", a => a.gan.length,
+    (a, en) => en ? "every trade with P&L in Cabina is closed, so this equals the row above" : "en Cabina toda operación con P&L está cerrada, así que coincide con la fila de arriba");
+  E("acierto", "cerradasPer", "Cerradas en rojo", "Total closed losing trades", "i", a => a.per.length,
+    (a, en) => en ? "same reason as above" : "por la misma razón de arriba");
+  E("acierto", "abiertasGan", "Abiertas en verde", "Total open winning trades", "i", () => null,
+    (a, en) => en ? "an open trade has no P&L without a live price" : "una operación abierta no tiene P&L sin precio en vivo");
+  E("acierto", "abiertasPer", "Abiertas en rojo", "Total open losing trades", "i", () => null,
+    (a, en) => en ? "an open trade has no P&L without a live price" : "una operación abierta no tiene P&L sin precio en vivo");
+
+  E("acierto", "pctGanSinPlanas", "Acierto (planas fuera del numerador)", "Winning trades % (excl. BE)", "p",
+    a => pctDe(a.gan.length, a.filas.length),
+    a => `${a.gan.length} ÷ ${a.filas.length}`);
+  E("acierto", "pctGanConPlanas", "Acierto (planas cuentan como acierto)", "Winning trades % (incl. BE)", "p",
+    a => pctDe(a.gan.length + a.pla.length, a.filas.length),
+    a => `(${a.gan.length} + ${a.pla.length}) ÷ ${a.filas.length}`);
+  E("acierto", "pctGanDecisivas", "Acierto (sólo decisivas)", "Winning trades % (simple ratio)", "p",
+    a => pctDe(a.gan.length, a.gan.length + a.per.length),
+    (a, en) => `${a.gan.length} ÷ ${a.gan.length + a.per.length}` + (en ? " · breakevens out of both sides" : " · las planas fuera de los dos lados"));
+  E("acierto", "pctPerdedoras", "Operaciones perdedoras (%)", "Total losing trades %", "p",
+    a => pctDe(a.per.length, a.filas.length), a => `${a.per.length} ÷ ${a.filas.length}`);
+  E("acierto", "pctPlanas", "Operaciones planas (%)", "Total breakeven trades %", "p",
+    a => pctDe(a.pla.length, a.filas.length), a => `${a.pla.length} ÷ ${a.filas.length}`);
+
+  E("acierto", "pctCerradasGan", "Cerradas en verde (%)", "Total closed winning trades %", "p",
+    a => pctDe(a.gan.length, a.filas.length), a => `${a.gan.length} ÷ ${a.filas.length}`);
+  E("acierto", "pctCerradasPer", "Cerradas en rojo (%)", "Total closed losing trades %", "p",
+    a => pctDe(a.per.length, a.filas.length), a => `${a.per.length} ÷ ${a.filas.length}`);
+  E("acierto", "pctAbiertasGan", "Abiertas en verde (%)", "Total open winning trades %", "p", () => null,
+    (a, en) => en ? "an open trade has no P&L without a live price" : "una operación abierta no tiene P&L sin precio en vivo");
+  E("acierto", "pctAbiertasPer", "Abiertas en rojo (%)", "Total open losing trades %", "p", () => null,
+    (a, en) => en ? "an open trade has no P&L without a live price" : "una operación abierta no tiene P&L sin precio en vivo");
+
+  E("acierto", "diasGan", "Días verdes", "Total winning days", "i", a => a.diasGan.length,
+    (a, en) => en ? `of ${a.dias.length} days traded` : `de ${a.dias.length} días operados`);
+  E("acierto", "diasPer", "Días rojos", "Total losing days", "i", a => a.diasPer.length,
+    (a, en) => en ? `of ${a.dias.length} days traded` : `de ${a.dias.length} días operados`);
+  E("acierto", "pctDiasGan", "Días verdes (%)", "Total winning days %", "p", a => pctDe(a.diasGan.length, a.dias.length),
+    a => `${a.diasGan.length} ÷ ${a.dias.length}`);
+  E("acierto", "pctDiasPer", "Días rojos (%)", "Total losing days %", "p", a => pctDe(a.diasPer.length, a.dias.length),
+    a => `${a.diasPer.length} ÷ ${a.dias.length}`);
+  E("acierto", "mesesGan", "Meses verdes", "Total winning months", "i", a => a.mesesGan.length,
+    (a, en) => en ? `of ${a.meses.length} months with trades` : `de ${a.meses.length} meses con operaciones`);
+  E("acierto", "mesesPer", "Meses rojos", "Total losing months", "i", a => a.mesesPer.length,
+    (a, en) => en ? `of ${a.meses.length} months with trades` : `de ${a.meses.length} meses con operaciones`);
+  E("acierto", "pctMesesGan", "Meses verdes (%)", "% of winning months", "p", a => pctDe(a.mesesGan.length, a.meses.length),
+    a => `${a.mesesGan.length} ÷ ${a.meses.length}`);
+  E("acierto", "pctMesesPer", "Meses rojos (%)", "% of losing months", "p", a => pctDe(a.mesesPer.length, a.meses.length),
+    a => `${a.mesesPer.length} ÷ ${a.meses.length}`);
+  E("acierto", "anosGan", "Años verdes", "No. of winning years", "i", a => a.anosGan.length,
+    (a, en) => en ? `of ${a.anos.length} years with trades` : `de ${a.anos.length} años con operaciones`);
+  E("acierto", "anosPer", "Años rojos", "No. of losing years", "i", a => a.anosPer.length,
+    (a, en) => en ? `of ${a.anos.length} years with trades` : `de ${a.anos.length} años con operaciones`);
+  E("acierto", "pctAnosGan", "Años verdes (%)", "% of winning years", "p", a => pctDe(a.anosGan.length, a.anos.length),
+    a => `${a.anosGan.length} ÷ ${a.anos.length}`);
+  E("acierto", "pctAnosPer", "Años rojos (%)", "% of losing years", "p", a => pctDe(a.anosPer.length, a.anos.length),
+    a => `${a.anosPer.length} ÷ ${a.anos.length}`);
+
+  E("acierto", "profitFactor", "Profit factor", "Profit factor", "n2", a => a.c.pf,
+    (a, en) => a.c.pf == null ? esc(a.c.pfRazon || "") : (en ? "gross profit ÷ gross loss" : "ganancia bruta ÷ pérdida bruta"));
+  E("acierto", "ratioAjustado", "Ratio ajustado ganancia/pérdida", "Adjusted win/loss ratio", "n2", a => a.c.pf,
+    (a, en) => en ? "same number as the profit factor, by definition; listed because the screen this came from lists it apart"
+                  : "el mismo número que el profit factor, por definición; se lista porque la pantalla de la que viene lo lista aparte");
+  E("acierto", "ratioGanPer", "Ratio ganancia media / pérdida media", "Win/loss ratio", "n2",
+    a => { const W = estMedia(a.gan.map(f => f.neto)), L = estMedia(a.per.map(f => f.neto)); return W != null && L ? W / Math.abs(L) : null; },
+    (a, en) => { const W = estMedia(a.gan.map(f => f.neto)), L = estMedia(a.per.map(f => f.neto));
+      return W != null && L ? `${money(W)} ÷ ${money(Math.abs(L))}` : (en ? "needs winners and losers" : "hacen falta ganadoras y perdedoras"); });
+  E("acierto", "gainToPain", "Gain-to-pain", "Gain-to-pain ratio", "n", a => { const d = Math.abs(estSuma(a.per.map(f => f.neto))); return d ? a.pnl / d : null; },
+    (a, en) => en ? "net result ÷ everything lost along the way" : "resultado neto ÷ todo lo perdido por el camino");
+  E("acierto", "expectancy", "Expectativa por operación", "Trade expectancy", "n", a => estMedia(a.pnls),
+    (a, en) => en ? "same money as «per trade average PnL», printed without currency" : "el mismo dinero que «P&L medio por operación», impreso sin moneda");
+  E("acierto", "sqn", "SQN · System Quality Number", "System quality number", "n",
+    a => { const s = estDesv(a.pnls), m = estMedia(a.pnls); return s && m != null ? Math.sqrt(a.pnls.length) * m / s : null; },
+    (a, en) => en ? `√${a.pnls.length} × mean ÷ standard deviation of P&L` : `√${a.pnls.length} × media ÷ desviación típica del P&L`);
+  E("acierto", "kelly", "Kelly simplificado", "Kelly criterion", "p", a => a.c.kelly,
+    (a, en) => en ? "f* = p − (1−p)/b · reference only: in a prop account the account caps the size, not Kelly"
+                  : "f* = p − (1−p)/b · sólo referencia: en prop el tamaño lo limita la cuenta, no Kelly");
+
+  E("acierto", "rachaGan", "Racha ganadora más larga", "Max consecutive wins", "i", a => a.rachaGan ? a.rachaGan.n : 0,
+    (a, en) => en ? "a breakeven breaks the streak: it is neither a win nor a loss" : "una plana corta la racha: no es victoria ni derrota");
+  E("acierto", "rachaGanDesde", "Racha ganadora · desde", "Max consecutive wins start", "t",
+    a => a.rachaGan ? a.rachaGan.desde.t.date : null, a => a.rachaGan ? esc(a.rachaGan.desde.t.instrument || "") : "");
+  E("acierto", "rachaGanHasta", "Racha ganadora · hasta", "Max consecutive wins end", "t",
+    a => a.rachaGan ? a.rachaGan.hasta.t.date : null, a => a.rachaGan ? esc(a.rachaGan.hasta.t.instrument || "") : "");
+  E("acierto", "rachaPer", "Racha perdedora más larga", "Max consecutive losses", "i", a => a.rachaPer ? a.rachaPer.n : 0,
+    (a, en) => { const r = a.c.e.rachas; return r && r.esperadaPorAzar != null
+      ? (en ? `chance alone would give about ${r.esperadaPorAzar} at this win rate` : `sólo por azar saldría una de unas ${r.esperadaPorAzar} con este acierto`)
+      : (en ? "a breakeven breaks the streak" : "una plana corta la racha"); });
+  E("acierto", "rachaPerDesde", "Racha perdedora · desde", "Max consecutive losses start", "t",
+    a => a.rachaPer ? a.rachaPer.desde.t.date : null, a => a.rachaPer ? esc(a.rachaPer.desde.t.instrument || "") : "");
+  E("acierto", "rachaPerHasta", "Racha perdedora · hasta", "Max consecutive losses end", "t",
+    a => a.rachaPer ? a.rachaPer.hasta.t.date : null, a => a.rachaPer ? esc(a.rachaPer.hasta.t.instrument || "") : "");
+
+  /* ── actividad ───────────────────────────────────────────────────────── */
+  E("actividad", "total", "Operaciones", "Total trades", "i", a => a.list.length,
+    (a, en) => en ? `${a.filas.length} closed · ${a.abiertas.length} open` : `${a.filas.length} cerradas · ${a.abiertas.length} abiertas`);
+  E("actividad", "cerradas", "Operaciones cerradas", "Total closed trades", "i", a => a.filas.length,
+    (a, en) => en ? "the ones every figure on this screen is measured on" : "las que miden todas las cifras de esta pantalla");
+  E("actividad", "abiertas", "Operaciones abiertas", "Total open trades", "i", a => a.abiertas.length,
+    (a, en) => en ? "no P&L until you close them" : "no tienen P&L hasta que las cierras");
+  E("actividad", "largas", "En largo", "Total long trades", "i", a => a.largas,
+    (a, en) => en ? "direction is known from the moment the position opens" : "la dirección se sabe desde que se abre la posición");
+  E("actividad", "cortas", "En corto", "Total short trades", "i", a => a.cortas, null);
+  E("actividad", "pctLargas", "En largo (%)", "Total long trades %", "p", a => pctDe(a.largas, a.largas + a.cortas),
+    a => `${a.largas} ÷ ${a.largas + a.cortas}`);
+  E("actividad", "pctCortas", "En corto (%)", "Total short trades %", "p", a => pctDe(a.cortas, a.largas + a.cortas),
+    a => `${a.cortas} ÷ ${a.largas + a.cortas}`);
+
+  E("actividad", "opsUltimoDia", "Operaciones el último día", "No. of trades last day", "i", a => a.ultimoDia ? a.ultimoDia.n : 0,
+    a => a.ultimaFecha ? esc(a.ultimaFecha) : "");
+  E("actividad", "opsUltimaSemana", "Operaciones la última semana", "No. of trades last week", "i", a => a.ultimaFecha ? a.semana.n : 0,
+    a => a.ultimaFecha ? `${a.semanaDesde} → ${a.ultimaFecha}` : "");
+  E("actividad", "opsUltimoMes", "Operaciones el último mes", "No. of trades last month", "i", a => a.ultimoMes ? a.ultimoMes.n : 0,
+    a => a.ultimaFecha ? a.ultimaFecha.slice(0, 7) : "");
+  E("actividad", "opsUltimoAno", "Operaciones el último año", "No. of trades last year", "i", a => a.ultimoAno ? a.ultimoAno.n : 0,
+    a => a.ultimaFecha ? a.ultimaFecha.slice(0, 4) : "");
+
+  E("actividad", "diasOperados", "Días operados", "Total trading days", "i", a => a.dias.length,
+    (a, en) => en ? "days with at least one closed trade" : "días con al menos una operación cerrada");
+  E("actividad", "maxOpsDia", "Máximo de operaciones en un día", "Per day max trades", "i",
+    a => { const t = estTop(a.dia, o => o.n, 1); return t ? t.v : null; },
+    a => { const t = estTop(a.dia, o => o.n, 1); return t ? esc(t.k) : ""; });
+  E("actividad", "mediaOpsDia", "Operaciones por día", "Per day average trades", "n2", a => estMedia(a.dias.map(o => o.n)),
+    a => `${a.filas.length} ÷ ${a.dias.length}`);
+  E("actividad", "mesesOperados", "Meses operados", "Total trading months", "i", a => a.meses.length, null);
+  E("actividad", "maxOpsMes", "Máximo de operaciones en un mes", "Per month max trades", "i",
+    a => { const t = estTop(a.mes, o => o.n, 1); return t ? t.v : null; },
+    a => { const t = estTop(a.mes, o => o.n, 1); return t ? esc(t.k) : ""; });
+  E("actividad", "mediaOpsMes", "Operaciones por mes", "Per month average trades", "n2", a => estMedia(a.meses.map(o => o.n)),
+    a => `${a.filas.length} ÷ ${a.meses.length}`);
+  E("actividad", "anosOperados", "Años operados", "Total trading years", "i", a => a.anos.length, null);
+  E("actividad", "maxOpsAno", "Máximo de operaciones en un año", "Per year max trades", "i",
+    a => { const t = estTop(a.ano, o => o.n, 1); return t ? t.v : null; },
+    a => { const t = estTop(a.ano, o => o.n, 1); return t ? esc(t.k) : ""; });
+  E("actividad", "mediaOpsAno", "Operaciones por año", "Per year average trades", "n2", a => estMedia(a.anos.map(o => o.n)),
+    a => `${a.filas.length} ÷ ${a.anos.length}`);
+
+  E("actividad", "volumen", "Volumen total", "Total volume", "i", a => a.vol,
+    (a, en) => en ? "contracts, as the engine resolved them — not the raw «qty» field" : "contratos, como los resolvió el motor — no el campo «qty» en crudo");
+  E("actividad", "volGan", "Volumen en ganadoras", "Total winning volume", "i", a => a.volGan, null);
+  E("actividad", "volPer", "Volumen en perdedoras", "Total losing volume", "i", a => a.volPer,
+    (a, en) => a.vol - a.volGan - a.volPer > 0
+      ? (en ? `${a.vol - a.volGan - a.volPer} more went into breakeven trades` : `otros ${a.vol - a.volGan - a.volPer} fueron a operaciones planas`) : null);
+  E("actividad", "maxVolOp", "Máximo de contratos en una operación", "Per trade max volume", "i", a => estMayor(a.filas.map(f => f.qty)), null);
+  E("actividad", "minVolOp", "Mínimo de contratos en una operación", "Per trade min volume", "i", a => estMenor(a.filas.map(f => f.qty)), null);
+  E("actividad", "volMedioOp", "Contratos por operación", "Per trade average volume", "n2", a => estMedia(a.filas.map(f => f.qty)), null);
+  E("actividad", "volMedioGan", "Contratos por ganadora", "Per trade average winning volume", "n2", a => estMedia(a.gan.map(f => f.qty)), null);
+  E("actividad", "volMedioPer", "Contratos por perdedora", "Per trade average losing volume", "n2", a => estMedia(a.per.map(f => f.qty)), null);
+  E("actividad", "volUltimoDia", "Volumen del último día", "Volume last day", "i", a => a.ultimoDia ? a.ultimoDia.vol : 0,
+    a => a.ultimaFecha ? esc(a.ultimaFecha) : "");
+  E("actividad", "volUltimaSemana", "Volumen de la última semana", "Volume last week", "i", a => a.ultimaFecha ? a.semana.vol : 0,
+    a => a.ultimaFecha ? `${a.semanaDesde} → ${a.ultimaFecha}` : "");
+  E("actividad", "volUltimoMes", "Volumen del último mes", "Volume last month", "i", a => a.ultimoMes ? a.ultimoMes.vol : 0,
+    a => a.ultimaFecha ? a.ultimaFecha.slice(0, 7) : "");
+  E("actividad", "volUltimoAno", "Volumen del último año", "Volume last year", "i", a => a.ultimoAno ? a.ultimoAno.vol : 0,
+    a => a.ultimaFecha ? a.ultimaFecha.slice(0, 4) : "");
+  E("actividad", "volMedioDia", "Contratos por día", "Per day average volume", "n2", a => estMedia(a.dias.map(o => o.vol)), null);
+  E("actividad", "volMedioDiaGan", "Contratos en un día verde", "Per day average winning volume", "n2", a => estMedia(a.diasGan.map(o => o.vol)),
+    (a, en) => en ? `over the ${a.diasGan.length} days that closed green` : `sobre los ${a.diasGan.length} días que cerraron en verde`);
+  E("actividad", "volMedioDiaPer", "Contratos en un día rojo", "Per day average losing volume", "n2", a => estMedia(a.diasPer.map(o => o.vol)),
+    (a, en) => en ? `over the ${a.diasPer.length} days that closed red` : `sobre los ${a.diasPer.length} días que cerraron en rojo`);
+  E("actividad", "maxVolDia", "Máximo de contratos en un día", "Per day max volume", "i",
+    a => { const t = estTop(a.dia, o => o.vol, 1); return t ? t.v : null; },
+    a => { const t = estTop(a.dia, o => o.vol, 1); return t ? esc(t.k) : ""; });
+  E("actividad", "minVolDia", "Mínimo de contratos en un día", "Per day min volume", "i",
+    a => { const t = estTop(a.dia, o => o.vol, -1); return t ? t.v : null; },
+    a => { const t = estTop(a.dia, o => o.vol, -1); return t ? esc(t.k) : ""; });
+  E("actividad", "volMedioMes", "Contratos por mes", "Per month average volume", "n2", a => estMedia(a.meses.map(o => o.vol)), null);
+  E("actividad", "volMedioMesGan", "Contratos en un mes verde", "Per month average winning volume", "n2", a => estMedia(a.mesesGan.map(o => o.vol)), null);
+  E("actividad", "volMedioMesPer", "Contratos en un mes rojo", "Per month average losing volume", "n2", a => estMedia(a.mesesPer.map(o => o.vol)), null);
+  E("actividad", "maxVolMes", "Mes de más volumen", "Highest volume month", "i",
+    a => { const t = estTop(a.mes, o => o.vol, 1); return t ? t.v : null; },
+    a => { const t = estTop(a.mes, o => o.vol, 1); return t ? esc(t.k) : ""; });
+  E("actividad", "minVolMes", "Mes de menos volumen", "Lowest volume month", "i",
+    a => { const t = estTop(a.mes, o => o.vol, -1); return t ? t.v : null; },
+    a => { const t = estTop(a.mes, o => o.vol, -1); return t ? esc(t.k) : ""; });
+  E("actividad", "volMedioAno", "Contratos por año", "Per year average volume", "n2", a => estMedia(a.anos.map(o => o.vol)), null);
+  E("actividad", "volMedioAnoGan", "Contratos en un año verde", "Per year average winning volume", "n2", a => estMedia(a.anosGan.map(o => o.vol)), null);
+  E("actividad", "volMedioAnoPer", "Contratos en un año rojo", "Per year average losing volume", "n2", a => estMedia(a.anosPer.map(o => o.vol)), null);
+  E("actividad", "maxVolAno", "Año de más volumen", "Highest volume year", "i",
+    a => { const t = estTop(a.ano, o => o.vol, 1); return t ? t.v : null; },
+    a => { const t = estTop(a.ano, o => o.vol, 1); return t ? esc(t.k) : ""; });
+  E("actividad", "minVolAno", "Año de menos volumen", "Lowest volume year", "i",
+    a => { const t = estTop(a.ano, o => o.vol, -1); return t ? t.v : null; },
+    a => { const t = estTop(a.ano, o => o.vol, -1); return t ? esc(t.k) : ""; });
+
+  E("actividad", "desvPnl", "Desviación típica del P&L", "PnL standard deviation", "n2", a => estDesv(a.pnls),
+    (a, en) => en ? "sample deviation (n−1) · how far a trade usually lands from the average" : "desviación muestral (n−1) · cuánto se aleja una operación de la media");
+  E("actividad", "desvGan", "Desviación de las ganadoras", "Profit-only standard deviation", "n2", a => estDesv(a.gan.map(f => f.neto)), null);
+  E("actividad", "desvPer", "Desviación de las perdedoras", "Loss-only standard deviation", "n2", a => estDesv(a.per.map(f => f.neto)), null);
+  E("actividad", "desvDia", "Desviación típica del P&L diario", "Per day PnL standard deviation", "n2", a => estDesv(a.dias.map(o => o.pnl)), null);
+  E("actividad", "rTotal", "R acumulada", "Total R-value", "r", a => a.rs.length ? estSuma(a.rs) : null,
+    (a, en) => en ? `${a.rs.length} of ${a.filas.length} trades have a stop, which is what R needs` : `${a.rs.length} de ${a.filas.length} operaciones tienen stop, que es lo que R necesita`);
+  E("actividad", "rMedio", "R media", "Average R-value", "r", a => estMedia(a.rs),
+    (a, en) => a.rs.length ? (en ? `over the ${a.rs.length} trades with a stop` : `sobre las ${a.rs.length} operaciones con stop`) : (en ? "needs the stop" : "hace falta el stop"));
+  E("actividad", "maxDD", "Caída máxima", "Max drawdown", "m", a => a.c.curva.mdd ? -a.c.curva.mdd : 0,
+    (a, en) => en ? "trade by trade over the same curve drawn above" : "operación a operación sobre la misma curva que se pinta arriba");
+  E("actividad", "maxDDPct", "Caída máxima (%)", "Max drawdown %", "p", a => a.c.capital > 0 ? -a.c.curva.mddPct : null,
+    (a, en) => a.c.capital > 0 ? sobreCap(a, en) : capFalta(a, en));
+  E("actividad", "maxDDFecha", "Fecha de la caída máxima", "Max drawdown date", "t", a => a.ddFecha,
+    (a, en) => en ? "the trade that put the curve at its lowest point below the peak" : "la operación que dejó la curva en su punto más bajo bajo el pico");
+
+  /* ── tiempo en operación ─────────────────────────────────────────────── */
+  /* La hora de salida es OPCIONAL en el journal. Esa es la razón de que estas
+     ocho filas lleven su propio «de cuántas» en vez de un número a secas: una
+     duración media calculada sobre tres de ochenta operaciones no es la
+     duración media del sistema, y la fila tiene que decirlo donde se lee. */
+  const subDur = lista => (a, en) => {
+    const n = lista(a).length, N = a.filas.length;
+    if (!n) return en ? "no trade has an exit time · it is an optional field in the journal"
+                      : "ninguna operación tiene hora de salida · es un campo opcional del journal";
+    return (en ? `measured on ${n} of ${N} trades · the rest have no exit time`
+               : `medido sobre ${n} de ${N} operaciones · el resto no tiene hora de salida`)
+      + (en ? " · resolution is the minute" : " · la resolución es el minuto");
+  };
+  E("tiempo", "durTotal", "Tiempo total en operación", "Total trades duration", "d", a => a.dur.length ? estSuma(a.dur) : null, subDur(a => a.dur));
+  E("tiempo", "durGan", "Tiempo total en ganadoras", "Total winning trades duration", "d", a => a.durGan.length ? estSuma(a.durGan) : null, subDur(a => a.durGan));
+  E("tiempo", "durPer", "Tiempo total en perdedoras", "Total losing trades duration", "d", a => a.durPer.length ? estSuma(a.durPer) : null, subDur(a => a.durPer));
+  E("tiempo", "durMax", "Operación más larga", "Max duration", "d", a => estMayor(a.dur), subDur(a => a.dur));
+  E("tiempo", "durMin", "Operación más corta", "Min duration", "d", a => estMenor(a.dur), subDur(a => a.dur));
+  E("tiempo", "durMedia", "Duración media", "Average trades duration", "d", a => estMedia(a.dur), subDur(a => a.dur));
+  E("tiempo", "durMediaGan", "Duración media de una ganadora", "Average winning trades duration", "d", a => estMedia(a.durGan), subDur(a => a.durGan));
+  E("tiempo", "durMediaPer", "Duración media de una perdedora", "Average losing trades duration", "d", a => estMedia(a.durPer), subDur(a => a.durPer));
+
+  /* ── símbolos ────────────────────────────────────────────────────────── */
+  /* Dos preguntas que suenan igual y no lo son: «qué símbolo dio la mejor
+     OPERACIÓN» y «qué símbolo dio más dinero EN TOTAL». Un símbolo puede tener
+     la mejor operación del historial y ser el que más dinero te ha quitado.
+     Por eso están las dos, nombradas distinto. */
+  const simTop = (fn, dir) => a => { const t = estTop(a.sim, fn, dir); return t ? t.k : null; };
+  const simVal = (fn, dir) => a => { const t = estTop(a.sim, fn, dir); return t ? t.v : null; };
+  /* La fila del número nombra el símbolo al que pertenece: leída suelta desde
+     el buscador, «42» sin el símbolo al lado no dice nada. */
+  const simSub = (fn, dir) => a => { const t = estTop(a.sim, fn, dir); return t ? esc(t.k) : ""; };
+
+  E("simbolos", "simMasOperado", "Símbolo más operado", "Most traded symbol", "t", simTop(o => o.n, 1),
+    (a, en) => { const t = estTop(a.sim, o => o.n, 1); return t ? (en ? `${t.v} trades of ${a.filas.length}` : `${t.v} operaciones de ${a.filas.length}`) : ""; });
+  E("simbolos", "simMasOperadoN", "Operaciones del símbolo más operado", "Most traded symbol trade count", "i", simVal(o => o.n, 1),
+    simSub(o => o.n, 1));
+  E("simbolos", "simMenosOperado", "Símbolo menos operado", "Least traded symbol", "t", simTop(o => o.n, -1),
+    (a, en) => { const t = estTop(a.sim, o => o.n, -1); return t ? (en ? `${t.v} trades` : `${t.v} operaciones`) : ""; });
+  E("simbolos", "simMenosOperadoN", "Operaciones del símbolo menos operado", "Least traded symbol trade count", "i", simVal(o => o.n, -1),
+    simSub(o => o.n, -1));
+  E("simbolos", "simMasVolumen", "Símbolo con más volumen", "Symbol with most volume", "t", simTop(o => o.vol, 1),
+    (a, en) => { const t = estTop(a.sim, o => o.vol, 1); return t ? (en ? `${t.v} contracts` : `${t.v} contratos`) : ""; });
+  E("simbolos", "simMasVolumenN", "Volumen del símbolo con más volumen", "Most traded symbol total volume", "i", simVal(o => o.vol, 1),
+    simSub(o => o.vol, 1));
+  E("simbolos", "simMenosVolumen", "Símbolo con menos volumen", "Symbol with least volume", "t", simTop(o => o.vol, -1),
+    (a, en) => { const t = estTop(a.sim, o => o.vol, -1); return t ? (en ? `${t.v} contracts` : `${t.v} contratos`) : ""; });
+  E("simbolos", "simMenosVolumenN", "Volumen del símbolo con menos volumen", "Least traded symbol total volume", "i", simVal(o => o.vol, -1),
+    simSub(o => o.vol, -1));
+  E("simbolos", "simMasGanadoras", "Símbolo con más ganadoras", "Symbol with highest wins", "t", simTop(o => o.gan, 1),
+    (a, en) => { const t = estTop(a.sim, o => o.gan, 1); return t ? (en ? `${t.v} winning trades` : `${t.v} operaciones ganadoras`) : ""; });
+  E("simbolos", "simMasGanadorasN", "Ganadoras del símbolo con más ganadoras", "Highest wins in a single symbol", "i", simVal(o => o.gan, 1),
+    simSub(o => o.gan, 1));
+  E("simbolos", "simMasPerdedoras", "Símbolo con más perdedoras", "Symbol with highest losses", "t", simTop(o => o.per, 1),
+    (a, en) => { const t = estTop(a.sim, o => o.per, 1); return t ? (en ? `${t.v} losing trades` : `${t.v} operaciones perdedoras`) : ""; });
+  E("simbolos", "simMasPerdedorasN", "Perdedoras del símbolo con más perdedoras", "Highest losses in a single symbol", "i", simVal(o => o.per, 1),
+    simSub(o => o.per, 1));
+  E("simbolos", "simMejorOp", "Símbolo de la mejor operación", "Symbol with the best single trade", "t", simTop(o => o.mejor, 1),
+    (a, en) => { const t = estTop(a.sim, o => o.mejor, 1); return t ? `${money(t.v)}` + (en ? " in one trade" : " en una sola operación") : ""; });
+  E("simbolos", "simPeorOp", "Símbolo de la peor operación", "Symbol with the worst single trade", "t", simTop(o => o.peor, -1),
+    (a, en) => { const t = estTop(a.sim, o => o.peor, -1); return t ? `${money(t.v)}` + (en ? " in one trade" : " en una sola operación") : ""; });
+  E("simbolos", "simMejorPnl", "Símbolo de mayor P&L total", "Symbol with highest total PnL", "t", simTop(o => o.pnl, 1),
+    (a, en) => { const t = estTop(a.sim, o => o.pnl, 1); return t ? `${money(t.v)}` + (en ? " added up" : " sumando todo") : ""; });
+  E("simbolos", "simMejorPnlN", "P&L del símbolo de mayor P&L", "Highest total PnL in a single symbol", "m", simVal(o => o.pnl, 1),
+    simSub(o => o.pnl, 1));
+  E("simbolos", "simPeorPnl", "Símbolo de menor P&L total", "Symbol with lowest total PnL", "t", simTop(o => o.pnl, -1),
+    (a, en) => { const t = estTop(a.sim, o => o.pnl, -1); return t ? `${money(t.v)}` + (en ? " added up" : " sumando todo")
+      + (t.v >= 0 ? (en ? " · no symbol lost money" : " · ningún símbolo perdió dinero") : "") : ""; });
+  E("simbolos", "simPeorPnlN", "P&L del símbolo de menor P&L", "Lowest total PnL in a single symbol", "m", simVal(o => o.pnl, -1),
+    simSub(o => o.pnl, -1));
+
+  /* ─── la pantalla ─────────────────────────────────────────────────────── */
+  const est = { q: "", cat: "" };
+  /* El cálculo que hay AHORA en pantalla, para que el buscador repinte sólo el
+     catálogo sin volver a recorrer el historial. Se declara aquí y no junto a
+     su listener porque `renderEdge` lo escribe, y el arranque puede pintar
+     Métricas antes de que la línea del listener haya corrido. */
+  let mxEstC = null;
+  function estBusca(e, a, en) {
+    const sub = e.sub ? String(e.sub(a, en) || "") : "";
+    return (e.es + " " + e.en + " " + sub).toLowerCase();
+  }
+  /* El catálogo con el idioma de ahora, sin volver a recorrer el historial.
+     Lo llama el botón de idioma: sus 160 etiquetas NO están en el diccionario
+     —van en pares es/en dentro del propio catálogo—, así que `traduce()` no
+     las ve y sin esto Métricas quedaba con la cabecera en inglés y las filas
+     en español hasta el siguiente cambio de pestaña. Es exactamente lo que la
+     frontera declarada en la capa de idioma manda hacer: el cromo que un
+     render genera se arregla en su sitio de render. */
+  function repintaEstadisticas() { if (mxEstC) renderEstadisticas(mxEstC.lista, mxEstC.c); }
+  /* UNA FILA, CALCULADA UNA VEZ. La pantalla y el CSV leen de aquí. Si el
+     fichero pudiera discrepar de la tabla, sería una TERCERA verdad sobre los
+     mismos números —después de las tarjetas y del catálogo—, que es justo lo
+     que este catálogo entero existe para no ser. `v` es el número crudo y
+     `mostrado` lo que se pinta: en una hoja de cálculo «$244» no es un número,
+     y «—» tampoco es un cero. */
+  function estFila(e, a, en) {
+    let v = null, err = false;
+    try { v = e.calc(a); } catch (x) { err = true; }
+    const fmt = EST_FMT[e.fmt] || EST_FMT.t;
+    return {
+      id: e.id, cat: e.cat, label: en ? e.en : e.es,
+      v: err ? null : v,
+      mostrado: err ? "—" : fmt(v),
+      sub: err ? (en ? "could not be computed" : "no se pudo calcular")
+               : (e.sub ? String(e.sub(a, en) || "") : ""),
+      cls: err ? "bad" : v == null ? "dim"
+           : EST_SIGNO[e.fmt] && typeof v === "number" ? (v > 0 ? "good" : v < 0 ? "bad" : "") : "",
+    };
+  }
+  /* Qué entradas pasan el buscador y la categoría. La pantalla y el export
+     preguntan lo mismo al mismo sitio: un fichero que trajera otra selección
+     que la pantalla sería un fichero que miente sobre lo que exportó. */
+  function estVisibles(a, en) {
+    const q = est.q.trim().toLowerCase();
+    return EST.filter(e => (!est.cat || e.cat === est.cat) && (!q || estBusca(e, a, en).includes(q)));
+  }
+  /* `esc()` al revés, y SÓLO para el CSV. Las definiciones de cada fila se
+     construyen para innerHTML —escapan el nombre de un instrumento, que es
+     dato del usuario—, así que llevan entidades dentro. En una hoja de cálculo
+     «MNQ &amp;amp; Co» es basura. Se deshacen las cinco que `esc()` produce, ni
+     una más: decodificar entidades arbitrarias sería inventar. El `&amp;amp;` va
+     el último, o «&amp;amp;lt;» se convertiría en «&lt;». */
+  const estPlano = s => String(s == null ? "" : s)
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+  /* El catálogo NO recorta: enseña todas las filas que pasan el filtro, así
+     que aquí «lo visible» y «lo filtrado» son lo mismo y no hay trampa de
+     exportar media pantalla. En el historial sí la había, y por eso allí se
+     exporta la consulta entera en vez de la tabla. */
+  const EST_CSV = en => [
+    [en ? "Category"   : "Categoría",   f => { const k = EST_CATS.find(c => c.id === f.cat); return k ? (en ? k.en : k.es) : f.cat; }],
+    [en ? "Statistic"  : "Estadística", f => f.label],
+    [en ? "Value"      : "Valor",       f => f.v == null ? "" : f.v],
+    [en ? "Shown"      : "Mostrado",    f => estPlano(f.mostrado)],
+    [en ? "Definition" : "Definición",  f => estPlano(f.sub)],
+  ];
+  $("mxEstExport").addEventListener("click", () => {
+    if (!mxEstC) return;
+    const en = idioma() === "en";
+    const a = estAgrega(mxEstC.lista, mxEstC.c);
+    const visibles = estVisibles(a, en);
+    if (!a.filas.length || !visibles.length) return;
+    descarga("cabina-estadisticas-" + new Date().toISOString().slice(0, 10) + ".csv",
+      tablaCsv(EST_CSV(en), visibles.map(e => estFila(e, a, en))), "text/csv;charset=utf-8");
+  });
+
+  function renderEstadisticas(list, c) {
+    const cont = $("mxEstLista"); if (!cont) return;
+    const en = idioma() === "en";
+    const a = estAgrega(list, c);
+
+    const q0 = $("mxEstQ");
+    if (q0) {
+      /* El placeholder es un ATRIBUTO, y `traduce()` sólo toca nodos de texto:
+         puesto en el markup se quedaría en español para siempre. */
+      const ph = en ? "search a statistic…" : "buscar una estadística…";
+      if (q0.placeholder !== ph) q0.placeholder = ph;
+    }
+    const cats = $("mxEstCats");
+    if (cats) {
+      const chips = [{ id: "", es: "todas", en: "all" }].concat(EST_CATS)
+        .map(k => `<button type="button" data-cat="${esc(k.id)}" aria-pressed="${est.cat === k.id}">${esc(en ? k.en : k.es)}</button>`).join("");
+      if (cats.innerHTML !== chips) cats.innerHTML = chips;
+    }
+    const visibles = estVisibles(a, en);
+    /* Un botón que descarga un fichero con la cabecera y nada debajo parece
+       una exportación que funcionó. */
+    { const b = $("mxEstExport"); if (b) b.disabled = !a.filas.length || !visibles.length; }
+
+    if (!a.filas.length) {
+      cont.innerHTML = `<p class="csub" style="padding:12px 0">${en
+        ? "No closed futures trades under this filter. Every figure here is measured on closed trades."
+        : "Sin operaciones de futuros cerradas en este filtro. Todas estas cifras se miden sobre operaciones cerradas."}</p>`;
+    } else if (!visibles.length) {
+      cont.innerHTML = `<p class="csub" style="padding:12px 0">${en
+        ? `No statistic matches «${esc(est.q)}».` : `Ninguna estadística coincide con «${esc(est.q)}».`}</p>`;
+    } else {
+      const grupos = EST_CATS.filter(k => visibles.some(e => e.cat === k.id)).map(k => {
+        const filas = visibles.filter(e => e.cat === k.id).map(e => {
+          const f = estFila(e, a, en);
+          return `<div class="estrow" data-est="${esc(f.id)}"><div class="el"><b>${esc(f.label)}</b>${f.sub ? `<span class="es2">${f.sub}</span>` : ""}</div>`
+            + `<div class="ev ${f.cls}">${f.mostrado}</div></div>`;
+        }).join("");
+        return `<div class="estgrupo"><h3>${esc(en ? k.en : k.es)}</h3>${filas}</div>`;
+      }).join("");
+      cont.innerHTML = grupos;
+    }
+    const meta = $("mxEstMeta");
+    if (meta) meta.textContent = en
+      ? `${visibles.length} of ${EST.length} statistics · ${a.filas.length} closed trades`
+      : `${visibles.length} de ${EST.length} estadísticas · ${a.filas.length} operaciones cerradas`;
+  }
+
   function renderEdge() {
     if (!$("mxEdge")) return;
     const P = mxP();
@@ -12735,7 +13710,8 @@
     $("mxDesde").value = mx.desde; $("mxHasta").value = mx.hasta;
     $("mxRiesgo").disabled = P.fuente !== "mano";
 
-    const c = mxCalc(mxOps(), P);
+    const mxLista = mxOps();
+    const c = mxCalc(mxLista, P);
     const N = c.N;
     $("mxN").textContent = `N = ${N} ${N === 1 ? "operación" : "operaciones"} de futuros · netas de comisión`;
     $("mxAviso").innerHTML = N < 30
@@ -12766,6 +13742,14 @@
     $("mxEdge").innerHTML = out.join("");
     $("mxEdgeMeta").textContent = mx.setup || mx.acct || mx.desde || mx.hasta ? "con filtros" : "todo el historial de futuros";
     $("mxEdgeNotas").innerHTML = c.nR < N && N ? `<div class="qnote">${N - c.nR} de ${N} operaciones no tienen stop: cuentan en $, pero no en R ni en la simulación.</div>` : "";
+
+    /* EL CATÁLOGO SE PINTA DESDE AQUÍ Y CON ESTE `c`. No es comodidad: si
+       llamara a `mxCalc(mxOps(), mxP())` por su cuenta, dos lecturas del mismo
+       filtro en el mismo repintado podrían discrepar —basta que alguien cambie
+       `mxOps` y se olvide de una— y la pantalla enseñaría una expectativa
+       arriba y otra abajo. Una sola lista, un solo cálculo, dos vistas. */
+    mxEstC = { lista: mxLista, c };
+    renderEstadisticas(mxLista, c);
 
     /* ---------- curva + drawdown por cuenta ---------- */
     mxDibuja(c);
@@ -12879,6 +13863,19 @@
   });
   $("mxTabla").addEventListener("click", e => { const tr = e.target.closest("tr[data-mx]"); if (!tr) return; const t = coll("trades").get(tr.dataset.mx); if (t) openTrade(t); });
 
+  /* EL BUSCADOR NO REPINTA MÉTRICAS ENTERAS. `renderEdge()` recalcula la curva,
+     el Monte Carlo guardado y la tabla operación a operación: encadenar eso a
+     cada tecla de un campo de búsqueda convierte escribir «volumen» en siete
+     recálculos completos del historial. El catálogo se repinta solo, con el
+     mismo cálculo que ya está en pantalla, que es justo lo que `mxEstC`
+     guarda. */
+  $("mxEstQ").addEventListener("input", e => { est.q = e.target.value; repintaEstadisticas(); });
+  $("mxEstCats").addEventListener("click", e => {
+    const b = e.target.closest("button[data-cat]"); if (!b) return;
+    est.cat = est.cat === b.dataset.cat ? "" : b.dataset.cat;
+    repintaEstadisticas();
+  });
+
   /* EL AGRUPADO POR HUELLA ES UN DERIVADO DE LAS OPERACIONES, NO DEL FILTRO.
      Vivía dentro del render, y el render corre en cada PULSACIÓN de `execQ`
      —su escuchador es `input`—, así que teclear «MNQ» recorría cuatro veces
@@ -12984,6 +13981,23 @@
     ["execQ","execAcct","execInstr","execFrom","execTo"].forEach(id => { const el = $(id); if (el) el.value = ""; });
     renderExecutionHistory();
   });
+  /* UNA SOLA CONSTRUCCIÓN DE CSV, Y ESTÁ AQUÍ PORQUE IBA A HABER DOS.
+     `execExport` llevaba estas cuatro decisiones en línea —el BOM para que
+     Excel lea los acentos, las comillas dobladas, el CRLF, la cabecera
+     delante— y el historial necesitaba exactamente las mismas. Dos copias de
+     cuatro decisiones son cuatro sitios donde pueden dejar de coincidir, y dos
+     exportaciones de la misma app con reglas distintas es el mismo defecto que
+     `descarga()` vino a cerrar un PR antes.
+
+     `columnas` es una lista de [título, función]: el valor sale de la fila, no
+     de lo que haya pintado en pantalla. */
+  function tablaCsv(columnas, filas) {
+    const comilla = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    return "\uFEFF" + [columnas.map(c => c[0])]
+      .concat(filas.map(f => columnas.map(c => c[1](f))))
+      .map(fila => fila.map(comilla).join(",")).join("\r\n");
+  }
+
   const EXEC_CSV = [
     ["Fecha",            x => x.date],
     ["Hora",             x => x.time],
@@ -12999,12 +14013,8 @@
   ];
   $("execExport").addEventListener("click", () => {
     if (!execVisibles.length) return;
-    const comilla = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
-    const csv = "\uFEFF" + [EXEC_CSV.map(c => c[0])]
-      .concat(execVisibles.map(x => EXEC_CSV.map(c => c[1](x))))
-      .map(fila => fila.map(comilla).join(",")).join("\r\n");
     descarga("cabina-historial-ejecuciones-" + new Date().toISOString().slice(0, 10) + ".csv",
-      csv, "text/csv;charset=utf-8");
+      tablaCsv(EXEC_CSV, execVisibles), "text/csv;charset=utf-8");
   });
   $("execToggle").addEventListener("click", () => {
     const body = $("execHistoryBody"), btn = $("execToggle"), open = body.hidden;
@@ -13076,6 +14086,11 @@
        número que `test/conexiones.mjs` existe para cazar. */
     importar:   ["importador", () => renderImportar()],
     ejecuciones:["historial de ejecuciones", () => renderExecutionHistory()],
+    /* EL HISTORIAL LEE LAS DOS FAMILIAS, así que entra en FANOUT_TRADES como
+       cualquier otro lector: guardar una inversión tiene que moverlo igual que
+       guardar un futuro. Sin esta zona se quedaría con la lista del último
+       repintado, que es el fallo que test/conexiones.mjs existe para cazar. */
+    historial:  ["historial", () => renderHistorial()],
     /* EL CICLO DE VIDA LEE LAS OPERACIONES: la autopsia de una cuenta quemada
        se deriva de ellas, así que registrar, editar o borrar una operación
        cambia de qué murió esa cuenta. Sin esta zona, la pestaña se quedaba con
@@ -13090,7 +14105,7 @@
      costó cambia la caja y la tabla del ciclo de vida, y sin esta zona la
      pestaña se quedaba con los números de cuando se abrió. */
   const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia, Z.edge, Z.ciclo];
-  const FANOUT_TRADES = [Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
+  const FANOUT_TRADES = [Z.historial, Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
                          Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion, Z.edge,
                          Z.estudio, Z.invDetalle, Z.importar, Z.ejecuciones, Z.ciclo];
   function pinta(lista) {
