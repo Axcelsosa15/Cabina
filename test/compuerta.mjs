@@ -224,6 +224,7 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      es un atajo; el mismo valor sin anunciar es un dato inventado con tu nombre. */
   dice('heredado', 'suite', 'El formulario hereda lo que se repite, no lo que se juzga, y lo dice', 'divergencia');
   dice('orden', 'suite', 'El registro rápido conserva la cuenta elegida en cada operación', 'divergencia');
+  dice('diseno-sistema', 'suite', 'La paleta de Bitácora conserva contraste, tokens y accesibilidad', 'index.html');
 }
 {
   /* Las propiedades de seguridad de la fase 0. Ninguna es visible en pantalla, que
