@@ -207,8 +207,20 @@ for (const [w, h, nombre] of ANCHOS) {
     await p.waitForFunction(() => !document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
   }
   console.log(`\n  ── ${nombre} ${w}×${h} ──────────────────────────────`);
+  /* QUÉ PESTAÑAS HAY QUE ABRIR DESDE «MÁS», PREGUNTADO A LA PÁGINA.
+     Esto era una lista escrita a mano —la cuarta cuenta de pestañas de este
+     archivo— y caducó con el historial: escondido de la barra y fuera de la
+     lista, el bucle intentaba pulsar un botón invisible y la suite moría por
+     TIMEOUT. No con una fila roja: con una excepción, que es peor, porque se
+     lleva por delante el resto del informe y la compuerta sólo dice «vista»
+     sin decir qué.
+     La página ya sabe cuáles esconde; preguntárselo no puede caducar. */
+  const porMas = w <= 430
+    ? await p.evaluate(() => [...document.querySelectorAll('#tabnav .tabbtn')]
+        .filter(b => getComputedStyle(b).display === 'none').map(b => b.dataset.tab))
+    : [];
   for (const t of TABS) {
-    if (w <= 430 && ['cuentas', 'edge', 'playbook', 'ideas', 'calc'].includes(t)) {
+    if (porMas.includes(t)) {
       await p.click('#mobileMoreBtn');
       await p.click('#mobileMoreOv [data-mobile-more-tab="' + t + '"]');
       await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
@@ -220,7 +232,7 @@ for (const [w, h, nombre] of ANCHOS) {
     ok(m.scrollX <= 2 && !m.peor, `${t.padEnd(9)} sin desborde horizontal`,
        m.peor ? `${m.peor.tag}${m.peor.id ? '#' + m.peor.id : ''}.${m.peor.cls} se sale ${m.peor.exceso}px` : `scrollX ${m.scrollX}`);
   }
-  /* ESTUDIO CON CONTENIDO, no sólo vacía. El resto de este archivo mide las nueve
+  /* ESTUDIO CON CONTENIDO, no sólo vacía. El resto de este archivo mide las diez
      pestañas sin sembrar, así que la rejilla de ESTUDIO se medía siempre con su
      estado vacío -- y el estado vacío es justo el que NO puede desbordar, porque
      `.study-empty` ocupa la fila entera. El riesgo vive en `.study-card`.
