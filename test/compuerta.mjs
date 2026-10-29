@@ -223,6 +223,8 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      hereda quede DICHO en pantalla campo por campo. Un valor heredado y anunciado
      es un atajo; el mismo valor sin anunciar es un dato inventado con tu nombre. */
   dice('heredado', 'suite', 'El formulario hereda lo que se repite, no lo que se juzga, y lo dice', 'divergencia');
+dice('cmd', 'suite', 'La búsqueda global encuentra operaciones y documentos de estudio', 'index.html');
+dice('estudio-investigacion', 'suite', 'Estudio conserva metadatos, vínculos y revisiones', 'index.html');
   dice('orden', 'suite', 'El registro rápido conserva la cuenta elegida en cada operación', 'divergencia');
 }
 {
