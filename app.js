@@ -1204,6 +1204,7 @@
     "Dominado / revisado": "Mastered / reviewed",
     "Día": "Day",
     "Edge": "Edge",
+    "Estadísticas": "Statistics",
     "Editar": "Edit",
     "El orden no importa y nada se adivina por la posición: lo que no lleve marca y no se reconozca sale nombrado en la vista previa, sin guardarse.": "Order does not matter and nothing is guessed from position: anything without a marker that is not recognised is named in the preview and not saved.",
     "El protocolo, ¿paga?": "Does the protocol pay?",
