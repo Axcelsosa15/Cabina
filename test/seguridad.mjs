@@ -272,11 +272,12 @@ const viol = await cp.evaluate(() => window.__csp);
    selector roto devolveria cero pestañas y el barrido pasaria sin visitar
    ninguna. El numero es lo unico que impide que «ninguna violacion» signifique
    «no se miro nada». Al añadir una pestaña hay que venir aqui, y eso es la
-   senal, no la molestia. Se nombran las dos que mas facil es dejarse: ESTUDIO,
-   que falto desde que se creo, y CUENTAS, que pinta tablas y chips derivados de
-   datos del usuario -- justo lo que una CSP mal puesta rompe. */
-ok(pestanas.length === 9 && pestanas.includes('estudio') && pestanas.includes('cuentas'),
-   'se recorrieron las nueve pestañas, incluidas ESTUDIO y CUENTAS', pestanas.join(' · '));
+   senal, no la molestia. Se nombran las tres que mas facil es dejarse: ESTUDIO,
+   que falto desde que se creo; CUENTAS, que pinta tablas y chips derivados de
+   datos del usuario; e HISTORIAL, que pinta las dos familias en una tabla --
+   justo lo que una CSP mal puesta rompe. */
+ok(pestanas.length === 10 && pestanas.includes('estudio') && pestanas.includes('cuentas') && pestanas.includes('historial'),
+   'se recorrieron las diez pestañas, incluidas ESTUDIO, CUENTAS e HISTORIAL', pestanas.join(' · '));
 ok(viol.length === 0, 'ninguna violación de CSP usando la app', viol.length ? viol.join(' | ') : 'ninguna');
 ok(cerrs.length === 0, 'y ningún error de página con la política puesta', cerrs.join(' | ') || 'ninguno');
 /* Sin red, ese fetch fallaría igual: lo que se afirma es que lo para la CSP, o
