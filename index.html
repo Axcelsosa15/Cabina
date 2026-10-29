@@ -4061,6 +4061,380 @@ svg.chart .end, svg.chart .hp, .chart .end, .chart .hp { fill: #176f65 !importan
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+
+/* CABINA DESIGN SYSTEM v3 — presentación limpia inspirada en Bitácora.
+   Capa aditiva: no toca el modelo, el motor cuantitativo ni la persistencia. */
+:root {
+  --ds-bg: #FAF8F4;
+  --ds-surface: #FFFFFF;
+  --ds-surface-raised: #F7F6F2;
+  --ds-surface-hover: #FBFAF6;
+  --ds-line: #E7E4DC;
+  --ds-line-strong: #DCD7CC;
+  --ds-text: #16181C;
+  --ds-muted: #777970;
+  --ds-subtle: #777970;
+  --ds-accent: #16915B;
+  --ds-positive: #16915B;
+  --ds-negative: #D6483B;
+  --ds-warning: #B87919;
+  --ds-info: #3D6FB0;
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 24px;
+  --ds-space-6: 32px;
+  --ds-radius-sm: 7px;
+  --ds-radius-md: 10px;
+  --ds-radius-lg: 14px;
+  --ds-shadow-panel: 0 5px 18px rgba(0,0,0,.10);
+  --ds-focus: 0 0 0 3px rgba(61,111,176,.18);
+  --ds-motion: 140ms ease;
+}
+html { scroll-padding-top: 72px; }
+body {
+  background: var(--ds-bg);
+  color: var(--ds-text);
+  font-variant-numeric: tabular-nums lining-nums;
+  text-rendering: optimizeLegibility;
+}
+:where(button, input, select, textarea, a) { -webkit-tap-highlight-color: transparent; }
+:where(button, input, select, textarea, a):focus-visible {
+  outline: 2px solid var(--ds-accent) !important;
+  outline-offset: 2px;
+  box-shadow: var(--ds-focus);
+}
+.topbar {
+  gap: var(--ds-space-3) var(--ds-space-5);
+  padding-block: 16px 12px;
+}
+.brand h1 {
+  font-size: clamp(21px, 1.8vw, 26px);
+  letter-spacing: -.04em;
+  line-height: 1.12;
+}
+.brand .sub { line-height: 1.45; }
+.tabnav {
+  border-color: var(--ds-line);
+  box-shadow: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ds-line-strong) transparent;
+}
+.tabbtn {
+  min-height: 42px;
+  border-radius: var(--ds-radius-sm) var(--ds-radius-sm) 0 0;
+  letter-spacing: .045em;
+  font-weight: 650;
+}
+.tabbtn.active { box-shadow: none; }
+section.panel {
+  border: 1px solid var(--ds-line) !important;
+  border-radius: var(--ds-radius-lg) !important;
+  background: var(--ds-surface) !important;
+  box-shadow: var(--ds-shadow-panel) !important;
+}
+section.panel:hover {
+  border-color: var(--ds-line-strong) !important;
+  transform: none !important;
+}
+.panel > header {
+  padding: 14px 17px;
+  border-bottom: 1px solid var(--ds-line);
+}
+.panel > header h2 {
+  font-size: 12px;
+  letter-spacing: .055em;
+  line-height: 1.4;
+}
+.panel > header .meta { color: var(--ds-muted); }
+.panel .body { padding: 16px; }
+:where(.grid, .col) { gap: var(--ds-space-4); }
+.panel .body > :where(.grid, .col) { gap: var(--ds-space-3); }
+:where(.card, .metric, .study-card, .acc-metrics, .kpis) {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+:where(.metric, .card, .study-card) { border-radius: var(--ds-radius-md); }
+:where(.btn, .editbtn, .qkbtn, .selbtn, .conflbtn) {
+  border-radius: var(--ds-radius-sm);
+  min-height: 36px;
+  transition: background-color var(--ds-motion), border-color var(--ds-motion), color var(--ds-motion), box-shadow var(--ds-motion);
+}
+:where(.btn, .editbtn, .qkbtn, .selbtn, .conflbtn):hover {
+  box-shadow: none;
+}
+.btn.primary { box-shadow: none !important; }
+:where(input, select, textarea) {
+  border-radius: var(--ds-radius-sm);
+  max-width: 100%;
+  min-width: 0;
+}
+:where(input, select, textarea):focus-visible {
+  border-color: var(--ds-accent) !important;
+}
+:where(table) { border-collapse: separate; border-spacing: 0; }
+:where(th) {
+  color: var(--ds-muted);
+  font-weight: 650;
+  letter-spacing: .025em;
+}
+:where(td, th) { border-color: var(--ds-line); }
+:where(tbody tr:hover) { background: rgba(255,255,255,.025); }
+:where(.empty, .hint, .help, .meta, .sub) { text-wrap: pretty; }
+:where(.tab h1, .tab h2, .tab h3) { text-wrap: balance; }
+:where(.chartwrap, .twrap, .trades-scroll) {
+  min-width: 0;
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+}
+:where(.chartwrap svg, .chart svg) { max-width: 100%; }
+#mobileMoreOv [data-mobile-more-tab] {
+  border-radius: var(--ds-radius-md);
+  border-color: var(--ds-line);
+  box-shadow: none;
+}
+#mobileMoreOv [data-mobile-more-tab].is-active {
+  border-color: rgba(112,224,207,.55);
+}
+@media (max-width: 700px) {
+  .topbar { padding: 12px 0 10px; gap: 10px 12px; }
+  .tabnav { margin-bottom: 18px; }
+  .panel > header { padding: 12px 13px; }
+  .panel .body { padding: 13px; }
+  :where(.btn, .editbtn, .qkbtn, .selbtn, .conflbtn) { min-height: 40px; }
+  :where(input, select, textarea) { font-size: 16px; }
+  :where(.tab, .panel, .panel .body) { min-width: 0; }
+  :where(.twrap, .trades-scroll) { scrollbar-width: thin; }
+}
+@media (max-width: 380px) {
+  .panel .body { padding: 11px; }
+  .panel > header { padding-inline: 11px; }
+  .brand h1 { font-size: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --ds-motion: 0ms; }
+  *, *::before, *::after { scroll-behavior: auto !important; }
+}
+
+
+/* v3.1 — normalize the repeated components used across all tabs. */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  flex-wrap: wrap;
+  padding: 0;
+  margin: 0 0 var(--ds-space-4);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.cards {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+  gap: var(--ds-space-3);
+}
+.card {
+  min-width: 0;
+  padding: var(--ds-space-4);
+  gap: var(--ds-space-3);
+  border: 1px solid var(--ds-line);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface);
+  box-shadow: none;
+  transition: border-color var(--ds-motion), background-color var(--ds-motion);
+}
+.card:hover {
+  border-color: var(--ds-line-strong);
+  background: var(--ds-surface-raised);
+  box-shadow: none;
+}
+.study-card {
+  border-color: var(--ds-line);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface);
+  box-shadow: none;
+}
+.study-card:hover { border-color: var(--ds-line-strong); }
+.acc-metrics {
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2) 0 0;
+  background: transparent;
+  border-top-color: transparent;
+}
+.metric {
+  min-width: 0;
+  padding: var(--ds-space-3);
+  gap: 5px;
+  border: 1px solid var(--ds-line);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface);
+}
+:where(.lab, .k, .pk, .firm, .hk, .tz) {
+  letter-spacing: .055em;
+  line-height: 1.4;
+}
+.empty {
+  padding: var(--ds-space-5);
+  border: 1px dashed var(--ds-line-strong);
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--ds-muted);
+  line-height: 1.55;
+}
+:where(.calc-form, .rform, .mxform, .fields) { gap: var(--ds-space-3); }
+:where(.ed, .view-prefs-dialog) {
+  border-radius: var(--ds-radius-lg);
+  box-shadow: 0 18px 52px rgba(0,0,0,.28);
+}
+.ed {
+  width: min(900px, calc(100vw - 24px));
+  max-width: 900px;
+  max-height: min(88dvh, 900px);
+  overscroll-behavior: contain;
+}
+:where(.tab h1, .tab h2, .tab h3) { line-height: 1.3; }
+:where(.tab > .toolbar) { margin-bottom: var(--ds-space-4); }
+@media (max-width: 700px) {
+  .cards { grid-template-columns: minmax(0, 1fr); }
+  .toolbar { gap: var(--ds-space-2); }
+  .card { padding: var(--ds-space-3); }
+  .metric { padding: 10px; }
+  .empty { padding: var(--ds-space-4); }
+  .ed {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    margin: 8px;
+  }
+}
+
+
+/* Bitácora palette parity — warm paper, ink, green, coral and blue. */
+html { color-scheme: light; background: #FAF8F4; }
+body {
+  background: #FAF8F4 !important;
+  color: #16181C !important;
+  font-family: Geist, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+::selection { background: rgba(22,145,91,.20); }
+section.panel, .card, .study-card, .metric, .acc-metrics {
+  color: #16181C;
+  border-color: #E7E4DC !important;
+  background-color: #FFFFFF !important;
+  box-shadow: 0 1px 2px rgba(22,24,28,.035), 0 8px 22px -16px rgba(22,24,28,.18) !important;
+}
+section.panel:hover, .card:hover, .study-card:hover {
+  border-color: #DCD7CC !important;
+  background-color: #FBFAF6 !important;
+}
+.panel > header { border-bottom-color: #E7E4DC !important; }
+.panel > header h2, :where(th), :where(.lab,.k,.pk,.firm,.hk,.tz) { color: #777970 !important; }
+.tabnav { background: #FFFFFF !important; border-color: #E7E4DC !important; }
+.tabbtn { color: #777970; }
+.tabbtn:hover { background: #F7F6F2 !important; color: #16181C !important; }
+.tabbtn.active {
+  color: #16915B !important; background: #F7F6F2 !important;
+  border-color: #E7E4DC !important; box-shadow: inset 0 -2px 0 #16915B !important;
+}
+:where(input,select,textarea) {
+  color: #16181C !important; background-color: #FFFFFF !important; border-color: #DCD7CC !important;
+}
+:where(input,select,textarea)::placeholder { color: #777970 !important; opacity: .85; }
+:where(input,select,textarea):focus-visible {
+  border-color: #3D6FB0 !important; box-shadow: 0 0 0 3px rgba(61,111,176,.18) !important;
+}
+:where(.empty) { border-color: #DCD7CC !important; color: #777970 !important; }
+:where(.btn.primary, button[style*="background:#16181C"]) {
+  background: #16181C !important; color: #FFFFFF !important; border-color: #16181C !important;
+}
+:where(.btn.primary, button[style*="background:#16181C"]):hover { background: #262931 !important; }
+:where(.positive, .profit, .pnl-positive, [data-tone="positive"]) { color: #16915B !important; }
+:where(.negative, .loss, .pnl-negative, [data-tone="negative"]) { color: #D6483B !important; }
+:where(a) { color: #3D6FB0; }
+#mobileMoreOv [data-mobile-more-tab].is-active {
+  color: #16915B !important; border-color: #16915B !important; background: #F7F6F2 !important;
+}
+@media (max-width: 700px) {
+  .tabnav { background: #FAF8F4 !important; }
+  .panel > header { background: #FFFFFF; }
+}
+
+
+/* Theme all existing component families, including the study library, with the same palette. */
+:root {
+  --bg: #FAF8F4;
+  --surface: #FFFFFF;
+  --surface-2: #F7F6F2;
+  --surface-3: #FBFAF6;
+  --line: #E7E4DC;
+  --line-strong: #DCD7CC;
+  --text: #16181C;
+  --muted: #777970;
+  --dim: #777970;
+  --accent: #16915B;
+  --accent-soft: rgba(22,145,91,.09);
+  --accent-ink: #16181C;
+  --good: #16915B;
+  --good-soft: rgba(22,145,91,.09);
+  --positive: #16915B;
+  --bad: #D6483B;
+  --bad-soft: rgba(214,72,59,.09);
+  --negative: #D6483B;
+  --warn: #B87919;
+  --warn-soft: rgba(184,121,25,.10);
+  --warning: #B87919;
+  --blue: #3D6FB0;
+  --info: #3D6FB0;
+  --ui-panel: #FFFFFF;
+  --ui-panel-raised: #F7F6F2;
+  --ui-glow: rgba(22,145,91,.06);
+  --ui-focus: 0 0 0 3px rgba(61,111,176,.18);
+}
+.study-stat, .study-searchrow, .study-filter, .study-panel, .study-card, .study-empty {
+  color: #16181C !important;
+  border-color: #E7E4DC !important;
+  background: #FFFFFF !important;
+  box-shadow: none !important;
+}
+.study-stat-top, .study-card p, .study-card-foot, .study-empty { color: #777970 !important; }
+.study-searchicon, .study-kind, .study-card-foot a { color: #16915B !important; }
+.study-filter[aria-pressed="true"], .study-state {
+  color: #16915B !important;
+  background: rgba(22,145,91,.08) !important;
+  border-color: rgba(22,145,91,.28) !important;
+}
+.study-state.progressing {
+  color: #B87919 !important;
+  background: rgba(184,121,25,.08) !important;
+  border-color: rgba(184,121,25,.28) !important;
+}
+.study-state.mastered {
+  color: #3D6FB0 !important;
+  background: rgba(61,111,176,.08) !important;
+  border-color: rgba(61,111,176,.25) !important;
+}
+.study-tag, .study-shortcut {
+  color: #777970 !important;
+  background: #F7F6F2 !important;
+  border-color: #E7E4DC !important;
+}
+.study-card-foot { border-top-color: #E7E4DC !important; }
+.study-progress { background: #E7E4DC !important; }
+.study-progress span { background: #16915B !important; }
+.study-flash {
+  color: #16181C !important;
+  background: #F7F6F2 !important;
+  border-color: #E7E4DC !important;
+}
+.study-flash small, .study-flash-answer { color: #16915B !important; }
+.study-step i { color: #16915B !important; background: rgba(22,145,91,.08) !important; border-color: #E7E4DC !important; }
+.study-note { color: #777970 !important; }
+.study-card h3, .study-empty b { color: #16181C !important; }
+:where(.btn, .editbtn, .qkbtn, .selbtn, .conflbtn, .study-filter) {
+  font-family: Geist, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
 </style>
 
 </body>
