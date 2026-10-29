@@ -31,18 +31,19 @@ const BASE = `http://127.0.0.1:${srv.address().port}/`;
 const b = await chromium.launch();
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
-/* LAS NUEVE, y la lista se escribe a mano a proposito: cada vez que se anade una
+/* LAS DIEZ, y la lista se escribe a mano a proposito: cada vez que se anade una
    pestana hay que venir aqui, y eso es la unica razon por la que se nota.
    `estudio` falto desde que se creo, asi que el comportamiento responsive de la
    pestana de la que sale el lenguaje visual de toda la cabina no se medía en
    ningun ancho -- y la compuerta anunciaba la fila como «ninguna de las siete
    pestanas se sale de la pantalla» cuando median seis.
-   Son nueve botones en #tabnav: cabina, futuros, cuentas, edge, invest, playbook,
-   ideas, estudio, calc.
+   Son diez botones en #tabnav: cabina, futuros, cuentas, edge, invest,
+   historial, playbook, ideas, estudio, calc.
    `cuentas` se mide VACIA como las demas -- este archivo no siembra datos --, y
    vacia tiene tres tablas que en 430px son justo lo que se desborda si alguien
-   les quita el `.twrap`. */
-const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'playbook', 'ideas', 'estudio', 'calc'];
+   les quita el `.twrap`. `historial` tambien: su barra lleva siete controles y
+   su tabla diez columnas, que es lo que se sale si pierde el suyo. */
+const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc'];
 const ANCHOS = [[1440, 900, 'escritorio'], [834, 1000, 'tableta'], [430, 900, 'telefono'], [390, 844, 'iPhone 390'], [375, 812, 'iPhone 375'], [360, 780, 'telefono 360'], [320, 700, 'telefono 320']];
 
 const mide = p => p.evaluate(() => {
@@ -133,7 +134,28 @@ for (const [w, h, nombre] of ANCHOS) {
     ok(mobile.visibleNavItems === 5 && mobile.moreVisible, 'barra inferior compacta con cuatro destinos y Más', JSON.stringify({items:mobile.visibleNavItems,more:mobile.moreVisible}));
     await p.click('#mobileMoreBtn');
     await p.waitForFunction(() => !document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
-    ok(await p.locator('#mobileMoreOv [data-mobile-more-tab]').count() === 5, 'Más expone las cinco secciones secundarias');
+    /* EL NÚMERO SALÍA DE LA ASERCIÓN, Y CADUCÓ A LA PRIMERA PESTAÑA NUEVA.
+       Decía `=== 5` y con el historial son seis: una cuenta dentro de una
+       aserción se pone roja por CRECER, no por romperse, y este archivo ya
+       lleva dos rótulos caducados documentados por la misma razón.
+       La propiedad que de verdad importa no es «son cinco»: es que TODA
+       pestaña que la barra inferior esconde se pueda alcanzar desde «Más».
+       Una pestaña nueva que nadie meta en ninguna de las dos listas queda
+       invisible en un teléfono, y eso es lo que se mide. El suelo de uno
+       queda porque un selector roto devolvería dos conjuntos vacíos y la
+       igualdad se cumpliría sin haber mirado nada. */
+    const menu = await p.evaluate(() => {
+      const nav = document.getElementById('tabnav');
+      const ocultas = [...nav.querySelectorAll('.tabbtn')]
+        .filter(b => getComputedStyle(b).display === 'none')
+        .map(b => b.dataset.tab).sort();
+      const enMas = [...document.querySelectorAll('#mobileMoreOv [data-mobile-more-tab]')]
+        .map(b => b.dataset.mobileMoreTab).sort();
+      return { ocultas, enMas };
+    });
+    ok(menu.enMas.length > 0 && menu.ocultas.join('|') === menu.enMas.join('|'),
+       'toda pestaña que la barra esconde se alcanza desde «Más»',
+       `escondidas [${menu.ocultas}] · en Más [${menu.enMas}]`);
     await p.keyboard.press('Shift+Tab');
     await p.waitForFunction(() => document.activeElement?.dataset?.mobileMoreTab === 'calc', null, { timeout: 5000 });
     ok(true, 'el foco queda dentro del menú al retroceder desde el primer control');
@@ -185,8 +207,20 @@ for (const [w, h, nombre] of ANCHOS) {
     await p.waitForFunction(() => !document.getElementById('quickOv')?.classList.contains('open'), null, { timeout: 5000 });
   }
   console.log(`\n  ── ${nombre} ${w}×${h} ──────────────────────────────`);
+  /* QUÉ PESTAÑAS HAY QUE ABRIR DESDE «MÁS», PREGUNTADO A LA PÁGINA.
+     Esto era una lista escrita a mano —la cuarta cuenta de pestañas de este
+     archivo— y caducó con el historial: escondido de la barra y fuera de la
+     lista, el bucle intentaba pulsar un botón invisible y la suite moría por
+     TIMEOUT. No con una fila roja: con una excepción, que es peor, porque se
+     lleva por delante el resto del informe y la compuerta sólo dice «vista»
+     sin decir qué.
+     La página ya sabe cuáles esconde; preguntárselo no puede caducar. */
+  const porMas = w <= 430
+    ? await p.evaluate(() => [...document.querySelectorAll('#tabnav .tabbtn')]
+        .filter(b => getComputedStyle(b).display === 'none').map(b => b.dataset.tab))
+    : [];
   for (const t of TABS) {
-    if (w <= 430 && ['cuentas', 'edge', 'playbook', 'ideas', 'calc'].includes(t)) {
+    if (porMas.includes(t)) {
       await p.click('#mobileMoreBtn');
       await p.click('#mobileMoreOv [data-mobile-more-tab="' + t + '"]');
       await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
@@ -198,7 +232,7 @@ for (const [w, h, nombre] of ANCHOS) {
     ok(m.scrollX <= 2 && !m.peor, `${t.padEnd(9)} sin desborde horizontal`,
        m.peor ? `${m.peor.tag}${m.peor.id ? '#' + m.peor.id : ''}.${m.peor.cls} se sale ${m.peor.exceso}px` : `scrollX ${m.scrollX}`);
   }
-  /* ESTUDIO CON CONTENIDO, no sólo vacía. El resto de este archivo mide las nueve
+  /* ESTUDIO CON CONTENIDO, no sólo vacía. El resto de este archivo mide las diez
      pestañas sin sembrar, así que la rejilla de ESTUDIO se medía siempre con su
      estado vacío -- y el estado vacío es justo el que NO puede desbordar, porque
      `.study-empty` ocupa la fila entera. El riesgo vive en `.study-card`.

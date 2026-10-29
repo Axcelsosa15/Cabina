@@ -42,8 +42,29 @@ test/                          pruebas de navegador (Playwright) y guardianes
 | edge, Sharpe, drawdown, Monte Carlo | `QE.analizarEdge` · `metricasCurva` · `simularCuenta` | `edge`, `radiografia` |
 | dónde se guarda un dato | `almacen()` con `nubeDb()` o `localDb()` | `guardado`, `primer`, `cuentas` |
 | las imágenes | bucket privado `capturas` | `capturas`, `supabase/pruebas/capturas.sql` |
+| **qué operaciones entran en un filtro** | `ventanaDe` + `tradeFiltro`, expuestos como `FUT.filtered(spec)` · el preset de rango se **resuelve** a desde/hasta, así que las dos gramáticas de fecha no pueden divergir | `filtros`, `unificado` |
+| **cada una de las 160 estadísticas** | una entrada del catálogo `EST` · `estAgrega()` hace UNA pasada y las 160 la leen; `estFila()` la calcula una vez para la pantalla y para el CSV | `estadisticas` |
+| **cómo se escribe un CSV** | `tablaCsv(columnas, filas)` · BOM, comillas dobladas, CRLF y cabecera en un solo sitio para las tres exportaciones | `unificado`, `estadisticas`, `emparejado` |
 | qué ficheros necesita la página instalada | `CASCO` en `sw.js` · lo copia `pagina.yml` | `pwa`, y la lista se lee del workflow en `test/publicado.mjs` |
 | qué se publica en Pages | el paso «Armar lo que se publica» de `pagina.yml` | `pwa` §1, `hojas` §4 |
+
+Futuros, Métricas / Edge y el Historial no filtran por su cuenta: los tres piden
+el subconjunto a `FUT.filtered()`. El Historial además es la única pantalla que
+mezcla las dos familias (`type: "futuros"` y `"inversion"`), y lo hace pidiendo una
+consulta por familia a la misma puerta — no tiene lista propia. Las dos familias NO
+comparten el espacio de nombres de las cuentas: los futuros viven en
+`state.settings.accounts` y las inversiones en `state.settings.meta.investAccounts`,
+así que el mismo id significa cosas distintas y cada fila etiqueta la suya con
+`acctLabel()` o `investmentAccountName()` según su tipo.
+
+El catálogo de estadísticas de Métricas tampoco tiene números propios: `renderEdge()`
+le pasa la MISMA lista y el MISMO resultado de `mxCalc()` que alimentan la
+expectativa, la curva y la tabla operación a operación, y `estAgrega()` hace una
+sola pasada de agregación —por día, mes, año y símbolo— que las 160 entradas de
+`EST` leen. Añadir una estadística es añadir una línea a ese array; no hay un
+segundo sitio donde registrarla. Una entrada que devuelve `null` lleva al lado la
+razón escrita, porque un cero en el sitio de un dato ausente es indistinguible de
+una medición.
 
 La app no recalcula ningún número del motor. Las funciones de la tarjeta de cuenta
 (`ddEngine`, `riskEngine`, `consistency`/`consEngine`, `gainCap`) son adaptadores de

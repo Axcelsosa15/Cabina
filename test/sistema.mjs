@@ -6,7 +6,7 @@
    —un panel, un botón, un campo, una cabecera de tabla— tiene que verse igual en
    cualquier pestaña. Eso no se comprueba mirando capturas: se comprueba
    preguntando al navegador por el estilo COMPUTADO de TODAS las instancias
-   visibles de cada primitiva, en las ocho pestañas y con datos, y exigiendo UN
+   visibles de cada primitiva, en todas las pestañas y con datos, y exigiendo UN
    SOLO valor por propiedad. Si hay dos, hay dos sistemas.
 
    POR QUÉ «TODAS LAS INSTANCIAS» Y NO «LA PRIMERA DE CADA PESTAÑA». El primer
@@ -59,11 +59,12 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(raiz, 'index.html'), 'utf8');
-/* LAS NUEVE. `cuentas` faltaba desde que se creo, igual que a `vista`,
-   `idioma` y `seguridad`: cuatro listas escritas a mano y una pestaña nueva que
-   no entraba en ninguna. Sin ella, el sistema de diseño de la pestaña del ciclo
-   de vida -- sus tablas, su desplegable, sus estados vacios -- no se media. */
-const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'playbook', 'ideas', 'estudio', 'calc'];
+/* LAS DIEZ. Esta lista, la de `vista`, la de `idioma` y la de `seguridad` se
+   escriben a mano, y cada una se quedó corta en su momento: `estudio` faltaba
+   desde que se creó, `cuentas` desde el ciclo de vida, `historial` desde que
+   las dos familias se juntaron en una tabla. Añadir una pestaña es venir a las
+   cuatro; que haya que venir es la señal, no la molestia. */
+const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc'];
 
 /* nombre → [selector, propiedades]. El selector excluye las variantes
    semánticas; `.panel .body` excluye los calendarios por su contenedor. */
@@ -118,7 +119,14 @@ for (const t of TABS) {
      carrera en pie: cualquier cambio que mueva el reloj del arranque la vuelve
      a destapar, y volvio con una pestaña nueva. Se espera a las animaciones de
      los PROPIOS elementos que se van a muestrear, que es lo que `asentado`
-     hace y lo que `vacios.mjs` ya hacia con el mismo sintoma. */
+     hace y lo que `vacios.mjs` ya hacia con el mismo sintoma.
+
+     ESTA RAMA LLEVABA SU PROPIO ARREGLO DE LA MISMA CARRERA —muestrear dos
+     veces separadas por un fotograma hasta que el valor dejara de moverse— y
+     al fusionar se queda el de `main`: espera a las animaciones de los
+     elementos concretos en vez de sondear, el ayudante vive en `espera.mjs`
+     donde `vacios.mjs` ya lo usa, y dos arreglos de una misma carrera son
+     exactamente la clase de duplicado que este repositorio persigue. */
   await asentado(pag, Object.values(PRIM).map(([sel]) => `.tab[data-tab="${t}"] ${sel}`).join(', '));
   const r = await pag.evaluate(([tab, PRIM]) => {
     const raiz = document.querySelector(`.tab[data-tab="${tab}"]`);
@@ -157,7 +165,7 @@ for (const [nombre, [, props]] of Object.entries(PRIM)) {
   const total = vistas[props[0]] ? Object.values(vistas[props[0]]).flat().length : 0;
   /* Cero instancias no es un verde: es que la prueba no midió nada, y eso ya
      pasó una vez en este repositorio con siete pruebas sobre un fichero viejo. */
-  if (!total) { ok(false, `${nombre}: hay instancias que medir`, 'NINGUNA instancia visible en las ocho pestañas, ni con la semilla'); continue; }
+  if (!total) { ok(false, `${nombre}: hay instancias que medir`, 'NINGUNA instancia visible en ninguna pestaña, ni con la semilla'); continue; }
   const malas = props.filter(p => Object.keys(vistas[p] || {}).length > 1);
   ok(malas.length === 0, `${nombre.padEnd(18)} un solo valor en cada propiedad`,
      malas.length
