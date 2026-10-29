@@ -175,6 +175,8 @@ await p.selectOption('#qtAccount', 'b2');
 await p.click('#qtGo'); await quieto(p);
 ok(await p.inputValue('#ef_accountId') === 'b2', 'la cuenta elegida se hereda en ESTA operación', await p.inputValue('#ef_accountId'));
 await p.click('#edSave'); await trasGuardar(p);
+const cuentaGuardada = await p.evaluate(() => FUT.trades().find(t => t.instrument === 'CL')?.accountId);
+ok(cuentaGuardada === 'b2', 'la cuenta seleccionada queda guardada en la operación', cuentaGuardada || 'sin cuenta');
 await p.click('.tabbtn[data-tab="futuros"]'); await quieto(p);
 await p.click('#ftSeg button[data-v="diario"]'); await quieto(p);
 const q = await p.inputValue('#ftQ');
