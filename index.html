@@ -717,6 +717,13 @@ tbody tr:last-child td{border-bottom:0}
   .btn.gated { background: var(--bad-soft); border-color: rgba(224,96,79,.5); color: var(--bad); }
   .btn.gated:hover { background: rgba(224,96,79,.22); }
   .gate { border: 1px solid rgba(224,96,79,.45); border-left: 3px solid var(--bad); border-radius: var(--r-md); background: rgba(224,96,79,.08); padding:12px 12px; }
+  /* Lo heredado de la última operación: un aviso, no una alarma. Comparte la
+     forma del aviso de protocolo —borde izquierdo grueso— para que se lea como de
+     la misma familia, pero en el color neutro: no has hecho nada mal, sólo hay
+     campos rellenos que no escribiste tú hoy. */
+  .hered { border: 1px solid var(--line-strong); border-left: 3px solid var(--muted); border-radius: var(--r-md);
+    background: var(--surface-2); padding: 9px 11px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .hered b { color: var(--text); font-weight: 600; }
   .gate .gh { display: flex; align-items: center; gap:8px; font-family: var(--font-mono); font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--bad); margin-bottom:8px; }
   .gate .gh i { font-style: normal; }
   .gate ul { list-style: none; margin: 0; padding: 0; display: grid; gap:8px; }
@@ -1871,6 +1878,25 @@ tbody tr:last-child td{border-bottom:0}
   .qk .qin { width: 100%; font-family: var(--font-mono); font-size: 21px; font-weight: 600;
     letter-spacing: .02em; text-align: center; padding:12px 8px; }
   .qk .qhint { font-family: var(--font-mono); font-size: 11px; color: var(--dim); text-align: center; }
+  /* El vocabulario, cerrado por defecto: enseña lo que entiende la línea sin
+     ocupar el sitio de la vista previa, que es lo que de verdad hay que leer
+     antes de guardar. Una lista de diez marcas siempre abierta empujaría la
+     vista previa fuera de la pantalla en un móvil, que es donde más se usa. */
+  .qkvocab { font-size: 11px; color: var(--muted); }
+  .qkvocab > summary { cursor: pointer; font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--dim); padding: 2px 0; }
+  .qkvocab > summary:hover { color: var(--accent); }
+  .qkvocab dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px;
+    margin: 8px 0 0; align-items: baseline; }
+  .qkvocab dt { font-family: var(--font-mono); font-size: 10px; color: var(--accent); white-space: nowrap; }
+  .qkvocab dd { margin: 0; font-size: 11px; line-height: 1.45; }
+  .qkvocab > p { margin: 10px 0 0; font-size: 11px; line-height: 1.45; color: var(--dim); }
+  /* A 360 px la columna de marcas y la de texto no caben una al lado de otra:
+     «out20190 · salida 20190» mide más que media pantalla. Apiladas sí caben. */
+  @media (max-width: 420px) {
+    .qkvocab dl { grid-template-columns: minmax(0, 1fr); gap: 1px 0; }
+    .qkvocab dd { margin-bottom: 7px; }
+  }
   /* ---------- MÉTRICAS / EDGE ---------- */
   .mxd { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
   .mxparams { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: end; }
@@ -3018,10 +3044,26 @@ tbody tr:last-child td{border-bottom:0}
       </div>
 
       <div id="qkOp">
-        <label class="lab" for="qkText">Instrumento, dirección y resultado</label>
+        <label class="lab" for="qkText">La operación en una línea</label>
         <input class="qin" id="qkText" type="text" autocomplete="off" spellcheck="false"
                placeholder="NQ +185" aria-describedby="qkHint">
-        <p class="qhint" id="qkHint">NQ +185 &nbsp;·&nbsp; NQ L +185 &nbsp;·&nbsp; MNQ short -90</p>
+        <p class="qhint" id="qkHint">NQ +185 &nbsp;·&nbsp; MNQ short -90 &nbsp;·&nbsp; NQ L 2x @20150 sl20120 out20190 9:45</p>
+        <details class="qkvocab">
+          <summary>Qué entiende de la línea</summary>
+          <dl>
+            <dt>NQ · MNQZ5</dt><dd>el instrumento, también con el código de mes que escribe el bróker.</dd>
+            <dt>L · long · short · s</dt><dd>la dirección.</dd>
+            <dt>2x · x2 · 2c</dt><dd>los contratos.</dd>
+            <dt>@20150</dt><dd>la entrada. Con el stop, de ahí sale el riesgo.</dd>
+            <dt>sl20120 · stop 20120</dt><dd>el stop.</dd>
+            <dt>tp20200 · obj 20200</dt><dd>el objetivo. Con el stop da la R planificada.</dd>
+            <dt>out20190 · salida 20190</dt><dd>la salida real. Con la entrada, el motor calcula el resultado y ya no hace falta escribirlo.</dd>
+            <dt>+185 · -90</dt><dd>el resultado en dólares.</dd>
+            <dt>+12p · -9pts</dt><dd>el resultado en puntos, que el multiplicador del contrato traduce a dólares.</dd>
+            <dt>9:45</dt><dd>la hora de entrada. Sin ella se usa la de apuntarla.</dd>
+          </dl>
+          <p>El orden no importa y nada se adivina por la posición: lo que no lleve marca y no se reconozca sale nombrado en la vista previa, sin guardarse.</p>
+        </details>
         <div class="qkprev" id="qkPrev" aria-live="polite"></div>
         <div>
           <span class="lab">Calidad de ejecución <span style="text-transform:none;letter-spacing:0">· opcional</span></span>
