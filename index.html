@@ -4071,6 +4071,42 @@ svg.chart .end, svg.chart .hp, .chart .end, .chart .hp { fill: #176f65 !importan
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
+/* ===================== ERGONOMÍA DE LA PR #75 =====================
+   Lo que queda de la capa visual de la PR #75 después de medir qué de ella
+   NO estaba ya en main. Casi todo lo estaba: el foco visible global, los
+   36/44 px de alto de control, los 16 px de campo en el iPhone (con el mismo
+   comentario sobre el zoom de Safari), `tabular-nums` en decenas de sitios,
+   `scroll-padding-top`, `overscroll-behavior` y quince bloques de
+   `prefers-reduced-motion`. Repetirlo habría sido añadir una segunda escala
+   de radios y espaciado —`--ds-*` junto a los `--r-*` que ya existen— para
+   decir lo mismo dos veces y que se separen con el tiempo.
+
+   LA PALETA DE LA PR #75 NO ENTRA, y conviene saber por qué: su capa define
+   su papel cálido sin `!important` (los valores, en docs/DISENO.md: aquí no,
+   porque el guardián prohíbe que esos hex vuelvan al CSS), y el tema de
+   744c1a3 declara `html, body { background: var(--bg) !important }`. Gane
+   quien gane el orden, el `!important` se lleva el color. Habría quedado CSS
+   que no pinta nada con un guardián en verde encima, porque ese guardián
+   comprobaba que los hex ESTUVIERAN EN EL TEXTO, no que llegaran a la
+   pantalla. La decisión está en docs/DISENO.md.
+
+   Quedan tres declaraciones, y ninguna es de color: */
+
+/* El destello gris de Android/iOS al tocar un control se come el estado de
+   foco que acabamos de dejar visible, y dura más que el toque. */
+:where(button, input, select, textarea, a) { -webkit-tap-highlight-color: transparent; }
+
+/* `balance` ya está en los títulos; `pretty` es para el texto corrido, donde
+   lo que molesta no es un título en dos líneas desiguales sino la palabra
+   suelta en la última. Afecta a notas, ayudas y vacíos, que es donde esta
+   aplicación explica las cosas. */
+:where(.empty, .hint, .help, .meta, .sub, .note, .csub, .study-note) { text-wrap: pretty; }
+
+/* `lining-nums` acompaña a `tabular-nums`: sin él, una fuente con cifras de
+   estilo antiguo alinea las columnas pero deja el 3 y el 9 por debajo de la
+   línea base, y una tabla de P&L se lee torcida. */
+body { font-variant-numeric: tabular-nums lining-nums; }
+
     @media (max-width: 720px) {
       #studyReader .study-dialog-body { grid-template-columns: minmax(0,1fr) !important; }
       #studyReaderContext { border-left: 0 !important; border-top: 1px solid var(--line); padding: 14px 0 0 !important; }
