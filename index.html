@@ -2851,7 +2851,7 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   --muted: #475569 !important;
   --dim: #5b6779 !important;
   --accent: #1d4ed8 !important;
-  --accent-ink: #ffffff !important;
+  --accent-ink: #f8fafc !important;
   --positive: #166534 !important;
   --negative: #b42318 !important;
   --warning: #92400e !important;
@@ -3265,6 +3265,18 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 .study-searchrow:focus-within {
   border-color: var(--accent) !important;
   box-shadow: var(--ui-focus) !important;
+}
+/* La rejilla de Estudio no debe imponer el ancho intrínseco de dos selects
+   al viewport móvil. Se conservan los mismos filtros, sin cortar ninguno. */
+#studyTab .study-field[style*="grid-template-columns:1fr 1fr"] {
+  grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+}
+#studyTab .study-field[style*="grid-template-columns:1fr 1fr"] > div { min-width: 0; }
+#studyTab .study-field :is(input,select,textarea) { min-width: 0; max-width: 100%; }
+@media (max-width: 430px) {
+  #studyTab .study-field[style*="grid-template-columns:1fr 1fr"] {
+    grid-template-columns: minmax(0,1fr) !important;
+  }
 }
 /* Apariencia: ajustes compartidos por el tema claro y el oscuro. */
 .cab-appearance-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; align-items: stretch; }
