@@ -2596,12 +2596,12 @@ tbody tr:last-child td{border-bottom:0}
       <button data-v="presesion">Pre-sesión</button>
     </div>
     <span class="sp"></span>
-    <select id="ftAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select>
-    <select id="ftRange" aria-label="Rango"><option value="all">todo el historial</option><option value="month">este mes</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select>
-    <select id="ftSetup" aria-label="Filtrar por setup"><option value="">todos los setups</option></select>
-    <select id="ftInstr" aria-label="Instrumento"><option value="">todos los instrumentos</option></select>
-    <select id="ftSes" aria-label="Sesión"><option value="">todas las sesiones</option></select>
-    <input id="ftQ" type="search" aria-label="Buscar operaciones" placeholder="buscar instrumento, etiqueta, lección…" autocomplete="off">
+    <label class="cab-filter-field"><span class="cab-filter-caption">Cuenta</span><select id="ftAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Período</span><select id="ftRange" aria-label="Rango"><option value="all">todo el historial</option><option value="month">este mes</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Setup</span><select id="ftSetup" aria-label="Filtrar por setup"><option value="">todos los setups</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Instrumento</span><select id="ftInstr" aria-label="Instrumento"><option value="">todos los instrumentos</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Sesión</span><select id="ftSes" aria-label="Sesión"><option value="">todas las sesiones</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Buscar operaciones</span><input id="ftQ" type="search" aria-label="Buscar operaciones" placeholder="buscar instrumento, etiqueta, lección…" autocomplete="off"></label>
     <button type="button" class="btn ghost sm selbtn" id="selbtn-jrTable" title="Selecciona varias operaciones y bórralas de una vez">Seleccionar</button>
     <button type="button" class="btn primary" id="ftNew">+ Nueva operación</button>
   </div>
@@ -2838,8 +2838,8 @@ tbody tr:last-child td{border-bottom:0}
 <section class="deck" aria-label="Resumen de Métricas y Edge"><span class="deck-n">03</span><h1 class="deck-t">Métricas / Edge</h1><span class="deck-stage">Validación</span><span class="deck-parts">P&amp;L neto · Drawdown · Riesgo</span></section>
 
   <div class="toolbar">
-    <select id="mxAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select>
-    <select id="mxSetup" aria-label="Setup"><option value="">todos los setups</option></select>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Cuenta</span><select id="mxAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Setup</span><select id="mxSetup" aria-label="Setup"><option value="">todos los setups</option></select></label>
     <label class="mxd">desde <input type="date" id="mxDesde" aria-label="Desde"></label>
     <label class="mxd">hasta <input type="date" id="mxHasta" aria-label="Hasta"></label>
     <span class="sp"></span>
@@ -3030,12 +3030,12 @@ tbody tr:last-child td{border-bottom:0}
 <section class="deck" aria-label="Resumen de Historial"><span class="deck-n">09</span><h1 class="deck-t">Historial</h1><span class="deck-stage">Registro</span><span class="deck-parts">Futuros · Inversiones · Resultado</span></section>
 
   <div class="toolbar">
-    <select id="hsTipo" aria-label="Tipo de operación"><option value="">futuros e inversiones</option><option value="futuros">sólo futuros</option><option value="inversion">sólo inversiones</option></select>
-    <select id="hsAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select>
-    <select id="hsRango" aria-label="Rango"><option value="all">todo el historial</option><option value="month">este mes</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Mercado</span><select id="hsTipo" aria-label="Tipo de operación"><option value="">futuros e inversiones</option><option value="futuros">sólo futuros</option><option value="inversion">sólo inversiones</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Cuenta</span><select id="hsAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Período</span><select id="hsRango" aria-label="Rango"><option value="all">todo el historial</option><option value="month">este mes</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select></label>
     <label class="mxd">desde <input type="date" id="hsDesde" aria-label="Desde"></label>
     <label class="mxd">hasta <input type="date" id="hsHasta" aria-label="Hasta"></label>
-    <input id="hsQ" type="search" aria-label="Buscar operaciones" placeholder="buscar activo, cuenta, nota…" autocomplete="off">
+    <label class="cab-filter-field"><span class="cab-filter-caption">Buscar historial</span><input id="hsQ" type="search" aria-label="Buscar operaciones" placeholder="buscar activo, cuenta, nota…" autocomplete="off"></label>
     <span class="sp"></span>
     <button type="button" class="btn ghost sm" id="hsExport" title="Descarga TODO lo que el filtro selecciona, no s&oacute;lo las filas visibles">Exportar CSV</button>
     <button type="button" class="btn ghost sm" id="hsLimpiar">Ver todo</button>
@@ -4117,6 +4117,33 @@ body { color-scheme: light !important; }
 .study-dialog-head, .study-dialog-foot, .ed > header, .ed > footer {
   background: var(--surface) !important;
   border-color: var(--line) !important;
+}
+/* Etiquetas visibles de filtros: no depender de placeholders ni del valor del select. */
+.tab .toolbar .cab-filter-field {
+  display: grid;
+  align-content: end;
+  gap: 5px;
+  flex: 0 1 158px;
+  min-width: 120px;
+  max-width: 100%;
+}
+.tab .toolbar .cab-filter-field:has(input[type="search"]) { flex: 1 1 190px; }
+.tab .toolbar .cab-filter-caption {
+  display: block;
+  color: var(--muted) !important;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.tab .toolbar .cab-filter-field > :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+@media (max-width: 700px) {
+  .tab .toolbar .cab-filter-field { flex: 1 1 140px; }
+  .tab .toolbar .cab-filter-field:has(input[type="search"]) { flex-basis: 100%; }
 }
 /* A · Entradas de datos. El mismo contrato visual para editores, filtros y diálogos. */
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]), select, textarea),
