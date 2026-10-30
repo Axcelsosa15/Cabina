@@ -1,78 +1,91 @@
-# Sistema visual de Cabina
+# Sistema visual de Cabina — Concepto A (Minimalista claro)
 
-## Qué tema manda, y por qué hay que decirlo
+## Decisión aprobada · 2026-10-30
 
-Cabina llegó a tener **dos temas claros a la vez**, escritos por separado y
-sin saber el uno del otro:
+La dirección elegida para Cabina es **Concepto A — Minimalista claro**.
+Prioridad: entrada, corrección, lectura y organización de datos. Una operación
+debe ser fácil de registrar sin esconder el riesgo ni los campos importantes.
 
-| | de dónde viene | paleta |
+No es una migración de motor ni de base de datos. Se preservan QuantEngine,
+Supabase, RLS, importación, sincronización, rutas y contratos de datos.
+
+## Estructura real inspeccionada
+
+La app sigue siendo una SPA estática, con `index.html` para el markup y
+los estilos, `app.js` para la interacción, `engine/quant` para cálculos y
+`test` para regresión. No requiere introducir React ni un pipeline de build
+para cambiar su interfaz.
+
+Navegación principal observada en `index.html`: Cabina, Futuros, Cuentas,
+Métricas / Edge, Inversiones, Historial, Playbook, Formas de hacer dinero,
+Estudio, Calculadora y Ajustes. Otras vistas pueden ser subpanels o dialogs,
+no pestañas de primer nivel; no deben inventarse rutas nuevas sin auditar
+los enlaces y el estado actual.
+
+## Tokens efectivos (Concepto A)
+
+| Función | Token | Valor |
 |---|---|---|
-| **El que manda** | commit `744c1a3`, «Simplificar Cabina con interfaz clara y operativa» | gris azulado frío: papel `#f5f6f8`, tinta `#202a35`, acento `#176f65` |
-| Descartado | PR #75, «match Cabina to Bitácora visual palette» | papel cálido `#FAF8F4`, tinta `#16181C`, verde `#16915B`, rojo `#D6483B`, azul `#3D6FB0` |
+| Fondo | `--bg` | `#F7F9FC` |
+| Superficie | `--surface` | `#FFFFFF` |
+| Superficie secundaria | `--surface-2` | `#F8FAFC` |
+| Borde | `--line` | `#E2E8F0` |
+| Borde de input | `--line-strong` | `#CBD5E1` |
+| Texto principal | `--text` | `#172334` |
+| Texto secundario | `--muted` | `#475569` |
+| Focus y acción primaria | `--accent` | `#1D4ED8` |
+| Profit | `--positive` | `#166534` |
+| Loss y error | `--negative` | `#B42318` |
+| Warning | `--warning` | `#92400E` |
+| Read-only | `--control-readonly` | `#F1F5F9` |
 
-**Manda el de `744c1a3`.** No por ser mejor, sino porque está medido: su
-mensaje dice que la suite completa pasó en Ubuntu 24.04, y los asertos de
-contraste de la suite se escribieron contra sus valores.
+**Color comunica información**: azul para acciones y foco, verde para profit,
+rojo para loss/errores, ámbar para advertencias. No usar fondo verde o rojo en
+formularios completos. Los datos financieros deben mostrar signo y unidades,
+no depender solo del color.
 
-### Por qué los dos no podían convivir
+## Contrato visual de data entry (primer incremento)
 
-No es cuestión de gusto, es cuestión de cascada. El tema de `744c1a3`
-declara cada token con `!important`:
+Se cambió el contrato visual DENTRO del bloque de tema claro existente de
+`index.html`; no se añadió un sexto bloque `<style>`. Incluye:
 
-```css
-html, body { background: var(--bg) !important; color: var(--text) !important; }
-```
+- Inputs, selects y textareas con superficie blanca, borde neutro y radios compartidos.
+- Foco visible azul y anillo de foco para navegación con teclado.
+- `aria-invalid="true"`: borde rojo visible, sin depender de un placeholder.
+- `readonly`: superficie gris diferente de un control editable.
+- `disabled`: tratamiento separado del readonly, sin ocultar el texto por opacidad.
+- Labels persistentes de formularios `.ed .fld` y de Estudio.
+- Inputs numéricos con tipografía monoespaciada y cifras tabulares.
+- Móvil: tamaño mínimo de control de 44px y fuente de 16px.
+- `test/data-entry-ui.mjs` verifica colores **computados** en Chromium, no
+  que un código hexadecimal exista en el fichero.
 
-La capa de la PR #75 declaraba el suyo sin él:
+Este PR es el primer incremento. No implica que todos los diálogos, campos
+dinámicos o flujos del producto hayan sido auditados y rediseñados.
 
-```css
-body { background: var(--ds-bg); color: var(--ds-text); }
-```
+## Deuda técnica identificada (no ocultar)
 
-Gane quien gane el orden en el fichero, el `!important` se lleva el color.
-Mergear la PR #75 habría dejado unas 374 líneas de CSS que no pintan nada.
+El tema histórico oscuro se definió en el bloque base de CSS y un tema claro
+posterior aplicó valores con `!important`. Durante 2026 se superpusieron
+propuestas visuales; una paleta descartada de PR #75 añadió CSS que no llegaba
+a pintar. Por eso `test/diseno-sistema.mjs` limita el HTML a cinco bloques
+`<style>`, en vez de permitir que cada rediseño agregue otro tema encima.
 
-Y habría pasado en verde: su guardián, `test/diseno-sistema.mjs`, comprobaba
-que los hex **estuvieran en el texto** del CSS —`css.includes('#FAF8F4')`—, no
-que llegaran a la pantalla. Un guardián así no protege la paleta: protege que
-alguien haya escrito la paleta, que es lo mismo que no proteger nada. Por eso
-se sustituyó por uno que mide ergonomía comprobable en vez de colores
-tapados.
+**Pendiente de arquitectura:** migrar gradualmente los tokens claros a la
+fuente principal y eliminar overrides redundantes con pruebas visuales; no
+hacerlo a ciegas porque reglas antiguas de cuentas, Estudio y las tablas aún
+dependen de ese CSS. La fase actual modifica el contrato efectivo dentro del
+bloque existente y no introduce una pila de frameworks, hacks ni nuevas tablas.
 
-## Qué se quedó de la PR #75
+La documentación `docs/ARCHITECTURE.md` menciona código inline antiguo;
+el `index.html` actual carga `./app.js`. El código vigente prevalece.
 
-Al medir su capa contra main, casi toda su ergonomía **ya estaba**, y hecha
-antes y mejor:
+## Comp puertas de aceptación
 
-| lo que proponía la PR #75 | estado en main |
-|---|---|
-| foco visible en todo control | ya: `:where(button,input,select,textarea,[tabindex]):focus-visible` |
-| 40 px de alto de control en móvil | ya, y 44 px |
-| campos a 16 px en el iPhone | ya, con el mismo comentario sobre el zoom de Safari |
-| `tabular-nums` | ya, en 43 sitios |
-| `prefers-reduced-motion` | ya, en quince bloques |
-| `scroll-padding-top`, `overscroll-behavior` | ya |
-| escala `--ds-space-*`, `--ds-radius-*` | **no entra**: duplicaría los `--r-*` que ya existen |
+Ningún cambio pasa a `main` si hay un FAIL de CI. El informe de cada PR debe
+distinguir PASS (ejecutado), FAIL (falló) y BLOCKED (no pudo comprobarse).
+Verificar especialmente el registro y edición de trades, cuentas múltiples,
+importación de CSV, persistencia, conflictos de sincronización y permiso RLS.
+Una diferencia visual no justifica cambiar contratos o estadísticas.
 
-Entraron las tres declaraciones que no estaban y no duplican nada:
-
-- `-webkit-tap-highlight-color: transparent` — el destello al tocar tapaba el
-  estado de foco que la propia app deja visible, y dura más que el toque.
-- `text-wrap: pretty` en texto corrido — `balance` ya estaba en los títulos;
-  esto es para notas, ayudas y vacíos, que es donde la app explica las cosas.
-- `lining-nums` junto a `tabular-nums` — sin él, una fuente con cifras de
-  estilo antiguo alinea las columnas pero deja el 3 y el 9 bajo la línea
-  base, y una tabla de P&L se lee torcida.
-
-## La deuda que esto deja anotada
-
-El tema que manda está escrito como **una capa de `!important` encima** del
-tema oscuro original, no en lugar de él. Funciona, y se midió, pero tiene un
-coste que conviene no olvidar: todo componente nuevo nace con los colores del
-tema oscuro de debajo y hay que acordarse de taparlo arriba. Las pantallas que
-llegaron después de `744c1a3` —el Historial, las Estadísticas, la lectura de
-Estudio— son justamente las que pueden quedar a medio pintar.
-
-Resolverlo es reescribir los tokens en su sitio y retirar los `!important`, no
-añadir una tercera capa. Mientras no se haga, la regla es: un componente nuevo
-se mira en pantalla antes de darlo por hecho.
+Merge y despliegue requieren autorización explícita adicional.
