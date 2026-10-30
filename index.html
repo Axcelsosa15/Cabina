@@ -2635,22 +2635,39 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
    con el reloj, el bloque de marca y el reloj bajan un escalón de tamaño, y el
    aire vertical se reduce al de un encabezado, no al de una portada. */
 @media (max-width: 700px) {
-  .topbar { padding-block: 10px 8px; gap: 6px 10px; }
-  .brand h1 { font-size: 19px; }
-  /* `space-between` (heredado del bloque de 760px) repartía los botones a lo
-     ancho y dejaba «Ver demo» a la izquierda y «Editar» pegado al borde
-     derecho con un hueco muerto en medio: parecían dos cosas sin relación.
-     Agrupados a la izquierda se leen como lo que son, una fila de acciones. */
-  .clock { gap: 6px 10px; justify-content: flex-start; }
-  .clock .time { font-size: 18px; }
-  /* La píldora de sesión fluye en la misma fila que el reloj en vez de
-     reservarse una para ella sola. Sigue visible y sigue siendo legible. */
-  #sessionPill { flex: 0 1 auto; order: 2; }
-  .save-state { order: 3; }
-  .editbtn { order: 4; }
-  /* El aviso de «sin guardar» SÍ conserva su fila: es lo único de esta barra
-     que hay que ver, y partirlo lo escondería. */
-  .save-state.nosave { flex: 1 1 100%; }
+  /* Cabecera operativa: contexto en una fila y acciones táctiles en una rejilla.
+     El acceso rápido pertenece al flujo; no debe cubrir tarjetas ni formularios. */
+  .topbar { display: block; padding-block: 12px 10px; margin-bottom: 4px; }
+  .topbar .brand { width: 100%; gap: 6px; margin-bottom: 10px; }
+  .topbar .brand h1 { font-size: 20px; letter-spacing: -.035em; }
+  .topbar .brand .sub { font-size: 11px; }
+  .topbar .clock {
+    display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));
+    align-items: center; gap: 8px; width: 100%; margin-left: 0;
+  }
+  .topbar .clock > span:has(.time) {
+    grid-column: span 7; grid-row: 1; white-space: nowrap; min-width: 0;
+  }
+  .topbar .clock .time { font-size: clamp(15px, 4vw, 18px); }
+  .topbar .clock .tz { font-size: 10px; letter-spacing: -.025em; }
+  .topbar .clock #sessionPill {
+    grid-column: span 5; grid-row: 1; justify-self: end;
+    max-width: 100%; min-width: 0; margin: 0; padding: 7px 9px;
+    font-size: 11px; line-height: 1.25;
+  }
+  .topbar .clock #saveState { grid-column: 1 / -1; min-width: 0; margin: 0; }
+  .topbar .clock .editbtn {
+    grid-column: span 3; min-width: 0; width: 100%; min-height: 44px;
+    padding: 9px 4px; margin: 0; font-size: 13px; line-height: 1.2;
+    white-space: nowrap; text-align: center;
+  }
+  .topbar .clock .save-state.nosave { grid-column: 1 / -1; }
+}
+@media (max-width: 380px) {
+  /* A 320–380 px el reloj y el estado no compiten por los mismos píxeles. */
+  .topbar .clock > span:has(.time) { grid-column: 1 / -1; grid-row: 1; }
+  .topbar .clock #sessionPill { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+  .topbar .clock .editbtn { font-size: 12px; letter-spacing: -.015em; }
 }
 @media (max-width: 700px) {
     :root { --mobile-nav-h: 68px; }
@@ -2700,10 +2717,10 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
     #tabnav .tabbtn[data-tab="calc"]::after { content: "Calc"; }
     #tabnav .tabbtn .n { position: absolute; top: 2px; right: 9px; min-width: 14px; padding: 1px 3px; border-radius: 9px; font-size: 9px; line-height: 1.25; background: var(--surface-3, #242d38); }
     #quickBtn {
-      position: fixed; right: 12px; bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
-      z-index: 75; min-height: 46px; padding: 0 16px; border: 1px solid rgba(112,224,207,.42);
-      border-radius: 999px; background: var(--accent, #70e0cf); color: #07120f; font-size: 13px;
-      font-weight: 750; box-shadow: 0 8px 28px rgba(0,0,0,.35), 0 0 0 4px rgba(112,224,207,.08);
+      position: static; right: auto; bottom: auto; z-index: auto;
+      min-height: 44px; padding: 9px 10px; border: 1px solid var(--accent);
+      border-radius: var(--r-md); background: var(--accent); color: var(--accent-ink);
+      font-size: 13px; font-weight: 700; box-shadow: none;
     }
     #quickBtn:active { transform: translateY(1px) scale(.98); }
     .topbar, .topbar > *, .clock, .brand, .hgroup, .toolbar { min-width: 0; }
@@ -2729,7 +2746,7 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   }
   @media (max-width: 380px) {
     #tabnav .tabbtn { flex-basis: 68px; min-width: 68px; }
-    #quickBtn { right: 9px; padding-inline: 13px; }
+    #quickBtn { padding-inline: 4px; }
     .panel > header, .panel .body { padding-inline: 12px; }
     .ed .fields { padding: 12px; }
   }
@@ -2769,6 +2786,22 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   #tabnav .tabbtn[data-tab="invest"],
   #tabnav .tabbtn[data-tab="estudio"] { flex: 1 1 0; min-width: 0; }
   #tabnav .tabbtn .n:empty { display: none; }
+  /* Los rótulos del dock son ::after; la línea activa de escritorio no puede
+     convertirse aquí en una banda de color que tape las letras. */
+  #tabnav .tabbtn::after,
+  #tabnav .tabbtn.active::after {
+    background: transparent !important; width: auto !important; height: auto !important;
+    border: 0 !important; box-shadow: none !important; padding: 0 !important;
+    color: currentColor !important; text-decoration: none !important;
+  }
+  .tabnav#tabnav {
+    background: var(--surface) !important; border-bottom: 0 !important;
+    border-top: 1px solid var(--line) !important;
+    box-shadow: 0 -4px 18px rgba(0,0,0,.06) !important;
+  }
+  #tabnav .tabbtn::before, #tabnav #mobileMoreBtn::before { font-size: 20px; }
+  #tabnav .tabbtn::after, #tabnav #mobileMoreBtn::after { font-size: 11px; line-height: 1.2; }
+
   #tabnav #mobileMoreBtn {
     display: flex; flex: 1 1 0; min-width: 0; min-height: 44px; padding: 5px 3px 7px;
     flex-direction: column; align-items: center; justify-content: center; gap: 5px;
@@ -2883,7 +2916,7 @@ html, body {
 body { color-scheme: light !important; }
 ::selection { background: #dbeafe !important; color: #172334 !important; }
 .topbar, .tabnav#tabnav {
-  background: rgba(255,255,255,.97) !important;
+  background: var(--surface) !important;
   color: var(--text) !important;
   border-color: var(--line) !important;
   box-shadow: none !important;
@@ -2898,7 +2931,9 @@ body { color-scheme: light !important; }
   box-shadow: none !important;
 }
 #tabnav .tabbtn::before { box-shadow: none !important; }
-#tabnav .tabbtn::after { background: var(--accent) !important; }
+@media (min-width: 701px) {
+  #tabnav .tabbtn.active::after { background: var(--accent) !important; }
+}
 #tabnav .tabbtn.active,
 #tabnav .tabbtn[data-tab="estudio"].active {
   color: var(--accent) !important;
@@ -3295,6 +3330,51 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 @media (max-width: 700px) {
   .cab-appearance-grid { grid-template-columns: minmax(0,1fr); gap: 16px; }
   .cab-appearance-field > select { min-height: 44px; font-size: 16px; }
+
+  /* Lectura de las reglas: evita la cabecera de cuatro columnas comprimidas. */
+  .credo { border-radius: var(--r-lg); }
+  .credo > header {
+    display: grid; grid-template-columns: minmax(0,1fr) auto auto;
+    grid-template-areas: "title edit done" "meta meta meta";
+    align-items: center; gap: 8px; padding: 12px 14px;
+  }
+  .credo > header h2 {
+    grid-area: title; min-width: 0; font-size: 12px; line-height: 1.3;
+    letter-spacing: .04em;
+  }
+  .credo > header .meta { grid-area: meta; font-size: 11px; line-height: 1.4; }
+  .credo > header #credoEdit { grid-area: edit; margin: 0; }
+  .credo > header #credoOk { grid-area: done; margin: 0; }
+  .credo > header .btn { min-height: 44px; padding-inline: 12px; }
+  .credo-list { padding: 8px 14px 14px; }
+  .credo-list li { padding: 7px 0; gap: 10px; font-size: 14px; line-height: 1.45; }
+  .credo-list li::before { flex: 0 0 2ch; font-size: 11px; }
+  .credo-vacio { padding: 14px; }
+  .credo-ed { padding: 0 14px 14px; }
+
+  /* Los títulos, selectores y acciones no deben saltar de caja ni superponerse. */
+  .deck, .tab[data-tab="cabina"] .deck {
+    gap: 6px 10px; align-items: center; margin-bottom: 12px !important;
+    padding: 12px 14px !important; border-radius: var(--r-lg) !important;
+  }
+  .deck .deck-t { font-size: 18px; line-height: 1.25; }
+  .deck .deck-parts { font-size: 11px; line-height: 1.4; }
+  .panel > header { gap: 10px; }
+  #panelAccts > header { display: grid; grid-template-columns: minmax(0,1fr); }
+  #panelAccts > header .hgroup {
+    display: grid; width: 100%; min-width: 0;
+    grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px;
+  }
+  #panelAccts #cabAcct { grid-column: 1 / -1; min-width: 0; width: 100%; }
+  #panelAccts #acctsMeta:not(:empty) { grid-column: 1 / -1; }
+  #panelAccts .hgroup .btn { min-width: 0; min-height: 44px; width: 100%; }
+  .tab .toolbar :is(input,select,textarea) { min-width: 0; }
+  .panel, .panel > header, .panel > .body, .deck, .study-shell {
+    overflow-wrap: break-word;
+  }
+  #mobileMoreOv .mobile-more-sheet {
+    max-height: min(78dvh, 650px); padding-bottom: max(16px,env(safe-area-inset-bottom));
+  }
 }
 </style>
 </head>
