@@ -334,6 +334,13 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
   dice('vista-personalizable', 'suite', 'La densidad y los módulos visibles se personalizan por pestaña', 'index.html');
   dice('estudio-investigacion', 'suite', 'Estudio conserva metadatos de fuentes, vínculos y backlinks', 'persistencia');
   dice('diseno-sistema', 'suite', 'La ergonomía sigue escrita y la paleta descartada no vuelve', 'index.html');
+  /* EL COLOR, MEDIDO EN PANTALLA Y EN LOS DOS TEMAS. La fila global de más
+     arriba ya cierra la compuerta con cualquier suite roja, así que esto no
+     añade cobertura: añade que la compuerta diga QUÉ se rompió. Sin fila
+     propia, un contraste roto se lee como «67/68 en verde» y hay que ir al log
+     a buscar cuál — que es justo el diagnóstico a ciegas que la cabecera de
+     `detalleDe` cuenta que ya costó una sesión. */
+  dice('contraste', 'suite', 'Ningún texto baja de AA en claro ni en oscuro, gráficos incluidos', 'index.html');
   /* EL MAPEADOR MANUAL, fase 1 de docs/IMPORTAR.md. Vigila dos cosas distintas:
      que el mapeo lea lo que se le dice y pare donde no se puede saber, y que lo
      importado NO se juzgue como si hubiera tenido un plan — sin eso, cada fila
