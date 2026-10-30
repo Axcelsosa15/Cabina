@@ -63,6 +63,47 @@ Se cambió el contrato visual DENTRO del bloque de tema claro existente de
 Este PR es el primer incremento. No implica que todos los diálogos, campos
 dinámicos o flujos del producto hayan sido auditados y rediseñados.
 
+## Apariencia configurable (Concepto A + original oscuro)
+
+En Ajustes → Apariencia se puede escoger **Claro (Concepto A)**, **Oscuro clásico**
+(la capa histórica de Cabina) o **Automático** (preferencia del sistema).
+El color principal admite azul, verde azulado, violeta y selector personalizado.
+Profit, loss y warning conservan sus significados semánticos; no se recolorean
+arbitrariamente.
+
+**Por qué ya no debe aparecer un tema primero y otro después:** el archivo
+`appearance.js` se carga sincronamente en `<head>`, antes de cualquier
+`<style>`, y lee exclusivamente la preferencia de apariencia guardada bajo
+`cabina-appearance:v1` en localStorage. El HTML tiene todas sus cinco hojas
+`<style>` en el `<head>`, no después de `app.js`. El tema claro se activa
+mediante CSS `@scope (html:not([data-cabina-theme="dark"]))`: la antigua
+capa oscura vuelve a estar disponible en vez de ser tapada por cientos de
+`!important` blancos. Los tokens de Concepto A están guardados con selector
+`:root:not([data-cabina-theme="dark"])`.
+
+El bootstrap permite cambiar tema sin recargar, sigue cambios de preferencia
+del dispositivo cuando está en automático y sincroniza la preferencia entre
+pestañas del mismo origen. Si localStorage está bloqueado, la apariencia
+se aplica en la pestaña actual y el panel informa que no pudo persistir.
+
+`appearance.js` no carga datos de trading ni hace fetch. Se publica junto
+a `app.js` y está en la lista de recursos offline del service worker.
+El selector personalizado ajusta el color para mantener al menos 4.5:1
+respecto a la superficie principal, sin sustituir los colores de riesgo.
+
+**Pruebas:** `test/apariencia.mjs` ejecuta Chromium, verifica tema elegido
+antes de DOMContentLoaded, oscuridad real, cambio a claro, color personalizado,
+persistencia y modo sistema en mobile. `test/seguridad.mjs` comprueba que
+sólo se cargan los dos scripts confiables (bootstrap primero y app después).
+No declarar PASS antes de ejecutar CI.
+
+### Compatibilidad
+
+`@scope` exige navegador actualizado (Chromium, Firefox o Safari con soporte
+de CSS Scope). En navegadores anteriores, la capa oscura base continúa siendo
+una alternativa legible, pero la presentación clara puede ser limitada.
+No sustituir CSS Scope por otra cascada de !important sin medirla.
+
 ## Deuda técnica identificada (no ocultar)
 
 El tema histórico oscuro se definió en el bloque base de CSS y un tema claro
