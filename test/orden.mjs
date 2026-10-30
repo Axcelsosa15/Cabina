@@ -177,6 +177,26 @@ ok(await p.inputValue('#ef_accountId') === 'b2', 'la cuenta elegida se hereda en
 await p.click('#edSave'); await trasGuardar(p);
 const cuentaGuardada = await p.evaluate(() => FUT.trades().find(t => t.instrument === 'CL')?.accountId);
 ok(cuentaGuardada === 'b2', 'la cuenta seleccionada queda guardada en la operación', cuentaGuardada || 'sin cuenta');
+
+/* UNA CUENTA NUEVA TIENE QUE APARECER EN EL SELECTOR SIN RECARGAR, y esto es el
+   guardián de un fallo MEDIDO, no de una sospecha. El selector lee
+   `state.settings.accounts`, pero la zona «cuentas» sólo llamaba a
+   `renderAccounts()`: crear, renombrar o quemar una cuenta dejaba el selector
+   obsoleto, ofreciendo la cuenta borrada hasta que algo repintara el día. Lo que
+   se registrase en ese hueco quedaba atribuido a una cuenta que ya no existe.
+
+   Es la misma clase de fallo que tenía el nombre de cuenta en la clave del
+   buscador: un render que lee datos de OTRA colección y nadie lo repinta cuando
+   esa colección cambia. Sabotaje corrido: quitando `fillQtAccount()` de la zona,
+   la opción nueva NO aparece y esta aserción se pone roja. */
+const opcionesAntes = await p.locator('#qtAccount option').count();
+await p.evaluate(() => FUT.createAccount({ id: 'zz-nueva', firm: 'TopStep', name: 'Recién creada',
+  size: 50000, dd: 2000, ddKind: 'estatico', status: 'fondeada' }));
+await quieto(p);
+const etiquetas = await p.locator('#qtAccount option').allTextContents();
+ok(etiquetas.some(t => /Recién creada/.test(t)),
+   'una cuenta creada aparece en el selector de la operación rápida sin recargar',
+   `${opcionesAntes} -> ${etiquetas.length} opciones`);
 await p.click('.tabbtn[data-tab="futuros"]'); await quieto(p);
 await p.click('#ftSeg button[data-v="diario"]'); await quieto(p);
 const q = await p.inputValue('#ftQ');

@@ -14048,7 +14048,15 @@
     invMetr:    ["métricas de inversión", () => renderInvestMetrics()],
     dia:        ["día", () => { syncDayFromTrades(); renderSessionStrip(); }],
     historico:  ["histórico", () => renderHistory()],
-    cuentas:    ["cuentas", () => renderAccounts()],
+    /* TAMBIÉN `fillQtAccount`, y es un arreglo, no un adorno. El selector de
+       cuenta de la operación rápida lee `state.settings.accounts`, así que
+       crear, renombrar o quemar una cuenta lo dejaba obsoleto: seguía
+       ofreciendo la cuenta borrada hasta que algo repintara el día, y lo que
+       se registrara en ese hueco se atribuía a una cuenta que ya no existe.
+       Es la misma clase de fallo que tenía el nombre de cuenta en la clave del
+       buscador — un render que lee datos de OTRA colección y nadie lo
+       repinta cuando esa colección cambia. */
+    cuentas:    ["cuentas", () => { renderAccounts(); fillQtAccount(); }],
     reglas:     ["reglas", () => renderRules()],
     riesgo:     ["calculadora de riesgo", () => refreshRiskFromAccount()],
     respaldo:   ["respaldo", () => renderBackup()],
