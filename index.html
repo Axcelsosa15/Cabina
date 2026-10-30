@@ -43,13 +43,18 @@
 <meta name="theme-color" content="#F5F6F8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Tema local: cargado antes de CSS y de la primera pintura. -->
+<script src="./appearance.js"></script>
 <!-- Las fuentes de Google NO van aqui: una hoja de estilos en la cabecera bloquea
      el script y el evento load hasta que Google responde. Las pide el script
      cuando la pagina ya ha cargado (cargaFuentes). Ver test/lanzamiento.mjs. -->
 <style>
-  :root { color-scheme: dark; }
-  html { background: #0B0E13; }
-  body { margin: 0; background: #0B0E13; color: #E8ECF2; }
+  /* Fondo de primera pintura: coherente con la elección guardada. */
+  :root { color-scheme: light; }
+  html { background: #f7f9fc; }
+  body { margin: 0; background: #f7f9fc; color: #172334; }
+  :root[data-cabina-theme="dark"] { color-scheme: dark; }
+  html[data-cabina-theme="dark"], html[data-cabina-theme="dark"] body { background: #0b0e13; color: #e8ecf2; }
   img { max-width: 100%; }
   [hidden] { display: none !important; }
 
@@ -159,8 +164,6 @@
 
 </style>
 
-</head>
-<body>
 <style id="cabina-chart-label-contrast">
 /* CABINA: explicit chart label contrast, independent of external stylesheets. */
 svg.chart text,
@@ -2159,6 +2162,1124 @@ tbody tr:last-child td{border-bottom:0}
     }
   }
 </style>
+<style id="cabina-unified-estudio-system">
+/* CABINA · sistema visual unificado inspirado en ESTUDIO.
+   Capa de presentación únicamente: no altera cálculos, estado ni persistencia. */
+:root{
+  --ui-glow:rgba(112,224,207,.10);
+  --ui-panel:linear-gradient(145deg,#141c25 0%,#10161e 100%);
+  --ui-panel-raised:linear-gradient(145deg,#18232c 0%,#121a22 100%);
+  --ui-focus:0 0 0 3px rgba(112,224,207,.15);
+}
+::selection{background:rgba(112,224,207,.25);color:#f1fffc}
+/* MARGEN DE PARADA DEL DESPLAZAMIENTO. El documento lleva
+   `scroll-behavior:smooth`, así que lo que se trae con scrollIntoView o con un
+   ancla aterriza pegado al borde — y por debajo de 1100px, DEBAJO de la tira de
+   pestañas, que ahí es `position:sticky;top:0`.
+
+   Los dos valores salen de medir la nav en Chromium, no de estimarla:
+
+     ancho de la ventana   #tabnav
+     390px                 sticky, top:0, alto  51px   ← tira superior
+     760px                 sticky, top:0, alto  51px
+     1024px                sticky, top:0, alto  51px
+     1099px                sticky, top:0, alto  51px
+     1100px                fixed, raíl de 240px de ancho y altura completa
+     1500px                fixed, raíl de 240px de ancho y altura completa
+
+   La tira superior tapa lo que aterrice arriba; el raíl es lateral y no tapa
+   nada arriba. El corte está en `@media (min-width:1100px)`, donde el raíl
+   sustituye a la tira (su alto ahí es el de la ventana, no una cifra fija).
+
+   Así que 63px (51 de la tira + 12 de aire) por debajo del raíl, y 24px de puro
+   aire por encima, donde no hay barra superior que esquivar. Un valor único de
+   24px —lo que traía `cabina-refinement.css`— se queda 27px corto justo en las
+   pantallas donde la barra sí tapa.
+
+   De dónde viene esta regla: era lo ÚNICO que valía la pena de
+   `cabina-refinement.css`, la capa de 441 líneas que el despliegue inyectaba y
+   la CSP rechazaba. El resto era un sistema visual paralelo: aplicarlo habría
+   reescalado la cabina entera (cuerpo 15px→14px, el número de los KPI
+   26px→20.25px, color en 2151 elementos de 2557). Medido antes de borrarlo. */
+html{scroll-padding-top:24px}
+@media (max-width:1099.98px){html{scroll-padding-top:63px}}
+:where(button,input,select,textarea,[tabindex]):focus-visible{
+  outline:2px solid #70e0cf!important;outline-offset:3px!important;
+}
+#tabnav .tabbtn{
+  border:1px solid transparent;border-radius:9px;
+  transition:background .16s ease,border-color .16s ease,color .16s ease,transform .16s ease;
+}
+#tabnav .tabbtn:hover{background:linear-gradient(120deg,#17232c,#121a22);border-color:#293b46;color:#dce9f1}
+#tabnav .tabbtn.active{
+  background:linear-gradient(120deg,#18332f,#15212a);
+  border-color:#315a55;border-left-color:#70e0cf;color:#d9fff8;
+  box-shadow:inset 0 1px rgba(255,255,255,.025),0 5px 18px rgba(0,0,0,.12);
+}
+#tabnav .tabbtn.active::after{opacity:.8}
+.panel{
+  border-color:#293540;background:var(--ui-panel);
+  box-shadow:0 8px 28px rgba(0,0,0,.08),inset 0 1px rgba(255,255,255,.018);
+}
+.panel>header{border-bottom-color:#26323d;background:linear-gradient(100deg,rgba(22,34,43,.8),rgba(16,22,30,.35))}
+.panel>header h2{letter-spacing:.075em}
+.panel .body{min-width:0}
+.tiles{gap:1px;background:#27333e;border:1px solid #27333e;border-radius:12px;overflow:hidden}
+.tile{background:linear-gradient(145deg,#151d26,#11171f);padding:14px 16px;transition:background .16s ease}
+.tile:hover{background:linear-gradient(145deg,#192630,#131b23)}
+.tile .v{letter-spacing:-.035em}
+
+/* UN GUIÓN NO ES UNA CIFRA, así que no debe pesar como una. Medido con cuenta
+   nueva: 23 de los 27 tiles mostraban «—» a peso 800 / 26px / #E8ECF2, la misma
+   tinta que «$556». Aquí el guión baja al tercer nivel de texto, a peso 400 y a
+   20px, y el tile pierde el degradado: el que SÍ trae número queda en relieve.
+
+   LA ETIQUETA NO SE TOCA. Es lo que dice QUÉ falta — «P&L neto», «Win rate» — y
+   sigue siendo lo legible del tile. Se baja el valor ausente, no la pregunta.
+
+   El color es `--dim`, el tercer nivel del propio sistema, no un gris inventado
+   para la ocasión: ya está medido en tokens.mjs y no hay un cuarto nivel que
+   mantener. La clase la pone el render; esta hoja sólo decide cómo se ve. */
+.tile.sin-dato .v{color:var(--dim);font-weight:400;font-size:20px;letter-spacing:0}
+.tile.sin-dato .v.dual{font-size:16px}
+.tile.sin-dato .s{color:var(--dim)}
+.btn{
+  border-color:#34434f;background:linear-gradient(135deg,#1a2530,#151d26);
+  color:#dce6ee;border-radius:8px;box-shadow:inset 0 1px rgba(255,255,255,.035);
+  transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;
+}
+.btn:hover{border-color:#52706f;background:linear-gradient(135deg,#20312f,#17242b)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:linear-gradient(135deg,#70e0cf,#4fb3a0);border-color:#70e0cf;color:#071310;box-shadow:0 4px 16px rgba(79,179,160,.12)}
+.btn.primary:hover{filter:brightness(1.06);box-shadow:0 5px 20px rgba(79,179,160,.2)}
+.btn.ghost{background:transparent;box-shadow:none}
+.btn.danger{background:rgba(224,96,79,.06);border-color:rgba(224,96,79,.32)}
+:where(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea){
+  border-color:#2d3b47!important;background-color:#0c1219!important;color:#e8eef4;
+  border-radius:8px;box-shadow:inset 0 1px 2px rgba(0,0,0,.12);
+  transition:border-color .16s ease,box-shadow .16s ease,background-color .16s ease;
+}
+:where(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea):focus{
+  border-color:#5abcae!important;box-shadow:var(--ui-focus)!important;background-color:#0e171e!important;
+}
+:where(input,textarea)::placeholder{color:#738393}
+:where(select,option){color-scheme:dark}
+.chip,.badge,.tag{border-color:#2d3c47}
+.empty{border-color:#344550;background:linear-gradient(145deg,rgba(19,29,38,.7),rgba(13,19,26,.55));border-radius:11px}
+:where(table,.table){border-color:#293641}
+:where(th,thead td){color:#9eafbd;background:rgba(20,30,39,.82);letter-spacing:.055em}
+:where(td,th){border-color:#25313b}
+:where(tbody tr){transition:background .12s ease}
+:where(tbody tr:hover){background:rgba(112,224,207,.035)}
+:where(hr){border-color:#27333e}
+:where(.modal,.ov,.overlay){backdrop-filter:blur(9px)}
+:where(.modal>*,.dialog,.modal-card){border-color:#344651}
+:where(.toolbar,.tools,.actions){gap:8px}
+:where(.hint,.note,.help,.meta){line-height:1.5}
+a{transition:color .15s ease}
+a:hover{color:#a4f2e6}
+@media(max-width:850px){
+  .panel{border-radius:11px}
+  .panel>header{padding:12px 14px}
+  .panel .body{padding:14px}
+  .tile{padding:12px}
+  .tile.sin-dato .v{font-size:17px}
+  .tile.sin-dato .v.dual{font-size:14px}
+}
+@media(max-width:600px){
+  .btn{min-height:34px}
+  .panel>header h2{font-size:12px}
+  .tiles{border-radius:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
+}
+
+/* WORKSPACE SYSTEM — aplicar la jerarquía visual de ESTUDIO a cada sección. */
+.tab:not([data-tab="estudio"]) .toolbar{
+  display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
+  padding:var(--s3);margin:0 0 var(--s4);border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface-2);
+}
+.tab:not([data-tab="estudio"]) .toolbar .sp{flex:1}
+.tab:not([data-tab="estudio"]) .toolbar select,
+.tab:not([data-tab="estudio"]) .toolbar input:not([type=checkbox]):not([type=radio]){
+  min-height:34px;max-width:100%;
+}
+.tab:not([data-tab="estudio"]) .panel{
+  border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface);
+  box-shadow:none;
+}
+.tab:not([data-tab="estudio"]) .panel>header{
+  padding:var(--s3) var(--s4);border-bottom:1px solid var(--line-strong);
+  background:var(--surface-2);
+  gap:var(--s3);min-width:0;
+}
+.tab:not([data-tab="estudio"]) .panel>header h2{
+  font-family:var(--font-mono);font-size:var(--t-section);line-height:1.35;font-weight:700;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--text);
+}
+.tab:not([data-tab="estudio"]) .panel .body{padding:var(--s4);min-width:0}
+.tab:not([data-tab="estudio"]) .tiles{border-radius:var(--r-md);overflow:hidden}
+.tab:not([data-tab="estudio"]) .tile{background:var(--surface-2);padding:var(--s3) var(--s4)}
+/* EL TILE SIN DATO, UN ESCALÓN POR DETRÁS. Tenía su propio fondo desde que se
+   marcaron los guiones, pero escrito como `.tile.sin-dato` — especificidad
+   (0,2,0) — y la línea de aquí arriba es (0,3,0), así que desde que existe esta
+   capa el fondo NO se aplicaba: medido, el tile vacío y el lleno compartían
+   rgb(24,29,38). La regla seguía en el archivo pareciendo trabajo hecho.
+
+   Se reescribe dentro de esta capa, y con el token en vez del hex de antes
+   (#111820, elegido a ojo para encajar en el degradado que esta capa ya quitó).
+   --surface es el escalón que el sistema ya usa para «más al fondo que el
+   contenido de un panel»; no hace falta un cuarto gris.
+
+   El :hover que la acompañaba NO se rescata: esta misma capa dejó muerto el
+   hover de todos los tiles a propósito — un tile no se pulsa — y devolvérselo
+   sólo a los vacíos sería justo al revés. Lo vigila test/vacios.mjs §4. */
+.tab:not([data-tab="estudio"]) .tile.sin-dato{background:var(--surface)}
+.tab:not([data-tab="estudio"]) .tile .k,
+.tab:not([data-tab="estudio"]) .tile .l{color:var(--muted)}
+.tab:not([data-tab="estudio"]) .tile .v{font-variant-numeric:tabular-nums;letter-spacing:-.035em}
+.tab:not([data-tab="estudio"]) .cards{gap:12px}
+.tab:not([data-tab="estudio"]) .cards .card{
+  border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface-2);
+  box-shadow:none;
+  padding:var(--s4);gap:var(--s3);
+  transition:border-color .14s ease;
+}
+/* EL HOVER NO MUEVE NADA. Una superficie que se levanta al rozarla se siente
+   blanda, y en una rejilla de tarjetas el efecto es un oleaje. Se marca con el
+   borde, que es lo que ya distingue un nivel de otro. */
+.tab:not([data-tab="estudio"]) .cards .card:hover{
+  border-color:var(--line-strong);
+}
+.tab:not([data-tab="estudio"]) .cards .card .ch{align-items:center}
+.tab:not([data-tab="estudio"]) .cards .card .ch h3{font-size:15px;line-height:1.35;letter-spacing:-.02em}
+.tab:not([data-tab="estudio"]) .cards .card .kv{row-gap:6px;line-height:1.45}
+.tab:not([data-tab="estudio"]) .cards .card .stats,
+.tab:not([data-tab="estudio"]) .cards .card .cf{border-top-color:var(--line-strong);padding-top:var(--s3)}
+.tab:not([data-tab="estudio"]) .cards .card .chip:not(.good):not(.warn):not(.bad){
+  color:var(--muted);background:var(--surface-3);border-color:var(--line-strong);border-radius:var(--r-sm);
+}
+.tab:not([data-tab="estudio"]) .empty{
+  /* OCUPA LA FILA ENTERA CUANDO ES HIJO DE UNA REJILLA. Medido a 1500px: en
+     PLAYBOOK y en FORMAS DE HACER DINERO el estado vacío caía en UNA columna de
+     385px dentro de un contenedor de 1180px, así que la única cosa que había en
+     la pantalla era una cajita arrinconada a la izquierda con 795px de negro al
+     lado. Los otros seis estados vacíos de la app ya llenaban su contenedor
+     (542/542, 1144/1144, 860/894, 446/480): el defecto era sólo de los que viven
+     en una rejilla. `.study-empty` ya resolvía esto con `grid-column:1/-1`, y
+     una de las plantillas de pre-sesión lo lleva escrito en línea: no es un
+     patrón nuevo, es el mismo sin aplicar. */
+  grid-column:1/-1;
+  /* Y deja de ser una nota suelta para ser un estado compuesto: centrado y con
+     aire, como el de ESTUDIO.
+
+     NI `grid` NI `flex` AQUÍ, y conviene que quede escrito porque fue el primer
+     intento: el contenido de estos estados es texto suelto mezclado con `<code>`
+     («Sin nada en Futuros. Pulsa `Desde plantilla` para empezar…»). Con
+     `display:grid` cada nodo —cada trozo de texto y cada `code`— se convierte en
+     un ítem de la rejilla y la frase se parte en cinco líneas apiladas. Medido en
+     pantalla: quedaba peor que el defecto que venía a arreglar. Con `block` la
+     frase sigue siendo una frase.
+
+     El ancho de la COLUMNA DE TEXTO se controla con el padding lateral, no con un
+     `max-width`: así la caja punteada ocupa la fila entera —que es lo que se
+     quería— y la línea se queda en una medida legible en vez de cruzar 1180px.
+     El porcentaje es RELATIVO AL CONTENEDOR, y eso importa: con `11vw` el mismo
+     valor se calculaba contra la ventana, así que al estado vacío de 446px de la
+     CALCULADORA le metía 165px de padding por lado y le dejaba una columna de
+     texto de 116px. Medido antes de dejarlo. */
+  display:block;
+  text-align:center;
+  padding:var(--s6) clamp(22px,9%,190px);border:1px dashed var(--line-strong);border-radius:var(--r-md);
+  background:var(--surface-2);
+  color:var(--muted);line-height:1.6;
+}
+/* La primera línea del estado vacío pesa como un título, igual que el `b` de
+   `.study-empty`: sin jerarquía, un párrafo centrado es sólo texto centrado. */
+.tab:not([data-tab="estudio"]) .empty b,
+.tab:not([data-tab="estudio"]) .empty strong{
+  display:block;color:var(--text);font-size:15px;line-height:1.35;letter-spacing:-.015em;
+}
+/* Reparte las líneas de forma pareja en vez de dejar una palabra suelta al final. */
+.tab:not([data-tab="estudio"]) .empty{text-wrap:pretty}
+.tab:not([data-tab="estudio"]) .seg{
+  padding:3px;gap:2px;border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--bg);
+}
+.tab:not([data-tab="estudio"]) .seg button{border-radius:var(--r-sm);transition:background .14s ease,color .14s ease,border-color .14s ease}
+.tab:not([data-tab="estudio"]) .seg button.active{
+  color:var(--accent);background:var(--accent-soft);
+  border-color:var(--accent);box-shadow:none;
+}
+.tab:not([data-tab="estudio"]) .seg button:not(.active):hover{background:var(--surface-3);color:var(--text)}
+.tab:not([data-tab="estudio"]) .synced,
+.tab:not([data-tab="estudio"]) .note-p,
+.tab:not([data-tab="estudio"]) .csub{color:var(--muted);line-height:1.6}
+#tabnav .tabbtn[data-tab="estudio"]:not(.active){background:transparent;border-color:transparent;color:var(--muted,#a5adbb)}
+#tabnav .tabbtn[data-tab="estudio"]:not(.active):hover{background:var(--surface-3);border-color:var(--line);color:var(--text)}
+#tabnav .tabbtn[data-tab="estudio"].active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);box-shadow:none}
+#tabnav .tabbtn[data-tab="estudio"]::before{display:none}
+@media(max-width:850px){
+  .tab:not([data-tab="estudio"]) .panel>header{padding:var(--s3)}
+  .tab:not([data-tab="estudio"]) .panel .body{padding:var(--s3)}
+}
+@media(max-width:600px){
+  .tab:not([data-tab="estudio"]) .toolbar{padding:var(--s2)}
+}
+
+
+/* MOTION SYSTEM — feedback espacial sutil; no altera estado ni cálculos. */
+@keyframes cabina-enter {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes cabina-soft-reveal {
+  from { opacity: .72; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+#tabnav .tabbtn { position:relative; isolation:isolate; }
+#tabnav .tabbtn::after {
+  content:""; position:absolute; left:12px; right:12px; bottom:3px; height:2px;
+  border-radius:2px; background:var(--accent); opacity:0; transform:scaleX(.35);
+  transform-origin:center; transition:transform .22s ease,opacity .18s ease;
+}
+#tabnav .tabbtn.active::after { opacity:.85; transform:scaleX(1); }
+.tab.active > .panel, .tab.active > .study-shell, .tab.active > .deck {
+  animation:cabina-enter .24s cubic-bezier(.2,.7,.2,1) both;
+}
+.tab.active > .panel:nth-of-type(2), .tab.active > .study-shell > .study-grid,
+.tab.active > .deck + .panel { animation-delay:.035s; }
+.panel, .study-panel, .study-metric, .study-stat {
+  transition: border-color .14s ease;
+}
+/* UN PANEL NO REACCIONA AL RATÓN. No se puede hacer clic en él, así que
+   iluminarlo y levantarlo al pasar por encima promete una acción que no existe
+   — y con seis paneles en pantalla el resultado es una interfaz que respira.
+   El hover se reserva para lo que de verdad responde. */
+.tile { transition:background .14s ease, border-color .14s ease; }
+.btn:not(:disabled):active { transform:translateY(1px) scale(.99); }
+.study-grid, .study-bottom { animation:cabina-soft-reveal .22s ease both; }
+:where(.panel, .study-panel, .study-metric) { will-change:auto; }
+@media (prefers-reduced-motion:reduce) {
+  .tab.active > .panel, .tab.active > .study-shell, .tab.active > .deck,
+  .study-grid, .study-bottom { animation:none!important; }
+  #tabnav .tabbtn::after { transition:none!important; }
+}
+
+/* CABINA · Formularios de datos: cuenta, reglas y pre-sesión
+   Capa visual solamente: no cambia datos, validaciones ni comportamiento. */
+.ed {
+  width: min(980px, calc(100vw - 32px));
+  max-width: 980px;
+  max-height: min(90dvh, 920px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.ed > header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  gap: 16px;
+  background: var(--surface);
+}
+.ed > header h3 { font-size: 14px; line-height: 1.35; }
+.ed .fields {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px 18px;
+  padding: 20px 22px;
+}
+.ed .fld { min-width: 0; }
+.ed .fld > label,
+.ed .fld > .lab {
+  display: block;
+  margin: 0 0 7px;
+  line-height: 1.4;
+  font-size: 12px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.ed .fld input:not([type=checkbox]):not([type=radio]),
+.ed .fld select,
+.ed .fld textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 11px;
+  line-height: 1.4;
+}
+.ed .fld textarea { min-height: 96px; resize: vertical; }
+.ed .fld .help {
+  margin-top: 7px;
+  font: 12px/1.5 var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.ed > footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  align-items: center;
+  flex-wrap: wrap;
+  background: var(--surface);
+  padding: 14px 22px;
+}
+.ed > footer button { min-height: 40px; }
+.rulec .ced {
+  gap: 12px;
+  padding: 14px 0 4px;
+  min-width: 0;
+}
+.rulec .ced > .tin {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 11px;
+}
+.rulec .ced .edrow {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.rulec .ced .edrow > div { min-width: 0; }
+.rulec .ced .edrow select,
+.rulec .ced .edrow input { width: 100%; min-width: 0; min-height: 40px; }
+.rulec .ced .edrow .lab {
+  display: block;
+  margin-bottom: 6px;
+  line-height: 1.4;
+  white-space: normal;
+}
+body.editing .check li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+body.editing .check .ced.edit-only {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  gap: 8px;
+}
+body.editing .check .ced .tin {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 9px 10px;
+}
+body.editing .check li > .tools {
+  grid-column: 2;
+  grid-row: 1;
+  flex-wrap: nowrap;
+  align-self: start;
+  gap: 5px;
+}
+body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
+@media (max-width: 900px) {
+  .ed { width: min(760px, calc(100vw - 24px)); }
+  .ed .fields { gap: 14px; padding: 16px; }
+  .rulec .ced .edrow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .ed {
+    width: calc(100vw - 16px);
+    max-height: 94dvh;
+    border-radius: 12px;
+  }
+  .ed > header { padding: 13px 14px; }
+  .ed .fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 12px;
+    padding: 14px;
+  }
+  .ed .fld, .ed .fld.w3, .ed .fld.w6 { grid-column: span 2; }
+  .ed .fld > label, .ed .fld > .lab { font-size: 12px; }
+  .ed .fld .help { font-size: 12px; }
+  .ed > footer { gap: 8px; padding: 12px 14px; }
+  .ed > footer button { flex: 1 1 auto; }
+  .rulec .ced .edrow { grid-template-columns: minmax(0, 1fr); }
+  body.editing .check li { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 10px; }
+  body.editing .check li > .tools { gap: 3px; }
+  body.editing .check li > .tools button { min-width: 30px; min-height: 32px; padding: 5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed, .ed * { scroll-behavior: auto !important; }
+}
+
+
+/* ── CABECERA COMPACTA EN EL TELÉFONO ──────────────────────────────────────
+   LA CABECERA SE COMÍA EL PRIMER TERCIO DE LA PANTALLA. Medido con la semilla
+   puesta, dónde empieza el primer bloque de contenido de la pestaña:
+
+       iPhone 430×932    256px   27% de la pantalla
+       iPhone 390×844    308px   36%
+       Android 360×780   308px   39%
+       escritorio        88px     9%
+
+   En un teléfono de 360px abrías la cabina y casi el 40% era cabecera: el
+   título en su propia fila, el reloj en otra, la píldora de sesión en otra —
+   `#sessionPill` llevaba `flex:1 1 100%`, una fila entera para ella sola— y
+   los botones en otra. Para una herramienta cuya razón de ser es leer números
+   rápido, eso es justo al revés.
+
+   Nada se oculta: se aprieta. La píldora deja de reservarse una fila y fluye
+   con el reloj, el bloque de marca y el reloj bajan un escalón de tamaño, y el
+   aire vertical se reduce al de un encabezado, no al de una portada. */
+@media (max-width: 700px) {
+  .topbar { padding-block: 10px 8px; gap: 6px 10px; }
+  .brand h1 { font-size: 19px; }
+  /* `space-between` (heredado del bloque de 760px) repartía los botones a lo
+     ancho y dejaba «Ver demo» a la izquierda y «Editar» pegado al borde
+     derecho con un hueco muerto en medio: parecían dos cosas sin relación.
+     Agrupados a la izquierda se leen como lo que son, una fila de acciones. */
+  .clock { gap: 6px 10px; justify-content: flex-start; }
+  .clock .time { font-size: 18px; }
+  /* La píldora de sesión fluye en la misma fila que el reloj en vez de
+     reservarse una para ella sola. Sigue visible y sigue siendo legible. */
+  #sessionPill { flex: 0 1 auto; order: 2; }
+  .save-state { order: 3; }
+  .editbtn { order: 4; }
+  /* El aviso de «sin guardar» SÍ conserva su fila: es lo único de esta barra
+     que hay que ver, y partirlo lo escondería. */
+  .save-state.nosave { flex: 1 1 100%; }
+}
+@media (max-width: 700px) {
+    :root { --mobile-nav-h: 68px; }
+    html { scroll-padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 20px); }
+    body { overflow-x: clip; padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 24px); }
+    .tabnav#tabnav {
+      position: fixed; inset: auto 0 0; z-index: 80; display: flex; align-items: stretch;
+      gap: 2px; width: 100%; height: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px)); margin: 0;
+      padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px)); overflow-x: auto; overflow-y: hidden;
+      overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+      background: rgba(11,14,19,.96); border-top: 1px solid var(--line-strong, #303946);
+      border-bottom: 0; backdrop-filter: blur(20px); box-sizing: border-box;
+    }
+    .tabnav#tabnav::-webkit-scrollbar { display: none; }
+    #tabnav .tabbtn {
+      flex: 0 0 72px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+      gap: 5px; min-width: 72px; min-height: 44px; padding: 5px 3px 7px;
+      border: 1px solid transparent; border-radius: 10px; font-size: 10px; line-height: 1.1;
+      letter-spacing: -.01em; white-space: nowrap; text-align: center; background: transparent;
+      color: var(--muted, #a5adbb); scroll-snap-align: center;
+    }
+    #tabnav .tabbtn::before { display: block; font-size: 17px; line-height: 1; font-weight: 500; color: currentColor; }
+    #tabnav .tabbtn[data-tab="cabina"]::before { content: "⌂"; }
+    #tabnav .tabbtn[data-tab="futuros"]::before { content: "↗"; }
+    #tabnav .tabbtn[data-tab="cuentas"]::before { content: "◷"; }
+    #tabnav .tabbtn[data-tab="edge"]::before { content: "◫"; }
+    #tabnav .tabbtn[data-tab="invest"]::before { content: "◈"; }
+    #tabnav .tabbtn[data-tab="playbook"]::before { content: "▤"; }
+    #tabnav .tabbtn[data-tab="ideas"]::before { content: "✳"; }
+    #tabnav .tabbtn[data-tab="estudio"]::before { content: "◎"; }
+    #tabnav .tabbtn[data-tab="calc"]::before { content: "＋"; }
+    #tabnav .tabbtn.active { color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); border-color: rgba(112,224,207,.22); }
+    #tabnav .tabbtn { font-size: 0; }
+    #tabnav .tabbtn::after {
+      display: block; position: static; inset: auto; width: auto; height: auto; margin: 0;
+      background: none; border-radius: 0; box-shadow: none; opacity: 1; transform: none;
+      font-size: 10px; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap;
+    }
+    #tabnav .tabbtn[data-tab="cabina"]::after { content: "Cabina"; }
+    #tabnav .tabbtn[data-tab="futuros"]::after { content: "Futuros"; }
+    #tabnav .tabbtn[data-tab="cuentas"]::after { content: "Cuentas"; }
+    #tabnav .tabbtn[data-tab="edge"]::after { content: "Edge"; }
+    #tabnav .tabbtn[data-tab="invest"]::after { content: "Invertir"; }
+    #tabnav .tabbtn[data-tab="playbook"]::after { content: "Playbook"; }
+    #tabnav .tabbtn[data-tab="ideas"]::after { content: "Ideas"; }
+    #tabnav .tabbtn[data-tab="estudio"]::after { content: "Estudio"; }
+    #tabnav .tabbtn[data-tab="calc"]::after { content: "Calc"; }
+    #tabnav .tabbtn .n { position: absolute; top: 2px; right: 9px; min-width: 14px; padding: 1px 3px; border-radius: 9px; font-size: 9px; line-height: 1.25; background: var(--surface-3, #242d38); }
+    #quickBtn {
+      position: fixed; right: 12px; bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
+      z-index: 75; min-height: 46px; padding: 0 16px; border: 1px solid rgba(112,224,207,.42);
+      border-radius: 999px; background: var(--accent, #70e0cf); color: #07120f; font-size: 13px;
+      font-weight: 750; box-shadow: 0 8px 28px rgba(0,0,0,.35), 0 0 0 4px rgba(112,224,207,.08);
+    }
+    #quickBtn:active { transform: translateY(1px) scale(.98); }
+    .topbar, .topbar > *, .clock, .brand, .hgroup, .toolbar { min-width: 0; }
+    .tab, .tab > *, .panel, .panel > header, .panel > .body, .study-shell, .study-grid, .study-bottom, .deck { min-width: 0; max-width: 100%; }
+    .panel > header { flex-wrap: wrap; gap: 8px 10px; }
+    .panel > header h2 { overflow-wrap: anywhere; }
+    .toolbar, .hgroup, .actions, .filters, .jactions { flex-wrap: wrap; }
+    input:not([type="checkbox"]):not([type="radio"]), select, textarea, .btn, button.editbtn, .icon, .tabbtn {
+      scroll-margin-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
+    }
+    input:not([type="checkbox"]):not([type="radio"]), select, textarea { max-width: 100%; }
+    .ed, .ov, .dialog, [role="dialog"] { overscroll-behavior: contain; }
+    .ov { z-index: 100; } /* los diálogos deben quedar por encima de la navegación inferior */
+    .ed input:not([type="checkbox"]):not([type="radio"]), .ed select, .ed textarea,
+    .qk input:not([type="checkbox"]):not([type="radio"]), .qk select, .qk textarea { min-height: 44px; font-size: 16px; }
+    .ed > footer button, .qk button, .btn, .editbtn { min-height: 44px; }
+    table { max-width: 100%; }
+    .panel table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    img, canvas, video, svg { max-width: 100%; }
+    .study-hero, .study-grid, .study-bottom, .study-fields, .study-protocol { grid-template-columns: minmax(0, 1fr); }
+    .study-field.full { grid-column: auto; }
+    .study-toolbar { flex-wrap: wrap; }
+  }
+  @media (max-width: 380px) {
+    #tabnav .tabbtn { flex-basis: 68px; min-width: 68px; }
+    #quickBtn { right: 9px; padding-inline: 13px; }
+    .panel > header, .panel .body { padding-inline: 12px; }
+    .ed .fields { padding: 12px; }
+  }
+  @media (min-width: 701px) { #quickBtn { position: relative; } }
+  @media (prefers-reduced-motion: reduce) { #tabnav .tabbtn, #quickBtn { transition: none !important; animation: none !important; } }
+
+  @media (max-width: 700px) {
+    .empty, .deck-parts { min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: normal; white-space: normal; }
+    .tab[data-tab="cabina"] .deck-parts { white-space: normal; }
+    .tab[data-tab="estudio"] .deck-parts { display: block; width: 100%; flex: 1 1 100%; margin-left: 0; }
+    .tab[data-tab="playbook"] p.empty, .tab[data-tab="ideas"] p.empty {
+      display: block; box-sizing: border-box; min-width: 0; width: calc(100vw - 40px);
+      max-width: calc(100vw - 40px); white-space: normal; overflow-wrap: anywhere;
+      word-break: break-word; margin-right: 0;
+    }
+    .tab[data-tab="playbook"] .empty, .tab[data-tab="ideas"] .empty {
+      min-width: 0; max-width: calc(100vw - 40px); box-sizing: border-box;
+      white-space: normal; overflow-wrap: anywhere;
+    }
+    .tab[data-tab="playbook"] .empty code, .tab[data-tab="ideas"] .empty code { white-space: normal; overflow-wrap: anywhere; }
+  }
+
+
+
+@media (max-width: 700px) {
+  .tabnav#tabnav { overflow-x: hidden; justify-content: space-between; }
+  #tabnav .tabbtn { position: relative; }
+  #tabnav .tabbtn[data-tab="cuentas"],
+  #tabnav .tabbtn[data-tab="edge"],
+  #tabnav .tabbtn[data-tab="historial"],
+  #tabnav .tabbtn[data-tab="playbook"],
+  #tabnav .tabbtn[data-tab="ideas"],
+  #tabnav .tabbtn[data-tab="calc"],
+  #tabnav .tabbtn[data-tab="ajustes"] { display: none !important; }
+  #tabnav .tabbtn[data-tab="cabina"],
+  #tabnav .tabbtn[data-tab="futuros"],
+  #tabnav .tabbtn[data-tab="invest"],
+  #tabnav .tabbtn[data-tab="estudio"] { flex: 1 1 0; min-width: 0; }
+  #tabnav .tabbtn .n:empty { display: none; }
+  #tabnav #mobileMoreBtn {
+    display: flex; flex: 1 1 0; min-width: 0; min-height: 44px; padding: 5px 3px 7px;
+    flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+    border: 1px solid transparent; border-radius: 10px; background: transparent;
+    color: var(--muted, #a5adbb); font-size: 0; line-height: 1.1; white-space: nowrap;
+  }
+  #tabnav #mobileMoreBtn::before { content: "⋯"; display: block; font-size: 19px; line-height: 1; }
+  #tabnav #mobileMoreBtn::after {
+    content: "Más"; display: block; position: static; inset: auto; width: auto; height: auto;
+    margin: 0; background: none; border-radius: 0; box-shadow: none; opacity: 1; transform: none;
+    font-size: 10px; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap;
+  }
+  #tabnav #mobileMoreBtn.active { color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); border-color: rgba(112,224,207,.22); }
+  #mobileMoreOv {
+    position: fixed; inset: 0; z-index: 120; display: flex; align-items: flex-end; justify-content: center;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: rgba(3, 6, 12, .72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  }
+  #mobileMoreOv[hidden] { display: none !important; }
+  #mobileMoreOv .mobile-more-backdrop {
+    position: absolute; inset: 0; width: 100%; height: 100%; padding: 0;
+    border: 0; border-radius: 0; background: transparent;
+  }
+  #mobileMoreOv .mobile-more-sheet {
+    position: relative; width: min(100%, 520px); max-height: min(72dvh, 620px); overflow-y: auto;
+    padding: 16px; border: 1px solid var(--line-strong, #303946); border-radius: 18px;
+    background: var(--surface, #111821); box-shadow: 0 18px 50px rgba(0,0,0,.45);
+  }
+  #mobileMoreOv .mobile-more-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  #mobileMoreOv .mobile-more-head h2 { margin: 0; font-size: 13px; letter-spacing: .04em; }
+  #mobileMoreOv .mobile-more-close { min-width: 44px; min-height: 44px; }
+  #mobileMoreOv .mobile-more-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  #mobileMoreOv [data-mobile-more-tab] {
+    display: flex; align-items: center; justify-content: flex-start; min-width: 0; min-height: 52px;
+    width: 100%; padding: 12px; border: 1px solid var(--line-strong, #303946); border-radius: 12px;
+    background: var(--surface-2, #18212c); color: var(--text, #e4ebf2); text-align: left;
+    font-size: 13px; line-height: 1.25; white-space: normal;
+  }
+  #mobileMoreOv [data-mobile-more-tab]:active { border-color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); }
+  #mobileMoreOv [data-mobile-more-tab].is-active { border-color: rgba(112,224,207,.55); background: rgba(112,224,207,.11); color: var(--accent, #70e0cf); }
+  #mobileMoreOv [data-mobile-more-tab].is-active::after { content: "Actual"; margin-left: auto; padding-left: 8px; font-size: 11px; font-weight: 700; }
+  #mobileMoreOv :is(button, [href], [tabindex]):focus-visible { outline: 2px solid var(--accent, #70e0cf); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { #mobileMoreOv, #mobileMoreOv * { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+}
+@media (min-width: 701px) {
+  #mobileMoreBtn, #mobileMoreOv { display: none !important; }
+}
+/* Evita que estilos de display explícitos anulen el atributo hidden del menú. */
+#mobileMoreOv[hidden] { display: none !important; }
+/* Texto de estados vacíos limitado al viewport en pantallas estrechas. */
+@media (max-width: 700px) {
+  .tab[data-tab="playbook"] .empty,
+  .tab[data-tab="ideas"] .empty {
+    display: block; width: 100%; min-width: 0;
+    max-width: calc(100vw - 32px); box-sizing: border-box;
+    white-space: normal; overflow-wrap: anywhere; word-break: normal;
+  }
+  .tab[data-tab="playbook"] .empty *,
+  .tab[data-tab="ideas"] .empty * {
+    max-width: 100%; white-space: normal; overflow-wrap: anywhere;
+  }
+}
+
+
+/* Cabina · interfaz operativa clara. Presentación solamente. */
+
+/* Tema claro activado sólo cuando se elige el Concepto A.
+   La base oscura de arriba queda disponible sin duplicarla ni taparla. */
+:root:not([data-cabina-theme="dark"]) {
+  color-scheme: light !important;
+  /* Concepto A: semantic, accessible tokens. The existing dark values are
+     legacy fallbacks; these are the effective values of the light experience. */
+  --bg: #f7f9fc !important;
+  --surface: #ffffff !important;
+  --surface-2: #f8fafc !important;
+  --surface-3: #edf2f8 !important;
+  --line: #e2e8f0 !important;
+  --line-strong: #cbd5e1 !important;
+  --text: #172334 !important;
+  --muted: #475569 !important;
+  --dim: #5b6779 !important;
+  --accent: #1d4ed8 !important;
+  --accent-ink: #ffffff !important;
+  --positive: #166534 !important;
+  --negative: #b42318 !important;
+  --warning: #92400e !important;
+  --info: #1d4ed8 !important;
+  --accent-soft: rgba(29,78,216,.09) !important;
+  --good-soft: rgba(22,101,52,.09) !important;
+  --bad-soft: rgba(180,35,24,.08) !important;
+  --warn-soft: rgba(146,64,14,.09) !important;
+  --info-soft: rgba(29,78,216,.08) !important;
+  --sh-1: 0 1px 2px rgba(23,35,52,.04) !important;
+  --sh-2: 0 10px 28px rgba(23,35,52,.09) !important;
+  --ui-glow: transparent !important;
+  --ui-panel: #ffffff !important;
+  --ui-panel-raised: #f8fafc !important;
+  --ui-focus: 0 0 0 3px rgba(29,78,216,.16) !important;
+  --control-bg: #ffffff;
+  --control-readonly: #f1f5f9;
+  --control-disabled: #eef2f6;
+  --control-placeholder: #5b6779;
+  --control-error: #b42318;
+  --control-radius: 8px;
+}
+@scope (html:not([data-cabina-theme="dark"])) {
+
+html, body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+body { color-scheme: light !important; }
+::selection { background: #dbeafe !important; color: #172334 !important; }
+.topbar, .tabnav#tabnav {
+  background: rgba(255,255,255,.97) !important;
+  color: var(--text) !important;
+  border-color: var(--line) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+.brand h1, .topbar h1, .topbar .clock, .topbar .hgroup { color: var(--text) !important; }
+.tabnav#tabnav { border-bottom: 1px solid var(--line) !important; }
+#tabnav .tabbtn {
+  color: var(--muted) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+#tabnav .tabbtn::before { box-shadow: none !important; }
+#tabnav .tabbtn::after { background: var(--accent) !important; }
+#tabnav .tabbtn.active,
+#tabnav .tabbtn[data-tab="estudio"].active {
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+  border-color: #bfcefa !important;
+  box-shadow: none !important;
+}
+#tabnav .tabbtn[data-tab="estudio"]::before {
+  background: var(--accent) !important;
+  box-shadow: none !important;
+}
+#tabnav .tabbtn[data-tab="estudio"]:not(.active) {
+  color: var(--muted) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+@media (max-width: 700px) {
+  #tabnav .tabbtn[data-tab="estudio"]::before {
+    background: transparent !important;
+    color: var(--accent) !important;
+  }
+}
+.panel, .panel > header, .panel > .body, .study-panel, .study-card,
+.study-stat, .study-flash, .tile, .tiles, .acct, .jstrip, .deck,
+#panelAccts, #panelRules, #panelJournal, #panelLevels, #panelHist,
+#panelCabCal, .study-searchrow, .view-prefs-dialog, .study-dialog,
+.ed, .qk, .cmd, .cmd-in, .cmd-it, #mobileMoreOv .mobile-more-sheet {
+  color: var(--text) !important;
+  background: var(--surface) !important;
+  background-image: none !important;
+  border-color: var(--line) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+/* Diferencia visual medible entre ausencia de dato y valor disponible. */
+.tab:not([data-tab="estudio"]) .tile:not(.sin-dato) { background: #f8fafc !important; }
+.tab:not([data-tab="estudio"]) .tile.sin-dato { background: #edf1f5 !important; }
+.panel > header { border-bottom-color: var(--line) !important; }
+.panel > header h2, .study-panel h3, .study-card h3, .study-dialog-head h3,
+.view-prefs-head h2, .deck-t { color: var(--text) !important; }
+.deck {
+  border: 1px solid var(--line) !important;
+  border-radius: 8px !important;
+  padding: 12px 16px !important;
+  margin-bottom: 14px !important;
+}
+.deck::before, .tab[data-tab="cabina"] .deck::before { display: none !important; }
+.deck-n, .study-kicker, .study-stat-top, .study-note, .study-card-foot,
+.study-card p, .study-hero p, .study-field label, .study-field > label,
+.view-prefs-note { color: var(--muted) !important; }
+.deck-stage, .study-tag, .study-kind, .study-state, .study-filter,
+.study-shortcut {
+  background: var(--surface-2) !important;
+  color: var(--muted) !important;
+  border-color: var(--line) !important;
+  box-shadow: none !important;
+}
+.study-filter[aria-pressed="true"], .study-state:not(.progressing):not(.mastered), .study-kind {
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+  border-color: #bfcefa !important;
+}
+.study-state.progressing {
+  color: #8a4b08 !important;
+  background: #fff4df !important;
+  border-color: #efd4a3 !important;
+}
+.study-state.mastered {
+  color: var(--muted) !important;
+  background: #f1f4f7 !important;
+  border-color: var(--line) !important;
+}
+.study-searchrow:focus-within {
+  border-color: var(--accent) !important;
+  box-shadow: var(--ui-focus) !important;
+  transform: none !important;
+}
+.study-card:hover, #panelAccts .acct:hover {
+  border-color: var(--line-strong) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.study-progress { background: #e4e9ee !important; }
+.study-progress span { background: var(--accent) !important; }
+.study-flash { min-height: 0 !important; }
+.study-flash small, .study-flash-answer { color: var(--accent) !important; }
+.study-card-foot { border-top-color: var(--line) !important; }
+.study-card-foot a { color: var(--accent) !important; }
+.view-prefs-backdrop, .study-modal, #mobileMoreOv {
+  background: rgba(25,35,45,.35) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.view-prefs-dialog, .study-dialog, .ed, .qk, .cmd {
+  border-radius: 10px !important;
+  box-shadow: 0 12px 36px rgba(20,32,44,.14) !important;
+}
+.view-prefs-head, .view-prefs-tools, .view-prefs-foot,
+.study-dialog-head, .study-dialog-foot, .ed > header, .ed > footer {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+}
+/* Etiquetas visibles de filtros: no depender de placeholders ni del valor del select. */
+.tab .toolbar .cab-filter-field {
+  display: grid;
+  align-content: end;
+  gap: 5px;
+  flex: 0 1 158px;
+  min-width: 120px;
+  max-width: 100%;
+}
+.tab .toolbar .cab-filter-field:has(input[type="search"]) { flex: 1 1 190px; }
+.tab .toolbar .cab-filter-caption {
+  display: block;
+  color: var(--muted) !important;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.tab .toolbar .cab-filter-field > :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+@media (max-width: 700px) {
+  .tab .toolbar .cab-filter-field { flex: 1 1 140px; }
+  .tab .toolbar .cab-filter-field:has(input[type="search"]) { flex-basis: 100%; }
+}
+/* A · Entradas de datos. El mismo contrato visual para editores, filtros y diálogos. */
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]), select, textarea),
+.study-field input, .study-field select, .study-field textarea, .study-filter {
+  color: var(--text) !important;
+  background: var(--control-bg) !important;
+  border: 1px solid var(--line-strong) !important;
+  border-radius: var(--control-radius) !important;
+  box-shadow: none !important;
+  min-height: 40px;
+  padding: 9px 12px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.4;
+  transition: border-color var(--mo-fast) ease, box-shadow var(--mo-fast) ease;
+}
+:where(input, select, textarea):focus-visible,
+.study-searchrow:focus-within {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
+  border-color: var(--accent) !important;
+  box-shadow: var(--ui-focus) !important;
+}
+:where(input, textarea)::placeholder,
+.study-searchrow input::placeholder {
+  color: var(--control-placeholder) !important;
+  opacity: 1 !important;
+}
+:where(input, select, textarea)[aria-invalid="true"] {
+  border-color: var(--control-error) !important;
+  box-shadow: 0 0 0 2px var(--bad-soft) !important;
+}
+:where(input, select, textarea)[aria-invalid="true"]:focus-visible {
+  outline-color: var(--control-error) !important;
+}
+:where(input, textarea):read-only:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+  background: var(--control-readonly) !important;
+  color: var(--muted) !important;
+  cursor: default;
+}
+:where(input, select, textarea):disabled {
+  background: var(--control-disabled) !important;
+  color: var(--dim) !important;
+  opacity: 1 !important;
+  cursor: not-allowed;
+}
+:where(input[type="number"], input[inputmode="decimal"], input[inputmode="numeric"]) {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+:where(.ed .fld > label, .study-field > label, .study-field label, .fld > label) {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted) !important;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.ed .fld .help {
+  color: var(--dim) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 6px;
+}
+input[type="checkbox"], input[type="radio"] { accent-color: var(--accent) !important; }
+@media (max-width: 700px) {
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),select,textarea) {
+    min-height: 44px !important;
+    font-size: 16px !important;
+  }
+  :where(.ed .fld > label, .study-field > label, .study-field label, .fld > label) {
+    font-size: 13px;
+  }
+}
+.btn:not(.primary):not(.danger), .editbtn, .study-filter,
+.view-prefs-item, #mobileMoreOv [data-mobile-more-tab] {
+  color: var(--text) !important;
+  background: #ffffff !important;
+  border-color: var(--line-strong) !important;
+  box-shadow: none !important;
+}
+.btn.primary, #quickBtn {
+  color: var(--accent-ink) !important;
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  box-shadow: none !important;
+}
+.btn.danger, .negative, .bad, .loss { color: var(--negative) !important; }
+.positive, .good, .win { color: var(--positive) !important; }
+#quickBtn { border-radius: 8px !important; }
+table { color: var(--text) !important; }
+table th { color: var(--muted) !important; background: #f1f4f7 !important; }
+table td { color: var(--text) !important; border-color: var(--line) !important; }
+table tr:hover td { background: #f5f8fa !important; }
+svg.chart text, svg.chart text tspan, svg.chart tspan, .chart text,
+.chart text tspan {
+  fill: #536171 !important;
+  color: #536171 !important;
+  -webkit-text-fill-color: #536171 !important;
+}
+svg.chart .s1, .chart .s1 { stroke: var(--accent) !important; }
+svg.chart .end, svg.chart .hp, .chart .end, .chart .hp { fill: var(--accent) !important; }
+#panelAccts .acct:hover { background: #f8fafc !important; }
+#mobileMoreOv .mobile-more-sheet { background: #ffffff !important; }
+#mobileMoreOv [data-mobile-more-tab].is-active {
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+  border-color: #bfcefa !important;
+}
+.cmd-grp { color: var(--accent) !important; }
+.cmd-it[aria-selected="true"] {
+  background: var(--accent-soft) !important;
+  box-shadow: inset 2px 0 var(--accent) !important;
+}
+.cmd-it[aria-selected="true"] .ct { color: var(--text) !important; }
+.tab.active > .panel, .tab.active > .study-shell, .tab.active > .deck,
+.study-grid, .study-bottom { animation: none !important; }
+.panel, .study-panel, .study-card, .study-stat, .study-searchrow,
+#panelAccts .acct, #panelRules, #panelJournal, #panelLevels, #panelHist,
+#panelCabCal { transition: border-color .12s ease !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+
+}
+/* ===================== ERGONOMÍA DE LA PR #75 =====================
+   Lo que queda de la capa visual de la PR #75 después de medir qué de ella
+   NO estaba ya en main. Casi todo lo estaba: el foco visible global, los
+   36/44 px de alto de control, los 16 px de campo en el iPhone (con el mismo
+   comentario sobre el zoom de Safari), `tabular-nums` en decenas de sitios,
+   `scroll-padding-top`, `overscroll-behavior` y quince bloques de
+   `prefers-reduced-motion`. Repetirlo habría sido añadir una segunda escala
+   de radios y espaciado —`--ds-*` junto a los `--r-*` que ya existen— para
+   decir lo mismo dos veces y que se separen con el tiempo.
+
+   LA PALETA DE LA PR #75 NO ENTRA, y conviene saber por qué: su capa define
+   su papel cálido sin `!important` (los valores, en docs/DISENO.md: aquí no,
+   porque el guardián prohíbe que esos hex vuelvan al CSS), y el tema de
+   744c1a3 declara `html, body { background: var(--bg) !important }`. Gane
+   quien gane el orden, el `!important` se lleva el color. Habría quedado CSS
+   que no pinta nada con un guardián en verde encima, porque ese guardián
+   comprobaba que los hex ESTUVIERAN EN EL TEXTO, no que llegaran a la
+   pantalla. La decisión está en docs/DISENO.md.
+
+   Quedan tres declaraciones, y ninguna es de color: */
+
+/* El destello gris de Android/iOS al tocar un control se come el estado de
+   foco que acabamos de dejar visible, y dura más que el toque. */
+:where(button, input, select, textarea, a) { -webkit-tap-highlight-color: transparent; }
+
+/* `balance` ya está en los títulos; `pretty` es para el texto corrido, donde
+   lo que molesta no es un título en dos líneas desiguales sino la palabra
+   suelta en la última. Afecta a notas, ayudas y vacíos, que es donde esta
+   aplicación explica las cosas. */
+:where(.empty, .hint, .help, .meta, .sub, .note, .csub, .study-note) { text-wrap: pretty; }
+
+/* `lining-nums` acompaña a `tabular-nums`: sin él, una fuente con cifras de
+   estilo antiguo alinea las columnas pero deja el 3 y el 9 por debajo de la
+   línea base, y una tabla de P&L se lee torcida. */
+body { font-variant-numeric: tabular-nums lining-nums; }
+
+    @media (max-width: 720px) {
+      #studyReader .study-dialog-body { grid-template-columns: minmax(0,1fr) !important; }
+      #studyReaderContext { border-left: 0 !important; border-top: 1px solid var(--line); padding: 14px 0 0 !important; }
+      #studyReader .study-dialog { max-height: calc(100dvh - 20px); overflow-y: auto; }
+    }
+
+/* ---------- Pulido de Playbook y editor de operaciones ---------- */
+.tab[data-tab="playbook"] #pbNav {
+  display:flex; align-items:center; gap:4px; min-width:0; max-width:100%;
+  padding:7px; overflow-x:auto; overscroll-behavior-x:contain;
+  border:1px solid var(--line); border-radius:var(--r-md);
+  background:var(--surface-1); scrollbar-width:thin;
+}
+.tab[data-tab="playbook"] #pbNav > * { flex:0 0 auto; }
+.tab[data-tab="playbook"] .toolbar {
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+  min-width:0; padding:10px; border:1px solid var(--line);
+  border-radius:var(--r-md); background:var(--surface-1);
+}
+.tab[data-tab="playbook"] .toolbar > input[type="search"],
+.tab[data-tab="playbook"] .toolbar > input[type="text"],
+.tab[data-tab="playbook"] .toolbar > select {
+  min-width:0; max-width:100%; min-height:40px;
+}
+.tab[data-tab="playbook"] .toolbar > input[type="search"],
+.tab[data-tab="playbook"] .toolbar > input[type="text"] { flex:1 1 180px; }
+.tab[data-tab="playbook"] .toolbar > select { flex:0 1 150px; }
+.tab[data-tab="playbook"] .empty {
+  min-height:76px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:6px;
+  padding:20px; text-align:center;
+}
+
+/* El editor debe caber en la ventana; el scroll queda dentro del diálogo. */
+:where([role="dialog"], dialog, .modal-card, .dialog) {
+  box-sizing:border-box; max-width:calc(100vw - 32px);
+  max-height:calc(100dvh - 32px); overflow-y:auto;
+  overscroll-behavior:contain; scrollbar-gutter:stable;
+}
+:where([role="dialog"], dialog, .modal-card, .dialog) :where(input:not([type="checkbox"]):not([type="radio"]), select) {
+  box-sizing:border-box; min-width:0; min-height:40px; max-width:100%;
+}
+:where([role="dialog"], dialog, .modal-card, .dialog) textarea {
+  box-sizing:border-box; min-width:0; max-width:100%; min-height:88px;
+  line-height:1.5; resize:vertical;
+}
+:where([role="dialog"], dialog, .modal-card, .dialog) label:has(input[type="checkbox"]),
+:where([role="dialog"], dialog, .modal-card, .dialog) label:has(input[type="radio"]) {
+  display:inline-flex; align-items:center; gap:9px; min-width:0;
+  line-height:1.4; cursor:pointer;
+}
+:where([role="dialog"], dialog, .modal-card, .dialog) input[type="checkbox"],
+:where([role="dialog"], dialog, .modal-card, .dialog) input[type="radio"] {
+  width:16px; height:16px; flex:0 0 16px; margin:0;
+}
+:where([role="dialog"], dialog, .modal-card, .dialog) :where(.grid,.form-grid,.form-row,.fields-grid) {
+  min-width:0; gap:12px;
+}
+@media (max-width:760px) {
+  :where([role="dialog"], dialog, .modal-card, .dialog) {
+    width:calc(100vw - 20px); max-width:calc(100vw - 20px);
+    max-height:calc(100dvh - 20px); border-radius:var(--r-lg);
+  }
+  .tab[data-tab="playbook"] .toolbar { gap:7px; padding:9px; }
+  .tab[data-tab="playbook"] .toolbar > * { flex:1 1 130px; }
+}
+
+/* Apariencia: ajustes compartidos por el tema claro y el oscuro. */
+.cab-appearance-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; align-items: stretch; }
+.cab-appearance-field { display: flex; flex-direction: column; min-width: 0; gap: 7px; }
+.cab-appearance-field > label { font-size: 12px; font-weight: 700; color: var(--muted); }
+.cab-appearance-field > select { width: 100%; max-width: 100%; min-height: 42px; }
+.cab-appearance-field > input[type="color"] { width: 88px; height: 44px; padding: 3px; cursor: pointer; }
+.cab-appearance-field > .help { margin: 0; font-size: 12px; color: var(--dim); line-height: 1.5; }
+.cab-appearance-preview { border: 1px solid var(--line-strong); border-radius: var(--r-lg); background: var(--surface); min-width: 0; padding: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 9px; }
+.cab-appearance-eyebrow { font-size: 11px; color: var(--muted); }
+.cab-appearance-preview strong { font-size: 15px; color: var(--text); }
+.cab-appearance-action { background: var(--accent); color: var(--accent-ink); padding: 9px 12px; font-size: 13px; font-weight: 700; border-radius: var(--r-md); }
+.cab-appearance-metrics { display: flex; gap: 16px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.cab-appearance-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 18px; align-items: center; }
+.cab-appearance-footer .synced { margin: 0; flex: 1 1 190px; }
+@media (max-width: 700px) {
+  .cab-appearance-grid { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .cab-appearance-field > select { min-height: 44px; font-size: 16px; }
+}
+</style>
+</head>
+<body>
+
 
 <div class="topbar">
   <div class="brand">
@@ -2478,6 +3599,50 @@ tbody tr:last-child td{border-bottom:0}
      docs/DISENO.md deja anotada. -->
 <div class="tab" data-tab="ajustes">
 <section class="deck" aria-label="Resumen de Ajustes"><span class="deck-n">10</span><h1 class="deck-t">Ajustes</h1><span class="deck-stage">Configuración</span><span class="deck-parts">Datos · Idioma · Dónde está lo demás</span></section>
+
+<section class="panel" id="panelAppearance">
+  <header><h2>Apariencia</h2><span class="meta">Tema aplicado desde el inicio</span></header>
+  <div class="body">
+    <p class="hint">Elige qué capa visual quieres usar y el color principal. Esta preferencia pertenece al navegador: no modifica tus operaciones, cuentas, estadísticas ni los datos de Supabase.</p>
+    <div class="cab-appearance-grid">
+      <div class="cab-appearance-field">
+        <label for="cabAppearanceMode">Tema</label>
+        <select id="cabAppearanceMode">
+          <option value="light">Claro · Minimalista A</option>
+          <option value="dark">Oscuro · Clásico</option>
+          <option value="system">Automático · Dispositivo</option>
+        </select>
+        <p class="help">Oscuro recupera el diseño base anterior. Automático usa la apariencia de tu dispositivo.</p>
+      </div>
+      <div class="cab-appearance-field">
+        <label for="cabAppearanceAccent">Color principal</label>
+        <select id="cabAppearanceAccent">
+          <option value="default">Predeterminado del tema</option>
+          <option value="blue">Azul</option>
+          <option value="teal">Verde azulado</option>
+          <option value="violet">Violeta</option>
+          <option value="custom">Personalizado</option>
+        </select>
+        <p class="help">Cambia el foco y las acciones; no cambia el significado de profit, loss o warnings.</p>
+      </div>
+      <div class="cab-appearance-field" id="cabAppearanceCustomField" hidden>
+        <label for="cabAppearanceCustom">Color personalizado</label>
+        <input type="color" id="cabAppearanceCustom" value="#1d4ed8">
+        <p class="help">Si no tiene contraste suficiente se ajustará automáticamente.</p>
+      </div>
+      <div class="cab-appearance-preview" aria-label="Vista previa del tema">
+        <span class="cab-appearance-eyebrow">Vista previa</span>
+        <strong id="cabAppearanceSample">Claro minimalista</strong>
+        <span class="cab-appearance-action">Acción principal</span>
+        <span class="cab-appearance-metrics"><span class="positive">+$125.00</span><span class="negative">−$45.00</span></span>
+      </div>
+    </div>
+    <div class="cab-appearance-footer">
+      <p class="synced" id="cabAppearanceStatus" role="status" aria-live="polite">Preferencia guardada en este navegador.</p>
+      <button type="button" class="btn ghost sm" id="cabAppearanceReset">Restablecer apariencia</button>
+    </div>
+  </div>
+</section>
 
 <section class="panel" id="panelDatos">
   <header><h2>Copia de seguridad y traspaso</h2><span class="meta" id="bkMeta">—</span></header>
@@ -3286,1098 +4451,7 @@ tbody tr:last-child td{border-bottom:0}
      posicion: ve el mismo DOM que veia inline. -->
 <script src="./app.js"></script>
 
-<style id="cabina-unified-estudio-system">
-/* CABINA · sistema visual unificado inspirado en ESTUDIO.
-   Capa de presentación únicamente: no altera cálculos, estado ni persistencia. */
-:root{
-  --ui-glow:rgba(112,224,207,.10);
-  --ui-panel:linear-gradient(145deg,#141c25 0%,#10161e 100%);
-  --ui-panel-raised:linear-gradient(145deg,#18232c 0%,#121a22 100%);
-  --ui-focus:0 0 0 3px rgba(112,224,207,.15);
-}
-::selection{background:rgba(112,224,207,.25);color:#f1fffc}
-/* MARGEN DE PARADA DEL DESPLAZAMIENTO. El documento lleva
-   `scroll-behavior:smooth`, así que lo que se trae con scrollIntoView o con un
-   ancla aterriza pegado al borde — y por debajo de 1100px, DEBAJO de la tira de
-   pestañas, que ahí es `position:sticky;top:0`.
 
-   Los dos valores salen de medir la nav en Chromium, no de estimarla:
-
-     ancho de la ventana   #tabnav
-     390px                 sticky, top:0, alto  51px   ← tira superior
-     760px                 sticky, top:0, alto  51px
-     1024px                sticky, top:0, alto  51px
-     1099px                sticky, top:0, alto  51px
-     1100px                fixed, raíl de 240px de ancho y altura completa
-     1500px                fixed, raíl de 240px de ancho y altura completa
-
-   La tira superior tapa lo que aterrice arriba; el raíl es lateral y no tapa
-   nada arriba. El corte está en `@media (min-width:1100px)`, donde el raíl
-   sustituye a la tira (su alto ahí es el de la ventana, no una cifra fija).
-
-   Así que 63px (51 de la tira + 12 de aire) por debajo del raíl, y 24px de puro
-   aire por encima, donde no hay barra superior que esquivar. Un valor único de
-   24px —lo que traía `cabina-refinement.css`— se queda 27px corto justo en las
-   pantallas donde la barra sí tapa.
-
-   De dónde viene esta regla: era lo ÚNICO que valía la pena de
-   `cabina-refinement.css`, la capa de 441 líneas que el despliegue inyectaba y
-   la CSP rechazaba. El resto era un sistema visual paralelo: aplicarlo habría
-   reescalado la cabina entera (cuerpo 15px→14px, el número de los KPI
-   26px→20.25px, color en 2151 elementos de 2557). Medido antes de borrarlo. */
-html{scroll-padding-top:24px}
-@media (max-width:1099.98px){html{scroll-padding-top:63px}}
-:where(button,input,select,textarea,[tabindex]):focus-visible{
-  outline:2px solid #70e0cf!important;outline-offset:3px!important;
-}
-#tabnav .tabbtn{
-  border:1px solid transparent;border-radius:9px;
-  transition:background .16s ease,border-color .16s ease,color .16s ease,transform .16s ease;
-}
-#tabnav .tabbtn:hover{background:linear-gradient(120deg,#17232c,#121a22);border-color:#293b46;color:#dce9f1}
-#tabnav .tabbtn.active{
-  background:linear-gradient(120deg,#18332f,#15212a);
-  border-color:#315a55;border-left-color:#70e0cf;color:#d9fff8;
-  box-shadow:inset 0 1px rgba(255,255,255,.025),0 5px 18px rgba(0,0,0,.12);
-}
-#tabnav .tabbtn.active::after{opacity:.8}
-.panel{
-  border-color:#293540;background:var(--ui-panel);
-  box-shadow:0 8px 28px rgba(0,0,0,.08),inset 0 1px rgba(255,255,255,.018);
-}
-.panel>header{border-bottom-color:#26323d;background:linear-gradient(100deg,rgba(22,34,43,.8),rgba(16,22,30,.35))}
-.panel>header h2{letter-spacing:.075em}
-.panel .body{min-width:0}
-.tiles{gap:1px;background:#27333e;border:1px solid #27333e;border-radius:12px;overflow:hidden}
-.tile{background:linear-gradient(145deg,#151d26,#11171f);padding:14px 16px;transition:background .16s ease}
-.tile:hover{background:linear-gradient(145deg,#192630,#131b23)}
-.tile .v{letter-spacing:-.035em}
-
-/* UN GUIÓN NO ES UNA CIFRA, así que no debe pesar como una. Medido con cuenta
-   nueva: 23 de los 27 tiles mostraban «—» a peso 800 / 26px / #E8ECF2, la misma
-   tinta que «$556». Aquí el guión baja al tercer nivel de texto, a peso 400 y a
-   20px, y el tile pierde el degradado: el que SÍ trae número queda en relieve.
-
-   LA ETIQUETA NO SE TOCA. Es lo que dice QUÉ falta — «P&L neto», «Win rate» — y
-   sigue siendo lo legible del tile. Se baja el valor ausente, no la pregunta.
-
-   El color es `--dim`, el tercer nivel del propio sistema, no un gris inventado
-   para la ocasión: ya está medido en tokens.mjs y no hay un cuarto nivel que
-   mantener. La clase la pone el render; esta hoja sólo decide cómo se ve. */
-.tile.sin-dato .v{color:var(--dim);font-weight:400;font-size:20px;letter-spacing:0}
-.tile.sin-dato .v.dual{font-size:16px}
-.tile.sin-dato .s{color:var(--dim)}
-.btn{
-  border-color:#34434f;background:linear-gradient(135deg,#1a2530,#151d26);
-  color:#dce6ee;border-radius:8px;box-shadow:inset 0 1px rgba(255,255,255,.035);
-  transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;
-}
-.btn:hover{border-color:#52706f;background:linear-gradient(135deg,#20312f,#17242b)}
-.btn:active{transform:translateY(1px)}
-.btn.primary{background:linear-gradient(135deg,#70e0cf,#4fb3a0);border-color:#70e0cf;color:#071310;box-shadow:0 4px 16px rgba(79,179,160,.12)}
-.btn.primary:hover{filter:brightness(1.06);box-shadow:0 5px 20px rgba(79,179,160,.2)}
-.btn.ghost{background:transparent;box-shadow:none}
-.btn.danger{background:rgba(224,96,79,.06);border-color:rgba(224,96,79,.32)}
-:where(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea){
-  border-color:#2d3b47!important;background-color:#0c1219!important;color:#e8eef4;
-  border-radius:8px;box-shadow:inset 0 1px 2px rgba(0,0,0,.12);
-  transition:border-color .16s ease,box-shadow .16s ease,background-color .16s ease;
-}
-:where(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea):focus{
-  border-color:#5abcae!important;box-shadow:var(--ui-focus)!important;background-color:#0e171e!important;
-}
-:where(input,textarea)::placeholder{color:#738393}
-:where(select,option){color-scheme:dark}
-.chip,.badge,.tag{border-color:#2d3c47}
-.empty{border-color:#344550;background:linear-gradient(145deg,rgba(19,29,38,.7),rgba(13,19,26,.55));border-radius:11px}
-:where(table,.table){border-color:#293641}
-:where(th,thead td){color:#9eafbd;background:rgba(20,30,39,.82);letter-spacing:.055em}
-:where(td,th){border-color:#25313b}
-:where(tbody tr){transition:background .12s ease}
-:where(tbody tr:hover){background:rgba(112,224,207,.035)}
-:where(hr){border-color:#27333e}
-:where(.modal,.ov,.overlay){backdrop-filter:blur(9px)}
-:where(.modal>*,.dialog,.modal-card){border-color:#344651}
-:where(.toolbar,.tools,.actions){gap:8px}
-:where(.hint,.note,.help,.meta){line-height:1.5}
-a{transition:color .15s ease}
-a:hover{color:#a4f2e6}
-@media(max-width:850px){
-  .panel{border-radius:11px}
-  .panel>header{padding:12px 14px}
-  .panel .body{padding:14px}
-  .tile{padding:12px}
-  .tile.sin-dato .v{font-size:17px}
-  .tile.sin-dato .v.dual{font-size:14px}
-}
-@media(max-width:600px){
-  .btn{min-height:34px}
-  .panel>header h2{font-size:12px}
-  .tiles{border-radius:10px}
-}
-@media(prefers-reduced-motion:reduce){
-  *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
-}
-
-/* WORKSPACE SYSTEM — aplicar la jerarquía visual de ESTUDIO a cada sección. */
-.tab:not([data-tab="estudio"]) .toolbar{
-  display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
-  padding:var(--s3);margin:0 0 var(--s4);border:1px solid var(--line);border-radius:var(--r-md);
-  background:var(--surface-2);
-}
-.tab:not([data-tab="estudio"]) .toolbar .sp{flex:1}
-.tab:not([data-tab="estudio"]) .toolbar select,
-.tab:not([data-tab="estudio"]) .toolbar input:not([type=checkbox]):not([type=radio]){
-  min-height:34px;max-width:100%;
-}
-.tab:not([data-tab="estudio"]) .panel{
-  border:1px solid var(--line);border-radius:var(--r-md);
-  background:var(--surface);
-  box-shadow:none;
-}
-.tab:not([data-tab="estudio"]) .panel>header{
-  padding:var(--s3) var(--s4);border-bottom:1px solid var(--line-strong);
-  background:var(--surface-2);
-  gap:var(--s3);min-width:0;
-}
-.tab:not([data-tab="estudio"]) .panel>header h2{
-  font-family:var(--font-mono);font-size:var(--t-section);line-height:1.35;font-weight:700;
-  letter-spacing:.09em;text-transform:uppercase;color:var(--text);
-}
-.tab:not([data-tab="estudio"]) .panel .body{padding:var(--s4);min-width:0}
-.tab:not([data-tab="estudio"]) .tiles{border-radius:var(--r-md);overflow:hidden}
-.tab:not([data-tab="estudio"]) .tile{background:var(--surface-2);padding:var(--s3) var(--s4)}
-/* EL TILE SIN DATO, UN ESCALÓN POR DETRÁS. Tenía su propio fondo desde que se
-   marcaron los guiones, pero escrito como `.tile.sin-dato` — especificidad
-   (0,2,0) — y la línea de aquí arriba es (0,3,0), así que desde que existe esta
-   capa el fondo NO se aplicaba: medido, el tile vacío y el lleno compartían
-   rgb(24,29,38). La regla seguía en el archivo pareciendo trabajo hecho.
-
-   Se reescribe dentro de esta capa, y con el token en vez del hex de antes
-   (#111820, elegido a ojo para encajar en el degradado que esta capa ya quitó).
-   --surface es el escalón que el sistema ya usa para «más al fondo que el
-   contenido de un panel»; no hace falta un cuarto gris.
-
-   El :hover que la acompañaba NO se rescata: esta misma capa dejó muerto el
-   hover de todos los tiles a propósito — un tile no se pulsa — y devolvérselo
-   sólo a los vacíos sería justo al revés. Lo vigila test/vacios.mjs §4. */
-.tab:not([data-tab="estudio"]) .tile.sin-dato{background:var(--surface)}
-.tab:not([data-tab="estudio"]) .tile .k,
-.tab:not([data-tab="estudio"]) .tile .l{color:var(--muted)}
-.tab:not([data-tab="estudio"]) .tile .v{font-variant-numeric:tabular-nums;letter-spacing:-.035em}
-.tab:not([data-tab="estudio"]) .cards{gap:12px}
-.tab:not([data-tab="estudio"]) .cards .card{
-  border:1px solid var(--line);border-radius:var(--r-md);
-  background:var(--surface-2);
-  box-shadow:none;
-  padding:var(--s4);gap:var(--s3);
-  transition:border-color .14s ease;
-}
-/* EL HOVER NO MUEVE NADA. Una superficie que se levanta al rozarla se siente
-   blanda, y en una rejilla de tarjetas el efecto es un oleaje. Se marca con el
-   borde, que es lo que ya distingue un nivel de otro. */
-.tab:not([data-tab="estudio"]) .cards .card:hover{
-  border-color:var(--line-strong);
-}
-.tab:not([data-tab="estudio"]) .cards .card .ch{align-items:center}
-.tab:not([data-tab="estudio"]) .cards .card .ch h3{font-size:15px;line-height:1.35;letter-spacing:-.02em}
-.tab:not([data-tab="estudio"]) .cards .card .kv{row-gap:6px;line-height:1.45}
-.tab:not([data-tab="estudio"]) .cards .card .stats,
-.tab:not([data-tab="estudio"]) .cards .card .cf{border-top-color:var(--line-strong);padding-top:var(--s3)}
-.tab:not([data-tab="estudio"]) .cards .card .chip:not(.good):not(.warn):not(.bad){
-  color:var(--muted);background:var(--surface-3);border-color:var(--line-strong);border-radius:var(--r-sm);
-}
-.tab:not([data-tab="estudio"]) .empty{
-  /* OCUPA LA FILA ENTERA CUANDO ES HIJO DE UNA REJILLA. Medido a 1500px: en
-     PLAYBOOK y en FORMAS DE HACER DINERO el estado vacío caía en UNA columna de
-     385px dentro de un contenedor de 1180px, así que la única cosa que había en
-     la pantalla era una cajita arrinconada a la izquierda con 795px de negro al
-     lado. Los otros seis estados vacíos de la app ya llenaban su contenedor
-     (542/542, 1144/1144, 860/894, 446/480): el defecto era sólo de los que viven
-     en una rejilla. `.study-empty` ya resolvía esto con `grid-column:1/-1`, y
-     una de las plantillas de pre-sesión lo lleva escrito en línea: no es un
-     patrón nuevo, es el mismo sin aplicar. */
-  grid-column:1/-1;
-  /* Y deja de ser una nota suelta para ser un estado compuesto: centrado y con
-     aire, como el de ESTUDIO.
-
-     NI `grid` NI `flex` AQUÍ, y conviene que quede escrito porque fue el primer
-     intento: el contenido de estos estados es texto suelto mezclado con `<code>`
-     («Sin nada en Futuros. Pulsa `Desde plantilla` para empezar…»). Con
-     `display:grid` cada nodo —cada trozo de texto y cada `code`— se convierte en
-     un ítem de la rejilla y la frase se parte en cinco líneas apiladas. Medido en
-     pantalla: quedaba peor que el defecto que venía a arreglar. Con `block` la
-     frase sigue siendo una frase.
-
-     El ancho de la COLUMNA DE TEXTO se controla con el padding lateral, no con un
-     `max-width`: así la caja punteada ocupa la fila entera —que es lo que se
-     quería— y la línea se queda en una medida legible en vez de cruzar 1180px.
-     El porcentaje es RELATIVO AL CONTENEDOR, y eso importa: con `11vw` el mismo
-     valor se calculaba contra la ventana, así que al estado vacío de 446px de la
-     CALCULADORA le metía 165px de padding por lado y le dejaba una columna de
-     texto de 116px. Medido antes de dejarlo. */
-  display:block;
-  text-align:center;
-  padding:var(--s6) clamp(22px,9%,190px);border:1px dashed var(--line-strong);border-radius:var(--r-md);
-  background:var(--surface-2);
-  color:var(--muted);line-height:1.6;
-}
-/* La primera línea del estado vacío pesa como un título, igual que el `b` de
-   `.study-empty`: sin jerarquía, un párrafo centrado es sólo texto centrado. */
-.tab:not([data-tab="estudio"]) .empty b,
-.tab:not([data-tab="estudio"]) .empty strong{
-  display:block;color:var(--text);font-size:15px;line-height:1.35;letter-spacing:-.015em;
-}
-/* Reparte las líneas de forma pareja en vez de dejar una palabra suelta al final. */
-.tab:not([data-tab="estudio"]) .empty{text-wrap:pretty}
-.tab:not([data-tab="estudio"]) .seg{
-  padding:3px;gap:2px;border:1px solid var(--line);border-radius:var(--r-md);
-  background:var(--bg);
-}
-.tab:not([data-tab="estudio"]) .seg button{border-radius:var(--r-sm);transition:background .14s ease,color .14s ease,border-color .14s ease}
-.tab:not([data-tab="estudio"]) .seg button.active{
-  color:var(--accent);background:var(--accent-soft);
-  border-color:var(--accent);box-shadow:none;
-}
-.tab:not([data-tab="estudio"]) .seg button:not(.active):hover{background:var(--surface-3);color:var(--text)}
-.tab:not([data-tab="estudio"]) .synced,
-.tab:not([data-tab="estudio"]) .note-p,
-.tab:not([data-tab="estudio"]) .csub{color:var(--muted);line-height:1.6}
-#tabnav .tabbtn[data-tab="estudio"]:not(.active){background:transparent;border-color:transparent;color:var(--muted,#a5adbb)}
-#tabnav .tabbtn[data-tab="estudio"]:not(.active):hover{background:var(--surface-3);border-color:var(--line);color:var(--text)}
-#tabnav .tabbtn[data-tab="estudio"].active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);box-shadow:none}
-#tabnav .tabbtn[data-tab="estudio"]::before{display:none}
-@media(max-width:850px){
-  .tab:not([data-tab="estudio"]) .panel>header{padding:var(--s3)}
-  .tab:not([data-tab="estudio"]) .panel .body{padding:var(--s3)}
-}
-@media(max-width:600px){
-  .tab:not([data-tab="estudio"]) .toolbar{padding:var(--s2)}
-}
-
-
-/* MOTION SYSTEM — feedback espacial sutil; no altera estado ni cálculos. */
-@keyframes cabina-enter {
-  from { opacity: 0; transform: translate3d(0, 8px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
-}
-@keyframes cabina-soft-reveal {
-  from { opacity: .72; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-#tabnav .tabbtn { position:relative; isolation:isolate; }
-#tabnav .tabbtn::after {
-  content:""; position:absolute; left:12px; right:12px; bottom:3px; height:2px;
-  border-radius:2px; background:var(--accent); opacity:0; transform:scaleX(.35);
-  transform-origin:center; transition:transform .22s ease,opacity .18s ease;
-}
-#tabnav .tabbtn.active::after { opacity:.85; transform:scaleX(1); }
-.tab.active > .panel, .tab.active > .study-shell, .tab.active > .deck {
-  animation:cabina-enter .24s cubic-bezier(.2,.7,.2,1) both;
-}
-.tab.active > .panel:nth-of-type(2), .tab.active > .study-shell > .study-grid,
-.tab.active > .deck + .panel { animation-delay:.035s; }
-.panel, .study-panel, .study-metric, .study-stat {
-  transition: border-color .14s ease;
-}
-/* UN PANEL NO REACCIONA AL RATÓN. No se puede hacer clic en él, así que
-   iluminarlo y levantarlo al pasar por encima promete una acción que no existe
-   — y con seis paneles en pantalla el resultado es una interfaz que respira.
-   El hover se reserva para lo que de verdad responde. */
-.tile { transition:background .14s ease, border-color .14s ease; }
-.btn:not(:disabled):active { transform:translateY(1px) scale(.99); }
-.study-grid, .study-bottom { animation:cabina-soft-reveal .22s ease both; }
-:where(.panel, .study-panel, .study-metric) { will-change:auto; }
-@media (prefers-reduced-motion:reduce) {
-  .tab.active > .panel, .tab.active > .study-shell, .tab.active > .deck,
-  .study-grid, .study-bottom { animation:none!important; }
-  #tabnav .tabbtn::after { transition:none!important; }
-}
-
-/* CABINA · Formularios de datos: cuenta, reglas y pre-sesión
-   Capa visual solamente: no cambia datos, validaciones ni comportamiento. */
-.ed {
-  width: min(980px, calc(100vw - 32px));
-  max-width: 980px;
-  max-height: min(90dvh, 920px);
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-}
-.ed > header {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  gap: 16px;
-  background: var(--surface);
-}
-.ed > header h3 { font-size: 14px; line-height: 1.35; }
-.ed .fields {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 16px 18px;
-  padding: 20px 22px;
-}
-.ed .fld { min-width: 0; }
-.ed .fld > label,
-.ed .fld > .lab {
-  display: block;
-  margin: 0 0 7px;
-  line-height: 1.4;
-  font-size: 12px;
-  font-weight: 650;
-  overflow-wrap: anywhere;
-}
-.ed .fld input:not([type=checkbox]):not([type=radio]),
-.ed .fld select,
-.ed .fld textarea {
-  display: block;
-  width: 100%;
-  min-width: 0;
-  min-height: 42px;
-  padding: 10px 11px;
-  line-height: 1.4;
-}
-.ed .fld textarea { min-height: 96px; resize: vertical; }
-.ed .fld .help {
-  margin-top: 7px;
-  font: 12px/1.5 var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
-  color: var(--muted);
-  overflow-wrap: anywhere;
-}
-.ed > footer {
-  position: sticky;
-  bottom: 0;
-  z-index: 3;
-  align-items: center;
-  flex-wrap: wrap;
-  background: var(--surface);
-  padding: 14px 22px;
-}
-.ed > footer button { min-height: 40px; }
-.rulec .ced {
-  gap: 12px;
-  padding: 14px 0 4px;
-  min-width: 0;
-}
-.rulec .ced > .tin {
-  width: 100%;
-  min-width: 0;
-  min-height: 42px;
-  padding: 10px 11px;
-}
-.rulec .ced .edrow {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-.rulec .ced .edrow > div { min-width: 0; }
-.rulec .ced .edrow select,
-.rulec .ced .edrow input { width: 100%; min-width: 0; min-height: 40px; }
-.rulec .ced .edrow .lab {
-  display: block;
-  margin-bottom: 6px;
-  line-height: 1.4;
-  white-space: normal;
-}
-body.editing .check li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: var(--surface);
-}
-body.editing .check .ced.edit-only {
-  grid-column: 1;
-  grid-row: 1;
-  min-width: 0;
-  gap: 8px;
-}
-body.editing .check .ced .tin {
-  width: 100%;
-  min-width: 0;
-  min-height: 40px;
-  padding: 9px 10px;
-}
-body.editing .check li > .tools {
-  grid-column: 2;
-  grid-row: 1;
-  flex-wrap: nowrap;
-  align-self: start;
-  gap: 5px;
-}
-body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
-@media (max-width: 900px) {
-  .ed { width: min(760px, calc(100vw - 24px)); }
-  .ed .fields { gap: 14px; padding: 16px; }
-  .rulec .ced .edrow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 640px) {
-  .ed {
-    width: calc(100vw - 16px);
-    max-height: 94dvh;
-    border-radius: 12px;
-  }
-  .ed > header { padding: 13px 14px; }
-  .ed .fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px 12px;
-    padding: 14px;
-  }
-  .ed .fld, .ed .fld.w3, .ed .fld.w6 { grid-column: span 2; }
-  .ed .fld > label, .ed .fld > .lab { font-size: 12px; }
-  .ed .fld .help { font-size: 12px; }
-  .ed > footer { gap: 8px; padding: 12px 14px; }
-  .ed > footer button { flex: 1 1 auto; }
-  .rulec .ced .edrow { grid-template-columns: minmax(0, 1fr); }
-  body.editing .check li { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 10px; }
-  body.editing .check li > .tools { gap: 3px; }
-  body.editing .check li > .tools button { min-width: 30px; min-height: 32px; padding: 5px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ed, .ed * { scroll-behavior: auto !important; }
-}
-
-
-/* ── CABECERA COMPACTA EN EL TELÉFONO ──────────────────────────────────────
-   LA CABECERA SE COMÍA EL PRIMER TERCIO DE LA PANTALLA. Medido con la semilla
-   puesta, dónde empieza el primer bloque de contenido de la pestaña:
-
-       iPhone 430×932    256px   27% de la pantalla
-       iPhone 390×844    308px   36%
-       Android 360×780   308px   39%
-       escritorio        88px     9%
-
-   En un teléfono de 360px abrías la cabina y casi el 40% era cabecera: el
-   título en su propia fila, el reloj en otra, la píldora de sesión en otra —
-   `#sessionPill` llevaba `flex:1 1 100%`, una fila entera para ella sola— y
-   los botones en otra. Para una herramienta cuya razón de ser es leer números
-   rápido, eso es justo al revés.
-
-   Nada se oculta: se aprieta. La píldora deja de reservarse una fila y fluye
-   con el reloj, el bloque de marca y el reloj bajan un escalón de tamaño, y el
-   aire vertical se reduce al de un encabezado, no al de una portada. */
-@media (max-width: 700px) {
-  .topbar { padding-block: 10px 8px; gap: 6px 10px; }
-  .brand h1 { font-size: 19px; }
-  /* `space-between` (heredado del bloque de 760px) repartía los botones a lo
-     ancho y dejaba «Ver demo» a la izquierda y «Editar» pegado al borde
-     derecho con un hueco muerto en medio: parecían dos cosas sin relación.
-     Agrupados a la izquierda se leen como lo que son, una fila de acciones. */
-  .clock { gap: 6px 10px; justify-content: flex-start; }
-  .clock .time { font-size: 18px; }
-  /* La píldora de sesión fluye en la misma fila que el reloj en vez de
-     reservarse una para ella sola. Sigue visible y sigue siendo legible. */
-  #sessionPill { flex: 0 1 auto; order: 2; }
-  .save-state { order: 3; }
-  .editbtn { order: 4; }
-  /* El aviso de «sin guardar» SÍ conserva su fila: es lo único de esta barra
-     que hay que ver, y partirlo lo escondería. */
-  .save-state.nosave { flex: 1 1 100%; }
-}
-@media (max-width: 700px) {
-    :root { --mobile-nav-h: 68px; }
-    html { scroll-padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 20px); }
-    body { overflow-x: clip; padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 24px); }
-    .tabnav#tabnav {
-      position: fixed; inset: auto 0 0; z-index: 80; display: flex; align-items: stretch;
-      gap: 2px; width: 100%; height: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px)); margin: 0;
-      padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px)); overflow-x: auto; overflow-y: hidden;
-      overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none;
-      background: rgba(11,14,19,.96); border-top: 1px solid var(--line-strong, #303946);
-      border-bottom: 0; backdrop-filter: blur(20px); box-sizing: border-box;
-    }
-    .tabnav#tabnav::-webkit-scrollbar { display: none; }
-    #tabnav .tabbtn {
-      flex: 0 0 72px; display: flex; flex-direction: column; justify-content: center; align-items: center;
-      gap: 5px; min-width: 72px; min-height: 44px; padding: 5px 3px 7px;
-      border: 1px solid transparent; border-radius: 10px; font-size: 10px; line-height: 1.1;
-      letter-spacing: -.01em; white-space: nowrap; text-align: center; background: transparent;
-      color: var(--muted, #a5adbb); scroll-snap-align: center;
-    }
-    #tabnav .tabbtn::before { display: block; font-size: 17px; line-height: 1; font-weight: 500; color: currentColor; }
-    #tabnav .tabbtn[data-tab="cabina"]::before { content: "⌂"; }
-    #tabnav .tabbtn[data-tab="futuros"]::before { content: "↗"; }
-    #tabnav .tabbtn[data-tab="cuentas"]::before { content: "◷"; }
-    #tabnav .tabbtn[data-tab="edge"]::before { content: "◫"; }
-    #tabnav .tabbtn[data-tab="invest"]::before { content: "◈"; }
-    #tabnav .tabbtn[data-tab="playbook"]::before { content: "▤"; }
-    #tabnav .tabbtn[data-tab="ideas"]::before { content: "✳"; }
-    #tabnav .tabbtn[data-tab="estudio"]::before { content: "◎"; }
-    #tabnav .tabbtn[data-tab="calc"]::before { content: "＋"; }
-    #tabnav .tabbtn.active { color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); border-color: rgba(112,224,207,.22); }
-    #tabnav .tabbtn { font-size: 0; }
-    #tabnav .tabbtn::after {
-      display: block; position: static; inset: auto; width: auto; height: auto; margin: 0;
-      background: none; border-radius: 0; box-shadow: none; opacity: 1; transform: none;
-      font-size: 10px; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap;
-    }
-    #tabnav .tabbtn[data-tab="cabina"]::after { content: "Cabina"; }
-    #tabnav .tabbtn[data-tab="futuros"]::after { content: "Futuros"; }
-    #tabnav .tabbtn[data-tab="cuentas"]::after { content: "Cuentas"; }
-    #tabnav .tabbtn[data-tab="edge"]::after { content: "Edge"; }
-    #tabnav .tabbtn[data-tab="invest"]::after { content: "Invertir"; }
-    #tabnav .tabbtn[data-tab="playbook"]::after { content: "Playbook"; }
-    #tabnav .tabbtn[data-tab="ideas"]::after { content: "Ideas"; }
-    #tabnav .tabbtn[data-tab="estudio"]::after { content: "Estudio"; }
-    #tabnav .tabbtn[data-tab="calc"]::after { content: "Calc"; }
-    #tabnav .tabbtn .n { position: absolute; top: 2px; right: 9px; min-width: 14px; padding: 1px 3px; border-radius: 9px; font-size: 9px; line-height: 1.25; background: var(--surface-3, #242d38); }
-    #quickBtn {
-      position: fixed; right: 12px; bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
-      z-index: 75; min-height: 46px; padding: 0 16px; border: 1px solid rgba(112,224,207,.42);
-      border-radius: 999px; background: var(--accent, #70e0cf); color: #07120f; font-size: 13px;
-      font-weight: 750; box-shadow: 0 8px 28px rgba(0,0,0,.35), 0 0 0 4px rgba(112,224,207,.08);
-    }
-    #quickBtn:active { transform: translateY(1px) scale(.98); }
-    .topbar, .topbar > *, .clock, .brand, .hgroup, .toolbar { min-width: 0; }
-    .tab, .tab > *, .panel, .panel > header, .panel > .body, .study-shell, .study-grid, .study-bottom, .deck { min-width: 0; max-width: 100%; }
-    .panel > header { flex-wrap: wrap; gap: 8px 10px; }
-    .panel > header h2 { overflow-wrap: anywhere; }
-    .toolbar, .hgroup, .actions, .filters, .jactions { flex-wrap: wrap; }
-    input:not([type="checkbox"]):not([type="radio"]), select, textarea, .btn, button.editbtn, .icon, .tabbtn {
-      scroll-margin-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
-    }
-    input:not([type="checkbox"]):not([type="radio"]), select, textarea { max-width: 100%; }
-    .ed, .ov, .dialog, [role="dialog"] { overscroll-behavior: contain; }
-    .ov { z-index: 100; } /* los diálogos deben quedar por encima de la navegación inferior */
-    .ed input:not([type="checkbox"]):not([type="radio"]), .ed select, .ed textarea,
-    .qk input:not([type="checkbox"]):not([type="radio"]), .qk select, .qk textarea { min-height: 44px; font-size: 16px; }
-    .ed > footer button, .qk button, .btn, .editbtn { min-height: 44px; }
-    table { max-width: 100%; }
-    .panel table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    img, canvas, video, svg { max-width: 100%; }
-    .study-hero, .study-grid, .study-bottom, .study-fields, .study-protocol { grid-template-columns: minmax(0, 1fr); }
-    .study-field.full { grid-column: auto; }
-    .study-toolbar { flex-wrap: wrap; }
-  }
-  @media (max-width: 380px) {
-    #tabnav .tabbtn { flex-basis: 68px; min-width: 68px; }
-    #quickBtn { right: 9px; padding-inline: 13px; }
-    .panel > header, .panel .body { padding-inline: 12px; }
-    .ed .fields { padding: 12px; }
-  }
-  @media (min-width: 701px) { #quickBtn { position: relative; } }
-  @media (prefers-reduced-motion: reduce) { #tabnav .tabbtn, #quickBtn { transition: none !important; animation: none !important; } }
-
-  @media (max-width: 700px) {
-    .empty, .deck-parts { min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: normal; white-space: normal; }
-    .tab[data-tab="cabina"] .deck-parts { white-space: normal; }
-    .tab[data-tab="estudio"] .deck-parts { display: block; width: 100%; flex: 1 1 100%; margin-left: 0; }
-    .tab[data-tab="playbook"] p.empty, .tab[data-tab="ideas"] p.empty {
-      display: block; box-sizing: border-box; min-width: 0; width: calc(100vw - 40px);
-      max-width: calc(100vw - 40px); white-space: normal; overflow-wrap: anywhere;
-      word-break: break-word; margin-right: 0;
-    }
-    .tab[data-tab="playbook"] .empty, .tab[data-tab="ideas"] .empty {
-      min-width: 0; max-width: calc(100vw - 40px); box-sizing: border-box;
-      white-space: normal; overflow-wrap: anywhere;
-    }
-    .tab[data-tab="playbook"] .empty code, .tab[data-tab="ideas"] .empty code { white-space: normal; overflow-wrap: anywhere; }
-  }
-
-
-
-@media (max-width: 700px) {
-  .tabnav#tabnav { overflow-x: hidden; justify-content: space-between; }
-  #tabnav .tabbtn { position: relative; }
-  #tabnav .tabbtn[data-tab="cuentas"],
-  #tabnav .tabbtn[data-tab="edge"],
-  #tabnav .tabbtn[data-tab="historial"],
-  #tabnav .tabbtn[data-tab="playbook"],
-  #tabnav .tabbtn[data-tab="ideas"],
-  #tabnav .tabbtn[data-tab="calc"],
-  #tabnav .tabbtn[data-tab="ajustes"] { display: none !important; }
-  #tabnav .tabbtn[data-tab="cabina"],
-  #tabnav .tabbtn[data-tab="futuros"],
-  #tabnav .tabbtn[data-tab="invest"],
-  #tabnav .tabbtn[data-tab="estudio"] { flex: 1 1 0; min-width: 0; }
-  #tabnav .tabbtn .n:empty { display: none; }
-  #tabnav #mobileMoreBtn {
-    display: flex; flex: 1 1 0; min-width: 0; min-height: 44px; padding: 5px 3px 7px;
-    flex-direction: column; align-items: center; justify-content: center; gap: 5px;
-    border: 1px solid transparent; border-radius: 10px; background: transparent;
-    color: var(--muted, #a5adbb); font-size: 0; line-height: 1.1; white-space: nowrap;
-  }
-  #tabnav #mobileMoreBtn::before { content: "⋯"; display: block; font-size: 19px; line-height: 1; }
-  #tabnav #mobileMoreBtn::after {
-    content: "Más"; display: block; position: static; inset: auto; width: auto; height: auto;
-    margin: 0; background: none; border-radius: 0; box-shadow: none; opacity: 1; transform: none;
-    font-size: 10px; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap;
-  }
-  #tabnav #mobileMoreBtn.active { color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); border-color: rgba(112,224,207,.22); }
-  #mobileMoreOv {
-    position: fixed; inset: 0; z-index: 120; display: flex; align-items: flex-end; justify-content: center;
-    padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
-    background: rgba(3, 6, 12, .72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  }
-  #mobileMoreOv[hidden] { display: none !important; }
-  #mobileMoreOv .mobile-more-backdrop {
-    position: absolute; inset: 0; width: 100%; height: 100%; padding: 0;
-    border: 0; border-radius: 0; background: transparent;
-  }
-  #mobileMoreOv .mobile-more-sheet {
-    position: relative; width: min(100%, 520px); max-height: min(72dvh, 620px); overflow-y: auto;
-    padding: 16px; border: 1px solid var(--line-strong, #303946); border-radius: 18px;
-    background: var(--surface, #111821); box-shadow: 0 18px 50px rgba(0,0,0,.45);
-  }
-  #mobileMoreOv .mobile-more-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-  #mobileMoreOv .mobile-more-head h2 { margin: 0; font-size: 13px; letter-spacing: .04em; }
-  #mobileMoreOv .mobile-more-close { min-width: 44px; min-height: 44px; }
-  #mobileMoreOv .mobile-more-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  #mobileMoreOv [data-mobile-more-tab] {
-    display: flex; align-items: center; justify-content: flex-start; min-width: 0; min-height: 52px;
-    width: 100%; padding: 12px; border: 1px solid var(--line-strong, #303946); border-radius: 12px;
-    background: var(--surface-2, #18212c); color: var(--text, #e4ebf2); text-align: left;
-    font-size: 13px; line-height: 1.25; white-space: normal;
-  }
-  #mobileMoreOv [data-mobile-more-tab]:active { border-color: var(--accent, #70e0cf); background: var(--accent-soft, rgba(79,179,160,.12)); }
-  #mobileMoreOv [data-mobile-more-tab].is-active { border-color: rgba(112,224,207,.55); background: rgba(112,224,207,.11); color: var(--accent, #70e0cf); }
-  #mobileMoreOv [data-mobile-more-tab].is-active::after { content: "Actual"; margin-left: auto; padding-left: 8px; font-size: 11px; font-weight: 700; }
-  #mobileMoreOv :is(button, [href], [tabindex]):focus-visible { outline: 2px solid var(--accent, #70e0cf); outline-offset: 3px; }
-  @media (prefers-reduced-motion: reduce) { #mobileMoreOv, #mobileMoreOv * { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
-}
-@media (min-width: 701px) {
-  #mobileMoreBtn, #mobileMoreOv { display: none !important; }
-}
-/* Evita que estilos de display explícitos anulen el atributo hidden del menú. */
-#mobileMoreOv[hidden] { display: none !important; }
-/* Texto de estados vacíos limitado al viewport en pantallas estrechas. */
-@media (max-width: 700px) {
-  .tab[data-tab="playbook"] .empty,
-  .tab[data-tab="ideas"] .empty {
-    display: block; width: 100%; min-width: 0;
-    max-width: calc(100vw - 32px); box-sizing: border-box;
-    white-space: normal; overflow-wrap: anywhere; word-break: normal;
-  }
-  .tab[data-tab="playbook"] .empty *,
-  .tab[data-tab="ideas"] .empty * {
-    max-width: 100%; white-space: normal; overflow-wrap: anywhere;
-  }
-}
-
-
-/* Cabina · interfaz operativa clara. Presentación solamente. */
-
-/* Cabina · interfaz operativa clara. Presentación solamente: no cambia datos,
-   cálculos, flujos de guardado ni preferencias existentes. */
-:root {
-  color-scheme: light !important;
-  /* Concepto A: semantic, accessible tokens. The existing dark values are
-     legacy fallbacks; these are the effective values of the light experience. */
-  --bg: #f7f9fc !important;
-  --surface: #ffffff !important;
-  --surface-2: #f8fafc !important;
-  --surface-3: #edf2f8 !important;
-  --line: #e2e8f0 !important;
-  --line-strong: #cbd5e1 !important;
-  --text: #172334 !important;
-  --muted: #475569 !important;
-  --dim: #5b6779 !important;
-  --accent: #1d4ed8 !important;
-  --accent-ink: #ffffff !important;
-  --positive: #166534 !important;
-  --negative: #b42318 !important;
-  --warning: #92400e !important;
-  --info: #1d4ed8 !important;
-  --accent-soft: rgba(29,78,216,.09) !important;
-  --good-soft: rgba(22,101,52,.09) !important;
-  --bad-soft: rgba(180,35,24,.08) !important;
-  --warn-soft: rgba(146,64,14,.09) !important;
-  --info-soft: rgba(29,78,216,.08) !important;
-  --sh-1: 0 1px 2px rgba(23,35,52,.04) !important;
-  --sh-2: 0 10px 28px rgba(23,35,52,.09) !important;
-  --ui-glow: transparent !important;
-  --ui-panel: #ffffff !important;
-  --ui-panel-raised: #f8fafc !important;
-  --ui-focus: 0 0 0 3px rgba(29,78,216,.16) !important;
-  --control-bg: #ffffff;
-  --control-readonly: #f1f5f9;
-  --control-disabled: #eef2f6;
-  --control-placeholder: #5b6779;
-  --control-error: #b42318;
-  --control-radius: 8px;
-}
-html, body {
-  background: var(--bg) !important;
-  color: var(--text) !important;
-}
-body { color-scheme: light !important; }
-::selection { background: #dbeafe !important; color: #172334 !important; }
-.topbar, .tabnav#tabnav {
-  background: rgba(255,255,255,.97) !important;
-  color: var(--text) !important;
-  border-color: var(--line) !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-}
-.brand h1, .topbar h1, .topbar .clock, .topbar .hgroup { color: var(--text) !important; }
-.tabnav#tabnav { border-bottom: 1px solid var(--line) !important; }
-#tabnav .tabbtn {
-  color: var(--muted) !important;
-  background: transparent !important;
-  border-color: transparent !important;
-  box-shadow: none !important;
-}
-#tabnav .tabbtn::before { box-shadow: none !important; }
-#tabnav .tabbtn::after { background: var(--accent) !important; }
-#tabnav .tabbtn.active,
-#tabnav .tabbtn[data-tab="estudio"].active {
-  color: var(--accent) !important;
-  background: var(--accent-soft) !important;
-  border-color: #bfcefa !important;
-  box-shadow: none !important;
-}
-#tabnav .tabbtn[data-tab="estudio"]::before {
-  background: var(--accent) !important;
-  box-shadow: none !important;
-}
-#tabnav .tabbtn[data-tab="estudio"]:not(.active) {
-  color: var(--muted) !important;
-  background: transparent !important;
-  border-color: transparent !important;
-}
-@media (max-width: 700px) {
-  #tabnav .tabbtn[data-tab="estudio"]::before {
-    background: transparent !important;
-    color: var(--accent) !important;
-  }
-}
-.panel, .panel > header, .panel > .body, .study-panel, .study-card,
-.study-stat, .study-flash, .tile, .tiles, .acct, .jstrip, .deck,
-#panelAccts, #panelRules, #panelJournal, #panelLevels, #panelHist,
-#panelCabCal, .study-searchrow, .view-prefs-dialog, .study-dialog,
-.ed, .qk, .cmd, .cmd-in, .cmd-it, #mobileMoreOv .mobile-more-sheet {
-  color: var(--text) !important;
-  background: var(--surface) !important;
-  background-image: none !important;
-  border-color: var(--line) !important;
-  box-shadow: none !important;
-  text-shadow: none !important;
-}
-/* Diferencia visual medible entre ausencia de dato y valor disponible. */
-.tab:not([data-tab="estudio"]) .tile:not(.sin-dato) { background: #f8fafc !important; }
-.tab:not([data-tab="estudio"]) .tile.sin-dato { background: #edf1f5 !important; }
-.panel > header { border-bottom-color: var(--line) !important; }
-.panel > header h2, .study-panel h3, .study-card h3, .study-dialog-head h3,
-.view-prefs-head h2, .deck-t { color: var(--text) !important; }
-.deck {
-  border: 1px solid var(--line) !important;
-  border-radius: 8px !important;
-  padding: 12px 16px !important;
-  margin-bottom: 14px !important;
-}
-.deck::before, .tab[data-tab="cabina"] .deck::before { display: none !important; }
-.deck-n, .study-kicker, .study-stat-top, .study-note, .study-card-foot,
-.study-card p, .study-hero p, .study-field label, .study-field > label,
-.view-prefs-note { color: var(--muted) !important; }
-.deck-stage, .study-tag, .study-kind, .study-state, .study-filter,
-.study-shortcut {
-  background: var(--surface-2) !important;
-  color: var(--muted) !important;
-  border-color: var(--line) !important;
-  box-shadow: none !important;
-}
-.study-filter[aria-pressed="true"], .study-state:not(.progressing):not(.mastered), .study-kind {
-  color: var(--accent) !important;
-  background: var(--accent-soft) !important;
-  border-color: #bfcefa !important;
-}
-.study-state.progressing {
-  color: #8a4b08 !important;
-  background: #fff4df !important;
-  border-color: #efd4a3 !important;
-}
-.study-state.mastered {
-  color: var(--muted) !important;
-  background: #f1f4f7 !important;
-  border-color: var(--line) !important;
-}
-.study-searchrow:focus-within {
-  border-color: var(--accent) !important;
-  box-shadow: var(--ui-focus) !important;
-  transform: none !important;
-}
-.study-card:hover, #panelAccts .acct:hover {
-  border-color: var(--line-strong) !important;
-  box-shadow: none !important;
-  transform: none !important;
-}
-.study-progress { background: #e4e9ee !important; }
-.study-progress span { background: var(--accent) !important; }
-.study-flash { min-height: 0 !important; }
-.study-flash small, .study-flash-answer { color: var(--accent) !important; }
-.study-card-foot { border-top-color: var(--line) !important; }
-.study-card-foot a { color: var(--accent) !important; }
-.view-prefs-backdrop, .study-modal, #mobileMoreOv {
-  background: rgba(25,35,45,.35) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-.view-prefs-dialog, .study-dialog, .ed, .qk, .cmd {
-  border-radius: 10px !important;
-  box-shadow: 0 12px 36px rgba(20,32,44,.14) !important;
-}
-.view-prefs-head, .view-prefs-tools, .view-prefs-foot,
-.study-dialog-head, .study-dialog-foot, .ed > header, .ed > footer {
-  background: var(--surface) !important;
-  border-color: var(--line) !important;
-}
-/* Etiquetas visibles de filtros: no depender de placeholders ni del valor del select. */
-.tab .toolbar .cab-filter-field {
-  display: grid;
-  align-content: end;
-  gap: 5px;
-  flex: 0 1 158px;
-  min-width: 120px;
-  max-width: 100%;
-}
-.tab .toolbar .cab-filter-field:has(input[type="search"]) { flex: 1 1 190px; }
-.tab .toolbar .cab-filter-caption {
-  display: block;
-  color: var(--muted) !important;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.25;
-}
-.tab .toolbar .cab-filter-field > :is(input, select) {
-  width: 100%;
-  min-width: 0;
-  margin: 0;
-}
-@media (max-width: 700px) {
-  .tab .toolbar .cab-filter-field { flex: 1 1 140px; }
-  .tab .toolbar .cab-filter-field:has(input[type="search"]) { flex-basis: 100%; }
-}
-/* A · Entradas de datos. El mismo contrato visual para editores, filtros y diálogos. */
-:where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]), select, textarea),
-.study-field input, .study-field select, .study-field textarea, .study-filter {
-  color: var(--text) !important;
-  background: var(--control-bg) !important;
-  border: 1px solid var(--line-strong) !important;
-  border-radius: var(--control-radius) !important;
-  box-shadow: none !important;
-  min-height: 40px;
-  padding: 9px 12px;
-  font-family: var(--font-ui);
-  font-size: 14px;
-  line-height: 1.4;
-  transition: border-color var(--mo-fast) ease, box-shadow var(--mo-fast) ease;
-}
-:where(input, select, textarea):focus-visible,
-.study-searchrow:focus-within {
-  outline: 2px solid var(--accent) !important;
-  outline-offset: 2px !important;
-  border-color: var(--accent) !important;
-  box-shadow: var(--ui-focus) !important;
-}
-:where(input, textarea)::placeholder,
-.study-searchrow input::placeholder {
-  color: var(--control-placeholder) !important;
-  opacity: 1 !important;
-}
-:where(input, select, textarea)[aria-invalid="true"] {
-  border-color: var(--control-error) !important;
-  box-shadow: 0 0 0 2px var(--bad-soft) !important;
-}
-:where(input, select, textarea)[aria-invalid="true"]:focus-visible {
-  outline-color: var(--control-error) !important;
-}
-:where(input, textarea):read-only:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
-  background: var(--control-readonly) !important;
-  color: var(--muted) !important;
-  cursor: default;
-}
-:where(input, select, textarea):disabled {
-  background: var(--control-disabled) !important;
-  color: var(--dim) !important;
-  opacity: 1 !important;
-  cursor: not-allowed;
-}
-:where(input[type="number"], input[inputmode="decimal"], input[inputmode="numeric"]) {
-  font-family: var(--font-mono) !important;
-  font-variant-numeric: tabular-nums lining-nums;
-}
-:where(.ed .fld > label, .study-field > label, .study-field label, .fld > label) {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--muted) !important;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-}
-.ed .fld .help {
-  color: var(--dim) !important;
-  font-family: var(--font-ui) !important;
-  font-size: 12px;
-  line-height: 1.5;
-  margin-top: 6px;
-}
-input[type="checkbox"], input[type="radio"] { accent-color: var(--accent) !important; }
-@media (max-width: 700px) {
-  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),select,textarea) {
-    min-height: 44px !important;
-    font-size: 16px !important;
-  }
-  :where(.ed .fld > label, .study-field > label, .study-field label, .fld > label) {
-    font-size: 13px;
-  }
-}
-.btn:not(.primary):not(.danger), .editbtn, .study-filter,
-.view-prefs-item, #mobileMoreOv [data-mobile-more-tab] {
-  color: var(--text) !important;
-  background: #ffffff !important;
-  border-color: var(--line-strong) !important;
-  box-shadow: none !important;
-}
-.btn.primary, #quickBtn {
-  color: #ffffff !important;
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
-  box-shadow: none !important;
-}
-.btn.danger, .negative, .bad, .loss { color: var(--negative) !important; }
-.positive, .good, .win { color: var(--positive) !important; }
-#quickBtn { border-radius: 8px !important; }
-table { color: var(--text) !important; }
-table th { color: var(--muted) !important; background: #f1f4f7 !important; }
-table td { color: var(--text) !important; border-color: var(--line) !important; }
-table tr:hover td { background: #f5f8fa !important; }
-svg.chart text, svg.chart text tspan, svg.chart tspan, .chart text,
-.chart text tspan {
-  fill: #536171 !important;
-  color: #536171 !important;
-  -webkit-text-fill-color: #536171 !important;
-}
-svg.chart .s1, .chart .s1 { stroke: var(--accent) !important; }
-svg.chart .end, svg.chart .hp, .chart .end, .chart .hp { fill: var(--accent) !important; }
-#panelAccts .acct:hover { background: #f8fafc !important; }
-#mobileMoreOv .mobile-more-sheet { background: #ffffff !important; }
-#mobileMoreOv [data-mobile-more-tab].is-active {
-  color: var(--accent) !important;
-  background: var(--accent-soft) !important;
-  border-color: #bfcefa !important;
-}
-.cmd-grp { color: var(--accent) !important; }
-.cmd-it[aria-selected="true"] {
-  background: var(--accent-soft) !important;
-  box-shadow: inset 2px 0 var(--accent) !important;
-}
-.cmd-it[aria-selected="true"] .ct { color: var(--text) !important; }
-.tab.active > .panel, .tab.active > .study-shell, .tab.active > .deck,
-.study-grid, .study-bottom { animation: none !important; }
-.panel, .study-panel, .study-card, .study-stat, .study-searchrow,
-#panelAccts .acct, #panelRules, #panelJournal, #panelLevels, #panelHist,
-#panelCabCal { transition: border-color .12s ease !important; }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; }
-}
-
-/* ===================== ERGONOMÍA DE LA PR #75 =====================
-   Lo que queda de la capa visual de la PR #75 después de medir qué de ella
-   NO estaba ya en main. Casi todo lo estaba: el foco visible global, los
-   36/44 px de alto de control, los 16 px de campo en el iPhone (con el mismo
-   comentario sobre el zoom de Safari), `tabular-nums` en decenas de sitios,
-   `scroll-padding-top`, `overscroll-behavior` y quince bloques de
-   `prefers-reduced-motion`. Repetirlo habría sido añadir una segunda escala
-   de radios y espaciado —`--ds-*` junto a los `--r-*` que ya existen— para
-   decir lo mismo dos veces y que se separen con el tiempo.
-
-   LA PALETA DE LA PR #75 NO ENTRA, y conviene saber por qué: su capa define
-   su papel cálido sin `!important` (los valores, en docs/DISENO.md: aquí no,
-   porque el guardián prohíbe que esos hex vuelvan al CSS), y el tema de
-   744c1a3 declara `html, body { background: var(--bg) !important }`. Gane
-   quien gane el orden, el `!important` se lleva el color. Habría quedado CSS
-   que no pinta nada con un guardián en verde encima, porque ese guardián
-   comprobaba que los hex ESTUVIERAN EN EL TEXTO, no que llegaran a la
-   pantalla. La decisión está en docs/DISENO.md.
-
-   Quedan tres declaraciones, y ninguna es de color: */
-
-/* El destello gris de Android/iOS al tocar un control se come el estado de
-   foco que acabamos de dejar visible, y dura más que el toque. */
-:where(button, input, select, textarea, a) { -webkit-tap-highlight-color: transparent; }
-
-/* `balance` ya está en los títulos; `pretty` es para el texto corrido, donde
-   lo que molesta no es un título en dos líneas desiguales sino la palabra
-   suelta en la última. Afecta a notas, ayudas y vacíos, que es donde esta
-   aplicación explica las cosas. */
-:where(.empty, .hint, .help, .meta, .sub, .note, .csub, .study-note) { text-wrap: pretty; }
-
-/* `lining-nums` acompaña a `tabular-nums`: sin él, una fuente con cifras de
-   estilo antiguo alinea las columnas pero deja el 3 y el 9 por debajo de la
-   línea base, y una tabla de P&L se lee torcida. */
-body { font-variant-numeric: tabular-nums lining-nums; }
-
-    @media (max-width: 720px) {
-      #studyReader .study-dialog-body { grid-template-columns: minmax(0,1fr) !important; }
-      #studyReaderContext { border-left: 0 !important; border-top: 1px solid var(--line); padding: 14px 0 0 !important; }
-      #studyReader .study-dialog { max-height: calc(100dvh - 20px); overflow-y: auto; }
-    }
-
-/* ---------- Pulido de Playbook y editor de operaciones ---------- */
-.tab[data-tab="playbook"] #pbNav {
-  display:flex; align-items:center; gap:4px; min-width:0; max-width:100%;
-  padding:7px; overflow-x:auto; overscroll-behavior-x:contain;
-  border:1px solid var(--line); border-radius:var(--r-md);
-  background:var(--surface-1); scrollbar-width:thin;
-}
-.tab[data-tab="playbook"] #pbNav > * { flex:0 0 auto; }
-.tab[data-tab="playbook"] .toolbar {
-  display:flex; flex-wrap:wrap; align-items:center; gap:8px;
-  min-width:0; padding:10px; border:1px solid var(--line);
-  border-radius:var(--r-md); background:var(--surface-1);
-}
-.tab[data-tab="playbook"] .toolbar > input[type="search"],
-.tab[data-tab="playbook"] .toolbar > input[type="text"],
-.tab[data-tab="playbook"] .toolbar > select {
-  min-width:0; max-width:100%; min-height:40px;
-}
-.tab[data-tab="playbook"] .toolbar > input[type="search"],
-.tab[data-tab="playbook"] .toolbar > input[type="text"] { flex:1 1 180px; }
-.tab[data-tab="playbook"] .toolbar > select { flex:0 1 150px; }
-.tab[data-tab="playbook"] .empty {
-  min-height:76px; display:flex; flex-direction:column;
-  align-items:center; justify-content:center; gap:6px;
-  padding:20px; text-align:center;
-}
-
-/* El editor debe caber en la ventana; el scroll queda dentro del diálogo. */
-:where([role="dialog"], dialog, .modal-card, .dialog) {
-  box-sizing:border-box; max-width:calc(100vw - 32px);
-  max-height:calc(100dvh - 32px); overflow-y:auto;
-  overscroll-behavior:contain; scrollbar-gutter:stable;
-}
-:where([role="dialog"], dialog, .modal-card, .dialog) :where(input:not([type="checkbox"]):not([type="radio"]), select) {
-  box-sizing:border-box; min-width:0; min-height:40px; max-width:100%;
-}
-:where([role="dialog"], dialog, .modal-card, .dialog) textarea {
-  box-sizing:border-box; min-width:0; max-width:100%; min-height:88px;
-  line-height:1.5; resize:vertical;
-}
-:where([role="dialog"], dialog, .modal-card, .dialog) label:has(input[type="checkbox"]),
-:where([role="dialog"], dialog, .modal-card, .dialog) label:has(input[type="radio"]) {
-  display:inline-flex; align-items:center; gap:9px; min-width:0;
-  line-height:1.4; cursor:pointer;
-}
-:where([role="dialog"], dialog, .modal-card, .dialog) input[type="checkbox"],
-:where([role="dialog"], dialog, .modal-card, .dialog) input[type="radio"] {
-  width:16px; height:16px; flex:0 0 16px; margin:0;
-}
-:where([role="dialog"], dialog, .modal-card, .dialog) :where(.grid,.form-grid,.form-row,.fields-grid) {
-  min-width:0; gap:12px;
-}
-@media (max-width:760px) {
-  :where([role="dialog"], dialog, .modal-card, .dialog) {
-    width:calc(100vw - 20px); max-width:calc(100vw - 20px);
-    max-height:calc(100dvh - 20px); border-radius:var(--r-lg);
-  }
-  .tab[data-tab="playbook"] .toolbar { gap:7px; padding:9px; }
-  .tab[data-tab="playbook"] .toolbar > * { flex:1 1 130px; }
-}
-</style>
 
 </body>
 </html>
