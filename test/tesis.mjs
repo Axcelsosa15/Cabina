@@ -283,7 +283,10 @@ console.log('\n═══ el respaldo se las lleva ═══');
    «3 operaciones · 2 estrategias» y nunca mencionaba las tesis. Un respaldo que
    no nombra lo que se lleva se descubre al restaurar, cuando ya no hay de dónde
    sacarlo. */
-await p.click('.tabbtn[data-tab="cabina"]'); await p.waitForTimeout(600);
+/* Esta no se caía —`textContent` lee un nodo oculto— pero navegaba a Cabina
+   para leer un contador que ahora vive en Ajustes: pasaba describiendo un sitio
+   que ya no es. Se apunta a donde está. */
+await p.click('.tabbtn[data-tab="ajustes"]'); await p.waitForTimeout(600);
 const meta = await txt('#bkMeta');
 ok(/tesis/.test(meta), 'el resumen del respaldo nombra las tesis', meta.slice(0, 90));
 const n = await p.evaluate(() => TES.all().length);

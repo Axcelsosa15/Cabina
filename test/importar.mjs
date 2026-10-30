@@ -49,8 +49,13 @@ const importa = async (json, { confirmar = true } = {}) => {
   await p.goto(BASE, { waitUntil: 'load' });
   await p.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
   await p.waitForTimeout(1300);
-  await p.click('[data-tab="cabina"]'); await p.waitForTimeout(350);
-  await p.click('button:has-text("Pegar el texto")'); await p.waitForTimeout(600);
+  /* EL PANEL DE COPIA VIVE EN AJUSTES, no en Cabina: salió de ahí cuando la
+     configuración se juntó en una pestaña. Y se pulsa por ID y no por texto
+     porque «Pegar el texto» lo dicen DOS botones —#bkPaste, el de la copia, y
+     #impPaste, el del importador de CSV en Futuros—: el localizador por texto
+     resolvía a dos elementos y acertaba sólo por el orden del DOM. */
+  await p.click('[data-tab="ajustes"]'); await p.waitForTimeout(350);
+  await p.click('#bkPaste'); await p.waitForTimeout(600);
   await p.fill('#edFields textarea', json); await p.waitForTimeout(250);
   /* `flashEd()` escribe el motivo del rechazo EN EL TITULO y lo restaura sola tras
      un momento. Leer a los 1000 ms lo perdia: la asercion pasaba con el detalle
@@ -196,8 +201,8 @@ console.log('\n═══ LA OTRA DIRECCION · exportar con la base caida ══�
   await q.waitForTimeout(1700);
   ok(d.filasDe(uid).filter(f => f.path.startsWith('days/')).length === 2, 'hay dos dias en la cuenta');
   d.e.lecturasRotas = 'days';
-  await q.click('[data-tab="cabina"]'); await q.waitForTimeout(400);
-  await q.click('button:has-text("Ver el texto")'); await q.waitForTimeout(3000);
+  await q.click('[data-tab="ajustes"]'); await q.waitForTimeout(400);
+  await q.click('#bkShow'); await q.waitForTimeout(3000);
   const e = await q.evaluate(() => {
     const ta = document.querySelector('#edFields textarea');
     return { hayTexto: !!ta, dias: (() => { try { return Object.keys(JSON.parse(ta.value).days || {}); } catch (x) { return null; } })(),

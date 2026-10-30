@@ -332,6 +332,8 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
   dice('historial', 'suite', 'El historial sigue al journal sin pisar lo escrito a mano', 'index.html');
   dice('revisiones', 'suite', 'Lo que falta revisar se enseña, no se recuerda', 'index.html');
   dice('vista-personalizable', 'suite', 'La densidad y los módulos visibles se personalizan por pestaña', 'index.html');
+  dice('estudio-investigacion', 'suite', 'Estudio conserva metadatos de fuentes, vínculos y backlinks', 'persistencia');
+  dice('diseno-sistema', 'suite', 'La ergonomía sigue escrita y la paleta descartada no vuelve', 'index.html');
   /* EL MAPEADOR MANUAL, fase 1 de docs/IMPORTAR.md. Vigila dos cosas distintas:
      que el mapeo lea lo que se le dice y pare donde no se puede saber, y que lo
      importado NO se juzgue como si hubiera tenido un plan — sin eso, cada fila

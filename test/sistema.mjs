@@ -59,12 +59,12 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(raiz, 'index.html'), 'utf8');
-/* LAS DIEZ. Esta lista, la de `vista`, la de `idioma` y la de `seguridad` se
+/* LAS ONCE. Esta lista, la de `vista`, la de `idioma` y la de `seguridad` se
    escriben a mano, y cada una se quedó corta en su momento: `estudio` faltaba
    desde que se creó, `cuentas` desde el ciclo de vida, `historial` desde que
    las dos familias se juntaron en una tabla. Añadir una pestaña es venir a las
    cuatro; que haya que venir es la señal, no la molestia. */
-const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc'];
+const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc', 'ajustes'];
 
 /* nombre → [selector, propiedades]. El selector excluye las variantes
    semánticas; `.panel .body` excluye los calendarios por su contenedor. */

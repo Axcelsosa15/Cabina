@@ -62,7 +62,18 @@ const abrir = async () => {
   await arrancada(p);
   return { ctx, p };
 };
-const pulsa = async (p) => { await p.click('#idiomaBtn'); await quieto(p, 80, 2500); };
+/* Los dos botones globales viven en Ajustes desde que se organizó la
+   configuración; antes estaban en la barra superior. Se recorre el camino
+   real —entrar, pulsar, volver a donde estábamos— en vez de pulsar por
+   `evaluate`, que funcionaría sobre el botón oculto y dejaría pasar un botón
+   inalcanzable. */
+const enAjustes = async (p, sel) => {
+  const vuelta = await p.evaluate(() => (document.querySelector('.tab.active') || {}).dataset?.tab || 'cabina');
+  await p.click('#tabnav .tabbtn[data-tab="ajustes"]');
+  await p.click(sel);
+  if (vuelta && vuelta !== 'ajustes') await p.click(`#tabnav .tabbtn[data-tab="${vuelta}"]`);
+};
+const pulsa = async (p) => { await enAjustes(p, '#idiomaBtn'); await quieto(p, 80, 2500); };
 const textoPestana = (p, tab) => p.evaluate(t => {
   const b = document.querySelector(`#tabnav .tabbtn[data-tab="${t}"]`);
   if (!b) return null;
@@ -110,8 +121,8 @@ console.log('\n═══ 2 · traducir no se lleva por delante lo que había den
      más fácil de dar por traducida. */
   const pend = await p.evaluate(() => [...document.querySelectorAll('#tabnav .tabbtn')]
     .map(b => { const n = [...b.childNodes].find(x => x.nodeType === 3 && x.data.trim()); return n ? n.data.trim() : ''; })
-    .filter(t => /[áéíóúñÁÉÍÓÚÑ]/.test(t) || t === 'Futuros' || t === 'Inversiones' || t === 'Calculadora' || t === 'Cuentas' || t === 'Historial'));
-  ok(pend.length === 0, 'ninguna de las diez pestañas se queda en español', pend.join(' | ') || 'ninguna');
+    .filter(t => /[áéíóúñÁÉÍÓÚÑ]/.test(t) || t === 'Futuros' || t === 'Inversiones' || t === 'Calculadora' || t === 'Cuentas' || t === 'Historial' || t === 'Ajustes'));
+  ok(pend.length === 0, 'ninguna de las once pestañas se queda en español', pend.join(' | ') || 'ninguna');
   await ctx.close();
 }
 

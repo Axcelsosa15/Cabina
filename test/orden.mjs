@@ -177,6 +177,26 @@ ok(await p.inputValue('#ef_accountId') === 'b2', 'la cuenta elegida se hereda en
 await p.click('#edSave'); await trasGuardar(p);
 const cuentaGuardada = await p.evaluate(() => FUT.trades().find(t => t.instrument === 'CL')?.accountId);
 ok(cuentaGuardada === 'b2', 'la cuenta seleccionada queda guardada en la operación', cuentaGuardada || 'sin cuenta');
+
+/* UNA CUENTA NUEVA TIENE QUE APARECER EN EL SELECTOR SIN RECARGAR, y esto es el
+   guardián de un fallo MEDIDO, no de una sospecha. El selector lee
+   `state.settings.accounts`, pero la zona «cuentas» sólo llamaba a
+   `renderAccounts()`: crear, renombrar o quemar una cuenta dejaba el selector
+   obsoleto, ofreciendo la cuenta borrada hasta que algo repintara el día. Lo que
+   se registrase en ese hueco quedaba atribuido a una cuenta que ya no existe.
+
+   Es la misma clase de fallo que tenía el nombre de cuenta en la clave del
+   buscador: un render que lee datos de OTRA colección y nadie lo repinta cuando
+   esa colección cambia. Sabotaje corrido: quitando `fillQtAccount()` de la zona,
+   la opción nueva NO aparece y esta aserción se pone roja. */
+const opcionesAntes = await p.locator('#qtAccount option').count();
+await p.evaluate(() => FUT.createAccount({ id: 'zz-nueva', firm: 'TopStep', name: 'Recién creada',
+  size: 50000, dd: 2000, ddKind: 'estatico', status: 'fondeada' }));
+await quieto(p);
+const etiquetas = await p.locator('#qtAccount option').allTextContents();
+ok(etiquetas.some(t => /Recién creada/.test(t)),
+   'una cuenta creada aparece en el selector de la operación rápida sin recargar',
+   `${opcionesAntes} -> ${etiquetas.length} opciones`);
 await p.click('.tabbtn[data-tab="futuros"]'); await quieto(p);
 await p.click('#ftSeg button[data-v="diario"]'); await quieto(p);
 const q = await p.inputValue('#ftQ');
@@ -191,7 +211,18 @@ console.log('\n═══ 7 · entrar en demo limpia también la búsqueda ══
    existían. Ahora se limpian por FT_FILTROS, la única lista. */
 await buscar('zzzz-no-existe');
 ok(await n() === 0, 'control: la búsqueda vacía la tabla', await n());
-await p.click('#demoToggle'); await quieto(p);
+/* Los dos botones globales viven en Ajustes desde que se organizó la
+   configuración; antes estaban en la barra superior. Se recorre el camino
+   real —entrar, pulsar, volver a donde estábamos— en vez de pulsar por
+   `evaluate`, que funcionaría sobre el botón oculto y dejaría pasar un botón
+   inalcanzable. */
+const enAjustes = async (p, sel) => {
+  const vuelta = await p.evaluate(() => (document.querySelector('.tab.active') || {}).dataset?.tab || 'cabina');
+  await p.click('#tabnav .tabbtn[data-tab="ajustes"]');
+  await p.click(sel);
+  if (vuelta && vuelta !== 'ajustes') await p.click(`#tabnav .tabbtn[data-tab="${vuelta}"]`);
+};
+await enAjustes(p, '#demoToggle'); await quieto(p);
 ok(await p.inputValue('#ftQ') === '', 'entrar en demo limpió la búsqueda', JSON.stringify(await p.inputValue('#ftQ')));
 const enDemo = await n();
 ok(enDemo > 0, 'y el journal del demo muestra sus operaciones', enDemo);

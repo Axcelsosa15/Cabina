@@ -66,7 +66,12 @@ async function pagina(semilla) {
    real, no una función interna, porque lo que se está probando es el fichero que
    el usuario se lleva. */
 async function exporta(p) {
-  await p.click('[data-tab="cabina"]'); await quieto(p, 60, 1200);
+  /* EL PANEL DE COPIA VIVE EN AJUSTES, no en Cabina: salió de ahí cuando la
+     configuración se juntó en una pestaña. Y se pulsa por ID y no por texto
+     porque «Pegar el texto» lo dicen DOS botones —#bkPaste, el de la copia, y
+     #impPaste, el del importador de CSV en Futuros—: el localizador por texto
+     resolvía a dos elementos y acertaba sólo por el orden del DOM. */
+  await p.click('[data-tab="ajustes"]'); await quieto(p, 60, 1200);
   await p.click('#bkShow'); await p.waitForTimeout(1600);
   const txt = await p.evaluate(() => { const t = document.querySelector('#edFields textarea'); return t ? t.value : ''; });
   await p.keyboard.press('Escape'); await p.waitForTimeout(400);
@@ -77,8 +82,8 @@ async function exporta(p) {
    confirmar: lo que se mide es lo que el usuario lee antes de decidir. */
 async function vistaPrevia(json) {
   const { ctx, p } = await pagina();
-  await p.click('[data-tab="cabina"]'); await quieto(p, 60, 1200);
-  await p.click('button:has-text("Pegar el texto")'); await p.waitForTimeout(600);
+  await p.click('[data-tab="ajustes"]'); await quieto(p, 60, 1200);
+  await p.click('#bkPaste'); await p.waitForTimeout(600);
   await p.fill('#edFields textarea', json); await p.waitForTimeout(250);
   await p.click('#edSave'); await p.waitForTimeout(1100);
   const out = await p.evaluate(() => ({

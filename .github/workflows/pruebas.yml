@@ -26,6 +26,24 @@ concurrency:
 
 jobs:
   suite:
+    # FIJADO, NO «latest». El 28 de octubre de 2026 `ubuntu-latest` pasó a ser
+    # Ubuntu 26.04 y la suite entera dejó de arrancar:
+    #
+    #     ERROR: Playwright does not support chromium on ubuntu26.04-x64
+    #
+    # El paso «Bajar Chromium» sale en rojo a los 16 segundos, antes de que corra
+    # UNA SOLA prueba. No es un fallo de ninguna rama: medido el mismo día en la
+    # PR #54 (corrida 40863897444) y en la PR #78 (40888402233), dos ramas sin
+    # relación, con el mismo error y el mismo tiempo. El último verde del repo es
+    # del 28 a las 13:07, la última corrida sobre 24.04.
+    #
+    # Se fija la versión en vez de subir Playwright porque son dos clases de
+    # arreglo distintas: fijar el runner es comprobable hoy —24.04 es la imagen
+    # con la que el repo estuvo verde 454 corridas—, y subir la dependencia es
+    # apostar a que una versión que no he medido soporte 26.04. Cuando Playwright
+    # declare 26.04, subirlo y volver a `latest` es un cambio de una línea; hasta
+    # entonces `latest` significa «que la imagen del runner pueda romper el repo
+    # un martes», y eso ya pasó.
     runs-on: ubuntu-24.04
     # 32 y no 25: con los reintentos de apt el peor caso de la instalación son 12
     # minutos, y la compuerta tarda ~13. Con 25 el trabajo moría por su propio tope
