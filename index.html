@@ -3963,39 +3963,47 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
    cálculos, flujos de guardado ni preferencias existentes. */
 :root {
   color-scheme: light !important;
-  --bg: #f5f6f8 !important;
+  /* Concepto A: semantic, accessible tokens. The existing dark values are
+     legacy fallbacks; these are the effective values of the light experience. */
+  --bg: #f7f9fc !important;
   --surface: #ffffff !important;
   --surface-2: #f8fafc !important;
-  --surface-3: #edf1f5 !important;
-  --line: #dfe4ea !important;
-  --line-strong: #c5ced8 !important;
-  --text: #202a35 !important;
-  --muted: #4b5765 !important;
-  --dim: #626e7c !important;
-  --accent: #176f65 !important;
+  --surface-3: #edf2f8 !important;
+  --line: #e2e8f0 !important;
+  --line-strong: #cbd5e1 !important;
+  --text: #172334 !important;
+  --muted: #475569 !important;
+  --dim: #64748b !important;
+  --accent: #1d4ed8 !important;
   --accent-ink: #ffffff !important;
-  --positive: #18794e !important;
+  --positive: #166534 !important;
   --negative: #b42318 !important;
-  --warning: #8a4b08 !important;
-  --info: #245eb5 !important;
-  --accent-soft: rgba(25,124,112,.10) !important;
-  --good-soft: rgba(24,121,78,.09) !important;
+  --warning: #92400e !important;
+  --info: #1d4ed8 !important;
+  --accent-soft: rgba(29,78,216,.09) !important;
+  --good-soft: rgba(22,101,52,.09) !important;
   --bad-soft: rgba(180,35,24,.08) !important;
-  --warn-soft: rgba(138,75,8,.09) !important;
-  --info-soft: rgba(36,94,181,.08) !important;
-  --sh-1: 0 1px 2px rgba(20,32,44,.05) !important;
-  --sh-2: 0 8px 24px rgba(20,32,44,.08) !important;
+  --warn-soft: rgba(146,64,14,.09) !important;
+  --info-soft: rgba(29,78,216,.08) !important;
+  --sh-1: 0 1px 2px rgba(23,35,52,.04) !important;
+  --sh-2: 0 10px 28px rgba(23,35,52,.09) !important;
   --ui-glow: transparent !important;
   --ui-panel: #ffffff !important;
   --ui-panel-raised: #f8fafc !important;
-  --ui-focus: 0 0 0 3px rgba(25,124,112,.14) !important;
+  --ui-focus: 0 0 0 3px rgba(29,78,216,.16) !important;
+  --control-bg: #ffffff;
+  --control-readonly: #f1f5f9;
+  --control-disabled: #eef2f6;
+  --control-placeholder: #64748b;
+  --control-error: #b42318;
+  --control-radius: 8px;
 }
 html, body {
   background: var(--bg) !important;
   color: var(--text) !important;
 }
 body { color-scheme: light !important; }
-::selection { background: #cce9e3 !important; color: #172d2a !important; }
+::selection { background: #dbeafe !important; color: #172334 !important; }
 .topbar, .tabnav#tabnav {
   background: rgba(255,255,255,.97) !important;
   color: var(--text) !important;
@@ -4017,7 +4025,7 @@ body { color-scheme: light !important; }
 #tabnav .tabbtn[data-tab="estudio"].active {
   color: var(--accent) !important;
   background: var(--accent-soft) !important;
-  border-color: #b9ddd6 !important;
+  border-color: #bfcefa !important;
   box-shadow: none !important;
 }
 #tabnav .tabbtn[data-tab="estudio"]::before {
@@ -4073,7 +4081,7 @@ body { color-scheme: light !important; }
 .study-filter[aria-pressed="true"], .study-state:not(.progressing):not(.mastered), .study-kind {
   color: var(--accent) !important;
   background: var(--accent-soft) !important;
-  border-color: #b9ddd6 !important;
+  border-color: #bfcefa !important;
 }
 .study-state.progressing {
   color: #8a4b08 !important;
@@ -4110,19 +4118,81 @@ body { color-scheme: light !important; }
   background: var(--surface) !important;
   border-color: var(--line) !important;
 }
-input:not([type="checkbox"]):not([type="radio"]),
-select, textarea, .study-field input, .study-field select,
-.study-field textarea, .study-searchrow input, .study-filter {
+/* A · Entradas de datos. El mismo contrato visual para editores, filtros y diálogos. */
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]), select, textarea),
+.study-field input, .study-field select, .study-field textarea, .study-filter {
   color: var(--text) !important;
-  background: #ffffff !important;
-  border-color: var(--line-strong) !important;
+  background: var(--control-bg) !important;
+  border: 1px solid var(--line-strong) !important;
+  border-radius: var(--control-radius) !important;
   box-shadow: none !important;
+  min-height: 40px;
+  padding: 9px 12px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.4;
+  transition: border-color var(--mo-fast) ease, box-shadow var(--mo-fast) ease;
 }
-input::placeholder, textarea::placeholder, .study-searchrow input::placeholder {
-  color: #687585 !important;
+:where(input, select, textarea):focus-visible,
+.study-searchrow:focus-within {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
+  border-color: var(--accent) !important;
+  box-shadow: var(--ui-focus) !important;
+}
+:where(input, textarea)::placeholder,
+.study-searchrow input::placeholder {
+  color: var(--control-placeholder) !important;
   opacity: 1 !important;
 }
+:where(input, select, textarea)[aria-invalid="true"] {
+  border-color: var(--control-error) !important;
+  box-shadow: 0 0 0 2px var(--bad-soft) !important;
+}
+:where(input, select, textarea)[aria-invalid="true"]:focus-visible {
+  outline-color: var(--control-error) !important;
+}
+:where(input, textarea):read-only:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+  background: var(--control-readonly) !important;
+  color: var(--muted) !important;
+  cursor: default;
+}
+:where(input, select, textarea):disabled {
+  background: var(--control-disabled) !important;
+  color: var(--dim) !important;
+  opacity: 1 !important;
+  cursor: not-allowed;
+}
+:where(input[type="number"], input[inputmode="decimal"], input[inputmode="numeric"]) {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+:where(.ed .fld > label, .study-field > label, .study-field label, .fld > label) {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted) !important;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.ed .fld .help {
+  color: var(--dim) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 6px;
+}
 input[type="checkbox"], input[type="radio"] { accent-color: var(--accent) !important; }
+@media (max-width: 700px) {
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),select,textarea) {
+    min-height: 44px !important;
+    font-size: 16px !important;
+  }
+  :where(.ed .fld > label, .study-field > label, .study-field label, .fld > label) {
+    font-size: 13px;
+  }
+}
 .btn:not(.primary):not(.danger), .editbtn, .study-filter,
 .view-prefs-item, #mobileMoreOv [data-mobile-more-tab] {
   color: var(--text) !important;
@@ -4131,7 +4201,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent) !impor
   box-shadow: none !important;
 }
 .btn.primary, #quickBtn {
-  color: #f2faf8 !important;
+  color: #ffffff !important;
   background: var(--accent) !important;
   border-color: var(--accent) !important;
   box-shadow: none !important;
@@ -4149,14 +4219,14 @@ svg.chart text, svg.chart text tspan, svg.chart tspan, .chart text,
   color: #536171 !important;
   -webkit-text-fill-color: #536171 !important;
 }
-svg.chart .s1, .chart .s1 { stroke: #176f65 !important; }
-svg.chart .end, svg.chart .hp, .chart .end, .chart .hp { fill: #176f65 !important; }
+svg.chart .s1, .chart .s1 { stroke: var(--accent) !important; }
+svg.chart .end, svg.chart .hp, .chart .end, .chart .hp { fill: var(--accent) !important; }
 #panelAccts .acct:hover { background: #f8fafc !important; }
 #mobileMoreOv .mobile-more-sheet { background: #ffffff !important; }
 #mobileMoreOv [data-mobile-more-tab].is-active {
   color: var(--accent) !important;
   background: var(--accent-soft) !important;
-  border-color: #b9ddd6 !important;
+  border-color: #bfcefa !important;
 }
 .cmd-grp { color: var(--accent) !important; }
 .cmd-it[aria-selected="true"] {
