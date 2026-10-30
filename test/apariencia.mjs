@@ -30,9 +30,12 @@ const browser = await chromium.launch();
 try {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
   await ctx.addInitScript(() => {
-    localStorage.setItem('cabina-appearance:v1', JSON.stringify({
-      mode: 'dark', accent: 'default', custom: '#ff0088'
-    }));
+    // En recarga, no reescribir el valor que acaba de guardar el usuario.
+    if (!localStorage.getItem('cabina-appearance:v1')) {
+      localStorage.setItem('cabina-appearance:v1', JSON.stringify({
+        mode: 'dark', accent: 'default', custom: '#ff0088'
+      }));
+    }
   });
   const page = await ctx.newPage();
   const jsErrors = [];
