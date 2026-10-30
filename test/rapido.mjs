@@ -420,8 +420,8 @@ ok(r.puede && !/no la explican/i.test(r.prev),
    r.prev.slice(0, 110));
 
 console.log('\n═══ NI POSICION NI SILENCIO · el orden no significa nada y nada se pierde ═══');
-const a1 = await prueba('NQ L 2x @20150 sl20120 out20190');
-const a2 = await prueba('out20190 2x sl20120 L @20150 NQ');
+const a1 = await prueba('NQ L 2x @20150 sl20120 out20190 9:45');
+const a2 = await prueba('out20190 2x sl20120 L @20150 NQ 9:45');
 ok(a1.prev === a2.prev, 'la misma operacion en otro orden da la MISMA vista previa',
    a1.prev === a2.prev ? 'identicas' : `A≠B | A: ${a1.prev} | B: ${a2.prev}`);
 /* La propiedad que se vigila es que NO se repartan por posicion. El mecanismo con
