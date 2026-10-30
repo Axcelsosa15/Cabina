@@ -112,7 +112,13 @@ for (const [w, h, nombre] of ANCHOS) {
         navAtBottom: !!nr && Math.abs(window.innerHeight - nr.bottom) <= 2,
         navVisible: !!nr && nr.width >= window.innerWidth - 2 && nr.height >= 60,
         quickPosition: quick ? getComputedStyle(quick).position : '',
+        quickInHeader: !!quick && !!quick.closest('.topbar .clock'),
         quickAboveNav: !!qr && !!nr && qr.bottom <= nr.top + 2,
+        quickTouchHeight: qr?.height || 0,
+        quickInViewport: !!qr && qr.left >= 0 && qr.right <= window.innerWidth,
+        navBackground: nav ? getComputedStyle(nav).backgroundColor : '',
+        labelBackground: nav ? getComputedStyle(nav.querySelector('[data-tab="futuros"]'), '::after').backgroundColor : '',
+        headerInViewport: document.querySelector('.topbar')?.getBoundingClientRect().right <= window.innerWidth,
         overlayAboveNav: Number.parseInt(getComputedStyle(document.getElementById('quickOv')).zIndex, 10) > Number.parseInt(getComputedStyle(nav).zIndex, 10),
         visibleNavItems: nav ? [...nav.querySelectorAll('.tabbtn, #mobileMoreBtn')].filter(x => getComputedStyle(x).display !== 'none').length : 0,
         moreVisible: !!document.getElementById('mobileMoreBtn') && getComputedStyle(document.getElementById('mobileMoreBtn')).display !== 'none',
@@ -125,8 +131,16 @@ for (const [w, h, nombre] of ANCHOS) {
     });
     ok(mobile.navPosition === 'fixed' && mobile.navAtBottom && mobile.navVisible,
        'navegación inferior fija y visible', JSON.stringify({position:mobile.navPosition,bottom:mobile.navAtBottom,visible:mobile.navVisible}));
-    ok(mobile.quickPosition === 'fixed' && mobile.quickAboveNav,
-       'registro rápido accesible sobre la navegación', JSON.stringify({position:mobile.quickPosition,above:mobile.quickAboveNav}));
+    ok(mobile.quickPosition === 'static' && mobile.quickInHeader && mobile.quickAboveNav &&
+       mobile.quickTouchHeight >= 44 && mobile.quickInViewport,
+       'registro rápido integrado en cabecera sin cubrir tarjetas',
+       JSON.stringify({position:mobile.quickPosition,inHeader:mobile.quickInHeader,above:mobile.quickAboveNav,height:mobile.quickTouchHeight,inViewport:mobile.quickInViewport}));
+    ok(mobile.labelBackground === 'rgba(0, 0, 0, 0)' || mobile.labelBackground === 'transparent',
+       'las etiquetas del dock no tienen bandas de color tras las letras',
+       mobile.labelBackground);
+    ok(mobile.navBackground !== 'rgba(0, 0, 0, 0)' && mobile.headerInViewport,
+       'dock opaco y cabecera contenida en el viewport',
+       JSON.stringify({background:mobile.navBackground,header:mobile.headerInViewport}));
     ok(mobile.overlayAboveNav, 'diálogo de registro por encima de la navegación', String(mobile.overlayAboveNav));
     ok(mobile.cameraCapture === 'environment' && mobile.cameraAccept === 'image/*' && mobile.galleryInput,
        'capturas móviles ofrecen cámara trasera y mantienen galería',
