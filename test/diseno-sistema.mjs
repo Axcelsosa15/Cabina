@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const css = html.match(/\/\* CABINA DESIGN SYSTEM v3[\s\S]*?<\/style>/)?.[0] ?? '';
 assert.ok(css.length > 2500, 'La capa de diseño v3 debe estar presente');
 assert.equal((html.match(/<style\b[^>]*>/g) || []).length, 5, 'No añadir bloques style: el guardián estructural espera cinco');
@@ -17,6 +18,6 @@ for (const selector of ['.topbar', '.tabnav', '.tabbtn.active', 'section.panel',
 for (const tab of ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'playbook', 'ideas', 'estudio', 'calc']) {
   assert.ok(html.includes('data-tab="' + tab + '"'), 'La pestaña existente debe conservarse: ' + tab);
 }
-assert.ok(html.includes('const QE = (function ()'), 'El motor cuantitativo debe permanecer integrado');
-assert.ok(html.includes('localDb()') && html.includes('nubeDb()'), 'Los adaptadores de persistencia deben permanecer');
+assert.ok(app.includes('const QE = (function ()'), 'El motor cuantitativo debe permanecer integrado en app.js');
+assert.ok(app.includes('localDb()') && app.includes('nubeDb()'), 'Los adaptadores de persistencia deben permanecer en app.js');
 console.log('PASS sistema visual: tokens, patrones globales, nueve pestañas, motor y persistencia conservados');
