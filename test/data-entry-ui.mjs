@@ -13,6 +13,19 @@ try {
     const contexto = await navegador.newContext({ viewport: { width: ancho, height: 850 } });
     const pagina = await contexto.newPage();
     await pagina.goto('file://' + process.cwd() + '/../index.html', { waitUntil: 'domcontentloaded' });
+    const labels = await pagina.evaluate(() =>
+      ['ftAcct','ftRange','ftSetup','ftInstr','ftSes','ftQ',
+       'hsTipo','hsAcct','hsRango','hsQ','mxAcct','mxSetup']
+        .map(id => {
+          const input = document.getElementById(id);
+          const label = input?.closest('label');
+          return {id, associated: Boolean(label && label.control === input),
+                  caption: label?.querySelector('.cab-filter-caption')?.textContent.trim()};
+        })
+    );
+    ok(labels.every(item => item.associated && item.caption),
+      `${ancho}px · doce filtros tienen etiqueta visible y asociada`,
+      labels.filter(item => !item.associated || !item.caption).map(item => item.id).join(', '));
     const estado = await pagina.evaluate(() => {
       const probe = document.createElement('div');
       probe.style.cssText = 'position:fixed;top:4px;left:4px;z-index:999999;background:white;padding:8px';
