@@ -73,7 +73,7 @@
     const scheme = dark ? 'dark' : 'light';
     const color = effectiveAccent(dark);
     const channels = rgb(color);
-    const ink = contrast(channels, [255, 255, 255]) >= 4.5 ? '#ffffff' : '#0b0e13';
+    const ink = contrast(channels, [255, 255, 255]) >= 4.5 ? '#f8fafc' : '#0b0e13';
     root.dataset.cabinaTheme = scheme;
     root.dataset.cabinaAccent = prefs.accent;
     root.style.setProperty('--accent', color, 'important');
