@@ -18,6 +18,7 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const documento = readFileSync(join(raiz, 'index.html'), 'utf8');
 const aplicacion = readFileSync(join(raiz, 'app.js'), 'utf8');
+const apariencia = readFileSync(join(raiz, 'appearance.js'), 'utf8');
 /* `html` ERA EL FICHERO ENTERO, Y DURANTE 15.000 LINEAS ESO FUE LO MISMO QUE
    «la aplicacion». Desde que el script salio a app.js —para que la CSP pueda
    prohibir el inline— ya no lo es: si este guardian siguiera mirando solo el
@@ -28,7 +29,7 @@ const aplicacion = readFileSync(join(raiz, 'app.js'), 'utf8');
    Asi que aqui `html` es LOS DOS ficheros: lo que se publica y se ejecuta. Lo
    que necesita mirar solo el documento —los recursos externos de la cabecera,
    la CSP— usa `documento` explicitamente. */
-const html = documento + '\n' + aplicacion;
+const html = documento + '\n' + aplicacion + '\n' + apariencia;
 
 console.log('\n═══ SUPERFICIE DE EJECUCION · lo que no debe aparecer nunca ═══');
 /* SE CUENTA SOBRE EL CODIGO, NO SOBRE LA PROSA. La primera version de esta seccion
