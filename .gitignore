@@ -2,6 +2,15 @@ node_modules/
 .DS_Store
 
 
-# Playwright se instala con `npm install`; aquí sólo hay un enlace al del contenedor.
-node_modules/
+# SIN BARRA FINAL, Y ESO ES EL ARREGLO DE UN FALLO MEDIDO.
+# `node_modules/` sólo ignora un DIRECTORIO. Cuando en su lugar hay un ENLACE
+# SIMBÓLICO —y este comentario ya decía que suele haberlo, apuntando al del
+# contenedor— git lo ve como un fichero, el patrón no lo caza, y un `git add -A`
+# se lo lleva al commit. Pasó: el commit f980eaa subió un enlace a
+# `/home/user/Cabina/node_modules`, una ruta absoluta que no existe en ninguna
+# otra máquina, así que quien clonara la rama se encontraba un enlace roto donde
+# van las dependencias. La compuerta no lo cazó porque en el contenedor donde
+# corrió el enlace resolvía bien.
+# Sin barra ignora las dos formas, que es lo que hacía falta desde el principio.
+node_modules
 test/tomas/
