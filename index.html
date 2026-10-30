@@ -3001,33 +3001,6 @@ body { color-scheme: light !important; }
   background: var(--surface) !important;
   border-color: var(--line) !important;
 }
-/* Etiquetas visibles de filtros: no depender de placeholders ni del valor del select. */
-.tab .toolbar .cab-filter-field {
-  display: grid;
-  align-content: end;
-  gap: 5px;
-  flex: 0 1 158px;
-  min-width: 120px;
-  max-width: 100%;
-}
-.tab .toolbar .cab-filter-field:has(input[type="search"]) { flex: 1 1 190px; }
-.tab .toolbar .cab-filter-caption {
-  display: block;
-  color: var(--muted) !important;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.25;
-}
-.tab .toolbar .cab-filter-field > :is(input, select) {
-  width: 100%;
-  min-width: 0;
-  margin: 0;
-}
-@media (max-width: 700px) {
-  .tab .toolbar .cab-filter-field { flex: 1 1 140px; }
-  .tab .toolbar .cab-filter-field:has(input[type="search"]) { flex-basis: 100%; }
-}
 /* A · Entradas de datos. El mismo contrato visual para editores, filtros y diálogos. */
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]), select, textarea),
 .study-field input, .study-field select, .study-field textarea, .study-filter {
@@ -3258,6 +3231,41 @@ body { font-variant-numeric: tabular-nums lining-nums; }
   .tab[data-tab="playbook"] .toolbar > * { flex:1 1 130px; }
 }
 
+/* Etiquetas visibles de filtros: no depender de placeholders ni del valor del select. */
+.tab .toolbar .cab-filter-field {
+  display: grid;
+  align-content: end;
+  gap: 5px;
+  flex: 0 1 158px;
+  min-width: 120px;
+  max-width: 100%;
+}
+.tab .toolbar .cab-filter-field:has(input[type="search"]) { flex: 1 1 190px; }
+.tab .toolbar .cab-filter-caption {
+  display: block;
+  color: var(--muted) !important;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.tab .toolbar .cab-filter-field > :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+@media (max-width: 700px) {
+  .tab .toolbar .cab-filter-field { flex: 1 1 140px; }
+  .tab .toolbar .cab-filter-field:has(input[type="search"]) { flex-basis: 100%; }
+}
+/* Componentes globales de apariencia y filtros para ambos temas. */
+:where(button, input, select, textarea, [tabindex]):focus-visible {
+  outline-color: var(--accent) !important;
+}
+.study-searchrow:focus-within {
+  border-color: var(--accent) !important;
+  box-shadow: var(--ui-focus) !important;
+}
 /* Apariencia: ajustes compartidos por el tema claro y el oscuro. */
 .cab-appearance-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; align-items: stretch; }
 .cab-appearance-field { display: flex; flex-direction: column; min-width: 0; gap: 7px; }
