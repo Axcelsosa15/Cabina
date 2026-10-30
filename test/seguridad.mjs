@@ -18,6 +18,7 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const documento = readFileSync(join(raiz, 'index.html'), 'utf8');
 const aplicacion = readFileSync(join(raiz, 'app.js'), 'utf8');
+const apariencia = readFileSync(join(raiz, 'appearance.js'), 'utf8');
 /* `html` ERA EL FICHERO ENTERO, Y DURANTE 15.000 LINEAS ESO FUE LO MISMO QUE
    «la aplicacion». Desde que el script salio a app.js —para que la CSP pueda
    prohibir el inline— ya no lo es: si este guardian siguiera mirando solo el
@@ -28,7 +29,7 @@ const aplicacion = readFileSync(join(raiz, 'app.js'), 'utf8');
    Asi que aqui `html` es LOS DOS ficheros: lo que se publica y se ejecuta. Lo
    que necesita mirar solo el documento —los recursos externos de la cabecera,
    la CSP— usa `documento` explicitamente. */
-const html = documento + '\n' + aplicacion;
+const html = documento + '\n' + aplicacion + '\n' + apariencia;
 
 console.log('\n═══ SUPERFICIE DE EJECUCION · lo que no debe aparecer nunca ═══');
 /* SE CUENTA SOBRE EL CODIGO, NO SOBRE LA PROSA. La primera version de esta seccion
@@ -102,7 +103,10 @@ ok(hosts.every(h => /(^|\.)fonts\.googleapis\.com$|(^|\.)fonts\.gstatic\.com$/.t
   const ajenos = srcs.filter(u => /^(https?:)?\/\//i.test(u));
   ok(ajenos.length === 0, 'ningún <script src> de otro origen: no se carga codigo de terceros',
      ajenos.length ? ajenos.join(' | ') : `${srcs.length} script(s), todos del propio sitio: ${srcs.join(' ') || 'ninguno'}`);
-  ok(srcs.length <= 1, 'un solo script, y es la aplicación', srcs.join(' ') || 'ninguno');
+  ok(JSON.stringify(srcs) === JSON.stringify(['./appearance.js', './app.js']),
+     'sólo appearance.js antes de CSS y app.js: sin scripts ajenos', srcs.join(' · '));
+  ok(documento.indexOf('<script src="./appearance.js">') < documento.indexOf('<style>'),
+     'el bootstrap del tema está antes de la primera hoja CSS');
 }
 
 console.log('\n═══ LA RED · un solo destino, y sólo con cuenta ═══');

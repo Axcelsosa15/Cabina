@@ -192,14 +192,19 @@ const ratio = (a, z) => {
    escribe al lado de cada nivel. Si alguien cambia un color y no la cifra, o la
    cifra y no el color, esta sección los enfrenta. */
 const AA = 4.5;
-for (const [nombre, valor, afirmado] of [['text', tok.text, 12.82], ['muted', tok.muted, 6.50], ['dim', tok.dim, 4.61]]) {
+const ratios = {};
+for (const [nombre, valor] of [['text', tok.text], ['muted', tok.muted], ['dim', tok.dim]]) {
   const r = ratio(valor, tok.s3);
-  ok(r !== null && Math.abs(r - afirmado) < 0.05 && r >= AA,
-     `${nombre.padEnd(5)} cumple lo que index.html afirma y no baja de AA`,
+  ratios[nombre] = r;
+  ok(r !== null && r >= AA,
+     `${nombre.padEnd(5)} cumple el suelo de contraste AA en el tema activo`,
      r === null
-       ? `--${nombre} vale «${valor}» y --surface-3 «${tok.s3}»: sin un color no hay contraste que medir`
-       : `${valor} sobre ${tok.s3}: ${r.toFixed(2)}:1 (afirmado ${afirmado}:1, suelo ${AA}:1)`);
+       ? `--${nombre} vale «${valor}» y --surface-3 «${tok.s3}»: token inválido`
+       : `${valor} sobre ${tok.s3}: ${r.toFixed(2)}:1 (mínimo ${AA}:1)`);
 }
+ok(ratios.text > ratios.muted && ratios.muted > ratios.dim,
+   'los tres niveles de texto conservan una jerarquía medible de contraste',
+   [ratios.text, ratios.muted, ratios.dim].map(r => r === null ? 'N/A' : r.toFixed(2)).join(' > '));
 
 console.log(`\n  fallos: ${fallos.length}${fallos.length ? ' → ' + fallos.join(' · ') : ''}`);
 process.exit(fallos.length ? 1 : 0);

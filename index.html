@@ -43,13 +43,18 @@
 <meta name="theme-color" content="#F5F6F8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Tema local: cargado antes de CSS y de la primera pintura. -->
+<script src="./appearance.js"></script>
 <!-- Las fuentes de Google NO van aqui: una hoja de estilos en la cabecera bloquea
      el script y el evento load hasta que Google responde. Las pide el script
      cuando la pagina ya ha cargado (cargaFuentes). Ver test/lanzamiento.mjs. -->
 <style>
-  :root { color-scheme: dark; }
-  html { background: #0B0E13; }
-  body { margin: 0; background: #0B0E13; color: #E8ECF2; }
+  /* Fondo de primera pintura: coherente con la elección guardada. */
+  :root { color-scheme: light; }
+  html { background: #f7f9fc; }
+  body { margin: 0; background: #f7f9fc; color: #172334; }
+  :root[data-cabina-theme="dark"] { color-scheme: dark; }
+  html[data-cabina-theme="dark"], html[data-cabina-theme="dark"] body { background: #0b0e13; color: #e8ecf2; }
   img { max-width: 100%; }
   [hidden] { display: none !important; }
 
@@ -159,8 +164,6 @@
 
 </style>
 
-</head>
-<body>
 <style id="cabina-chart-label-contrast">
 /* CABINA: explicit chart label contrast, independent of external stylesheets. */
 svg.chart text,
@@ -2159,1133 +2162,6 @@ tbody tr:last-child td{border-bottom:0}
     }
   }
 </style>
-
-<div class="topbar">
-  <div class="brand">
-    <h1 class="view-only" id="titleView">Cabina</h1>
-    <span class="sub view-only" id="subView"></span>
-    <input class="t edit-only" id="titleEdit" type="text" aria-label="Título" maxlength="40">
-    <input class="s edit-only" id="subEdit" type="text" aria-label="Subtítulo" maxlength="80">
-  </div>
-  <div class="clock">
-    <span id="sessionPill" class="pill off"><span class="dot"></span><span id="sessionLabel">—</span></span>
-    <span><span id="etTime" class="time">--:--:--</span> <span class="tz">ET · Nueva York</span></span>
-    <span id="saveState" class="save-state" role="status" aria-live="polite" aria-atomic="true">guardado local</span>
-    <!-- UN BOTON DE VERDAD, NO EL ROTULO DISFRAZADO. El rotulo de al lado es una
-         region viva (`role="status"`): su trabajo es que un lector de pantalla
-         ANUNCIE los cambios de estado sin interrumpir. Al principio le puse
-         `role="button"` y `tabindex` encima cuando habia conflicto, y eso le quita
-         el `role="status"`: la region deja de anunciar nada y a cambio queda un
-         boton que aparece y desaparece. Lo cazó test/ui.mjs, que exige que el
-         estado de guardado se anuncie sin interrumpir. Lo que hay que resolver es
-         una ACCION, y una accion es un <button>: trae Enter, espacio, foco y
-         semantica sin inventar nada. -->
-    <button type="button" class="editbtn conflbtn" id="resolveConflict" hidden>Resolver conflicto</button>
-    <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)" aria-haspopup="dialog" aria-expanded="false" aria-controls="quickOv">+ Rápido</button>
-    <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
-    <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
-    <button type="button" class="editbtn" id="viewPrefsOpen" aria-haspopup="dialog" aria-controls="viewPrefs" title="Personalizar módulos visibles y densidad">Vista</button>
-  </div>
-</div>
-<nav class="tabnav" id="tabnav" aria-label="Secciones">
-  <button class="tabbtn active" data-tab="cabina">Cabina</button>
-  <button class="tabbtn" data-tab="futuros">Futuros<span class="n" id="nFut"></span></button>
-  <button class="tabbtn" data-tab="cuentas">Cuentas<span class="n" id="nCuentas"></span></button>
-  <button class="tabbtn" data-tab="edge">Métricas / Edge</button>
-  <button class="tabbtn" data-tab="invest">Inversiones<span class="n" id="nInvest"></span></button>
-  <button class="tabbtn" data-tab="historial">Historial<span class="n" id="nHist"></span></button>
-  <button class="tabbtn" data-tab="playbook">Playbook<span class="n" id="nPlaybook"></span></button>
-  <button class="tabbtn" data-tab="ideas">Formas de hacer dinero<span class="n" id="nIdeas"></span></button>
-  <button class="tabbtn" data-tab="estudio">Estudio<span class="n" id="nResearch"></span></button>
-  <button class="tabbtn" data-tab="calc">Calculadora</button>
-  <button class="tabbtn" data-tab="ajustes">Ajustes</button>
-
-  <button type="button" id="mobileMoreBtn" aria-label="Más secciones" aria-haspopup="dialog" aria-expanded="false" aria-controls="mobileMoreOv">Más</button>
-</nav>
-
-<div id="mobileMoreOv" class="mobile-more-ov" hidden>
-  <button type="button" class="mobile-more-backdrop" data-mobile-more-close aria-label="Cerrar menú Más" tabindex="-1"></button>
-  <section class="mobile-more-sheet" role="dialog" aria-modal="true" aria-labelledby="mobileMoreTitle" tabindex="-1">
-    <header class="mobile-more-head">
-      <h2 id="mobileMoreTitle">Más secciones</h2>
-      <button type="button" class="mobile-more-close" id="mobileMoreClose" data-mobile-more-close aria-label="Cerrar">×</button>
-    </header>
-    <div class="mobile-more-grid">
-      <button type="button" data-mobile-more-tab="cuentas">Cuentas</button>
-      <button type="button" data-mobile-more-tab="edge">Métricas / Edge</button>
-      <button type="button" data-mobile-more-tab="historial">Historial</button>
-      <button type="button" data-mobile-more-tab="playbook">Playbook</button>
-      <button type="button" data-mobile-more-tab="ideas">Formas de hacer dinero</button>
-      <button type="button" data-mobile-more-tab="calc">Calculadora</button>
-      <button type="button" data-mobile-more-tab="ajustes">Ajustes</button>
-    </div>
-  </section>
-</div>
-
-<div class="demobar" id="demoBar" hidden>
-  <b>Modo demo</b>
-  <span>Todo lo que ves está inventado para revisar el diseño: operaciones, setups, cuentas, niveles y cartera. <b>No se guarda nada</b>: al salir vuelven tus datos reales intactos.</span>
-  <button type="button" class="editbtn" id="demoExit" style="margin-left:auto">Salir y volver a mis datos</button>
-</div>
-<div class="cuentabar" id="cuentaBar" hidden>
-  <b>Sin cuenta</b>
-  <span>Lo que apuntes se queda sólo en este navegador y se pierde si borras sus datos. Con cuenta, tu cabina es tuya: nadie más la ve, ni quien te dio el enlace.</span>
-  <button type="button" class="editbtn" id="cuentaBarCrear" style="margin-left:auto">Crear cuenta</button>
-  <button type="button" class="editbtn" id="cuentaBarNo">Ahora no</button>
-</div>
-<div class="editbar">
-  <span>Modo edición: añade, borra y reescribe cuentas, reglas y pasos. Los cambios se guardan solos.</span>
-  <button type="button" class="editbtn" id="editDone" style="margin-left:auto">Listo</button>
-</div>
-
-<div class="view-prefs" id="viewPrefs" hidden>
-  <div class="view-prefs-backdrop" data-view-close></div>
-  <section class="view-prefs-dialog" role="dialog" aria-modal="true" aria-labelledby="viewPrefsTitle" tabindex="-1">
-    <header class="view-prefs-head"><h2 id="viewPrefsTitle">Personalizar vista</h2><button type="button" class="editbtn" id="viewPrefsClose" aria-label="Cerrar preferencias">×</button></header>
-    <div class="view-prefs-tools">
-      <strong style="font-size:12px">Densidad</strong>
-      <label><input type="radio" name="viewDensity" value="compact"> Compacta</label>
-      <label><input type="radio" name="viewDensity" value="comfortable"> Cómoda</label>
-      <button type="button" class="editbtn" id="viewPrefsReset">Restaurar esta pestaña</button>
-    </div>
-    <p class="view-prefs-note" id="viewPrefsNote">Elige qué módulos aparecen en la pestaña actual. Tus preferencias se guardan en este navegador y no alteran los datos de trading.</p>
-    <div class="view-prefs-list" id="viewPrefsList"></div>
-    <footer class="view-prefs-foot"><button type="button" class="editbtn" id="viewPrefsDone">Listo</button></footer>
-  </section>
-</div>
-
-<!-- ======================= ESTUDIO ======================= -->
-<div class="tab" data-tab="estudio" id="studyTab"><section class="study-shell">
-<section class="deck" aria-label="Resumen de Estudio"><span class="deck-n">08</span><h1 class="deck-t">Estudio</h1><span class="deck-stage">Recall</span><span class="deck-parts"><b id="studyTotal">0</b> documentos · <span id="studyActive">0 en curso</span> · <span id="studySources">0 fuentes</span> · <span id="studyCompletion">0% revisado</span><i class="deck-bar"><span id="studyProgress"></span></i></span></section>
-<label class="study-searchrow" for="studySearch"><span class="study-searchicon">⌕</span><input id="studySearch" type="text" autocomplete="off" placeholder="Buscar conceptos, tesis, evidencia, preguntas o etiquetas…" aria-label="Buscar en la biblioteca de estudio"><span class="study-shortcut">⌘ K · búsqueda global</span></label>
-<div class="study-toolbar"><div class="study-date-filters" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)">Desde <input id="studyFrom" type="date" aria-label="Fecha consultada desde" style="width:132px"></label><label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)">Hasta <input id="studyTo" type="date" aria-label="Fecha consultada hasta" style="width:132px"></label></div><div class="study-filters" id="studyFilters" aria-label="Filtrar documentos"><button class="study-filter" data-study-filter="all" aria-pressed="true">Todo</button><button class="study-filter" data-study-filter="concept">Conceptos</button><button class="study-filter" data-study-filter="brief">Research briefs</button><button class="study-filter" data-study-filter="source">Fuentes</button><button class="study-filter" data-study-filter="flashcard">Flashcards</button><button class="study-filter" data-study-filter="todo">Por estudiar</button><button class="study-filter" data-study-filter="review">Revisión pendiente</button></div><div class="study-actions"><span id="studyResults" class="muted" style="font-size:10px">0 resultados</span><button type="button" class="btn ghost sm" id="studyExport">Exportar JSON</button><button type="button" class="btn primary sm" id="studyNew">＋ Nuevo documento</button></div></div>
-<div id="studyTradeOverview" aria-live="polite" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin:12px 0 14px"><div class="study-panel"><span class="study-note">Trades en filtro</span><strong id="studyTradeMetricCount" style="display:block;font-size:22px;margin-top:5px">—</strong></div><div class="study-panel"><span class="study-note">Win rate · P&amp;L disponible</span><strong id="studyTradeMetricWin" style="display:block;font-size:22px;margin-top:5px">—</strong></div><div class="study-panel"><span class="study-note">P&amp;L neto disponible</span><strong id="studyTradeMetricPnl" style="display:block;font-size:22px;margin-top:5px">—</strong></div><div class="study-panel"><span class="study-note">R promedio disponible</span><strong id="studyTradeMetricR" style="display:block;font-size:22px;margin-top:5px">—</strong></div></div>
-<section class="study-panel" style="margin:0 0 14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><h3 style="margin:0">Comparativa por instrumento y dirección</h3><span class="study-note">Sólo datos disponibles · no implica ventaja estadística</span></div><div id="studyTradeBreakdown" style="margin-top:10px;overflow-x:auto"><p class="study-note">Selecciona operaciones para calcular la comparativa.</p></div></section>
-<div class="study-bottom" style="margin:12px 0 18px">
-<section class="study-panel"><h3>Tu journal · laboratorio de trades</h3><p class="study-note">Selecciona una operación real de FUTUROS para revisarla. Las métricas se leen del trade existente; esta herramienta no crea operaciones duplicadas.</p>
-<div class="study-field"><label for="studyTradeAccount">Cuenta</label><select id="studyTradeAccount"><option value="">Todas las cuentas</option></select></div>
-<div class="study-field" style="margin-top:9px"><label for="studyTradeSearch">Buscar operaciones</label><input id="studyTradeSearch" type="search" placeholder="ID, instrumento, dirección o fecha…" autocomplete="off"></div><div class="study-field" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px"><div><label for="studyTradeInstrument">Instrumento</label><select id="studyTradeInstrument"><option value="">Todos</option></select></div><div><label for="studyTradeDirection">Dirección</label><select id="studyTradeDirection"><option value="">Todas</option></select></div></div><div class="study-field" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px"><div><label for="studyTradeFrom">Desde</label><input id="studyTradeFrom" type="date"></div><div><label for="studyTradeTo">Hasta</label><input id="studyTradeTo" type="date"></div></div><button type="button" class="btn ghost sm" id="studyTradeSinRevisar" aria-pressed="false" style="margin-top:8px;width:100%">Sólo sin revisar</button><button type="button" class="btn ghost sm" id="studyTradeClear" style="margin-top:8px">Limpiar filtros</button>
-<div id="studyTradeList" style="display:grid;gap:7px;margin-top:12px" aria-live="polite"><p class="study-note">Cargando operaciones del journal…</p></div>
-</section>
-<section class="study-panel"><h3 id="studyTradeTitle">Selecciona una operación</h3>
-<p class="study-note" id="studyTradeMeta">Al seleccionar un trade aparecerán aquí sus datos y la revisión guardada.</p>
-<div id="studyTradeStats" class="study-tags" style="margin:12px 0"></div>
-<form id="studyTradeReviewForm" hidden>
-<input type="hidden" id="studyTradeReviewId"><input type="hidden" id="studyTradeId">
-<div id="studyScenes" style="margin:0 0 14px"></div>
-<div class="study-field"><label for="studyTradePlan">Plan / tesis original</label><textarea id="studyTradePlan" maxlength="4000" placeholder="¿Qué esperabas que hiciera el precio y por qué?"></textarea></div>
-<div class="study-field" style="margin-top:9px"><label for="studyTradeExecution">Revisión de ejecución</label><textarea id="studyTradeExecution" maxlength="4000" placeholder="¿Seguiste el plan? Entrada, stop, salida y errores observables."></textarea></div>
-<div class="study-field" style="margin-top:9px"><label for="studyTradeLesson">Lección y siguiente acción</label><textarea id="studyTradeLesson" maxlength="3000" placeholder="¿Qué repetirás o cambiarás la próxima vez?"></textarea></div>
-<div class="study-field" style="margin-top:9px"><label for="studyTradeReviewStatus">Estado de revisión</label><select id="studyTradeReviewStatus"><option value="todo">Pendiente</option><option value="progressing">En revisión</option><option value="mastered">Revisado</option></select></div>
-<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary sm" type="submit">Guardar revisión</button></div>
-<p class="study-note" id="studyTradeSaveState" role="status"></p>
-</form>
-</section></div>
-<div class="study-grid" id="studyGrid" aria-live="polite"></div>
-<div class="study-bottom"><section class="study-panel"><h3>Protocolo de investigación</h3><div class="study-protocol"><div class="study-step"><i>01</i><span><b style="color:var(--text)">Pregunta.</b> Define qué necesitas descubrir antes de recopilar información.</span></div><div class="study-step"><i>02</i><span><b style="color:var(--text)">Evidencia.</b> Registra fuente, fecha, datos y limitaciones.</span></div><div class="study-step"><i>03</i><span><b style="color:var(--text)">Antítesis.</b> Busca qué invalidaría tu hipótesis.</span></div><div class="study-step"><i>04</i><span><b style="color:var(--text)">Síntesis.</b> Separa hechos, interpretación y especulación.</span></div></div></section>
-<section class="study-panel"><h3>Recuperación activa <span id="studyFlashPos" class="muted"></span></h3><div class="study-flash"><small>FLASHCARD</small><p id="studyFlashPrompt">Crea una flashcard para practicar la recuperación activa.</p><div id="studyFlashAnswer" class="study-flash-answer" hidden></div></div><div class="study-flash-actions"><button type="button" class="btn ghost sm" id="studyReveal">Revelar respuesta</button><button type="button" class="btn ghost sm" id="studyNext">Siguiente ↗</button></div><div class="study-note">Intenta responder antes de revelar. Los documentos se guardan en la misma cuenta y sistema de respaldo de Cabina.</div></section></div></section></div>
-<div class="study-modal" id="studyModal" role="dialog" aria-modal="true" aria-labelledby="studyModalTitle"><div class="study-dialog"><div class="study-dialog-head"><h3 id="studyModalTitle">Nuevo documento de estudio</h3><button type="button" class="btn ghost sm" id="studyClose" aria-label="Cerrar">✕</button></div><form id="studyForm"><div class="study-dialog-body"><input type="hidden" id="studyId"><div class="study-fields">
-<div class="study-field"><label for="studyType">Tipo</label><select id="studyType"><option value="concept">Concepto</option><option value="brief">Research brief / tesis</option><option value="source">Fuente</option><option value="flashcard">Flashcard</option></select></div><div class="study-field"><label for="studyStatus">Estado</label><select id="studyStatus"><option value="todo">Por estudiar</option><option value="progressing">En curso</option><option value="mastered">Dominado / revisado</option></select></div>
-<div class="study-field full"><label for="studyTitle">Título *</label><input id="studyTitle" required maxlength="180" placeholder="Ej. Cómo afecta el real yield al oro"></div><div class="study-field full"><label for="studyQuestion">Pregunta de investigación / resumen</label><textarea id="studyQuestion" maxlength="4000" placeholder="¿Qué quieres entender? ¿Cuál es la idea principal?"></textarea></div>
-<div class="study-field"><label for="studyTags">Etiquetas (separadas por coma)</label><input id="studyTags" maxlength="300" placeholder="macro, rates, gold"></div><div class="study-field"><label for="studyUrl">URL de la fuente</label><input id="studyUrl" type="url" maxlength="2000" placeholder="https://…"></div>
-<div class="study-field"><label for="studyAuthor">Autor / publicación</label><input id="studyAuthor" maxlength="240" placeholder="Autor, medio o institución"></div><div class="study-field"><label for="studyPublishedAt">Fecha de publicación</label><input id="studyPublishedAt" type="date"></div><div class="study-field"><label for="studyConsultedAt">Fecha consultada</label><input id="studyConsultedAt" type="date"></div><div class="study-field"><label for="studyNextReview">Próxima revisión</label><input id="studyNextReview" type="date"></div>
-<div class="study-field full"><label>Vínculos con registros existentes</label><div style="display:grid;grid-template-columns:minmax(130px,.7fr) minmax(180px,1.3fr) auto;gap:8px"><select id="studyLinkType" aria-label="Tipo de vínculo"><option value="trade">Operación</option><option value="position">Posición</option><option value="playbook">Playbook / setup</option><option value="thesis">Tesis</option><option value="account">Cuenta</option><option value="research">Documento de estudio</option></select><select id="studyLinkTarget" aria-label="Registro relacionado"><option value="">— elige un registro —</option></select><button type="button" class="btn ghost sm" id="studyLinkAdd">Vincular</button></div><div id="studyLinksList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px"></div><p class="help">Los vínculos apuntan a registros existentes; no duplican la operación, posición, cuenta o setup.</p></div>
-<div class="study-field full"><label for="studyEvidence">Evidencia a favor / hechos observados</label><textarea class="tall" id="studyEvidence" maxlength="8000" placeholder="Datos, citas breves, cifras, fechas y fuente."></textarea></div><div class="study-field full"><label for="studyCatalysts">Catalizadores / eventos a vigilar</label><textarea id="studyCatalysts" maxlength="5000" placeholder="Datos, anuncios, fechas o condiciones que podrían cambiar la tesis."></textarea></div><div class="study-field full"><label for="studyCounter">Antítesis / riesgos / limitaciones</label><textarea id="studyCounter" maxlength="8000" placeholder="¿Qué podría contradecir la hipótesis? ¿Qué falta saber?"></textarea></div><div class="study-field full"><label for="studyConclusion">Interpretación / conclusión provisional</label><textarea id="studyConclusion" maxlength="8000" placeholder="Distingue la interpretación propia de los hechos registrados."></textarea></div>
-<div class="study-field"><label for="studyPrompt">Flashcard: pregunta</label><textarea id="studyPrompt" maxlength="1500" placeholder="¿Qué debes recordar sin mirar?"></textarea></div><div class="study-field"><label for="studyAnswer">Flashcard: respuesta</label><textarea id="studyAnswer" maxlength="3000" placeholder="Respuesta breve y verificable."></textarea></div>
-</div></div><div class="study-dialog-foot"><button type="button" class="btn danger sm" id="studyDelete">Eliminar</button><span style="flex:1"></span><button type="button" class="btn ghost sm" id="studyCancel">Cancelar</button><button type="submit" class="btn primary sm">Guardar documento</button></div></form></div></div>
-<div class="study-modal" id="studyReader" role="dialog" aria-modal="true" aria-labelledby="studyReaderTitle"><div class="study-dialog" style="max-width:1180px"><div class="study-dialog-head"><h3 id="studyReaderTitle">Lectura</h3><button type="button" class="btn ghost sm" id="studyReaderClose" aria-label="Cerrar lectura">✕</button></div><div class="study-dialog-body" style="display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:22px"><div><div id="studyReaderMeta" class="muted" style="font-size:11px;margin-bottom:12px"></div><nav id="studyReaderToc" aria-label="Contenido del documento" hidden style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px"></nav><article id="studyReaderContent" style="max-width:72ch;font-size:14px;line-height:1.75"></article></div><aside id="studyReaderContext" style="border-left:1px solid var(--line);padding-left:16px;font-size:12px"></aside></div><div class="study-dialog-foot"><span style="flex:1"></span><button type="button" class="btn ghost sm" id="studyReaderCloseBottom">Cerrar</button><button type="button" class="btn primary sm" id="studyReaderEdit">Editar documento</button></div></div></div>
-<!-- ======================= CABINA ======================= -->
-<div class="tab active" data-tab="cabina">
-<!-- ORDEN VISUAL. Las preguntas se responden en el orden en que se hacen:
-     ¿puedo operar? ¿cuánto tengo? ¿cuánto llevo hoy? ¿cuánto riesgo queda?
-     Todas viven en la cuenta, así que la cuenta va primero y a lo ancho.
-     La pre-sesión es un ritual de una vez al día; la cuenta se mira cada hora. -->
-<!-- ANTES DE OPERAR · lo primero que se ve, una vez al día y no más.
-     Va ARRIBA DEL TODO y por encima de las cuentas a propósito: su trabajo es
-     leerse antes de mirar un número, no competir con ellos. Y desaparece al
-     pulsar «Leídas»: una lista permanente deja de leerse a la semana, que es
-     exactamente lo que no se quería.
-
-     LAS REGLAS SON DATOS DEL USUARIO, NO DEL CÓDIGO. test/lanzamiento.mjs
-     recorre cada fichero versionado para que no vuelva la configuración
-     personal del autor; incrustar aquí las reglas de alguien lo rompería en
-     espíritu aunque pasara la expresión regular. Lo que sí vive en el código
-     es una PLANTILLA que cualquiera puede cargar y reescribir, igual que las
-     del Playbook. -->
-<section class="credo view-only" id="credoBand" hidden>
-  <header>
-    <h2>Antes de operar</h2>
-    <span class="meta" id="credoMeta"></span>
-    <button type="button" class="btn sm ghost" id="credoEdit">Editar</button>
-    <button type="button" class="btn sm primary" id="credoOk">Leídas</button>
-  </header>
-  <div class="credo-vacio" id="credoVacio" hidden>
-    <p>Las reglas duras de abajo las vigila Cabina sola. Éstas son las otras: las
-       que ninguna máquina puede comprobarte y se olvidan con el mercado abierto.</p>
-    <button type="button" class="btn primary" id="credoEmpezar">Escribir mis reglas</button>
-  </div>
-  <ol class="credo-list" id="credoList"></ol>
-  <div class="credo-ed" id="credoEdBox" hidden>
-    <label class="credo-lbl" for="credoText">Una regla por línea. Las tuyas, con tus palabras.</label>
-    <textarea id="credoText" rows="12" spellcheck="false"></textarea>
-    <div class="jactions">
-      <button type="button" class="btn primary" id="credoSave">Guardar</button>
-      <button type="button" class="btn ghost" id="credoCancel">Cancelar</button>
-      <button type="button" class="btn ghost" id="credoSeed">Cargar una plantilla</button>
-    </div>
-  </div>
-</section>
-<button type="button" class="credo-trace view-only" id="credoTrace" hidden></button>
-
-<section class="deck" aria-label="Resumen de Cabina"><span class="deck-n">01</span><h1 class="deck-t">Cabina</h1><span class="deck-stage">Ejecución</span><span class="deck-parts">Pre-sesión · Reglas duras · Diario</span></section>
-<section class="panel" id="panelAccts">
-      <header><h2>Cuentas prop</h2><div class="hgroup"><select id="cabAcct" aria-label="Cuenta de trabajo"><option value="">todas las cuentas</option></select><span class="meta" id="acctsMeta"></span><button type="button" class="btn sm ghost" id="addAcct">+ Añadir cuenta</button><button type="button" class="btn ghost sm selbtn" id="selbtn-accts" title="Selecciona varias cuentas y bórralas de una vez">Seleccionar</button></div></header>
-      <div class="body">
-        <div class="accts" id="accts"></div>
-      </div>
-</section>
-<div class="grid" style="margin-top:var(--s5)">
-  <div class="col">
-    <section class="panel" id="panelRules">
-      <header><h2>Reglas duras</h2><span class="rulesstate" id="rulesState"><i></i>—</span></header>
-      <div class="body">
-        <p class="hint" id="rulesHint"></p>
-        <div class="rules" id="rules"></div>
-        <button type="button" class="add edit-only" id="addRule">+ Añadir regla</button>
-      </div>
-    </section>
-    <section class="panel" id="panelCheck">
-      <header><h2>Pre-sesión</h2><span class="meta" id="checkMeta">0 / 0 · hoy</span></header>
-      <div class="body">
-        <div class="winbox">
-          <div class="winline view-only"><span class="winlbl">Ventana operativa</span><span class="winval" id="winView">—</span></div>
-          <div class="winedit edit-only">
-            <span class="winlbl">Ventana operativa</span>
-            <div class="winhoras">
-              <label>Desde <input type="time" id="winStart" step="300" aria-label="Hora de apertura de tu ventana (ET)"></label>
-              <label>Hasta <input type="time" id="winEnd" step="300" aria-label="Hora de cierre de tu ventana (ET)"></label>
-            </div>
-            <div class="seschips windays" id="winDays" role="group" aria-label="Días operativos"></div>
-            <p class="hint">Hora de Nueva York. Es tu regla, no la del mercado: las sesiones del día (Asia, Londres, NY AM…) no se mueven, y una operación vieja no cambia de sesión. Lo que cambia es el permiso de hoy y la señal «fuera de ventana», también en lo ya registrado.</p>
-          </div>
-        </div>
-        <div class="seschips view-only" id="sesChips" role="tablist" aria-label="Sesión que se prepara"></div>
-        <ul class="check" id="checkList"></ul>
-        <button type="button" class="add edit-only" id="addCheck">+ Añadir paso</button>
-        <div class="progress view-only"><i id="checkBar"></i></div>
-        <div class="go view-only" id="goBox"><span id="goText">Completa la lista antes de la ventana operativa.</span><span id="goCount">0/0</span></div>
-        <div id="preBanner" hidden class="closed-banner"></div>
-        <div class="jactions view-only">
-          <button type="button" class="btn primary" id="preSave">Guardar pre-sesión</button>
-          <button type="button" class="btn ghost" id="preReopen" hidden>Reabrir</button>
-          <span class="note" id="preSaved"></span>
-        </div>
-      </div>
-    </section>
-    <section class="panel" id="panelLevels">
-      <header><h2>Niveles del día</h2><span class="meta">MNQ · se guardan con la sesión</span></header>
-      <div class="body" id="mktLevels"></div>
-    </section>
-  </div>
-  <div class="col">
-    <section class="panel" id="panelJournal">
-      <header><h2>Sesión de hoy</h2><div class="hgroup"><div class="sesnow off" id="sesNow" aria-live="polite"></div><span class="meta" id="todayLabel">—</span></div></header>
-      <div class="body">
-        <div id="closedBanner" hidden class="closed-banner"></div>
-        <!-- Lo primero de la sesión no es un formulario: es en qué punto estás.
-             Antes lo más grande del panel eran dos campos de texto para cifras
-             que ya vienen calculadas del journal. -->
-        <div class="jstrip" id="jStrip"></div>
-        <div class="jgrid manual">
-          <div class="jf"><label class="lab" for="jResult">Resultado ($)</label><input type="number" id="jResult" step="1" placeholder="+120 / -80"></div>
-          <div class="jf"><label class="lab" for="jTrades">Operaciones</label><input type="number" id="jTrades" min="0" step="1" placeholder="0"></div>
-          <div class="jf"><span class="lab">Regla rota</span><button type="button" class="toggle" id="jBroke" aria-pressed="false"><span id="jBrokeIcon">○</span><span id="jBrokeText">no</span></button></div>
-        </div>
-        <p class="synced" id="jSync"></p>
-        <div class="jseswrap" id="jSesBreak" hidden></div>
-        <label class="lab" for="jNote">Nota · qué hice bien, qué rompí, qué cambia mañana</label>
-        <textarea id="jNote" placeholder="Ej.: Esperé el CHoCH en 5m y entré en el pullback a la EMA 20. Cerré tras dos pérdidas, como dice la regla."></textarea>
-        <div class="qt">
-          <span class="lab">Registrar operación · se archiva sola según el instrumento</span>
-          <div class="qgrid">
-            <div><input type="text" id="qtSym" placeholder="MNQ, VTI, BTC, O…" aria-label="Instrumento"></div>
-            <div><select id="qtDest" aria-label="Destino"></select></div>
-            <div><label class="lab" for="qtAccount">Cuenta</label><select id="qtAccount" aria-label="Cuenta de esta operación" title="La cuenta se asigna a esta operación, no a toda la sesión"></select></div>
-            <div><button type="button" class="btn primary" id="qtGo">+ Registrar</button></div>
-          </div>
-          <p class="synced" id="qtNote"></p>
-        </div>
-        <div class="jactions">
-          <button type="button" class="btn primary" id="jClose">Cerrar sesión de hoy</button>
-          <button type="button" class="btn ghost" id="jReopen" hidden>Reabrir</button>
-          <span class="note" id="jSaved"></span>
-        </div>
-      </div>
-    </section>
-    <section class="panel" id="panelHist">
-      <header><h2>Últimas 14 sesiones</h2><span class="meta" id="histMeta"></span>
-        <button type="button" class="btn ghost sm selbtn" id="selbtn-histWrap" title="Selecciona varias sesiones y bórralas de una vez">Seleccionar</button></header>
-      <div class="tiles" id="tiles"></div>
-      <div class="body"><div class="twrap" id="histWrap"></div></div>
-    </section>
-  </div>
-</div>
-<section class="panel" id="panelCabCal" style="margin-top:24px">
-  <header>
-    <div class="tools"><button type="button" class="icon" id="calCabPrev" title="Mes anterior">‹</button><h2 id="calCabTitle" style="margin:0 6px">—</h2><button type="button" class="icon" id="calCabNext" title="Mes siguiente">›</button></div>
-    <span class="meta" id="calCabMeta"></span>
-  </header>
-  <div class="body" style="padding:12px">
-    <div class="cal" id="calCab"></div>
-    <p class="csub" style="margin:12px 0 0">Resultado de cada sesión. Toca un día para abrirlo en el diario de futuros.</p>
-  </div>
-</section>
-
-<div id="migPanel" hidden style="margin-top:24px"></div>
-
-</div>
-
-<!-- ======================= AJUSTES =======================
-     UN SITIO PARA LO QUE SE CONFIGURA UNA VEZ. Antes esto estaba repartido
-     en tres: la barra superior (idioma, datos de muestra), la pestaña Cabina
-     (la copia de seguridad, que no tiene nada que ver con la sesión de hoy) y
-     un modal suelto.
-
-     LO QUE **NO** SE HA MOVIDO, Y POR QUÉ — que es la parte que importa,
-     porque mudarlo todo habría sido peor:
-
-     · Reglas duras, checklist de pre-sesión y niveles se QUEDAN en Cabina.
-       No se configuran una vez: se miran operando. La checklist se marca
-       justo antes de abrir la plataforma; si viviera aquí habría que salir de
-       la Cabina para marcarla y volver, dos viajes en el peor momento.
-
-     · «Editar» se queda en la barra. No es una preferencia global: showTab lo
-       esconde fuera de Cabina a propósito (`hidden = name !== "cabina"`), así
-       que aquí sería un botón que nunca se ve.
-
-     · «Vista» se queda en la barra. Es POR PESTAÑA: se abre desde la pestaña
-       que se está mirando, y desde aquí sólo configuraría los módulos de
-       Ajustes.
-
-     Esas tres se nombran abajo con su sitio, para que haya un inventario
-     completo en un lugar aunque los controles sigan donde se usan.
-
-     NO SE AÑADE CSS. Todo se construye con primitivas que ya existen y que
-     están escritas sobre tokens (`.panel`, `.bkgrid`, `.bkcard`, `.lab`,
-     `.help`, `.btn`): el tema claro redefine los tokens en `:root`, así que
-     un componente hecho con tokens entra ya pintado. Un componente con
-     colores a mano nacería con los del tema oscuro de debajo — la deuda que
-     docs/DISENO.md deja anotada. -->
-<div class="tab" data-tab="ajustes">
-<section class="deck" aria-label="Resumen de Ajustes"><span class="deck-n">10</span><h1 class="deck-t">Ajustes</h1><span class="deck-stage">Configuración</span><span class="deck-parts">Datos · Idioma · Dónde está lo demás</span></section>
-
-<section class="panel" id="panelDatos">
-  <header><h2>Copia de seguridad y traspaso</h2><span class="meta" id="bkMeta">—</span></header>
-  <div class="body">
-    <p class="hint">Un solo archivo con todo: ajustes, reglas duras, cuentas, sesiones, operaciones, playbook, ideas e inversiones. Sirve de respaldo y es la vía para llevar los datos a otra copia de Cabina.</p>
-    <div class="bkgrid">
-      <div class="bkcard">
-        <span class="lab">Exportar</span>
-        <label class="bkchk"><input type="checkbox" id="bkImgs"> Meter las capturas dentro del archivo</label>
-        <p class="help" id="bkImgsNote">Sin esto el archivo pesa poco, pero las capturas se quedan atrás: solo existen en tu cuenta.</p>
-        <div class="bkbtns">
-          <button type="button" class="btn primary" id="bkExport">Descargar copia</button>
-          <button type="button" class="btn ghost" id="bkShow">Ver el texto</button>
-        </div>
-      </div>
-      <div class="bkcard">
-        <span class="lab">Importar</span>
-        <div id="bkModes">
-          <label class="bkchk"><input type="radio" name="bkmode" value="replace" checked> Reemplazar todo lo que haya aquí</label>
-          <label class="bkchk"><input type="radio" name="bkmode" value="merge"> Añadir sin borrar nada</label>
-        </div>
-        <p class="help" id="bkModeNote"></p>
-        <div class="bkbtns">
-          <button type="button" class="btn" id="bkImport">Elegir archivo…</button>
-          <button type="button" class="btn ghost" id="bkPaste">Pegar el texto</button>
-        </div>
-      </div>
-    </div>
-    <p class="synced" id="bkNote"></p>
-    <!-- `.txt` TAMBIÉN: hay brókers que exportan el CSV con esa extensión, y el
-     filtro del selector es lo ÚNICO que decide si el archivo se puede llegar a
-     elegir. Sin ella el archivo sale en gris y no hay mensaje que lo explique:
-     parece que la copia no sirve cuando lo que no sirve es el filtro. Lo que se
-     hace con el contenido no cambia — `bkParse` sigue decidiendo si es copia o
-     CSV, y un `.txt` que no sea ninguna de las dos se rechaza igual. -->
-    <input type="file" id="bkFile" accept="application/json,.json,text/csv,.csv,.txt" hidden aria-hidden="true">
-  </div>
-</section>
-
-<section class="panel" id="panelPrefs" style="margin-top:24px">
-  <header><h2>Idioma y datos de muestra</h2></header>
-  <div class="body">
-    <p class="hint">Las dos preferencias que no pertenecen a ninguna pestaña: en qué idioma se lee el cromo de la aplicación, y si lo que se ve son tus datos o un juego inventado para revisar el diseño.</p>
-    <div class="bkgrid">
-      <div class="bkcard">
-        <span class="lab">Idioma</span>
-        <p class="help">Traduce los rótulos, botones y encabezados. <b>No toca tus datos</b>: el nombre de una cuenta, una nota o un instrumento se quedan como los escribiste.</p>
-        <div class="bkbtns">
-          <button type="button" class="editbtn" id="idiomaBtn" aria-pressed="false" title="Language / Idioma">EN</button>
-        </div>
-      </div>
-      <div class="bkcard">
-        <span class="lab">Datos de muestra</span>
-        <p class="help">Rellena la cabina con operaciones, setups, cuentas y cartera inventados para ver cómo queda todo con datos dentro. <b>No se guarda nada</b>: al salir vuelven tus datos reales intactos.</p>
-        <div class="bkbtns">
-          <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="panel" id="panelDondeEsta" style="margin-top:24px">
-  <header><h2>Dónde está lo demás</h2></header>
-  <div class="body">
-    <p class="hint">Lo que se configura mientras operas se queda donde se usa: traerlo aquí añadiría un viaje justo cuando menos sobra. Esta lista existe para que el inventario esté completo en un sitio.</p>
-    <div class="bkgrid">
-      <div class="bkcard">
-        <span class="lab">Reglas duras</span>
-        <p class="help">Los límites que la cabina comprueba sola. Se consultan operando, no se escriben una vez.</p>
-        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="cabina">Ir a Cabina</button></div>
-      </div>
-      <div class="bkcard">
-        <span class="lab">Checklist de pre-sesión</span>
-        <p class="help">Se marca justo antes de abrir la plataforma. Vive en la Cabina porque es ahí donde se usa.</p>
-        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="cabina">Ir a Cabina</button></div>
-      </div>
-      <div class="bkcard">
-        <span class="lab">Niveles</span>
-        <p class="help">Los precios que vigilas en la sesión. Cambian con el día, no con la configuración.</p>
-        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="cabina">Ir a Cabina</button></div>
-      </div>
-      <div class="bkcard">
-        <span class="lab">Cuentas</span>
-        <p class="help">Firmas, tamaños, drawdown y objetivos. Tiene pestaña propia porque es un registro, no un ajuste.</p>
-        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="cuentas">Ir a Cuentas</button></div>
-      </div>
-      <div class="bkcard">
-        <span class="lab">Importar CSV del bróker</span>
-        <p class="help">El mapeador y su vista previa. Está en Futuros porque lo que importa son operaciones de futuros.</p>
-        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="futuros">Ir a Futuros</button></div>
-      </div>
-      <div class="bkcard">
-        <span class="lab">Vista: módulos y densidad</span>
-        <p class="help">Se configura <b>por pestaña</b>, con el botón «Vista» de la barra superior: elige qué módulos aparecen en la pestaña que estás mirando. Desde aquí sólo configuraría los de Ajustes.</p>
-      </div>
-      <div class="bkcard">
-        <span class="lab">Modo edición</span>
-        <p class="help">El botón «Editar» de la barra superior, y sólo aparece en la Cabina: es lo único que se puede reordenar a mano.</p>
-      </div>
-    </div>
-  </div>
-</section>
-</div>
-
-<!-- ======================= FUTUROS ======================= -->
-<div class="tab" data-tab="futuros">
-<section class="deck" aria-label="Resumen de Futuros"><span class="deck-n">02</span><h1 class="deck-t">Futuros</h1><span class="deck-stage">Revisión</span><span class="deck-parts">Historial · Equity · Expectativa R</span></section>
-
-  <div class="toolbar">
-    <div class="seg" id="ftSeg">
-      <button data-v="resumen" class="active">Resumen</button>
-      <button data-v="cuentas">Cuentas</button>
-      <button data-v="analisis">Análisis</button>
-      <button data-v="diario">Diario</button>
-      <button data-v="presesion">Pre-sesión</button>
-    </div>
-    <span class="sp"></span>
-    <select id="ftAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select>
-    <select id="ftRange" aria-label="Rango"><option value="all">todo el historial</option><option value="month">este mes</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select>
-    <select id="ftSetup" aria-label="Filtrar por setup"><option value="">todos los setups</option></select>
-    <select id="ftInstr" aria-label="Instrumento"><option value="">todos los instrumentos</option></select>
-    <select id="ftSes" aria-label="Sesión"><option value="">todas las sesiones</option></select>
-    <input id="ftQ" type="search" aria-label="Buscar operaciones" placeholder="buscar instrumento, etiqueta, lección…" autocomplete="off">
-    <button type="button" class="btn ghost sm selbtn" id="selbtn-jrTable" title="Selecciona varias operaciones y bórralas de una vez">Seleccionar</button>
-    <button type="button" class="btn primary" id="ftNew">+ Nueva operación</button>
-  </div>
-  <div class="ftfilt" id="ftFilters" hidden></div>
-  <p class="synced" id="ftSync"></p>
-
-  <!-- ---------- resumen ---------- -->
-  <div class="ftview active" data-v="resumen">
-    <div class="stack">
-      <section class="panel">
-        <div class="tiles five" id="ftTiles"></div>
-      </section>
-      <section class="panel" id="qeSec">
-        <header><h2>Radiografía cuantitativa</h2><span class="meta" id="qeMeta"></span></header>
-        <div class="body"><div id="qePanel"></div></div>
-      </section>
-      <div class="grid eq">
-        <section class="panel">
-          <header><h2>Curva de equity</h2><span class="meta" id="eqMeta"></span></header>
-          <div class="body"><div class="chartwrap" id="eqWrap"></div></div>
-        </section>
-        <section class="panel">
-          <header><h2>Bajo el agua</h2><span class="meta" id="uwMeta"></span></header>
-          <div class="body"><p class="csub">Distancia al máximo anterior. Plano en cero = cuenta en máximos.</p><div class="chartwrap" id="uwWrap"></div></div>
-        </section>
-      </div>
-      <div class="grid eq">
-        <section class="panel">
-          <header><h2>P&amp;L diario</h2><span class="meta" id="dailyMeta"></span></header>
-          <div class="body"><div class="chartwrap" id="dailyWrap"></div></div>
-        </section>
-        <section class="panel">
-          <header><h2>Expectativa móvil</h2><span class="meta" id="rollMeta"></span></header>
-          <div class="body"><p class="csub">Media de R de las últimas 20 operaciones. Por encima de cero el sistema paga.</p><div class="chartwrap" id="rollWrap"></div></div>
-        </section>
-      </div>
-      <section class="panel">
-        <header><h2>Rachas y disciplina</h2><span class="meta" id="strMeta"></span></header>
-        <div class="body"><div class="tiles three" id="ftStreaks" style="border:1px solid var(--line);border-radius:4px;overflow:hidden"></div></div>
-      </section>
-    </div>
-  </div>
-
-  <!-- ---------- cuentas ---------- -->
-  <div class="ftview" data-v="cuentas">
-    <p class="note-p">Cada operación se apunta a una cuenta. Lo que ves aquí sale del journal, no de números escritos a mano: ganancia acumulada, mejor día, colchón hasta el drawdown y la regla de consistencia, cuenta por cuenta. El saldo previo y los movimientos (retiros, costos, resets) los registras tú.</p>
-    <div id="ftAccts"></div>
-    <button type="button" class="add" id="ftAcctAdd">+ Registrar cuenta</button>
-  </div>
-
-  <!-- ---------- análisis ---------- -->
-  <div class="ftview" data-v="analisis">
-    <div class="stack">
-      <section class="panel">
-        <header><h2>¿Funciona el sistema?</h2><span class="meta" id="scMeta"></span></header>
-        <div class="body">
-          <div id="ftVerdict"></div>
-          <div class="score" id="ftScore"></div>
-        </div>
-      </section>
-      <div class="grid eq">
-        <section class="panel">
-          <header><h2>Distribución de R</h2><span class="meta" id="rdMeta"></span></header>
-          <div class="body"><p class="csub">Cuántas operaciones caen en cada múltiplo de riesgo. La barra <b>-1R</b> son stops respetados; lo que quede a su izquierda son stops que se saltaron.</p><div class="chartwrap" id="rdWrap"></div></div>
-        </section>
-        <section class="panel">
-          <header><h2>El protocolo, ¿paga?</h2><span class="meta" id="prMeta"></span></header>
-          <div class="body"><p class="csub">Operaciones con las cuatro condiciones marcadas frente al resto.</p><div class="chartwrap" id="prWrap"></div><div id="prOut"></div></div>
-        </section>
-      </div>
-      <section class="panel">
-        <header><h2>¿De qué tipo fueron tus pérdidas?</h2><span class="meta" id="erMeta"></span></header>
-        <div class="body"><p class="csub">Cada pérdida, clasificada por la cabina con lo que la operación ya trae — no por cómo te sientes después de perderla. La categoría 4 no se elige: se gana, con esperanza positiva en operaciones limpias.</p><div id="erWrap"></div></div>
-      </section>
-      <section class="panel">
-        <header><h2>Por sesión de mercado</h2><span class="meta" id="seMeta"></span></header>
-        <div class="body"><p class="csub">Cada operación cae en su sesión por la hora de entrada. Aquí se ve si la ventana de NY AM de verdad es la que paga, o si el dinero está en otro sitio.</p><div class="chartwrap" id="seWrap"></div><div id="seOut"></div></div>
-      </section>
-      <div class="grid eq">
-        <section class="panel">
-          <header><h2>Por hora de entrada</h2><span class="meta" id="hrMeta"></span></header>
-          <div class="body"><div class="chartwrap" id="hrWrap"></div></div>
-        </section>
-        <section class="panel">
-          <header><h2>Por día de la semana</h2><span class="meta" id="dwMeta"></span></header>
-          <div class="body"><div class="chartwrap" id="dwWrap"></div></div>
-        </section>
-      </div>
-      <section class="panel">
-        <header><h2>Consistencia</h2><span class="meta" id="cnMeta"></span></header>
-        <div class="body"><p class="csub">Peso de cada día dentro de la ganancia acumulada. Un solo día gigante rompe la regla de las prop firms. La tabla de abajo mide lo mismo cuenta por cuenta, con el total de cada una.</p><div class="chartwrap" id="cnWrap"></div><div id="cnOut"></div></div>
-      </section>
-      <section class="panel">
-        <header><h2>Desglose</h2><span class="meta">dónde está el edge y dónde se va el dinero</span></header>
-        <div class="body"><div class="bk" id="ftBreak"></div></div>
-      </section>
-    </div>
-  </div>
-
-  <!-- ---------- pre-sesión ---------- -->
-  <div class="ftview" data-v="presesion">
-    <div class="stack">
-      <div class="toolbar sub">
-        <select id="prSes" aria-label="Sesión"><option value="">todas las sesiones</option></select>
-        <select id="prRange" aria-label="Rango"><option value="all">todo el historial</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select>
-        <span class="sp"></span>
-        <span class="meta" id="prCount"></span>
-      </div>
-      <section class="panel"><div class="tiles" id="prTiles"></div></section>
-      <section class="panel">
-        <header><h2>¿Preparar paga?</h2><span class="meta" id="prPayMeta"></span></header>
-        <div class="body"><p class="csub">Resultado medio de una sesión según cómo llegó su pre-sesión. Es la única forma de saber si la lista sirve o es un ritual.</p><div class="chartwrap" id="prPayWrap"></div><div id="prPayOut"></div></div>
-      </section>
-      <section class="panel">
-        <header><h2>Pasos que más te saltas</h2><span class="meta" id="prStepMeta"></span></header>
-        <div class="body"><p class="csub">Cada paso, cuántas veces quedó sin marcar y qué resultado dio la sesión en cada caso.</p><div class="twrap" id="prSteps"></div></div>
-      </section>
-      <section class="panel">
-        <header><h2>Historial de pre-sesiones</h2><span class="meta" id="prHistMeta"></span></header>
-        <div class="body"><div class="twrap" id="prHist"></div></div>
-      </section>
-    </div>
-  </div>
-
-  <!-- ---------- diario ---------- -->
-  <div class="ftview" data-v="diario">
-    <div class="stack">
-      <section class="panel">
-        <header>
-          <div class="tools"><button type="button" class="icon" id="calPrev" title="Mes anterior">‹</button><h2 id="calTitle" style="margin:0 6px">—</h2><button type="button" class="icon" id="calNext" title="Mes siguiente">›</button></div>
-          <span class="meta" id="calMeta"></span>
-        </header>
-        <div class="body" style="padding:12px">
-          <div class="cal" id="cal"></div>
-        </div>
-      </section>
-      <section class="panel" id="dayPanel">
-        <header><h2 id="dayTitle">Día</h2><span class="meta" id="dayMeta"></span></header>
-        <div class="body" id="dayBody"></div>
-      </section>
-      <section class="panel">
-        <header><h2>Operaciones</h2><span class="meta" id="jrMeta"></span></header>
-        <div class="body">
-          <!-- LA COLA DE LO IMPORTADO INCOMPLETO · fase 5 de docs/IMPORTAR.md.
-               Ningun export de broker trae el stop, asi que una operacion importada
-               entra sin el campo del que salen la R y la expectativa. Esto dice
-               cuantas son y lleva a completarlas de una en una. -->
-          <div class="bkbtns" id="jrCola" hidden>
-            <button type="button" class="btn ghost sm" id="jrSoloIncompletas" aria-pressed="false">Sólo sin completar</button>
-            <button type="button" class="btn sm" id="jrCompletarSig">Completar la siguiente</button>
-          </div>
-          <p class="synced" id="jrColaNota" hidden></p>
-          <div class="twrap" id="jrTable"></div>
-        </div>
-      </section>
-      <!-- IMPORTAR · mapeador manual de operaciones cerradas y modo FIFO de ejecuciones.
-           La detección automática de plataforma (fase 4) y la validación contra un CSV
-           real del bróker siguen pendientes; ver docs/IMPORTAR.md. -->
-      <section class="panel" id="panelImportar">
-        <header><h2>Importar operaciones</h2><span class="meta" id="impMeta">—</span></header>
-        <div class="body">
-          <p class="hint">Un CSV del bróker. No sale del navegador: se lee aquí. <strong>Tú dices qué columna es qué</strong> —esta cabina no conoce la cabecera de ningún bróker, y adivinarla es cómo se importan doce meses al día equivocado—. Nada se escribe antes de que veas la tabla exacta que va a entrar.</p>
-          <div class="bkbtns">
-            <button type="button" class="btn" id="impFileBtn">Elegir archivo…</button>
-            <button type="button" class="btn ghost" id="impPaste">Pegar el texto</button>
-            <button type="button" class="btn ghost" id="impClear" hidden>Descartar el fichero</button>
-            <button type="button" class="btn ghost" id="impUndo" hidden>Deshacer la importación</button>
-          </div>
-          <div id="impMapa"></div>
-          <p class="synced" id="impNote"></p>
-          <input type="file" id="impFile" accept="text/csv,.csv,.txt,text/plain" hidden aria-hidden="true">
-        </div>
-      </section>
-    </div>
-  </div>
-  <section class="panel" id="panelExecHistory">
-    <header><h2>Historial de ejecuciones</h2><span class="meta" id="execHistoryMeta">Sin ejecuciones importadas</span><button type="button" class="btn ghost sm" id="execToggle" aria-expanded="false">Ver historial</button></header>
-    <div class="body" id="execHistoryBody" hidden>
-      <p class="hint">Registro consolidado de los fills importados. Si una ejecución se repartió entre varias operaciones por un cierre parcial o una reversión, se agrupa por su huella para no contarla dos veces. No calcula un P&amp;L independiente: el resultado sigue perteneciendo al motor de operaciones.</p>
-      <div id="execHistoryFilters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">
-        <label class="lab">Buscar<input id="execQ" type="search" placeholder="ID, instrumento, lado…" style="width:100%"></label>
-        <label class="lab">Cuenta<select id="execAcct" style="width:100%"><option value="">todas las cuentas</option></select></label>
-        <label class="lab">Instrumento<select id="execInstr" style="width:100%"><option value="">todos los instrumentos</option></select></label>
-        <label class="lab">Desde<input id="execFrom" type="date" style="width:100%"></label>
-        <label class="lab">Hasta<input id="execTo" type="date" style="width:100%"></label>
-        <button type="button" class="btn ghost sm" id="execReset" style="align-self:end">Limpiar filtros</button>
-        <button type="button" class="btn ghost sm" id="execExport" style="align-self:end" aria-label="Exportar las ejecuciones filtradas a CSV" disabled>Exportar CSV</button>
-      </div>
-      <div class="twrap" id="execHistoryTable" aria-live="polite"><p class="csub">Cargando ejecuciones…</p></div>
-    </div>
-  </section>
-</div>
-
-<!-- ======================= PLAYBOOK ======================= -->
-<!-- MÉTRICAS / EDGE · sólo operaciones de FUTUROS del journal, netas de comisión.
-     Las inversiones no entran nunca: tradesOf("futuros") las deja fuera por tipo. -->
-<div class="tab" data-tab="cuentas">
-<section class="deck" aria-label="Resumen de Cuentas"><span class="deck-n">09</span><h1 class="deck-t">Cuentas</h1><span class="deck-stage">Ciclo de vida</span><span class="deck-parts">Compradas &middot; Quemadas &middot; Autopsia</span></section>
-
-  <div class="toolbar">
-    <select id="cuFiltro" aria-label="Qué cuentas se ven">
-      <option value="todas">todas las cuentas</option>
-      <option value="quemadas">sólo las quemadas</option>
-      <option value="vivas">sólo las vivas</option>
-    </select>
-    <span class="sp"></span>
-    <span class="mono" id="cuN" style="font-size:12.5px;color:var(--muted)"></span>
-  </div>
-  <div class="stack">
-    <section class="panel">
-      <header><h2>La caja</h2><span class="meta" id="cuCajaMeta"></span></header>
-      <div class="body">
-        <div class="kpis" id="cuCaja"></div>
-        <div id="cuCajaNota"></div>
-        <div class="twrap" id="cuFirmas" style="margin-top:14px"></div>
-      </div>
-    </section>
-    <section class="panel">
-      <header><h2>Cada cuenta, de la compra al final</h2><span class="meta" id="cuTablaMeta"></span></header>
-      <div class="body"><div class="twrap" id="cuTabla"></div><div id="cuTablaNota"></div></div>
-    </section>
-    <section class="panel">
-      <header><h2>Lo que se repite entre tus quemadas</h2><span class="meta" id="cuPatronMeta"></span></header>
-      <div class="body" id="cuPatron"></div>
-    </section>
-    <section class="panel">
-      <header><h2>La autopsia de cada quemada</h2><span class="meta" id="cuAutoMeta"></span></header>
-      <div class="body" id="cuAutopsias"></div>
-    </section>
-  </div>
-</div>
-
-<div class="tab" data-tab="edge">
-<section class="deck" aria-label="Resumen de Métricas y Edge"><span class="deck-n">03</span><h1 class="deck-t">Métricas / Edge</h1><span class="deck-stage">Validación</span><span class="deck-parts">P&amp;L neto · Drawdown · Riesgo</span></section>
-
-  <div class="toolbar">
-    <select id="mxAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select>
-    <select id="mxSetup" aria-label="Setup"><option value="">todos los setups</option></select>
-    <label class="mxd">desde <input type="date" id="mxDesde" aria-label="Desde"></label>
-    <label class="mxd">hasta <input type="date" id="mxHasta" aria-label="Hasta"></label>
-    <span class="sp"></span>
-    <span class="mono" id="mxN" style="font-size:12.5px;color:var(--muted)"></span>
-  </div>
-  <div id="mxAviso"></div>
-  <div class="stack">
-    <section class="panel">
-      <header><h2>Parámetros</h2><span class="meta">se guardan con tu configuración</span></header>
-      <div class="body">
-        <div class="mxparams">
-          <div><label class="lab" for="mxCom">Comisión por contrato, ida y vuelta ($)</label><input type="number" id="mxCom" step="0.01" min="0" inputmode="decimal"></div>
-          <div><label class="lab" for="mxRf">Tasa libre de riesgo anual (%)</label><input type="number" id="mxRf" step="0.1" inputmode="decimal"></div>
-          <div><label class="lab" for="mxCap">Capital de referencia ($)</label><input type="number" id="mxCap" step="100" min="0" inputmode="decimal" placeholder="el de la cuenta"></div>
-          <div class="mxchk"><input type="checkbox" id="mxManualNeto"><label for="mxManualNeto">Mis P&amp;L escritos a mano ya son netos</label></div>
-        </div>
-        <p class="csub" id="mxComNota" style="margin-top:12px"></p>
-      </div>
-    </section>
-    <section class="panel">
-      <header><h2>Edge</h2><span class="meta" id="mxEdgeMeta"></span></header>
-      <div class="body"><div class="qeg" id="mxEdge"></div><div id="mxEdgeNotas"></div></div>
-    </section>
-    <section class="panel" id="mxEstPanel">
-      <header><h2>Estad&iacute;sticas</h2><span class="meta" id="mxEstMeta"></span><button type="button" class="btn ghost sm" id="mxEstExport" title="Descarga las estad&iacute;sticas que el buscador y la categor&iacute;a dejan a la vista">Exportar CSV</button></header>
-      <div class="body">
-        <div class="esttools">
-          <input type="search" id="mxEstQ" placeholder="buscar una estad&iacute;stica&hellip;" aria-label="Buscar una estad&iacute;stica">
-          <div class="estcats" id="mxEstCats" role="group" aria-label="Categor&iacute;as"></div>
-        </div>
-        <div id="mxEstLista"></div>
-        <p class="csub" style="margin:14px 0 0">Todas salen de las mismas operaciones que la expectativa y la curva de arriba, con el mismo P&amp;L neto. Una cifra que no se puede medir sale con &laquo;&mdash;&raquo; y la raz&oacute;n al lado, nunca como cero.</p>
-      </div>
-    </section>
-    <section class="panel">
-      <header><h2>Curva de equity y drawdown</h2><span class="meta" id="mxCurvaMeta"></span></header>
-      <div class="body"><div class="chartwrap" id="mxCurva"></div><div id="mxDD"></div></div>
-    </section>
-    <div class="grid eq">
-      <section class="panel">
-        <header><h2>Tamaño de posición</h2><span class="meta">futuros · floor(riesgo ÷ (puntos × $/pt + comisión))</span></header>
-        <div class="body" id="mxSize">
-          <div class="mxform">
-            <div><label class="lab" for="mxFuente">Riesgo en $ de</label><select id="mxFuente">
-              <option value="mano">lo escribo a mano</option>
-              <option value="cuenta">pérdida diaria máx. de la cuenta</option>
-              <option value="regla">mi regla de pérdida máx. diaria</option></select></div>
-            <div><label class="lab" for="mxRiesgo">Riesgo ($)</label><input type="number" id="mxRiesgo" step="1" min="0" inputmode="decimal"></div>
-            <div><label class="lab" for="mxInstr">Contrato</label><select id="mxInstr"></select></div>
-            <div><label class="lab" for="mxStop">Stop (puntos)</label><input type="number" id="mxStop" step="0.25" min="0" inputmode="decimal"></div>
-          </div>
-          <div id="mxSizeRes"></div>
-        </div>
-      </section>
-      <section class="panel">
-        <header><h2>Riesgo de ruina · prop</h2><span class="meta">Monte Carlo · 10.000 caminos</span></header>
-        <div class="body" id="mxRuina">
-          <div class="mxform">
-            <div><label class="lab" for="mxUnR">1R en la simulación vale</label><select id="mxUnR">
-              <option value="hist">mi riesgo medio real por operación</option>
-              <option value="calc">el riesgo del cálculo de tamaño</option></select></div>
-            <div style="align-self:end"><button type="button" class="btn primary" id="mxSimular">Simular 10.000 caminos</button></div>
-          </div>
-          <div id="mxRuinaRes"></div>
-        </div>
-      </section>
-    </div>
-    <section class="panel">
-      <header><h2>Operación por operación</h2><span class="meta" id="mxTablaMeta"></span></header>
-      <div class="body"><div class="twrap" id="mxTabla"></div></div>
-    </section>
-  </div>
-</div>
-
-<div class="tab" data-tab="playbook">
-<section class="deck" aria-label="Resumen del Playbook"><span class="deck-n">04</span><h1 class="deck-t">Playbook</h1><span class="deck-stage">Proceso</span><span class="deck-parts">Reglas · Checklist · Revisión</span></section>
-
-  <nav class="tabnav sub" id="pbNav" aria-label="Tipo de inversión o trading"></nav>
-  <div class="toolbar">
-    <input type="text" id="pbSearch" placeholder="buscar…" aria-label="Buscar setup" style="width:160px">
-    <select id="pbStatus" aria-label="Estado"><option value="">todos</option><option value="activo">activos</option><option value="prueba">en prueba</option><option value="retirado">archivados</option></select>
-    <span class="sp"></span>
-    <button type="button" class="btn ghost sm" id="pbExport" title="Copia los setups de esta vista como JSON">Exportar</button>
-    <button type="button" class="btn ghost sm" id="pbImport" title="Pega un JSON exportado">Importar</button>
-    <button type="button" class="btn" id="pbTemplate">Desde plantilla</button>
-    <button type="button" class="btn ghost sm selbtn" id="selbtn-pbCards" title="Selecciona varias y bórralas de una vez">Seleccionar</button>
-    <button type="button" class="btn primary" id="pbNew">+ Nuevo setup</button>
-  </div>
-  <input type="file" id="pbFile" accept="image/*" hidden>
-<input type="file" id="tradeFile" accept="image/*" hidden>
-<input type="file" id="tradeCameraFile" accept="image/*" capture="environment" hidden>
-  <p class="note-p" id="pbKindNote"></p>
-  <div class="cards" id="pbCards"></div>
-</div>
-
-<!-- ======================= IDEAS ======================= -->
-<div class="tab" data-tab="ideas">
-<section class="deck" aria-label="Resumen de Formas de hacer dinero"><span class="deck-n">05</span><h1 class="deck-t">Formas de hacer dinero</h1><span class="deck-stage">Evaluación</span><span class="deck-parts">Capital · Riesgo · Validación</span></section>
-
-  <div class="toolbar">
-    <select id="idCat" aria-label="Categoría"><option value="">todas las categorías</option></select>
-    <select id="idStatus" aria-label="Estado"><option value="">todos los estados</option></select>
-    <span class="sp"></span>
-    <button type="button" class="btn ghost sm selbtn" id="selbtn-idCards" title="Selecciona varias y bórralas de una vez">Seleccionar</button>
-    <button type="button" class="btn primary" id="idNew">+ Nueva forma</button>
-  </div>
-  <p class="note-p">Repositorio de formas de hacer dinero en los mercados. Cada una con capital, tiempo, riesgo y por qué funcionaría. Una idea sin "próximo paso" es un deseo, no una idea.</p>
-  <div class="cards" id="idCards"></div>
-</div>
-
-<!-- ======================= INVERSIONES ======================= -->
-<div class="tab" data-tab="invest">
-<section class="deck" aria-label="Resumen de Inversiones"><span class="deck-n">06</span><h1 class="deck-t">Inversiones</h1><span class="deck-stage">Seguimiento</span><span class="deck-parts">Asignación · Rendimiento · Ingresos</span></section>
-
-  <div class="toolbar">
-    <select id="ivAccountFilter" aria-label="Filtrar por cuenta de inversión"><option value="__all">Todas las cuentas</option></select>
-    <select id="ivSetup" aria-label="Filtrar por estrategia"><option value="">todas las estrategias</option></select>
-    <button type="button" class="btn ghost sm" id="ivAcctAdd">+ Cuenta</button>
-    <button type="button" class="btn ghost sm" id="ivAcctManage" aria-expanded="false">Gestionar cuentas</button>
-    <span class="sp"></span>
-    <button type="button" class="btn ghost sm selbtn" id="selbtn-ivOps" title="Selecciona varias operaciones y bórralas de una vez">Seleccionar</button>
-    <button type="button" class="btn primary" id="ivNew">+ Nueva operación de inversión</button>
-  </div>
-  <section class="panel" id="ivAccountsPanel" hidden style="margin-bottom:24px">
-    <header><h2>Cuentas de inversión</h2><span class="meta">eliminar una cuenta conserva su historial</span></header>
-    <div class="body" id="ivAccountsList"></div>
-  </section>
-  <section class="panel" style="margin-bottom:24px">
-    <header><h2>Cartera · todos los mercados</h2><span class="meta" id="ivPortfolioScope">todas las cuentas · cartera consolidada · precios los escribes tú</span></header>
-    <div class="tiles five" id="ivTiles"></div>
-    <div id="ivTocar" hidden></div>
-  </section>
-  <div class="grid eq" style="margin-bottom:24px">
-    <section class="panel">
-      <header><h2>Asignación por mercado</h2><span class="meta" id="ivAllocMeta"></span></header>
-      <div class="body"><div class="chartwrap" id="ivAllocWrap"></div><div id="ivAllocTable"></div></div>
-    </section>
-    <section class="panel">
-      <header><h2>Rendimiento por posición</h2><span class="meta" id="ivPerfMeta"></span></header>
-      <div class="body"><p class="csub">Rendimiento neto sobre lo invertido: precio, ventas, dividendos y comisiones. Solo las posiciones con precio actual escrito o ya cerradas — sin precio no hay nada que medir.</p><div class="chartwrap" id="ivPerfWrap"></div></div>
-    </section>
-  </div>
-  <div class="grid eq" style="margin-bottom:24px">
-    <section class="panel">
-      <header><h2>Aportes por mes</h2><span class="meta" id="ivFlowMeta"></span></header>
-      <div class="body"><p class="csub">Compras y aportes registrados. La constancia importa más que el importe.</p><div class="chartwrap" id="ivFlowWrap"></div></div>
-    </section>
-    <section class="panel">
-      <header><h2>Ingresos cobrados</h2><span class="meta" id="ivIncMeta"></span></header>
-      <div class="body"><p class="csub">Dividendos, cupones, primas de opciones y alquileres registrados como cobro.</p><div class="chartwrap" id="ivIncWrap"></div></div>
-    </section>
-  </div>
-  <section class="panel" style="margin-bottom:24px">
-    <header><h2>Salud de la cartera</h2><span class="meta" id="ivHealthMeta"></span></header>
-    <div class="body"><div id="ivVerdict"></div><div class="score" id="ivScore"></div></div>
-  </section>
-  <section class="panel" style="margin-bottom:24px">
-    <header><h2>Operaciones de inversión</h2><span class="meta" id="ivOpsMeta"></span></header>
-    <div class="body"><div class="twrap" id="ivOps"></div></div>
-  </section>
-  <div class="grid side">
-    <div>
-      <div class="mlist" id="mlist"></div>
-      <button type="button" class="add" id="mAdd">+ Añadir mercado</button>
-    </div>
-    <div class="col" id="mDetail"></div>
-  </div>
-</div>
-
-<!-- ======================= HISTORIAL =======================
-     TODAS las operaciones, de las dos familias, en una tabla. No calcula nada:
-     pide el subconjunto a `FUT.filtered({ tipo })` —la puerta única— y lo
-     pinta. Si esta pantalla y el journal discreparan alguna vez, discreparían
-     porque una de las dos se saltó la puerta, y no hay por dónde: las dos
-     llaman a la misma función con el mismo predicado.
-
-     POR QUÉ UNA PESTAÑA Y NO UNA SUB-VISTA: las operaciones de inversión no
-     caben dentro de «Futuros» sin mentir sobre dónde están, y la pregunta «qué
-     he hecho» no es una sub-pregunta de ninguna de las dos pestañas. Es su
-     propia actividad: mirar hacia atrás.
-
-     LAS DOS FAMILIAS NO COMPARTEN NI EL NOMBRE DE LA CUENTA. Los futuros viven
-     en `state.settings.accounts` y se etiquetan con `acctLabel()`; las
-     inversiones en `investmentAccounts()`, con `investmentAccountName()`. Son
-     dos espacios de nombres, así que el filtro de cuenta dice de qué familia es
-     cada una en vez de fingir que son una lista. -->
-<div class="tab" data-tab="historial">
-<section class="deck" aria-label="Resumen de Historial"><span class="deck-n">09</span><h1 class="deck-t">Historial</h1><span class="deck-stage">Registro</span><span class="deck-parts">Futuros · Inversiones · Resultado</span></section>
-
-  <div class="toolbar">
-    <select id="hsTipo" aria-label="Tipo de operación"><option value="">futuros e inversiones</option><option value="futuros">sólo futuros</option><option value="inversion">sólo inversiones</option></select>
-    <select id="hsAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select>
-    <select id="hsRango" aria-label="Rango"><option value="all">todo el historial</option><option value="month">este mes</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select>
-    <label class="mxd">desde <input type="date" id="hsDesde" aria-label="Desde"></label>
-    <label class="mxd">hasta <input type="date" id="hsHasta" aria-label="Hasta"></label>
-    <input id="hsQ" type="search" aria-label="Buscar operaciones" placeholder="buscar activo, cuenta, nota…" autocomplete="off">
-    <span class="sp"></span>
-    <button type="button" class="btn ghost sm" id="hsExport" title="Descarga TODO lo que el filtro selecciona, no s&oacute;lo las filas visibles">Exportar CSV</button>
-    <button type="button" class="btn ghost sm" id="hsLimpiar">Ver todo</button>
-  </div>
-  <p class="note-p">Cada fila es una operación que registraste, de futuros o de inversión. Sale del mismo sitio que el journal y que las métricas, no de una copia: el filtro es el de la puerta única. Pulsa una fila para abrirla.</p>
-  <div class="stack">
-    <section class="panel">
-      <header><h2>Todas las operaciones</h2><span class="meta" id="hsMeta"></span></header>
-      <div class="body"><div class="twrap" id="hsTabla"></div></div>
-    </section>
-  </div>
-</div>
-
-<!-- ======================= CALCULADORA ======================= -->
-<div class="tab" data-tab="calc">
-<section class="deck" aria-label="Resumen de Calculadora"><span class="deck-n">07</span><h1 class="deck-t">Calculadora</h1><span class="deck-stage">Simulación</span><span class="deck-parts">Capital · Retorno · Drawdown</span></section>
-
-  <div class="toolbar">
-    <div class="seg" id="calcSeg">
-      <button data-v="classic" class="active">Interés compuesto</button>
-      <button data-v="trading">Cuenta de trading</button>
-      <button data-v="risk">Riesgo y drawdown</button>
-    </div>
-    <span class="sp"></span>
-    <span class="mdmsg" id="calcHint" style="padding:0"></span>
-  </div>
-
-  <!-- ---------- proyección: clásico y cuenta de trading ---------- -->
-  <div id="calcProj">
-    <div class="grid">
-      <div class="col">
-        <section class="panel">
-          <header><h2 id="ccTitle">Interés compuesto</h2><span class="meta" id="ccMode">modo clásico</span></header>
-          <div class="body">
-            <div class="calc-form" id="ccForm">
-              <div class="f"><label class="lab" for="cc_p">Capital inicial ($)</label><input type="number" id="cc_p" value="1000" step="100"></div>
-              <div class="f"><label class="lab" for="cc_c">Aporte mensual ($)</label><input type="number" id="cc_c" value="200" step="50"></div>
-              <div class="f" data-m="classic"><label class="lab" for="cc_r">Rendimiento anual (%)</label><input type="number" id="cc_r" value="10" step="0.5"></div>
-              <div class="f" data-m="classic"><label class="lab" for="cc_f">Capitalización</label><select id="cc_f"><option value="12">mensual</option><option value="1">anual</option><option value="365">diaria</option></select></div>
-              <div class="f" data-m="trading" hidden><label class="lab" for="cc_rm">Rendimiento mensual (%)</label><input type="number" id="cc_rm" value="4" step="0.5"></div>
-              <div class="f" data-m="trading" hidden><label class="lab" for="cc_w">Retiro mensual (% de la ganancia)</label><input type="number" id="cc_w" value="50" step="5" min="0" max="100"></div>
-              <div class="f"><label class="lab" for="cc_y">Años</label><input type="number" id="cc_y" value="10" step="1" min="1" max="60"></div>
-              <div class="f"><label class="lab" for="cc_i">Inflación anual (%) · opcional</label><input type="number" id="cc_i" value="0" step="0.5"></div>
-            </div>
-            <p class="note-p" id="ccNote" style="margin-top:12px"></p>
-          </div>
-        </section>
-        <section class="panel">
-          <header><h2>Escenarios guardados</h2><button type="button" class="btn sm" id="ccSave">Guardar escenario actual</button></header>
-          <div class="body" id="ccScenarios"></div>
-        </section>
-      </div>
-      <div class="col">
-        <section class="panel">
-          <header><h2>Resultado</h2><span class="meta" id="ccMeta"></span></header>
-          <div class="body">
-            <div class="hero" id="ccHero"></div>
-            <div class="chartwrap" id="ccChartWrap"></div>
-            <div class="legend"><span><i></i>Balance</span><span><i class="d"></i>Aportado</span></div>
-          </div>
-        </section>
-        <section class="panel">
-          <header><h2>Año a año</h2></header>
-          <div class="body"><div class="twrap" id="ccTable"></div></div>
-        </section>
-      </div>
-    </div>
-  </div>
-
-  <!-- ---------- riesgo y drawdown ---------- -->
-  <div id="calcRisk" hidden>
-    <div class="grid">
-      <div class="col">
-        <section class="panel">
-          <header><h2>Datos de la cuenta</h2><span class="meta" id="riskMeta"></span></header>
-          <div class="body">
-            <div class="rform" id="riskForm"></div>
-            <div class="jactions">
-              <button type="button" class="btn" id="riskMine">Usar mis números del journal</button>
-              <button type="button" class="btn" id="riskAcct">Cargar una cuenta prop</button>
-              <button type="button" class="btn primary" id="riskSave">Guardar escenario</button>
-            </div>
-            <p class="note" id="riskFlash" style="font-family:var(--font-mono);font-size:12px;margin:12px 0 0;min-height:1em"></p>
-          </div>
-        </section>
-        <section class="panel" id="riskSaved">
-          <header><h2>Escenarios guardados</h2><span class="meta">uno por cuenta</span></header>
-          <div class="body" id="riskList"></div>
-        </section>
-      </div>
-      <div class="col">
-        <section class="panel" id="riskPanel">
-          <header><h2>Veredicto</h2><span class="meta">colchón, tamaño y probabilidad de quemarla</span></header>
-          <div class="body">
-            <div class="hero" id="riskHero"></div>
-            <div id="riskOut"></div>
-          </div>
-        </section>
-        <section class="panel">
-          <header><h2>Consumo del colchón</h2><span class="meta">pérdidas seguidas</span></header>
-          <div class="body"><div class="chartwrap" id="riskChart"></div></div>
-        </section>
-      </div>
-    </div>
-  </div>
-</div>
-
-<footer>
-  <!-- Se escriben desde renderWindow(): la ventana es configurable. -->
-  <span id="footerWindow">Ventana operativa: 8:30–11:00 AM ET</span>
-  <span id="footerWindowDays">lun–vie · fuera de ahí, sin entradas</span>
-  <span id="footerStore"></span>
-  <!-- Visible en las seis pestañas y en un teléfono: test/lanzamiento.mjs lo mide. -->
-  <span class="aviso">Cabina es una herramienta de registro y análisis, no asesoramiento financiero. Operar futuros conlleva un riesgo alto de pérdida.</span>
-  <!-- Las tres páginas legales. Son ficheros aparte y del propio sitio: no
-       cargan nada, no miden nada y la publicación las verifica una por una
-       (pagina.yml). test/pwa.mjs exige que estos tres enlaces sigan aquí. -->
-  <span class="legal"><a href="./privacidad.html">Privacidad</a> · <a href="./terminos.html">Términos</a> · <a href="./seguridad.html">Seguridad</a></span>
-</footer>
-
-<!-- ═══ PALETA DE COMANDOS ═══
-     Una sola entrada para todo lo que está a dos o tres clics. Se abre con
-     ⌘K / Ctrl+K y se cierra con Esc. No sustituye a la navegación: la
-     acompaña, para quien ya sabe adónde va. -->
-<div class="ov cmd-ov" id="cmdOv" role="dialog" aria-modal="true" aria-label="Paleta de comandos">
-  <div class="cmd">
-    <div class="cmd-in">
-      <span class="cmd-k">⌘K</span>
-      <input type="text" id="cmdQ" autocomplete="off" spellcheck="false" placeholder="Buscar acción, pestaña o cuenta…" aria-label="Buscar" aria-controls="cmdList" aria-autocomplete="list">
-      <span class="cmd-esc">esc</span>
-    </div>
-    <div class="cmd-list" id="cmdList" role="listbox" aria-label="Resultados"></div>
-    <div class="cmd-foot"><kbd>↑</kbd><kbd>↓</kbd> moverse · <kbd>↵</kbd> abrir · <kbd>esc</kbd> cerrar</div>
-  </div>
-</div>
-
-<!-- editor overlay -->
-<div class="ov" id="ov" role="dialog" aria-modal="true" aria-labelledby="edTitle">
-  <div class="ed">
-    <header><h3 id="edTitle">Editar</h3><button type="button" class="icon" id="edClose" aria-label="Cerrar">×</button></header>
-    <div class="fields" id="edFields"></div>
-    <div id="edAvisos" hidden></div>
-    <footer>
-      <button type="button" class="btn danger" id="edDelete" hidden>Borrar</button>
-      <span class="sp"></span>
-      <button type="button" class="btn ghost" id="edCancel">Cancelar</button>
-      <button type="button" class="btn primary" id="edSave">Guardar</button>
-    </footer>
-  </div>
-</div>
-<div class="ov" id="authOv" role="dialog" aria-modal="true" aria-labelledby="auTitle">
-  <div class="ed qk au">
-    <header><h3 id="auTitle">Tu cuenta</h3><button type="button" class="icon" id="auClose" aria-label="Cerrar">×</button></header>
-    <div class="body">
-      <div id="auFuera" class="aubox">
-        <p id="auBienv" class="aubienv" hidden><b>Esta cabina es tuya.</b> Crea tu cuenta y tus operaciones serán sólo tuyas: nadie más las ve, ni quien te dio el enlace. Si prefieres probar antes, puedes seguir sin cuenta.</p>
-        <p>Con cuenta, tu cabina se guarda en la nube y la abres desde cualquier dispositivo. Sólo tú la ves: ni otros usuarios ni quien tenga el enlace.</p>
-        <p class="aunota">Sin cuenta, Cabina sigue funcionando como hasta ahora: todo se queda en este navegador y no se envía nada.</p>
-        <div><label class="lab" for="auEmail">Email</label><input id="auEmail" type="email" autocomplete="email" spellcheck="false"></div>
-        <div id="auPassBox"><label class="lab" for="auPass">Contraseña</label><input id="auPass" type="password" autocomplete="current-password"></div>
-      </div>
-      <div id="auDentro" class="aubox" hidden>
-        <p>Sesión iniciada como <b id="auQuien"></b>. Lo que hagas se guarda en tu cuenta.</p>
-        <p class="aunota" id="auLocal" hidden></p>
-      </div>
-      <div id="auNueva" class="aubox" hidden>
-        <p>Escribe tu contraseña nueva.</p>
-        <div><label class="lab" for="auNuevaPass">Contraseña nueva</label><input id="auNuevaPass" type="password" autocomplete="new-password"></div>
-      </div>
-      <p class="aumsg" id="auMsg" role="status" aria-live="polite"></p>
-    </div>
-    <footer>
-      <button type="button" class="btn ghost sm" id="auOlvide">Olvidé mi contraseña</button>
-      <button type="button" class="btn ghost sm" id="auSinCuenta" hidden>Seguir sin cuenta</button>
-      <button type="button" class="btn ghost sm" id="auSubir" hidden>Subir lo de este navegador</button>
-      <span class="sp"></span>
-      <button type="button" class="btn" id="auCrear">Crear cuenta</button>
-      <button type="button" class="btn primary" id="auEntrar">Entrar</button>
-      <button type="button" class="btn" id="auSalir" hidden>Cerrar sesión</button>
-      <button type="button" class="btn primary" id="auGuardarNueva" hidden>Guardar contraseña</button>
-    </footer>
-  </div>
-</div>
-<div class="ov" id="quickOv" role="dialog" aria-modal="true" aria-labelledby="qkTitle">
-  <div class="ed qk">
-    <header>
-      <h3 id="qkTitle">Registro rápido</h3>
-      <button type="button" class="icon" id="qkClose" aria-label="Cerrar">×</button>
-    </header>
-    <div class="body">
-      <div class="seg qkseg" role="tablist" aria-label="Qué registrar">
-        <button type="button" class="active" id="qkModoOp" role="tab" aria-selected="true">Operación</button>
-        <button type="button" id="qkModoNota" role="tab" aria-selected="false">Nota del día</button>
-      </div>
-
-      <div id="qkOp">
-        <label class="lab" for="qkText">La operación en una línea</label>
-        <input class="qin" id="qkText" type="text" autocomplete="off" spellcheck="false"
-               placeholder="NQ +185" aria-describedby="qkHint">
-        <p class="qhint" id="qkHint">NQ +185 &nbsp;·&nbsp; MNQ short -90 &nbsp;·&nbsp; NQ L 2x @20150 sl20120 out20190 9:45</p>
-        <details class="qkvocab">
-          <summary>Qué entiende de la línea</summary>
-          <dl>
-            <dt>NQ · MNQZ5</dt><dd>el instrumento, también con el código de mes que escribe el bróker.</dd>
-            <dt>L · long · short · s</dt><dd>la dirección.</dd>
-            <dt>2x · x2 · 2c</dt><dd>los contratos.</dd>
-            <dt>@20150</dt><dd>la entrada. Con el stop, de ahí sale el riesgo.</dd>
-            <dt>sl20120 · stop 20120</dt><dd>el stop.</dd>
-            <dt>tp20200 · obj 20200</dt><dd>el objetivo. Con el stop da la R planificada.</dd>
-            <dt>out20190 · salida 20190</dt><dd>la salida real. Con la entrada, el motor calcula el resultado y ya no hace falta escribirlo.</dd>
-            <dt>+185 · -90</dt><dd>el resultado en dólares.</dd>
-            <dt>+12p · -9pts</dt><dd>el resultado en puntos, que el multiplicador del contrato traduce a dólares.</dd>
-            <dt>9:45</dt><dd>la hora de entrada. Sin ella se usa la de apuntarla.</dd>
-          </dl>
-          <p>El orden no importa y nada se adivina por la posición: lo que no lleve marca y no se reconozca sale nombrado en la vista previa, sin guardarse.</p>
-        </details>
-        <div class="qkprev" id="qkPrev" aria-live="polite"></div>
-        <div>
-          <span class="lab">Calidad de ejecución <span style="text-transform:none;letter-spacing:0">· opcional</span></span>
-          <div class="qkchips" id="qkCal"></div>
-        </div>
-        <div>
-          <span class="lab">Qué pasó <span style="text-transform:none;letter-spacing:0">· opcional, se guarda como etiqueta</span></span>
-          <div class="qkchips" id="qkTags"></div>
-        </div>
-      </div>
-
-      <div id="qkNotaBox" hidden>
-        <label class="lab" for="qkNota">Cómo fue la sesión</label>
-        <textarea id="qkNota" rows="4" placeholder="Una frase basta. Se añade a la nota del día."></textarea>
-        <p class="qhint">Se guarda en la nota del día que ya existe, no en un sitio nuevo.</p>
-      </div>
-    </div>
-    <footer>
-      <span class="sp"></span>
-      <button type="button" class="btn ghost" id="qkCancel">Cancelar</button>
-      <button type="button" class="btn" id="qkDetalles">Añadir detalles</button>
-      <button type="button" class="btn primary" id="qkSave">Guardar</button>
-    </footer>
-  </div>
-</div>
-<div class="tip" id="tip"></div>
-<div class="lightbox" id="lightbox" role="dialog" aria-label="Imagen"><img alt=""></div>
-
-<!-- LA APLICACION VIVE EN app.js, y no aqui dentro, para que la CSP pueda
-     declarar `script-src 'self'` sin 'unsafe-inline'. El motivo completo esta
-     en la cabecera de ese fichero. Sigue siendo bloqueante y en esta misma
-     posicion: ve el mismo DOM que veia inline. -->
-<script src="./app.js"></script>
-
 <style id="cabina-unified-estudio-system">
 /* CABINA · sistema visual unificado inspirado en ESTUDIO.
    Capa de presentación únicamente: no altera cálculos, estado ni persistencia. */
@@ -3959,43 +2835,53 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
 
 /* Cabina · interfaz operativa clara. Presentación solamente. */
 
-/* Cabina · interfaz operativa clara. Presentación solamente: no cambia datos,
-   cálculos, flujos de guardado ni preferencias existentes. */
-:root {
+/* Tema claro activado sólo cuando se elige el Concepto A.
+   La base oscura de arriba queda disponible sin duplicarla ni taparla. */
+:root:not([data-cabina-theme="dark"]) {
   color-scheme: light !important;
-  --bg: #f5f6f8 !important;
+  /* Concepto A: semantic, accessible tokens. The existing dark values are
+     legacy fallbacks; these are the effective values of the light experience. */
+  --bg: #f7f9fc !important;
   --surface: #ffffff !important;
   --surface-2: #f8fafc !important;
-  --surface-3: #edf1f5 !important;
-  --line: #dfe4ea !important;
-  --line-strong: #c5ced8 !important;
-  --text: #202a35 !important;
-  --muted: #4b5765 !important;
-  --dim: #626e7c !important;
-  --accent: #176f65 !important;
-  --accent-ink: #ffffff !important;
-  --positive: #18794e !important;
+  --surface-3: #edf2f8 !important;
+  --line: #e2e8f0 !important;
+  --line-strong: #cbd5e1 !important;
+  --text: #172334 !important;
+  --muted: #475569 !important;
+  --dim: #5b6779 !important;
+  --accent: #1d4ed8 !important;
+  --accent-ink: #f8fafc !important;
+  --positive: #166534 !important;
   --negative: #b42318 !important;
-  --warning: #8a4b08 !important;
-  --info: #245eb5 !important;
-  --accent-soft: rgba(25,124,112,.10) !important;
-  --good-soft: rgba(24,121,78,.09) !important;
+  --warning: #92400e !important;
+  --info: #1d4ed8 !important;
+  --accent-soft: rgba(29,78,216,.09) !important;
+  --good-soft: rgba(22,101,52,.09) !important;
   --bad-soft: rgba(180,35,24,.08) !important;
-  --warn-soft: rgba(138,75,8,.09) !important;
-  --info-soft: rgba(36,94,181,.08) !important;
-  --sh-1: 0 1px 2px rgba(20,32,44,.05) !important;
-  --sh-2: 0 8px 24px rgba(20,32,44,.08) !important;
+  --warn-soft: rgba(146,64,14,.09) !important;
+  --info-soft: rgba(29,78,216,.08) !important;
+  --sh-1: 0 1px 2px rgba(23,35,52,.04) !important;
+  --sh-2: 0 10px 28px rgba(23,35,52,.09) !important;
   --ui-glow: transparent !important;
   --ui-panel: #ffffff !important;
   --ui-panel-raised: #f8fafc !important;
-  --ui-focus: 0 0 0 3px rgba(25,124,112,.14) !important;
+  --ui-focus: 0 0 0 3px rgba(29,78,216,.16) !important;
+  --control-bg: #ffffff;
+  --control-readonly: #f1f5f9;
+  --control-disabled: #eef2f6;
+  --control-placeholder: #5b6779;
+  --control-error: #b42318;
+  --control-radius: 8px;
 }
+@scope (html:not([data-cabina-theme="dark"])) {
+
 html, body {
   background: var(--bg) !important;
   color: var(--text) !important;
 }
 body { color-scheme: light !important; }
-::selection { background: #cce9e3 !important; color: #172d2a !important; }
+::selection { background: #dbeafe !important; color: #172334 !important; }
 .topbar, .tabnav#tabnav {
   background: rgba(255,255,255,.97) !important;
   color: var(--text) !important;
@@ -4017,7 +2903,7 @@ body { color-scheme: light !important; }
 #tabnav .tabbtn[data-tab="estudio"].active {
   color: var(--accent) !important;
   background: var(--accent-soft) !important;
-  border-color: #b9ddd6 !important;
+  border-color: #bfcefa !important;
   box-shadow: none !important;
 }
 #tabnav .tabbtn[data-tab="estudio"]::before {
@@ -4073,7 +2959,7 @@ body { color-scheme: light !important; }
 .study-filter[aria-pressed="true"], .study-state:not(.progressing):not(.mastered), .study-kind {
   color: var(--accent) !important;
   background: var(--accent-soft) !important;
-  border-color: #b9ddd6 !important;
+  border-color: #bfcefa !important;
 }
 .study-state.progressing {
   color: #8a4b08 !important;
@@ -4085,7 +2971,12 @@ body { color-scheme: light !important; }
   background: #f1f4f7 !important;
   border-color: var(--line) !important;
 }
-.study-searchrow:focus-within, .study-card:hover, #panelAccts .acct:hover {
+.study-searchrow:focus-within {
+  border-color: var(--accent) !important;
+  box-shadow: var(--ui-focus) !important;
+  transform: none !important;
+}
+.study-card:hover, #panelAccts .acct:hover {
   border-color: var(--line-strong) !important;
   box-shadow: none !important;
   transform: none !important;
@@ -4110,19 +3001,81 @@ body { color-scheme: light !important; }
   background: var(--surface) !important;
   border-color: var(--line) !important;
 }
-input:not([type="checkbox"]):not([type="radio"]),
-select, textarea, .study-field input, .study-field select,
-.study-field textarea, .study-searchrow input, .study-filter {
+/* A · Entradas de datos. El mismo contrato visual para editores, filtros y diálogos. */
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]), select, textarea),
+.study-field input, .study-field select, .study-field textarea, .study-filter {
   color: var(--text) !important;
-  background: #ffffff !important;
-  border-color: var(--line-strong) !important;
+  background: var(--control-bg) !important;
+  border: 1px solid var(--line-strong) !important;
+  border-radius: var(--control-radius) !important;
   box-shadow: none !important;
+  min-height: 40px;
+  padding: 9px 12px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.4;
+  transition: border-color var(--mo-fast) ease, box-shadow var(--mo-fast) ease;
 }
-input::placeholder, textarea::placeholder, .study-searchrow input::placeholder {
-  color: #687585 !important;
+:where(input, select, textarea):focus-visible,
+.study-searchrow:focus-within {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
+  border-color: var(--accent) !important;
+  box-shadow: var(--ui-focus) !important;
+}
+:where(input, textarea)::placeholder,
+.study-searchrow input::placeholder {
+  color: var(--control-placeholder) !important;
   opacity: 1 !important;
 }
+:where(input, select, textarea)[aria-invalid="true"] {
+  border-color: var(--control-error) !important;
+  box-shadow: 0 0 0 2px var(--bad-soft) !important;
+}
+:where(input, select, textarea)[aria-invalid="true"]:focus-visible {
+  outline-color: var(--control-error) !important;
+}
+:where(input, textarea):read-only:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+  background: var(--control-readonly) !important;
+  color: var(--muted) !important;
+  cursor: default;
+}
+:where(input, select, textarea):disabled {
+  background: var(--control-disabled) !important;
+  color: var(--dim) !important;
+  opacity: 1 !important;
+  cursor: not-allowed;
+}
+:where(input[type="number"], input[inputmode="decimal"], input[inputmode="numeric"]) {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+:where(.ed .fld > label, .study-field > label, .study-field label, .fld > label) {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted) !important;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.ed .fld .help {
+  color: var(--dim) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 6px;
+}
 input[type="checkbox"], input[type="radio"] { accent-color: var(--accent) !important; }
+@media (max-width: 700px) {
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),select,textarea) {
+    min-height: 44px !important;
+    font-size: 16px !important;
+  }
+  :where(.ed .fld > label, .study-field > label, .study-field label, .fld > label) {
+    font-size: 13px;
+  }
+}
 .btn:not(.primary):not(.danger), .editbtn, .study-filter,
 .view-prefs-item, #mobileMoreOv [data-mobile-more-tab] {
   color: var(--text) !important;
@@ -4131,7 +3084,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent) !impor
   box-shadow: none !important;
 }
 .btn.primary, #quickBtn {
-  color: #f2faf8 !important;
+  color: var(--accent-ink) !important;
   background: var(--accent) !important;
   border-color: var(--accent) !important;
   box-shadow: none !important;
@@ -4149,14 +3102,14 @@ svg.chart text, svg.chart text tspan, svg.chart tspan, .chart text,
   color: #536171 !important;
   -webkit-text-fill-color: #536171 !important;
 }
-svg.chart .s1, .chart .s1 { stroke: #176f65 !important; }
-svg.chart .end, svg.chart .hp, .chart .end, .chart .hp { fill: #176f65 !important; }
+svg.chart .s1, .chart .s1 { stroke: var(--accent) !important; }
+svg.chart .end, svg.chart .hp, .chart .end, .chart .hp { fill: var(--accent) !important; }
 #panelAccts .acct:hover { background: #f8fafc !important; }
 #mobileMoreOv .mobile-more-sheet { background: #ffffff !important; }
 #mobileMoreOv [data-mobile-more-tab].is-active {
   color: var(--accent) !important;
   background: var(--accent-soft) !important;
-  border-color: #b9ddd6 !important;
+  border-color: #bfcefa !important;
 }
 .cmd-grp { color: var(--accent) !important; }
 .cmd-it[aria-selected="true"] {
@@ -4173,6 +3126,8 @@ svg.chart .end, svg.chart .hp, .chart .end, .chart .hp { fill: #176f65 !importan
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
+
+}
 /* ===================== ERGONOMÍA DE LA PR #75 =====================
    Lo que queda de la capa visual de la PR #75 después de medir qué de ella
    NO estaba ya en main. Casi todo lo estaba: el foco visible global, los
@@ -4275,7 +3230,1248 @@ body { font-variant-numeric: tabular-nums lining-nums; }
   .tab[data-tab="playbook"] .toolbar { gap:7px; padding:9px; }
   .tab[data-tab="playbook"] .toolbar > * { flex:1 1 130px; }
 }
+
+/* Etiquetas visibles de filtros: no depender de placeholders ni del valor del select. */
+.tab .toolbar .cab-filter-field {
+  display: grid;
+  align-content: end;
+  gap: 5px;
+  flex: 0 1 158px;
+  min-width: 120px;
+  max-width: 100%;
+}
+.tab .toolbar .cab-filter-field:has(input[type="search"]) { flex: 1 1 190px; }
+.tab .toolbar .cab-filter-caption {
+  display: block;
+  color: var(--muted) !important;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.tab .toolbar .cab-filter-field > :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+@media (max-width: 700px) {
+  .tab .toolbar .cab-filter-field { flex: 1 1 140px; }
+  .tab .toolbar .cab-filter-field:has(input[type="search"]) { flex-basis: 100%; }
+}
+/* Componentes globales de apariencia y filtros para ambos temas. */
+:where(button, input, select, textarea, [tabindex]):focus-visible {
+  outline-color: var(--accent) !important;
+}
+.study-searchrow:focus-within {
+  border-color: var(--accent) !important;
+  box-shadow: var(--ui-focus) !important;
+}
+/* La rejilla de Estudio no debe imponer el ancho intrínseco de dos selects
+   al viewport móvil. Se conservan los mismos filtros, sin cortar ninguno. */
+#studyTab .study-field[style*="grid-template-columns:1fr 1fr"] {
+  grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+}
+#studyTab .study-field[style*="grid-template-columns:1fr 1fr"] > div { min-width: 0; }
+#studyTab .study-field :is(input,select,textarea) { min-width: 0; max-width: 100%; }
+@media (max-width: 430px) {
+  #studyTab .study-field[style*="grid-template-columns:1fr 1fr"] {
+    grid-template-columns: minmax(0,1fr) !important;
+  }
+}
+/* Apariencia: ajustes compartidos por el tema claro y el oscuro. */
+.cab-appearance-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; align-items: stretch; }
+.cab-appearance-field { display: flex; flex-direction: column; min-width: 0; gap: 7px; }
+.cab-appearance-field > label { font-size: 12px; font-weight: 700; color: var(--muted); }
+.cab-appearance-field > select { width: 100%; max-width: 100%; min-height: 42px; }
+.cab-appearance-field > input[type="color"] { width: 88px; height: 44px; padding: 3px; cursor: pointer; }
+.cab-appearance-field > .help { margin: 0; font-size: 12px; color: var(--dim); line-height: 1.5; }
+.cab-appearance-preview { border: 1px solid var(--line-strong); border-radius: var(--r-lg); background: var(--surface); min-width: 0; padding: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 9px; }
+.cab-appearance-eyebrow { font-size: 11px; color: var(--muted); }
+.cab-appearance-preview strong { font-size: 15px; color: var(--text); }
+.cab-appearance-action { background: var(--accent); color: var(--accent-ink); padding: 9px 12px; font-size: 13px; font-weight: 700; border-radius: var(--r-md); }
+.cab-appearance-metrics { display: flex; gap: 16px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.cab-appearance-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 18px; align-items: center; }
+.cab-appearance-footer .synced { margin: 0; flex: 1 1 190px; }
+@media (max-width: 700px) {
+  .cab-appearance-grid { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .cab-appearance-field > select { min-height: 44px; font-size: 16px; }
+}
 </style>
+</head>
+<body>
+
+
+<div class="topbar">
+  <div class="brand">
+    <h1 class="view-only" id="titleView">Cabina</h1>
+    <span class="sub view-only" id="subView"></span>
+    <input class="t edit-only" id="titleEdit" type="text" aria-label="Título" maxlength="40">
+    <input class="s edit-only" id="subEdit" type="text" aria-label="Subtítulo" maxlength="80">
+  </div>
+  <div class="clock">
+    <span id="sessionPill" class="pill off"><span class="dot"></span><span id="sessionLabel">—</span></span>
+    <span><span id="etTime" class="time">--:--:--</span> <span class="tz">ET · Nueva York</span></span>
+    <span id="saveState" class="save-state" role="status" aria-live="polite" aria-atomic="true">guardado local</span>
+    <!-- UN BOTON DE VERDAD, NO EL ROTULO DISFRAZADO. El rotulo de al lado es una
+         region viva (`role="status"`): su trabajo es que un lector de pantalla
+         ANUNCIE los cambios de estado sin interrumpir. Al principio le puse
+         `role="button"` y `tabindex` encima cuando habia conflicto, y eso le quita
+         el `role="status"`: la region deja de anunciar nada y a cambio queda un
+         boton que aparece y desaparece. Lo cazó test/ui.mjs, que exige que el
+         estado de guardado se anuncie sin interrumpir. Lo que hay que resolver es
+         una ACCION, y una accion es un <button>: trae Enter, espacio, foco y
+         semantica sin inventar nada. -->
+    <button type="button" class="editbtn conflbtn" id="resolveConflict" hidden>Resolver conflicto</button>
+    <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)" aria-haspopup="dialog" aria-expanded="false" aria-controls="quickOv">+ Rápido</button>
+    <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
+    <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
+    <button type="button" class="editbtn" id="viewPrefsOpen" aria-haspopup="dialog" aria-controls="viewPrefs" title="Personalizar módulos visibles y densidad">Vista</button>
+  </div>
+</div>
+<nav class="tabnav" id="tabnav" aria-label="Secciones">
+  <button class="tabbtn active" data-tab="cabina">Cabina</button>
+  <button class="tabbtn" data-tab="futuros">Futuros<span class="n" id="nFut"></span></button>
+  <button class="tabbtn" data-tab="cuentas">Cuentas<span class="n" id="nCuentas"></span></button>
+  <button class="tabbtn" data-tab="edge">Métricas / Edge</button>
+  <button class="tabbtn" data-tab="invest">Inversiones<span class="n" id="nInvest"></span></button>
+  <button class="tabbtn" data-tab="historial">Historial<span class="n" id="nHist"></span></button>
+  <button class="tabbtn" data-tab="playbook">Playbook<span class="n" id="nPlaybook"></span></button>
+  <button class="tabbtn" data-tab="ideas">Formas de hacer dinero<span class="n" id="nIdeas"></span></button>
+  <button class="tabbtn" data-tab="estudio">Estudio<span class="n" id="nResearch"></span></button>
+  <button class="tabbtn" data-tab="calc">Calculadora</button>
+  <button class="tabbtn" data-tab="ajustes">Ajustes</button>
+
+  <button type="button" id="mobileMoreBtn" aria-label="Más secciones" aria-haspopup="dialog" aria-expanded="false" aria-controls="mobileMoreOv">Más</button>
+</nav>
+
+<div id="mobileMoreOv" class="mobile-more-ov" hidden>
+  <button type="button" class="mobile-more-backdrop" data-mobile-more-close aria-label="Cerrar menú Más" tabindex="-1"></button>
+  <section class="mobile-more-sheet" role="dialog" aria-modal="true" aria-labelledby="mobileMoreTitle" tabindex="-1">
+    <header class="mobile-more-head">
+      <h2 id="mobileMoreTitle">Más secciones</h2>
+      <button type="button" class="mobile-more-close" id="mobileMoreClose" data-mobile-more-close aria-label="Cerrar">×</button>
+    </header>
+    <div class="mobile-more-grid">
+      <button type="button" data-mobile-more-tab="cuentas">Cuentas</button>
+      <button type="button" data-mobile-more-tab="edge">Métricas / Edge</button>
+      <button type="button" data-mobile-more-tab="historial">Historial</button>
+      <button type="button" data-mobile-more-tab="playbook">Playbook</button>
+      <button type="button" data-mobile-more-tab="ideas">Formas de hacer dinero</button>
+      <button type="button" data-mobile-more-tab="calc">Calculadora</button>
+      <button type="button" data-mobile-more-tab="ajustes">Ajustes</button>
+    </div>
+  </section>
+</div>
+
+<div class="demobar" id="demoBar" hidden>
+  <b>Modo demo</b>
+  <span>Todo lo que ves está inventado para revisar el diseño: operaciones, setups, cuentas, niveles y cartera. <b>No se guarda nada</b>: al salir vuelven tus datos reales intactos.</span>
+  <button type="button" class="editbtn" id="demoExit" style="margin-left:auto">Salir y volver a mis datos</button>
+</div>
+<div class="cuentabar" id="cuentaBar" hidden>
+  <b>Sin cuenta</b>
+  <span>Lo que apuntes se queda sólo en este navegador y se pierde si borras sus datos. Con cuenta, tu cabina es tuya: nadie más la ve, ni quien te dio el enlace.</span>
+  <button type="button" class="editbtn" id="cuentaBarCrear" style="margin-left:auto">Crear cuenta</button>
+  <button type="button" class="editbtn" id="cuentaBarNo">Ahora no</button>
+</div>
+<div class="editbar">
+  <span>Modo edición: añade, borra y reescribe cuentas, reglas y pasos. Los cambios se guardan solos.</span>
+  <button type="button" class="editbtn" id="editDone" style="margin-left:auto">Listo</button>
+</div>
+
+<div class="view-prefs" id="viewPrefs" hidden>
+  <div class="view-prefs-backdrop" data-view-close></div>
+  <section class="view-prefs-dialog" role="dialog" aria-modal="true" aria-labelledby="viewPrefsTitle" tabindex="-1">
+    <header class="view-prefs-head"><h2 id="viewPrefsTitle">Personalizar vista</h2><button type="button" class="editbtn" id="viewPrefsClose" aria-label="Cerrar preferencias">×</button></header>
+    <div class="view-prefs-tools">
+      <strong style="font-size:12px">Densidad</strong>
+      <label><input type="radio" name="viewDensity" value="compact"> Compacta</label>
+      <label><input type="radio" name="viewDensity" value="comfortable"> Cómoda</label>
+      <button type="button" class="editbtn" id="viewPrefsReset">Restaurar esta pestaña</button>
+    </div>
+    <p class="view-prefs-note" id="viewPrefsNote">Elige qué módulos aparecen en la pestaña actual. Tus preferencias se guardan en este navegador y no alteran los datos de trading.</p>
+    <div class="view-prefs-list" id="viewPrefsList"></div>
+    <footer class="view-prefs-foot"><button type="button" class="editbtn" id="viewPrefsDone">Listo</button></footer>
+  </section>
+</div>
+
+<!-- ======================= ESTUDIO ======================= -->
+<div class="tab" data-tab="estudio" id="studyTab"><section class="study-shell">
+<section class="deck" aria-label="Resumen de Estudio"><span class="deck-n">08</span><h1 class="deck-t">Estudio</h1><span class="deck-stage">Recall</span><span class="deck-parts"><b id="studyTotal">0</b> documentos · <span id="studyActive">0 en curso</span> · <span id="studySources">0 fuentes</span> · <span id="studyCompletion">0% revisado</span><i class="deck-bar"><span id="studyProgress"></span></i></span></section>
+<label class="study-searchrow" for="studySearch"><span class="study-searchicon">⌕</span><input id="studySearch" type="text" autocomplete="off" placeholder="Buscar conceptos, tesis, evidencia, preguntas o etiquetas…" aria-label="Buscar en la biblioteca de estudio"><span class="study-shortcut">⌘ K · búsqueda global</span></label>
+<div class="study-toolbar"><div class="study-date-filters" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)">Desde <input id="studyFrom" type="date" aria-label="Fecha consultada desde" style="width:132px"></label><label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)">Hasta <input id="studyTo" type="date" aria-label="Fecha consultada hasta" style="width:132px"></label></div><div class="study-filters" id="studyFilters" aria-label="Filtrar documentos"><button class="study-filter" data-study-filter="all" aria-pressed="true">Todo</button><button class="study-filter" data-study-filter="concept">Conceptos</button><button class="study-filter" data-study-filter="brief">Research briefs</button><button class="study-filter" data-study-filter="source">Fuentes</button><button class="study-filter" data-study-filter="flashcard">Flashcards</button><button class="study-filter" data-study-filter="todo">Por estudiar</button><button class="study-filter" data-study-filter="review">Revisión pendiente</button></div><div class="study-actions"><span id="studyResults" class="muted" style="font-size:10px">0 resultados</span><button type="button" class="btn ghost sm" id="studyExport">Exportar JSON</button><button type="button" class="btn primary sm" id="studyNew">＋ Nuevo documento</button></div></div>
+<div id="studyTradeOverview" aria-live="polite" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin:12px 0 14px"><div class="study-panel"><span class="study-note">Trades en filtro</span><strong id="studyTradeMetricCount" style="display:block;font-size:22px;margin-top:5px">—</strong></div><div class="study-panel"><span class="study-note">Win rate · P&amp;L disponible</span><strong id="studyTradeMetricWin" style="display:block;font-size:22px;margin-top:5px">—</strong></div><div class="study-panel"><span class="study-note">P&amp;L neto disponible</span><strong id="studyTradeMetricPnl" style="display:block;font-size:22px;margin-top:5px">—</strong></div><div class="study-panel"><span class="study-note">R promedio disponible</span><strong id="studyTradeMetricR" style="display:block;font-size:22px;margin-top:5px">—</strong></div></div>
+<section class="study-panel" style="margin:0 0 14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><h3 style="margin:0">Comparativa por instrumento y dirección</h3><span class="study-note">Sólo datos disponibles · no implica ventaja estadística</span></div><div id="studyTradeBreakdown" style="margin-top:10px;overflow-x:auto"><p class="study-note">Selecciona operaciones para calcular la comparativa.</p></div></section>
+<div class="study-bottom" style="margin:12px 0 18px">
+<section class="study-panel"><h3>Tu journal · laboratorio de trades</h3><p class="study-note">Selecciona una operación real de FUTUROS para revisarla. Las métricas se leen del trade existente; esta herramienta no crea operaciones duplicadas.</p>
+<div class="study-field"><label for="studyTradeAccount">Cuenta</label><select id="studyTradeAccount"><option value="">Todas las cuentas</option></select></div>
+<div class="study-field" style="margin-top:9px"><label for="studyTradeSearch">Buscar operaciones</label><input id="studyTradeSearch" type="search" placeholder="ID, instrumento, dirección o fecha…" autocomplete="off"></div><div class="study-field" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px"><div><label for="studyTradeInstrument">Instrumento</label><select id="studyTradeInstrument"><option value="">Todos</option></select></div><div><label for="studyTradeDirection">Dirección</label><select id="studyTradeDirection"><option value="">Todas</option></select></div></div><div class="study-field" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px"><div><label for="studyTradeFrom">Desde</label><input id="studyTradeFrom" type="date"></div><div><label for="studyTradeTo">Hasta</label><input id="studyTradeTo" type="date"></div></div><button type="button" class="btn ghost sm" id="studyTradeSinRevisar" aria-pressed="false" style="margin-top:8px;width:100%">Sólo sin revisar</button><button type="button" class="btn ghost sm" id="studyTradeClear" style="margin-top:8px">Limpiar filtros</button>
+<div id="studyTradeList" style="display:grid;gap:7px;margin-top:12px" aria-live="polite"><p class="study-note">Cargando operaciones del journal…</p></div>
+</section>
+<section class="study-panel"><h3 id="studyTradeTitle">Selecciona una operación</h3>
+<p class="study-note" id="studyTradeMeta">Al seleccionar un trade aparecerán aquí sus datos y la revisión guardada.</p>
+<div id="studyTradeStats" class="study-tags" style="margin:12px 0"></div>
+<form id="studyTradeReviewForm" hidden>
+<input type="hidden" id="studyTradeReviewId"><input type="hidden" id="studyTradeId">
+<div id="studyScenes" style="margin:0 0 14px"></div>
+<div class="study-field"><label for="studyTradePlan">Plan / tesis original</label><textarea id="studyTradePlan" maxlength="4000" placeholder="¿Qué esperabas que hiciera el precio y por qué?"></textarea></div>
+<div class="study-field" style="margin-top:9px"><label for="studyTradeExecution">Revisión de ejecución</label><textarea id="studyTradeExecution" maxlength="4000" placeholder="¿Seguiste el plan? Entrada, stop, salida y errores observables."></textarea></div>
+<div class="study-field" style="margin-top:9px"><label for="studyTradeLesson">Lección y siguiente acción</label><textarea id="studyTradeLesson" maxlength="3000" placeholder="¿Qué repetirás o cambiarás la próxima vez?"></textarea></div>
+<div class="study-field" style="margin-top:9px"><label for="studyTradeReviewStatus">Estado de revisión</label><select id="studyTradeReviewStatus"><option value="todo">Pendiente</option><option value="progressing">En revisión</option><option value="mastered">Revisado</option></select></div>
+<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary sm" type="submit">Guardar revisión</button></div>
+<p class="study-note" id="studyTradeSaveState" role="status"></p>
+</form>
+</section></div>
+<div class="study-grid" id="studyGrid" aria-live="polite"></div>
+<div class="study-bottom"><section class="study-panel"><h3>Protocolo de investigación</h3><div class="study-protocol"><div class="study-step"><i>01</i><span><b style="color:var(--text)">Pregunta.</b> Define qué necesitas descubrir antes de recopilar información.</span></div><div class="study-step"><i>02</i><span><b style="color:var(--text)">Evidencia.</b> Registra fuente, fecha, datos y limitaciones.</span></div><div class="study-step"><i>03</i><span><b style="color:var(--text)">Antítesis.</b> Busca qué invalidaría tu hipótesis.</span></div><div class="study-step"><i>04</i><span><b style="color:var(--text)">Síntesis.</b> Separa hechos, interpretación y especulación.</span></div></div></section>
+<section class="study-panel"><h3>Recuperación activa <span id="studyFlashPos" class="muted"></span></h3><div class="study-flash"><small>FLASHCARD</small><p id="studyFlashPrompt">Crea una flashcard para practicar la recuperación activa.</p><div id="studyFlashAnswer" class="study-flash-answer" hidden></div></div><div class="study-flash-actions"><button type="button" class="btn ghost sm" id="studyReveal">Revelar respuesta</button><button type="button" class="btn ghost sm" id="studyNext">Siguiente ↗</button></div><div class="study-note">Intenta responder antes de revelar. Los documentos se guardan en la misma cuenta y sistema de respaldo de Cabina.</div></section></div></section></div>
+<div class="study-modal" id="studyModal" role="dialog" aria-modal="true" aria-labelledby="studyModalTitle"><div class="study-dialog"><div class="study-dialog-head"><h3 id="studyModalTitle">Nuevo documento de estudio</h3><button type="button" class="btn ghost sm" id="studyClose" aria-label="Cerrar">✕</button></div><form id="studyForm"><div class="study-dialog-body"><input type="hidden" id="studyId"><div class="study-fields">
+<div class="study-field"><label for="studyType">Tipo</label><select id="studyType"><option value="concept">Concepto</option><option value="brief">Research brief / tesis</option><option value="source">Fuente</option><option value="flashcard">Flashcard</option></select></div><div class="study-field"><label for="studyStatus">Estado</label><select id="studyStatus"><option value="todo">Por estudiar</option><option value="progressing">En curso</option><option value="mastered">Dominado / revisado</option></select></div>
+<div class="study-field full"><label for="studyTitle">Título *</label><input id="studyTitle" required maxlength="180" placeholder="Ej. Cómo afecta el real yield al oro"></div><div class="study-field full"><label for="studyQuestion">Pregunta de investigación / resumen</label><textarea id="studyQuestion" maxlength="4000" placeholder="¿Qué quieres entender? ¿Cuál es la idea principal?"></textarea></div>
+<div class="study-field"><label for="studyTags">Etiquetas (separadas por coma)</label><input id="studyTags" maxlength="300" placeholder="macro, rates, gold"></div><div class="study-field"><label for="studyUrl">URL de la fuente</label><input id="studyUrl" type="url" maxlength="2000" placeholder="https://…"></div>
+<div class="study-field"><label for="studyAuthor">Autor / publicación</label><input id="studyAuthor" maxlength="240" placeholder="Autor, medio o institución"></div><div class="study-field"><label for="studyPublishedAt">Fecha de publicación</label><input id="studyPublishedAt" type="date"></div><div class="study-field"><label for="studyConsultedAt">Fecha consultada</label><input id="studyConsultedAt" type="date"></div><div class="study-field"><label for="studyNextReview">Próxima revisión</label><input id="studyNextReview" type="date"></div>
+<div class="study-field full"><label>Vínculos con registros existentes</label><div style="display:grid;grid-template-columns:minmax(130px,.7fr) minmax(180px,1.3fr) auto;gap:8px"><select id="studyLinkType" aria-label="Tipo de vínculo"><option value="trade">Operación</option><option value="position">Posición</option><option value="playbook">Playbook / setup</option><option value="thesis">Tesis</option><option value="account">Cuenta</option><option value="research">Documento de estudio</option></select><select id="studyLinkTarget" aria-label="Registro relacionado"><option value="">— elige un registro —</option></select><button type="button" class="btn ghost sm" id="studyLinkAdd">Vincular</button></div><div id="studyLinksList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px"></div><p class="help">Los vínculos apuntan a registros existentes; no duplican la operación, posición, cuenta o setup.</p></div>
+<div class="study-field full"><label for="studyEvidence">Evidencia a favor / hechos observados</label><textarea class="tall" id="studyEvidence" maxlength="8000" placeholder="Datos, citas breves, cifras, fechas y fuente."></textarea></div><div class="study-field full"><label for="studyCatalysts">Catalizadores / eventos a vigilar</label><textarea id="studyCatalysts" maxlength="5000" placeholder="Datos, anuncios, fechas o condiciones que podrían cambiar la tesis."></textarea></div><div class="study-field full"><label for="studyCounter">Antítesis / riesgos / limitaciones</label><textarea id="studyCounter" maxlength="8000" placeholder="¿Qué podría contradecir la hipótesis? ¿Qué falta saber?"></textarea></div><div class="study-field full"><label for="studyConclusion">Interpretación / conclusión provisional</label><textarea id="studyConclusion" maxlength="8000" placeholder="Distingue la interpretación propia de los hechos registrados."></textarea></div>
+<div class="study-field"><label for="studyPrompt">Flashcard: pregunta</label><textarea id="studyPrompt" maxlength="1500" placeholder="¿Qué debes recordar sin mirar?"></textarea></div><div class="study-field"><label for="studyAnswer">Flashcard: respuesta</label><textarea id="studyAnswer" maxlength="3000" placeholder="Respuesta breve y verificable."></textarea></div>
+</div></div><div class="study-dialog-foot"><button type="button" class="btn danger sm" id="studyDelete">Eliminar</button><span style="flex:1"></span><button type="button" class="btn ghost sm" id="studyCancel">Cancelar</button><button type="submit" class="btn primary sm">Guardar documento</button></div></form></div></div>
+<div class="study-modal" id="studyReader" role="dialog" aria-modal="true" aria-labelledby="studyReaderTitle"><div class="study-dialog" style="max-width:1180px"><div class="study-dialog-head"><h3 id="studyReaderTitle">Lectura</h3><button type="button" class="btn ghost sm" id="studyReaderClose" aria-label="Cerrar lectura">✕</button></div><div class="study-dialog-body" style="display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:22px"><div><div id="studyReaderMeta" class="muted" style="font-size:11px;margin-bottom:12px"></div><nav id="studyReaderToc" aria-label="Contenido del documento" hidden style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px"></nav><article id="studyReaderContent" style="max-width:72ch;font-size:14px;line-height:1.75"></article></div><aside id="studyReaderContext" style="border-left:1px solid var(--line);padding-left:16px;font-size:12px"></aside></div><div class="study-dialog-foot"><span style="flex:1"></span><button type="button" class="btn ghost sm" id="studyReaderCloseBottom">Cerrar</button><button type="button" class="btn primary sm" id="studyReaderEdit">Editar documento</button></div></div></div>
+<!-- ======================= CABINA ======================= -->
+<div class="tab active" data-tab="cabina">
+<!-- ORDEN VISUAL. Las preguntas se responden en el orden en que se hacen:
+     ¿puedo operar? ¿cuánto tengo? ¿cuánto llevo hoy? ¿cuánto riesgo queda?
+     Todas viven en la cuenta, así que la cuenta va primero y a lo ancho.
+     La pre-sesión es un ritual de una vez al día; la cuenta se mira cada hora. -->
+<!-- ANTES DE OPERAR · lo primero que se ve, una vez al día y no más.
+     Va ARRIBA DEL TODO y por encima de las cuentas a propósito: su trabajo es
+     leerse antes de mirar un número, no competir con ellos. Y desaparece al
+     pulsar «Leídas»: una lista permanente deja de leerse a la semana, que es
+     exactamente lo que no se quería.
+
+     LAS REGLAS SON DATOS DEL USUARIO, NO DEL CÓDIGO. test/lanzamiento.mjs
+     recorre cada fichero versionado para que no vuelva la configuración
+     personal del autor; incrustar aquí las reglas de alguien lo rompería en
+     espíritu aunque pasara la expresión regular. Lo que sí vive en el código
+     es una PLANTILLA que cualquiera puede cargar y reescribir, igual que las
+     del Playbook. -->
+<section class="credo view-only" id="credoBand" hidden>
+  <header>
+    <h2>Antes de operar</h2>
+    <span class="meta" id="credoMeta"></span>
+    <button type="button" class="btn sm ghost" id="credoEdit">Editar</button>
+    <button type="button" class="btn sm primary" id="credoOk">Leídas</button>
+  </header>
+  <div class="credo-vacio" id="credoVacio" hidden>
+    <p>Las reglas duras de abajo las vigila Cabina sola. Éstas son las otras: las
+       que ninguna máquina puede comprobarte y se olvidan con el mercado abierto.</p>
+    <button type="button" class="btn primary" id="credoEmpezar">Escribir mis reglas</button>
+  </div>
+  <ol class="credo-list" id="credoList"></ol>
+  <div class="credo-ed" id="credoEdBox" hidden>
+    <label class="credo-lbl" for="credoText">Una regla por línea. Las tuyas, con tus palabras.</label>
+    <textarea id="credoText" rows="12" spellcheck="false"></textarea>
+    <div class="jactions">
+      <button type="button" class="btn primary" id="credoSave">Guardar</button>
+      <button type="button" class="btn ghost" id="credoCancel">Cancelar</button>
+      <button type="button" class="btn ghost" id="credoSeed">Cargar una plantilla</button>
+    </div>
+  </div>
+</section>
+<button type="button" class="credo-trace view-only" id="credoTrace" hidden></button>
+
+<section class="deck" aria-label="Resumen de Cabina"><span class="deck-n">01</span><h1 class="deck-t">Cabina</h1><span class="deck-stage">Ejecución</span><span class="deck-parts">Pre-sesión · Reglas duras · Diario</span></section>
+<section class="panel" id="panelAccts">
+      <header><h2>Cuentas prop</h2><div class="hgroup"><select id="cabAcct" aria-label="Cuenta de trabajo"><option value="">todas las cuentas</option></select><span class="meta" id="acctsMeta"></span><button type="button" class="btn sm ghost" id="addAcct">+ Añadir cuenta</button><button type="button" class="btn ghost sm selbtn" id="selbtn-accts" title="Selecciona varias cuentas y bórralas de una vez">Seleccionar</button></div></header>
+      <div class="body">
+        <div class="accts" id="accts"></div>
+      </div>
+</section>
+<div class="grid" style="margin-top:var(--s5)">
+  <div class="col">
+    <section class="panel" id="panelRules">
+      <header><h2>Reglas duras</h2><span class="rulesstate" id="rulesState"><i></i>—</span></header>
+      <div class="body">
+        <p class="hint" id="rulesHint"></p>
+        <div class="rules" id="rules"></div>
+        <button type="button" class="add edit-only" id="addRule">+ Añadir regla</button>
+      </div>
+    </section>
+    <section class="panel" id="panelCheck">
+      <header><h2>Pre-sesión</h2><span class="meta" id="checkMeta">0 / 0 · hoy</span></header>
+      <div class="body">
+        <div class="winbox">
+          <div class="winline view-only"><span class="winlbl">Ventana operativa</span><span class="winval" id="winView">—</span></div>
+          <div class="winedit edit-only">
+            <span class="winlbl">Ventana operativa</span>
+            <div class="winhoras">
+              <label>Desde <input type="time" id="winStart" step="300" aria-label="Hora de apertura de tu ventana (ET)"></label>
+              <label>Hasta <input type="time" id="winEnd" step="300" aria-label="Hora de cierre de tu ventana (ET)"></label>
+            </div>
+            <div class="seschips windays" id="winDays" role="group" aria-label="Días operativos"></div>
+            <p class="hint">Hora de Nueva York. Es tu regla, no la del mercado: las sesiones del día (Asia, Londres, NY AM…) no se mueven, y una operación vieja no cambia de sesión. Lo que cambia es el permiso de hoy y la señal «fuera de ventana», también en lo ya registrado.</p>
+          </div>
+        </div>
+        <div class="seschips view-only" id="sesChips" role="tablist" aria-label="Sesión que se prepara"></div>
+        <ul class="check" id="checkList"></ul>
+        <button type="button" class="add edit-only" id="addCheck">+ Añadir paso</button>
+        <div class="progress view-only"><i id="checkBar"></i></div>
+        <div class="go view-only" id="goBox"><span id="goText">Completa la lista antes de la ventana operativa.</span><span id="goCount">0/0</span></div>
+        <div id="preBanner" hidden class="closed-banner"></div>
+        <div class="jactions view-only">
+          <button type="button" class="btn primary" id="preSave">Guardar pre-sesión</button>
+          <button type="button" class="btn ghost" id="preReopen" hidden>Reabrir</button>
+          <span class="note" id="preSaved"></span>
+        </div>
+      </div>
+    </section>
+    <section class="panel" id="panelLevels">
+      <header><h2>Niveles del día</h2><span class="meta">MNQ · se guardan con la sesión</span></header>
+      <div class="body" id="mktLevels"></div>
+    </section>
+  </div>
+  <div class="col">
+    <section class="panel" id="panelJournal">
+      <header><h2>Sesión de hoy</h2><div class="hgroup"><div class="sesnow off" id="sesNow" aria-live="polite"></div><span class="meta" id="todayLabel">—</span></div></header>
+      <div class="body">
+        <div id="closedBanner" hidden class="closed-banner"></div>
+        <!-- Lo primero de la sesión no es un formulario: es en qué punto estás.
+             Antes lo más grande del panel eran dos campos de texto para cifras
+             que ya vienen calculadas del journal. -->
+        <div class="jstrip" id="jStrip"></div>
+        <div class="jgrid manual">
+          <div class="jf"><label class="lab" for="jResult">Resultado ($)</label><input type="number" id="jResult" step="1" placeholder="+120 / -80"></div>
+          <div class="jf"><label class="lab" for="jTrades">Operaciones</label><input type="number" id="jTrades" min="0" step="1" placeholder="0"></div>
+          <div class="jf"><span class="lab">Regla rota</span><button type="button" class="toggle" id="jBroke" aria-pressed="false"><span id="jBrokeIcon">○</span><span id="jBrokeText">no</span></button></div>
+        </div>
+        <p class="synced" id="jSync"></p>
+        <div class="jseswrap" id="jSesBreak" hidden></div>
+        <label class="lab" for="jNote">Nota · qué hice bien, qué rompí, qué cambia mañana</label>
+        <textarea id="jNote" placeholder="Ej.: Esperé el CHoCH en 5m y entré en el pullback a la EMA 20. Cerré tras dos pérdidas, como dice la regla."></textarea>
+        <div class="qt">
+          <span class="lab">Registrar operación · se archiva sola según el instrumento</span>
+          <div class="qgrid">
+            <div><input type="text" id="qtSym" placeholder="MNQ, VTI, BTC, O…" aria-label="Instrumento"></div>
+            <div><select id="qtDest" aria-label="Destino"></select></div>
+            <div><label class="lab" for="qtAccount">Cuenta</label><select id="qtAccount" aria-label="Cuenta de esta operación" title="La cuenta se asigna a esta operación, no a toda la sesión"></select></div>
+            <div><button type="button" class="btn primary" id="qtGo">+ Registrar</button></div>
+          </div>
+          <p class="synced" id="qtNote"></p>
+        </div>
+        <div class="jactions">
+          <button type="button" class="btn primary" id="jClose">Cerrar sesión de hoy</button>
+          <button type="button" class="btn ghost" id="jReopen" hidden>Reabrir</button>
+          <span class="note" id="jSaved"></span>
+        </div>
+      </div>
+    </section>
+    <section class="panel" id="panelHist">
+      <header><h2>Últimas 14 sesiones</h2><span class="meta" id="histMeta"></span>
+        <button type="button" class="btn ghost sm selbtn" id="selbtn-histWrap" title="Selecciona varias sesiones y bórralas de una vez">Seleccionar</button></header>
+      <div class="tiles" id="tiles"></div>
+      <div class="body"><div class="twrap" id="histWrap"></div></div>
+    </section>
+  </div>
+</div>
+<section class="panel" id="panelCabCal" style="margin-top:24px">
+  <header>
+    <div class="tools"><button type="button" class="icon" id="calCabPrev" title="Mes anterior">‹</button><h2 id="calCabTitle" style="margin:0 6px">—</h2><button type="button" class="icon" id="calCabNext" title="Mes siguiente">›</button></div>
+    <span class="meta" id="calCabMeta"></span>
+  </header>
+  <div class="body" style="padding:12px">
+    <div class="cal" id="calCab"></div>
+    <p class="csub" style="margin:12px 0 0">Resultado de cada sesión. Toca un día para abrirlo en el diario de futuros.</p>
+  </div>
+</section>
+
+<div id="migPanel" hidden style="margin-top:24px"></div>
+
+</div>
+
+<!-- ======================= AJUSTES =======================
+     UN SITIO PARA LO QUE SE CONFIGURA UNA VEZ. Antes esto estaba repartido
+     en tres: la barra superior (idioma, datos de muestra), la pestaña Cabina
+     (la copia de seguridad, que no tiene nada que ver con la sesión de hoy) y
+     un modal suelto.
+
+     LO QUE **NO** SE HA MOVIDO, Y POR QUÉ — que es la parte que importa,
+     porque mudarlo todo habría sido peor:
+
+     · Reglas duras, checklist de pre-sesión y niveles se QUEDAN en Cabina.
+       No se configuran una vez: se miran operando. La checklist se marca
+       justo antes de abrir la plataforma; si viviera aquí habría que salir de
+       la Cabina para marcarla y volver, dos viajes en el peor momento.
+
+     · «Editar» se queda en la barra. No es una preferencia global: showTab lo
+       esconde fuera de Cabina a propósito (`hidden = name !== "cabina"`), así
+       que aquí sería un botón que nunca se ve.
+
+     · «Vista» se queda en la barra. Es POR PESTAÑA: se abre desde la pestaña
+       que se está mirando, y desde aquí sólo configuraría los módulos de
+       Ajustes.
+
+     Esas tres se nombran abajo con su sitio, para que haya un inventario
+     completo en un lugar aunque los controles sigan donde se usan.
+
+     NO SE AÑADE CSS. Todo se construye con primitivas que ya existen y que
+     están escritas sobre tokens (`.panel`, `.bkgrid`, `.bkcard`, `.lab`,
+     `.help`, `.btn`): el tema claro redefine los tokens en `:root`, así que
+     un componente hecho con tokens entra ya pintado. Un componente con
+     colores a mano nacería con los del tema oscuro de debajo — la deuda que
+     docs/DISENO.md deja anotada. -->
+<div class="tab" data-tab="ajustes">
+<section class="deck" aria-label="Resumen de Ajustes"><span class="deck-n">10</span><h1 class="deck-t">Ajustes</h1><span class="deck-stage">Configuración</span><span class="deck-parts">Datos · Idioma · Dónde está lo demás</span></section>
+
+<section class="panel" id="panelAppearance">
+  <header><h2>Apariencia</h2><span class="meta">Tema aplicado desde el inicio</span></header>
+  <div class="body">
+    <p class="hint">Elige qué capa visual quieres usar y el color principal. Esta preferencia pertenece al navegador: no modifica tus operaciones, cuentas, estadísticas ni los datos de Supabase.</p>
+    <div class="cab-appearance-grid">
+      <div class="cab-appearance-field">
+        <label for="cabAppearanceMode">Tema</label>
+        <select id="cabAppearanceMode">
+          <option value="light">Claro · Minimalista A</option>
+          <option value="dark">Oscuro · Clásico</option>
+          <option value="system">Automático · Dispositivo</option>
+        </select>
+        <p class="help">Oscuro recupera el diseño base anterior. Automático usa la apariencia de tu dispositivo.</p>
+      </div>
+      <div class="cab-appearance-field">
+        <label for="cabAppearanceAccent">Color principal</label>
+        <select id="cabAppearanceAccent">
+          <option value="default">Predeterminado del tema</option>
+          <option value="blue">Azul</option>
+          <option value="teal">Verde azulado</option>
+          <option value="violet">Violeta</option>
+          <option value="custom">Personalizado</option>
+        </select>
+        <p class="help">Cambia el foco y las acciones; no cambia el significado de profit, loss o warnings.</p>
+      </div>
+      <div class="cab-appearance-field" id="cabAppearanceCustomField" hidden>
+        <label for="cabAppearanceCustom">Color personalizado</label>
+        <input type="color" id="cabAppearanceCustom" value="#1d4ed8">
+        <p class="help">Si no tiene contraste suficiente se ajustará automáticamente.</p>
+      </div>
+      <div class="cab-appearance-preview" aria-label="Vista previa del tema">
+        <span class="cab-appearance-eyebrow">Vista previa</span>
+        <strong id="cabAppearanceSample">Claro minimalista</strong>
+        <span class="cab-appearance-action">Acción principal</span>
+        <span class="cab-appearance-metrics"><span class="positive">+$125.00</span><span class="negative">−$45.00</span></span>
+      </div>
+    </div>
+    <div class="cab-appearance-footer">
+      <p class="synced" id="cabAppearanceStatus" role="status" aria-live="polite">Preferencia guardada en este navegador.</p>
+      <button type="button" class="btn ghost sm" id="cabAppearanceReset">Restablecer apariencia</button>
+    </div>
+  </div>
+</section>
+
+<section class="panel" id="panelDatos">
+  <header><h2>Copia de seguridad y traspaso</h2><span class="meta" id="bkMeta">—</span></header>
+  <div class="body">
+    <p class="hint">Un solo archivo con todo: ajustes, reglas duras, cuentas, sesiones, operaciones, playbook, ideas e inversiones. Sirve de respaldo y es la vía para llevar los datos a otra copia de Cabina.</p>
+    <div class="bkgrid">
+      <div class="bkcard">
+        <span class="lab">Exportar</span>
+        <label class="bkchk"><input type="checkbox" id="bkImgs"> Meter las capturas dentro del archivo</label>
+        <p class="help" id="bkImgsNote">Sin esto el archivo pesa poco, pero las capturas se quedan atrás: solo existen en tu cuenta.</p>
+        <div class="bkbtns">
+          <button type="button" class="btn primary" id="bkExport">Descargar copia</button>
+          <button type="button" class="btn ghost" id="bkShow">Ver el texto</button>
+        </div>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Importar</span>
+        <div id="bkModes">
+          <label class="bkchk"><input type="radio" name="bkmode" value="replace" checked> Reemplazar todo lo que haya aquí</label>
+          <label class="bkchk"><input type="radio" name="bkmode" value="merge"> Añadir sin borrar nada</label>
+        </div>
+        <p class="help" id="bkModeNote"></p>
+        <div class="bkbtns">
+          <button type="button" class="btn" id="bkImport">Elegir archivo…</button>
+          <button type="button" class="btn ghost" id="bkPaste">Pegar el texto</button>
+        </div>
+      </div>
+    </div>
+    <p class="synced" id="bkNote"></p>
+    <!-- `.txt` TAMBIÉN: hay brókers que exportan el CSV con esa extensión, y el
+     filtro del selector es lo ÚNICO que decide si el archivo se puede llegar a
+     elegir. Sin ella el archivo sale en gris y no hay mensaje que lo explique:
+     parece que la copia no sirve cuando lo que no sirve es el filtro. Lo que se
+     hace con el contenido no cambia — `bkParse` sigue decidiendo si es copia o
+     CSV, y un `.txt` que no sea ninguna de las dos se rechaza igual. -->
+    <input type="file" id="bkFile" accept="application/json,.json,text/csv,.csv,.txt" hidden aria-hidden="true">
+  </div>
+</section>
+
+<section class="panel" id="panelPrefs" style="margin-top:24px">
+  <header><h2>Idioma y datos de muestra</h2></header>
+  <div class="body">
+    <p class="hint">Las dos preferencias que no pertenecen a ninguna pestaña: en qué idioma se lee el cromo de la aplicación, y si lo que se ve son tus datos o un juego inventado para revisar el diseño.</p>
+    <div class="bkgrid">
+      <div class="bkcard">
+        <span class="lab">Idioma</span>
+        <p class="help">Traduce los rótulos, botones y encabezados. <b>No toca tus datos</b>: el nombre de una cuenta, una nota o un instrumento se quedan como los escribiste.</p>
+        <div class="bkbtns">
+          <button type="button" class="editbtn" id="idiomaBtn" aria-pressed="false" title="Language / Idioma">EN</button>
+        </div>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Datos de muestra</span>
+        <p class="help">Rellena la cabina con operaciones, setups, cuentas y cartera inventados para ver cómo queda todo con datos dentro. <b>No se guarda nada</b>: al salir vuelven tus datos reales intactos.</p>
+        <div class="bkbtns">
+          <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel" id="panelDondeEsta" style="margin-top:24px">
+  <header><h2>Dónde está lo demás</h2></header>
+  <div class="body">
+    <p class="hint">Lo que se configura mientras operas se queda donde se usa: traerlo aquí añadiría un viaje justo cuando menos sobra. Esta lista existe para que el inventario esté completo en un sitio.</p>
+    <div class="bkgrid">
+      <div class="bkcard">
+        <span class="lab">Reglas duras</span>
+        <p class="help">Los límites que la cabina comprueba sola. Se consultan operando, no se escriben una vez.</p>
+        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="cabina">Ir a Cabina</button></div>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Checklist de pre-sesión</span>
+        <p class="help">Se marca justo antes de abrir la plataforma. Vive en la Cabina porque es ahí donde se usa.</p>
+        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="cabina">Ir a Cabina</button></div>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Niveles</span>
+        <p class="help">Los precios que vigilas en la sesión. Cambian con el día, no con la configuración.</p>
+        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="cabina">Ir a Cabina</button></div>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Cuentas</span>
+        <p class="help">Firmas, tamaños, drawdown y objetivos. Tiene pestaña propia porque es un registro, no un ajuste.</p>
+        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="cuentas">Ir a Cuentas</button></div>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Importar CSV del bróker</span>
+        <p class="help">El mapeador y su vista previa. Está en Futuros porque lo que importa son operaciones de futuros.</p>
+        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="futuros">Ir a Futuros</button></div>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Vista: módulos y densidad</span>
+        <p class="help">Se configura <b>por pestaña</b>, con el botón «Vista» de la barra superior: elige qué módulos aparecen en la pestaña que estás mirando. Desde aquí sólo configuraría los de Ajustes.</p>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Modo edición</span>
+        <p class="help">El botón «Editar» de la barra superior, y sólo aparece en la Cabina: es lo único que se puede reordenar a mano.</p>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- ======================= FUTUROS ======================= -->
+<div class="tab" data-tab="futuros">
+<section class="deck" aria-label="Resumen de Futuros"><span class="deck-n">02</span><h1 class="deck-t">Futuros</h1><span class="deck-stage">Revisión</span><span class="deck-parts">Historial · Equity · Expectativa R</span></section>
+
+  <div class="toolbar">
+    <div class="seg" id="ftSeg">
+      <button data-v="resumen" class="active">Resumen</button>
+      <button data-v="cuentas">Cuentas</button>
+      <button data-v="analisis">Análisis</button>
+      <button data-v="diario">Diario</button>
+      <button data-v="presesion">Pre-sesión</button>
+    </div>
+    <span class="sp"></span>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Cuenta</span><select id="ftAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Período</span><select id="ftRange" aria-label="Rango"><option value="all">todo el historial</option><option value="month">este mes</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Setup</span><select id="ftSetup" aria-label="Filtrar por setup"><option value="">todos los setups</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Instrumento</span><select id="ftInstr" aria-label="Instrumento"><option value="">todos los instrumentos</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Sesión</span><select id="ftSes" aria-label="Sesión"><option value="">todas las sesiones</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Buscar operaciones</span><input id="ftQ" type="search" aria-label="Buscar operaciones" placeholder="buscar instrumento, etiqueta, lección…" autocomplete="off"></label>
+    <button type="button" class="btn ghost sm selbtn" id="selbtn-jrTable" title="Selecciona varias operaciones y bórralas de una vez">Seleccionar</button>
+    <button type="button" class="btn primary" id="ftNew">+ Nueva operación</button>
+  </div>
+  <div class="ftfilt" id="ftFilters" hidden></div>
+  <p class="synced" id="ftSync"></p>
+
+  <!-- ---------- resumen ---------- -->
+  <div class="ftview active" data-v="resumen">
+    <div class="stack">
+      <section class="panel">
+        <div class="tiles five" id="ftTiles"></div>
+      </section>
+      <section class="panel" id="qeSec">
+        <header><h2>Radiografía cuantitativa</h2><span class="meta" id="qeMeta"></span></header>
+        <div class="body"><div id="qePanel"></div></div>
+      </section>
+      <div class="grid eq">
+        <section class="panel">
+          <header><h2>Curva de equity</h2><span class="meta" id="eqMeta"></span></header>
+          <div class="body"><div class="chartwrap" id="eqWrap"></div></div>
+        </section>
+        <section class="panel">
+          <header><h2>Bajo el agua</h2><span class="meta" id="uwMeta"></span></header>
+          <div class="body"><p class="csub">Distancia al máximo anterior. Plano en cero = cuenta en máximos.</p><div class="chartwrap" id="uwWrap"></div></div>
+        </section>
+      </div>
+      <div class="grid eq">
+        <section class="panel">
+          <header><h2>P&amp;L diario</h2><span class="meta" id="dailyMeta"></span></header>
+          <div class="body"><div class="chartwrap" id="dailyWrap"></div></div>
+        </section>
+        <section class="panel">
+          <header><h2>Expectativa móvil</h2><span class="meta" id="rollMeta"></span></header>
+          <div class="body"><p class="csub">Media de R de las últimas 20 operaciones. Por encima de cero el sistema paga.</p><div class="chartwrap" id="rollWrap"></div></div>
+        </section>
+      </div>
+      <section class="panel">
+        <header><h2>Rachas y disciplina</h2><span class="meta" id="strMeta"></span></header>
+        <div class="body"><div class="tiles three" id="ftStreaks" style="border:1px solid var(--line);border-radius:4px;overflow:hidden"></div></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ---------- cuentas ---------- -->
+  <div class="ftview" data-v="cuentas">
+    <p class="note-p">Cada operación se apunta a una cuenta. Lo que ves aquí sale del journal, no de números escritos a mano: ganancia acumulada, mejor día, colchón hasta el drawdown y la regla de consistencia, cuenta por cuenta. El saldo previo y los movimientos (retiros, costos, resets) los registras tú.</p>
+    <div id="ftAccts"></div>
+    <button type="button" class="add" id="ftAcctAdd">+ Registrar cuenta</button>
+  </div>
+
+  <!-- ---------- análisis ---------- -->
+  <div class="ftview" data-v="analisis">
+    <div class="stack">
+      <section class="panel">
+        <header><h2>¿Funciona el sistema?</h2><span class="meta" id="scMeta"></span></header>
+        <div class="body">
+          <div id="ftVerdict"></div>
+          <div class="score" id="ftScore"></div>
+        </div>
+      </section>
+      <div class="grid eq">
+        <section class="panel">
+          <header><h2>Distribución de R</h2><span class="meta" id="rdMeta"></span></header>
+          <div class="body"><p class="csub">Cuántas operaciones caen en cada múltiplo de riesgo. La barra <b>-1R</b> son stops respetados; lo que quede a su izquierda son stops que se saltaron.</p><div class="chartwrap" id="rdWrap"></div></div>
+        </section>
+        <section class="panel">
+          <header><h2>El protocolo, ¿paga?</h2><span class="meta" id="prMeta"></span></header>
+          <div class="body"><p class="csub">Operaciones con las cuatro condiciones marcadas frente al resto.</p><div class="chartwrap" id="prWrap"></div><div id="prOut"></div></div>
+        </section>
+      </div>
+      <section class="panel">
+        <header><h2>¿De qué tipo fueron tus pérdidas?</h2><span class="meta" id="erMeta"></span></header>
+        <div class="body"><p class="csub">Cada pérdida, clasificada por la cabina con lo que la operación ya trae — no por cómo te sientes después de perderla. La categoría 4 no se elige: se gana, con esperanza positiva en operaciones limpias.</p><div id="erWrap"></div></div>
+      </section>
+      <section class="panel">
+        <header><h2>Por sesión de mercado</h2><span class="meta" id="seMeta"></span></header>
+        <div class="body"><p class="csub">Cada operación cae en su sesión por la hora de entrada. Aquí se ve si la ventana de NY AM de verdad es la que paga, o si el dinero está en otro sitio.</p><div class="chartwrap" id="seWrap"></div><div id="seOut"></div></div>
+      </section>
+      <div class="grid eq">
+        <section class="panel">
+          <header><h2>Por hora de entrada</h2><span class="meta" id="hrMeta"></span></header>
+          <div class="body"><div class="chartwrap" id="hrWrap"></div></div>
+        </section>
+        <section class="panel">
+          <header><h2>Por día de la semana</h2><span class="meta" id="dwMeta"></span></header>
+          <div class="body"><div class="chartwrap" id="dwWrap"></div></div>
+        </section>
+      </div>
+      <section class="panel">
+        <header><h2>Consistencia</h2><span class="meta" id="cnMeta"></span></header>
+        <div class="body"><p class="csub">Peso de cada día dentro de la ganancia acumulada. Un solo día gigante rompe la regla de las prop firms. La tabla de abajo mide lo mismo cuenta por cuenta, con el total de cada una.</p><div class="chartwrap" id="cnWrap"></div><div id="cnOut"></div></div>
+      </section>
+      <section class="panel">
+        <header><h2>Desglose</h2><span class="meta">dónde está el edge y dónde se va el dinero</span></header>
+        <div class="body"><div class="bk" id="ftBreak"></div></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ---------- pre-sesión ---------- -->
+  <div class="ftview" data-v="presesion">
+    <div class="stack">
+      <div class="toolbar sub">
+        <select id="prSes" aria-label="Sesión"><option value="">todas las sesiones</option></select>
+        <select id="prRange" aria-label="Rango"><option value="all">todo el historial</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select>
+        <span class="sp"></span>
+        <span class="meta" id="prCount"></span>
+      </div>
+      <section class="panel"><div class="tiles" id="prTiles"></div></section>
+      <section class="panel">
+        <header><h2>¿Preparar paga?</h2><span class="meta" id="prPayMeta"></span></header>
+        <div class="body"><p class="csub">Resultado medio de una sesión según cómo llegó su pre-sesión. Es la única forma de saber si la lista sirve o es un ritual.</p><div class="chartwrap" id="prPayWrap"></div><div id="prPayOut"></div></div>
+      </section>
+      <section class="panel">
+        <header><h2>Pasos que más te saltas</h2><span class="meta" id="prStepMeta"></span></header>
+        <div class="body"><p class="csub">Cada paso, cuántas veces quedó sin marcar y qué resultado dio la sesión en cada caso.</p><div class="twrap" id="prSteps"></div></div>
+      </section>
+      <section class="panel">
+        <header><h2>Historial de pre-sesiones</h2><span class="meta" id="prHistMeta"></span></header>
+        <div class="body"><div class="twrap" id="prHist"></div></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ---------- diario ---------- -->
+  <div class="ftview" data-v="diario">
+    <div class="stack">
+      <section class="panel">
+        <header>
+          <div class="tools"><button type="button" class="icon" id="calPrev" title="Mes anterior">‹</button><h2 id="calTitle" style="margin:0 6px">—</h2><button type="button" class="icon" id="calNext" title="Mes siguiente">›</button></div>
+          <span class="meta" id="calMeta"></span>
+        </header>
+        <div class="body" style="padding:12px">
+          <div class="cal" id="cal"></div>
+        </div>
+      </section>
+      <section class="panel" id="dayPanel">
+        <header><h2 id="dayTitle">Día</h2><span class="meta" id="dayMeta"></span></header>
+        <div class="body" id="dayBody"></div>
+      </section>
+      <section class="panel">
+        <header><h2>Operaciones</h2><span class="meta" id="jrMeta"></span></header>
+        <div class="body">
+          <!-- LA COLA DE LO IMPORTADO INCOMPLETO · fase 5 de docs/IMPORTAR.md.
+               Ningun export de broker trae el stop, asi que una operacion importada
+               entra sin el campo del que salen la R y la expectativa. Esto dice
+               cuantas son y lleva a completarlas de una en una. -->
+          <div class="bkbtns" id="jrCola" hidden>
+            <button type="button" class="btn ghost sm" id="jrSoloIncompletas" aria-pressed="false">Sólo sin completar</button>
+            <button type="button" class="btn sm" id="jrCompletarSig">Completar la siguiente</button>
+          </div>
+          <p class="synced" id="jrColaNota" hidden></p>
+          <div class="twrap" id="jrTable"></div>
+        </div>
+      </section>
+      <!-- IMPORTAR · mapeador manual de operaciones cerradas y modo FIFO de ejecuciones.
+           La detección automática de plataforma (fase 4) y la validación contra un CSV
+           real del bróker siguen pendientes; ver docs/IMPORTAR.md. -->
+      <section class="panel" id="panelImportar">
+        <header><h2>Importar operaciones</h2><span class="meta" id="impMeta">—</span></header>
+        <div class="body">
+          <p class="hint">Un CSV del bróker. No sale del navegador: se lee aquí. <strong>Tú dices qué columna es qué</strong> —esta cabina no conoce la cabecera de ningún bróker, y adivinarla es cómo se importan doce meses al día equivocado—. Nada se escribe antes de que veas la tabla exacta que va a entrar.</p>
+          <div class="bkbtns">
+            <button type="button" class="btn" id="impFileBtn">Elegir archivo…</button>
+            <button type="button" class="btn ghost" id="impPaste">Pegar el texto</button>
+            <button type="button" class="btn ghost" id="impClear" hidden>Descartar el fichero</button>
+            <button type="button" class="btn ghost" id="impUndo" hidden>Deshacer la importación</button>
+          </div>
+          <div id="impMapa"></div>
+          <p class="synced" id="impNote"></p>
+          <input type="file" id="impFile" accept="text/csv,.csv,.txt,text/plain" hidden aria-hidden="true">
+        </div>
+      </section>
+    </div>
+  </div>
+  <section class="panel" id="panelExecHistory">
+    <header><h2>Historial de ejecuciones</h2><span class="meta" id="execHistoryMeta">Sin ejecuciones importadas</span><button type="button" class="btn ghost sm" id="execToggle" aria-expanded="false">Ver historial</button></header>
+    <div class="body" id="execHistoryBody" hidden>
+      <p class="hint">Registro consolidado de los fills importados. Si una ejecución se repartió entre varias operaciones por un cierre parcial o una reversión, se agrupa por su huella para no contarla dos veces. No calcula un P&amp;L independiente: el resultado sigue perteneciendo al motor de operaciones.</p>
+      <div id="execHistoryFilters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">
+        <label class="lab">Buscar<input id="execQ" type="search" placeholder="ID, instrumento, lado…" style="width:100%"></label>
+        <label class="lab">Cuenta<select id="execAcct" style="width:100%"><option value="">todas las cuentas</option></select></label>
+        <label class="lab">Instrumento<select id="execInstr" style="width:100%"><option value="">todos los instrumentos</option></select></label>
+        <label class="lab">Desde<input id="execFrom" type="date" style="width:100%"></label>
+        <label class="lab">Hasta<input id="execTo" type="date" style="width:100%"></label>
+        <button type="button" class="btn ghost sm" id="execReset" style="align-self:end">Limpiar filtros</button>
+        <button type="button" class="btn ghost sm" id="execExport" style="align-self:end" aria-label="Exportar las ejecuciones filtradas a CSV" disabled>Exportar CSV</button>
+      </div>
+      <div class="twrap" id="execHistoryTable" aria-live="polite"><p class="csub">Cargando ejecuciones…</p></div>
+    </div>
+  </section>
+</div>
+
+<!-- ======================= PLAYBOOK ======================= -->
+<!-- MÉTRICAS / EDGE · sólo operaciones de FUTUROS del journal, netas de comisión.
+     Las inversiones no entran nunca: tradesOf("futuros") las deja fuera por tipo. -->
+<div class="tab" data-tab="cuentas">
+<section class="deck" aria-label="Resumen de Cuentas"><span class="deck-n">09</span><h1 class="deck-t">Cuentas</h1><span class="deck-stage">Ciclo de vida</span><span class="deck-parts">Compradas &middot; Quemadas &middot; Autopsia</span></section>
+
+  <div class="toolbar">
+    <select id="cuFiltro" aria-label="Qué cuentas se ven">
+      <option value="todas">todas las cuentas</option>
+      <option value="quemadas">sólo las quemadas</option>
+      <option value="vivas">sólo las vivas</option>
+    </select>
+    <span class="sp"></span>
+    <span class="mono" id="cuN" style="font-size:12.5px;color:var(--muted)"></span>
+  </div>
+  <div class="stack">
+    <section class="panel">
+      <header><h2>La caja</h2><span class="meta" id="cuCajaMeta"></span></header>
+      <div class="body">
+        <div class="kpis" id="cuCaja"></div>
+        <div id="cuCajaNota"></div>
+        <div class="twrap" id="cuFirmas" style="margin-top:14px"></div>
+      </div>
+    </section>
+    <section class="panel">
+      <header><h2>Cada cuenta, de la compra al final</h2><span class="meta" id="cuTablaMeta"></span></header>
+      <div class="body"><div class="twrap" id="cuTabla"></div><div id="cuTablaNota"></div></div>
+    </section>
+    <section class="panel">
+      <header><h2>Lo que se repite entre tus quemadas</h2><span class="meta" id="cuPatronMeta"></span></header>
+      <div class="body" id="cuPatron"></div>
+    </section>
+    <section class="panel">
+      <header><h2>La autopsia de cada quemada</h2><span class="meta" id="cuAutoMeta"></span></header>
+      <div class="body" id="cuAutopsias"></div>
+    </section>
+  </div>
+</div>
+
+<div class="tab" data-tab="edge">
+<section class="deck" aria-label="Resumen de Métricas y Edge"><span class="deck-n">03</span><h1 class="deck-t">Métricas / Edge</h1><span class="deck-stage">Validación</span><span class="deck-parts">P&amp;L neto · Drawdown · Riesgo</span></section>
+
+  <div class="toolbar">
+    <label class="cab-filter-field"><span class="cab-filter-caption">Cuenta</span><select id="mxAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Setup</span><select id="mxSetup" aria-label="Setup"><option value="">todos los setups</option></select></label>
+    <label class="mxd">desde <input type="date" id="mxDesde" aria-label="Desde"></label>
+    <label class="mxd">hasta <input type="date" id="mxHasta" aria-label="Hasta"></label>
+    <span class="sp"></span>
+    <span class="mono" id="mxN" style="font-size:12.5px;color:var(--muted)"></span>
+  </div>
+  <div id="mxAviso"></div>
+  <div class="stack">
+    <section class="panel">
+      <header><h2>Parámetros</h2><span class="meta">se guardan con tu configuración</span></header>
+      <div class="body">
+        <div class="mxparams">
+          <div><label class="lab" for="mxCom">Comisión por contrato, ida y vuelta ($)</label><input type="number" id="mxCom" step="0.01" min="0" inputmode="decimal"></div>
+          <div><label class="lab" for="mxRf">Tasa libre de riesgo anual (%)</label><input type="number" id="mxRf" step="0.1" inputmode="decimal"></div>
+          <div><label class="lab" for="mxCap">Capital de referencia ($)</label><input type="number" id="mxCap" step="100" min="0" inputmode="decimal" placeholder="el de la cuenta"></div>
+          <div class="mxchk"><input type="checkbox" id="mxManualNeto"><label for="mxManualNeto">Mis P&amp;L escritos a mano ya son netos</label></div>
+        </div>
+        <p class="csub" id="mxComNota" style="margin-top:12px"></p>
+      </div>
+    </section>
+    <section class="panel">
+      <header><h2>Edge</h2><span class="meta" id="mxEdgeMeta"></span></header>
+      <div class="body"><div class="qeg" id="mxEdge"></div><div id="mxEdgeNotas"></div></div>
+    </section>
+    <section class="panel" id="mxEstPanel">
+      <header><h2>Estad&iacute;sticas</h2><span class="meta" id="mxEstMeta"></span><button type="button" class="btn ghost sm" id="mxEstExport" title="Descarga las estad&iacute;sticas que el buscador y la categor&iacute;a dejan a la vista">Exportar CSV</button></header>
+      <div class="body">
+        <div class="esttools">
+          <input type="search" id="mxEstQ" placeholder="buscar una estad&iacute;stica&hellip;" aria-label="Buscar una estad&iacute;stica">
+          <div class="estcats" id="mxEstCats" role="group" aria-label="Categor&iacute;as"></div>
+        </div>
+        <div id="mxEstLista"></div>
+        <p class="csub" style="margin:14px 0 0">Todas salen de las mismas operaciones que la expectativa y la curva de arriba, con el mismo P&amp;L neto. Una cifra que no se puede medir sale con &laquo;&mdash;&raquo; y la raz&oacute;n al lado, nunca como cero.</p>
+      </div>
+    </section>
+    <section class="panel">
+      <header><h2>Curva de equity y drawdown</h2><span class="meta" id="mxCurvaMeta"></span></header>
+      <div class="body"><div class="chartwrap" id="mxCurva"></div><div id="mxDD"></div></div>
+    </section>
+    <div class="grid eq">
+      <section class="panel">
+        <header><h2>Tamaño de posición</h2><span class="meta">futuros · floor(riesgo ÷ (puntos × $/pt + comisión))</span></header>
+        <div class="body" id="mxSize">
+          <div class="mxform">
+            <div><label class="lab" for="mxFuente">Riesgo en $ de</label><select id="mxFuente">
+              <option value="mano">lo escribo a mano</option>
+              <option value="cuenta">pérdida diaria máx. de la cuenta</option>
+              <option value="regla">mi regla de pérdida máx. diaria</option></select></div>
+            <div><label class="lab" for="mxRiesgo">Riesgo ($)</label><input type="number" id="mxRiesgo" step="1" min="0" inputmode="decimal"></div>
+            <div><label class="lab" for="mxInstr">Contrato</label><select id="mxInstr"></select></div>
+            <div><label class="lab" for="mxStop">Stop (puntos)</label><input type="number" id="mxStop" step="0.25" min="0" inputmode="decimal"></div>
+          </div>
+          <div id="mxSizeRes"></div>
+        </div>
+      </section>
+      <section class="panel">
+        <header><h2>Riesgo de ruina · prop</h2><span class="meta">Monte Carlo · 10.000 caminos</span></header>
+        <div class="body" id="mxRuina">
+          <div class="mxform">
+            <div><label class="lab" for="mxUnR">1R en la simulación vale</label><select id="mxUnR">
+              <option value="hist">mi riesgo medio real por operación</option>
+              <option value="calc">el riesgo del cálculo de tamaño</option></select></div>
+            <div style="align-self:end"><button type="button" class="btn primary" id="mxSimular">Simular 10.000 caminos</button></div>
+          </div>
+          <div id="mxRuinaRes"></div>
+        </div>
+      </section>
+    </div>
+    <section class="panel">
+      <header><h2>Operación por operación</h2><span class="meta" id="mxTablaMeta"></span></header>
+      <div class="body"><div class="twrap" id="mxTabla"></div></div>
+    </section>
+  </div>
+</div>
+
+<div class="tab" data-tab="playbook">
+<section class="deck" aria-label="Resumen del Playbook"><span class="deck-n">04</span><h1 class="deck-t">Playbook</h1><span class="deck-stage">Proceso</span><span class="deck-parts">Reglas · Checklist · Revisión</span></section>
+
+  <nav class="tabnav sub" id="pbNav" aria-label="Tipo de inversión o trading"></nav>
+  <div class="toolbar">
+    <input type="text" id="pbSearch" placeholder="buscar…" aria-label="Buscar setup" style="width:160px">
+    <select id="pbStatus" aria-label="Estado"><option value="">todos</option><option value="activo">activos</option><option value="prueba">en prueba</option><option value="retirado">archivados</option></select>
+    <span class="sp"></span>
+    <button type="button" class="btn ghost sm" id="pbExport" title="Copia los setups de esta vista como JSON">Exportar</button>
+    <button type="button" class="btn ghost sm" id="pbImport" title="Pega un JSON exportado">Importar</button>
+    <button type="button" class="btn" id="pbTemplate">Desde plantilla</button>
+    <button type="button" class="btn ghost sm selbtn" id="selbtn-pbCards" title="Selecciona varias y bórralas de una vez">Seleccionar</button>
+    <button type="button" class="btn primary" id="pbNew">+ Nuevo setup</button>
+  </div>
+  <input type="file" id="pbFile" accept="image/*" hidden>
+<input type="file" id="tradeFile" accept="image/*" hidden>
+<input type="file" id="tradeCameraFile" accept="image/*" capture="environment" hidden>
+  <p class="note-p" id="pbKindNote"></p>
+  <div class="cards" id="pbCards"></div>
+</div>
+
+<!-- ======================= IDEAS ======================= -->
+<div class="tab" data-tab="ideas">
+<section class="deck" aria-label="Resumen de Formas de hacer dinero"><span class="deck-n">05</span><h1 class="deck-t">Formas de hacer dinero</h1><span class="deck-stage">Evaluación</span><span class="deck-parts">Capital · Riesgo · Validación</span></section>
+
+  <div class="toolbar">
+    <select id="idCat" aria-label="Categoría"><option value="">todas las categorías</option></select>
+    <select id="idStatus" aria-label="Estado"><option value="">todos los estados</option></select>
+    <span class="sp"></span>
+    <button type="button" class="btn ghost sm selbtn" id="selbtn-idCards" title="Selecciona varias y bórralas de una vez">Seleccionar</button>
+    <button type="button" class="btn primary" id="idNew">+ Nueva forma</button>
+  </div>
+  <p class="note-p">Repositorio de formas de hacer dinero en los mercados. Cada una con capital, tiempo, riesgo y por qué funcionaría. Una idea sin "próximo paso" es un deseo, no una idea.</p>
+  <div class="cards" id="idCards"></div>
+</div>
+
+<!-- ======================= INVERSIONES ======================= -->
+<div class="tab" data-tab="invest">
+<section class="deck" aria-label="Resumen de Inversiones"><span class="deck-n">06</span><h1 class="deck-t">Inversiones</h1><span class="deck-stage">Seguimiento</span><span class="deck-parts">Asignación · Rendimiento · Ingresos</span></section>
+
+  <div class="toolbar">
+    <select id="ivAccountFilter" aria-label="Filtrar por cuenta de inversión"><option value="__all">Todas las cuentas</option></select>
+    <select id="ivSetup" aria-label="Filtrar por estrategia"><option value="">todas las estrategias</option></select>
+    <button type="button" class="btn ghost sm" id="ivAcctAdd">+ Cuenta</button>
+    <button type="button" class="btn ghost sm" id="ivAcctManage" aria-expanded="false">Gestionar cuentas</button>
+    <span class="sp"></span>
+    <button type="button" class="btn ghost sm selbtn" id="selbtn-ivOps" title="Selecciona varias operaciones y bórralas de una vez">Seleccionar</button>
+    <button type="button" class="btn primary" id="ivNew">+ Nueva operación de inversión</button>
+  </div>
+  <section class="panel" id="ivAccountsPanel" hidden style="margin-bottom:24px">
+    <header><h2>Cuentas de inversión</h2><span class="meta">eliminar una cuenta conserva su historial</span></header>
+    <div class="body" id="ivAccountsList"></div>
+  </section>
+  <section class="panel" style="margin-bottom:24px">
+    <header><h2>Cartera · todos los mercados</h2><span class="meta" id="ivPortfolioScope">todas las cuentas · cartera consolidada · precios los escribes tú</span></header>
+    <div class="tiles five" id="ivTiles"></div>
+    <div id="ivTocar" hidden></div>
+  </section>
+  <div class="grid eq" style="margin-bottom:24px">
+    <section class="panel">
+      <header><h2>Asignación por mercado</h2><span class="meta" id="ivAllocMeta"></span></header>
+      <div class="body"><div class="chartwrap" id="ivAllocWrap"></div><div id="ivAllocTable"></div></div>
+    </section>
+    <section class="panel">
+      <header><h2>Rendimiento por posición</h2><span class="meta" id="ivPerfMeta"></span></header>
+      <div class="body"><p class="csub">Rendimiento neto sobre lo invertido: precio, ventas, dividendos y comisiones. Solo las posiciones con precio actual escrito o ya cerradas — sin precio no hay nada que medir.</p><div class="chartwrap" id="ivPerfWrap"></div></div>
+    </section>
+  </div>
+  <div class="grid eq" style="margin-bottom:24px">
+    <section class="panel">
+      <header><h2>Aportes por mes</h2><span class="meta" id="ivFlowMeta"></span></header>
+      <div class="body"><p class="csub">Compras y aportes registrados. La constancia importa más que el importe.</p><div class="chartwrap" id="ivFlowWrap"></div></div>
+    </section>
+    <section class="panel">
+      <header><h2>Ingresos cobrados</h2><span class="meta" id="ivIncMeta"></span></header>
+      <div class="body"><p class="csub">Dividendos, cupones, primas de opciones y alquileres registrados como cobro.</p><div class="chartwrap" id="ivIncWrap"></div></div>
+    </section>
+  </div>
+  <section class="panel" style="margin-bottom:24px">
+    <header><h2>Salud de la cartera</h2><span class="meta" id="ivHealthMeta"></span></header>
+    <div class="body"><div id="ivVerdict"></div><div class="score" id="ivScore"></div></div>
+  </section>
+  <section class="panel" style="margin-bottom:24px">
+    <header><h2>Operaciones de inversión</h2><span class="meta" id="ivOpsMeta"></span></header>
+    <div class="body"><div class="twrap" id="ivOps"></div></div>
+  </section>
+  <div class="grid side">
+    <div>
+      <div class="mlist" id="mlist"></div>
+      <button type="button" class="add" id="mAdd">+ Añadir mercado</button>
+    </div>
+    <div class="col" id="mDetail"></div>
+  </div>
+</div>
+
+<!-- ======================= HISTORIAL =======================
+     TODAS las operaciones, de las dos familias, en una tabla. No calcula nada:
+     pide el subconjunto a `FUT.filtered({ tipo })` —la puerta única— y lo
+     pinta. Si esta pantalla y el journal discreparan alguna vez, discreparían
+     porque una de las dos se saltó la puerta, y no hay por dónde: las dos
+     llaman a la misma función con el mismo predicado.
+
+     POR QUÉ UNA PESTAÑA Y NO UNA SUB-VISTA: las operaciones de inversión no
+     caben dentro de «Futuros» sin mentir sobre dónde están, y la pregunta «qué
+     he hecho» no es una sub-pregunta de ninguna de las dos pestañas. Es su
+     propia actividad: mirar hacia atrás.
+
+     LAS DOS FAMILIAS NO COMPARTEN NI EL NOMBRE DE LA CUENTA. Los futuros viven
+     en `state.settings.accounts` y se etiquetan con `acctLabel()`; las
+     inversiones en `investmentAccounts()`, con `investmentAccountName()`. Son
+     dos espacios de nombres, así que el filtro de cuenta dice de qué familia es
+     cada una en vez de fingir que son una lista. -->
+<div class="tab" data-tab="historial">
+<section class="deck" aria-label="Resumen de Historial"><span class="deck-n">09</span><h1 class="deck-t">Historial</h1><span class="deck-stage">Registro</span><span class="deck-parts">Futuros · Inversiones · Resultado</span></section>
+
+  <div class="toolbar">
+    <label class="cab-filter-field"><span class="cab-filter-caption">Mercado</span><select id="hsTipo" aria-label="Tipo de operación"><option value="">futuros e inversiones</option><option value="futuros">sólo futuros</option><option value="inversion">sólo inversiones</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Cuenta</span><select id="hsAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Período</span><select id="hsRango" aria-label="Rango"><option value="all">todo el historial</option><option value="month">este mes</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select></label>
+    <label class="mxd">desde <input type="date" id="hsDesde" aria-label="Desde"></label>
+    <label class="mxd">hasta <input type="date" id="hsHasta" aria-label="Hasta"></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Buscar historial</span><input id="hsQ" type="search" aria-label="Buscar operaciones" placeholder="buscar activo, cuenta, nota…" autocomplete="off"></label>
+    <span class="sp"></span>
+    <button type="button" class="btn ghost sm" id="hsExport" title="Descarga TODO lo que el filtro selecciona, no s&oacute;lo las filas visibles">Exportar CSV</button>
+    <button type="button" class="btn ghost sm" id="hsLimpiar">Ver todo</button>
+  </div>
+  <p class="note-p">Cada fila es una operación que registraste, de futuros o de inversión. Sale del mismo sitio que el journal y que las métricas, no de una copia: el filtro es el de la puerta única. Pulsa una fila para abrirla.</p>
+  <div class="stack">
+    <section class="panel">
+      <header><h2>Todas las operaciones</h2><span class="meta" id="hsMeta"></span></header>
+      <div class="body"><div class="twrap" id="hsTabla"></div></div>
+    </section>
+  </div>
+</div>
+
+<!-- ======================= CALCULADORA ======================= -->
+<div class="tab" data-tab="calc">
+<section class="deck" aria-label="Resumen de Calculadora"><span class="deck-n">07</span><h1 class="deck-t">Calculadora</h1><span class="deck-stage">Simulación</span><span class="deck-parts">Capital · Retorno · Drawdown</span></section>
+
+  <div class="toolbar">
+    <div class="seg" id="calcSeg">
+      <button data-v="classic" class="active">Interés compuesto</button>
+      <button data-v="trading">Cuenta de trading</button>
+      <button data-v="risk">Riesgo y drawdown</button>
+    </div>
+    <span class="sp"></span>
+    <span class="mdmsg" id="calcHint" style="padding:0"></span>
+  </div>
+
+  <!-- ---------- proyección: clásico y cuenta de trading ---------- -->
+  <div id="calcProj">
+    <div class="grid">
+      <div class="col">
+        <section class="panel">
+          <header><h2 id="ccTitle">Interés compuesto</h2><span class="meta" id="ccMode">modo clásico</span></header>
+          <div class="body">
+            <div class="calc-form" id="ccForm">
+              <div class="f"><label class="lab" for="cc_p">Capital inicial ($)</label><input type="number" id="cc_p" value="1000" step="100"></div>
+              <div class="f"><label class="lab" for="cc_c">Aporte mensual ($)</label><input type="number" id="cc_c" value="200" step="50"></div>
+              <div class="f" data-m="classic"><label class="lab" for="cc_r">Rendimiento anual (%)</label><input type="number" id="cc_r" value="10" step="0.5"></div>
+              <div class="f" data-m="classic"><label class="lab" for="cc_f">Capitalización</label><select id="cc_f"><option value="12">mensual</option><option value="1">anual</option><option value="365">diaria</option></select></div>
+              <div class="f" data-m="trading" hidden><label class="lab" for="cc_rm">Rendimiento mensual (%)</label><input type="number" id="cc_rm" value="4" step="0.5"></div>
+              <div class="f" data-m="trading" hidden><label class="lab" for="cc_w">Retiro mensual (% de la ganancia)</label><input type="number" id="cc_w" value="50" step="5" min="0" max="100"></div>
+              <div class="f"><label class="lab" for="cc_y">Años</label><input type="number" id="cc_y" value="10" step="1" min="1" max="60"></div>
+              <div class="f"><label class="lab" for="cc_i">Inflación anual (%) · opcional</label><input type="number" id="cc_i" value="0" step="0.5"></div>
+            </div>
+            <p class="note-p" id="ccNote" style="margin-top:12px"></p>
+          </div>
+        </section>
+        <section class="panel">
+          <header><h2>Escenarios guardados</h2><button type="button" class="btn sm" id="ccSave">Guardar escenario actual</button></header>
+          <div class="body" id="ccScenarios"></div>
+        </section>
+      </div>
+      <div class="col">
+        <section class="panel">
+          <header><h2>Resultado</h2><span class="meta" id="ccMeta"></span></header>
+          <div class="body">
+            <div class="hero" id="ccHero"></div>
+            <div class="chartwrap" id="ccChartWrap"></div>
+            <div class="legend"><span><i></i>Balance</span><span><i class="d"></i>Aportado</span></div>
+          </div>
+        </section>
+        <section class="panel">
+          <header><h2>Año a año</h2></header>
+          <div class="body"><div class="twrap" id="ccTable"></div></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- riesgo y drawdown ---------- -->
+  <div id="calcRisk" hidden>
+    <div class="grid">
+      <div class="col">
+        <section class="panel">
+          <header><h2>Datos de la cuenta</h2><span class="meta" id="riskMeta"></span></header>
+          <div class="body">
+            <div class="rform" id="riskForm"></div>
+            <div class="jactions">
+              <button type="button" class="btn" id="riskMine">Usar mis números del journal</button>
+              <button type="button" class="btn" id="riskAcct">Cargar una cuenta prop</button>
+              <button type="button" class="btn primary" id="riskSave">Guardar escenario</button>
+            </div>
+            <p class="note" id="riskFlash" style="font-family:var(--font-mono);font-size:12px;margin:12px 0 0;min-height:1em"></p>
+          </div>
+        </section>
+        <section class="panel" id="riskSaved">
+          <header><h2>Escenarios guardados</h2><span class="meta">uno por cuenta</span></header>
+          <div class="body" id="riskList"></div>
+        </section>
+      </div>
+      <div class="col">
+        <section class="panel" id="riskPanel">
+          <header><h2>Veredicto</h2><span class="meta">colchón, tamaño y probabilidad de quemarla</span></header>
+          <div class="body">
+            <div class="hero" id="riskHero"></div>
+            <div id="riskOut"></div>
+          </div>
+        </section>
+        <section class="panel">
+          <header><h2>Consumo del colchón</h2><span class="meta">pérdidas seguidas</span></header>
+          <div class="body"><div class="chartwrap" id="riskChart"></div></div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <!-- Se escriben desde renderWindow(): la ventana es configurable. -->
+  <span id="footerWindow">Ventana operativa: 8:30–11:00 AM ET</span>
+  <span id="footerWindowDays">lun–vie · fuera de ahí, sin entradas</span>
+  <span id="footerStore"></span>
+  <!-- Visible en las seis pestañas y en un teléfono: test/lanzamiento.mjs lo mide. -->
+  <span class="aviso">Cabina es una herramienta de registro y análisis, no asesoramiento financiero. Operar futuros conlleva un riesgo alto de pérdida.</span>
+  <!-- Las tres páginas legales. Son ficheros aparte y del propio sitio: no
+       cargan nada, no miden nada y la publicación las verifica una por una
+       (pagina.yml). test/pwa.mjs exige que estos tres enlaces sigan aquí. -->
+  <span class="legal"><a href="./privacidad.html">Privacidad</a> · <a href="./terminos.html">Términos</a> · <a href="./seguridad.html">Seguridad</a></span>
+</footer>
+
+<!-- ═══ PALETA DE COMANDOS ═══
+     Una sola entrada para todo lo que está a dos o tres clics. Se abre con
+     ⌘K / Ctrl+K y se cierra con Esc. No sustituye a la navegación: la
+     acompaña, para quien ya sabe adónde va. -->
+<div class="ov cmd-ov" id="cmdOv" role="dialog" aria-modal="true" aria-label="Paleta de comandos">
+  <div class="cmd">
+    <div class="cmd-in">
+      <span class="cmd-k">⌘K</span>
+      <input type="text" id="cmdQ" autocomplete="off" spellcheck="false" placeholder="Buscar acción, pestaña o cuenta…" aria-label="Buscar" aria-controls="cmdList" aria-autocomplete="list">
+      <span class="cmd-esc">esc</span>
+    </div>
+    <div class="cmd-list" id="cmdList" role="listbox" aria-label="Resultados"></div>
+    <div class="cmd-foot"><kbd>↑</kbd><kbd>↓</kbd> moverse · <kbd>↵</kbd> abrir · <kbd>esc</kbd> cerrar</div>
+  </div>
+</div>
+
+<!-- editor overlay -->
+<div class="ov" id="ov" role="dialog" aria-modal="true" aria-labelledby="edTitle">
+  <div class="ed">
+    <header><h3 id="edTitle">Editar</h3><button type="button" class="icon" id="edClose" aria-label="Cerrar">×</button></header>
+    <div class="fields" id="edFields"></div>
+    <div id="edAvisos" hidden></div>
+    <footer>
+      <button type="button" class="btn danger" id="edDelete" hidden>Borrar</button>
+      <span class="sp"></span>
+      <button type="button" class="btn ghost" id="edCancel">Cancelar</button>
+      <button type="button" class="btn primary" id="edSave">Guardar</button>
+    </footer>
+  </div>
+</div>
+<div class="ov" id="authOv" role="dialog" aria-modal="true" aria-labelledby="auTitle">
+  <div class="ed qk au">
+    <header><h3 id="auTitle">Tu cuenta</h3><button type="button" class="icon" id="auClose" aria-label="Cerrar">×</button></header>
+    <div class="body">
+      <div id="auFuera" class="aubox">
+        <p id="auBienv" class="aubienv" hidden><b>Esta cabina es tuya.</b> Crea tu cuenta y tus operaciones serán sólo tuyas: nadie más las ve, ni quien te dio el enlace. Si prefieres probar antes, puedes seguir sin cuenta.</p>
+        <p>Con cuenta, tu cabina se guarda en la nube y la abres desde cualquier dispositivo. Sólo tú la ves: ni otros usuarios ni quien tenga el enlace.</p>
+        <p class="aunota">Sin cuenta, Cabina sigue funcionando como hasta ahora: todo se queda en este navegador y no se envía nada.</p>
+        <div><label class="lab" for="auEmail">Email</label><input id="auEmail" type="email" autocomplete="email" spellcheck="false"></div>
+        <div id="auPassBox"><label class="lab" for="auPass">Contraseña</label><input id="auPass" type="password" autocomplete="current-password"></div>
+      </div>
+      <div id="auDentro" class="aubox" hidden>
+        <p>Sesión iniciada como <b id="auQuien"></b>. Lo que hagas se guarda en tu cuenta.</p>
+        <p class="aunota" id="auLocal" hidden></p>
+      </div>
+      <div id="auNueva" class="aubox" hidden>
+        <p>Escribe tu contraseña nueva.</p>
+        <div><label class="lab" for="auNuevaPass">Contraseña nueva</label><input id="auNuevaPass" type="password" autocomplete="new-password"></div>
+      </div>
+      <p class="aumsg" id="auMsg" role="status" aria-live="polite"></p>
+    </div>
+    <footer>
+      <button type="button" class="btn ghost sm" id="auOlvide">Olvidé mi contraseña</button>
+      <button type="button" class="btn ghost sm" id="auSinCuenta" hidden>Seguir sin cuenta</button>
+      <button type="button" class="btn ghost sm" id="auSubir" hidden>Subir lo de este navegador</button>
+      <span class="sp"></span>
+      <button type="button" class="btn" id="auCrear">Crear cuenta</button>
+      <button type="button" class="btn primary" id="auEntrar">Entrar</button>
+      <button type="button" class="btn" id="auSalir" hidden>Cerrar sesión</button>
+      <button type="button" class="btn primary" id="auGuardarNueva" hidden>Guardar contraseña</button>
+    </footer>
+  </div>
+</div>
+<div class="ov" id="quickOv" role="dialog" aria-modal="true" aria-labelledby="qkTitle">
+  <div class="ed qk">
+    <header>
+      <h3 id="qkTitle">Registro rápido</h3>
+      <button type="button" class="icon" id="qkClose" aria-label="Cerrar">×</button>
+    </header>
+    <div class="body">
+      <div class="seg qkseg" role="tablist" aria-label="Qué registrar">
+        <button type="button" class="active" id="qkModoOp" role="tab" aria-selected="true">Operación</button>
+        <button type="button" id="qkModoNota" role="tab" aria-selected="false">Nota del día</button>
+      </div>
+
+      <div id="qkOp">
+        <label class="lab" for="qkText">La operación en una línea</label>
+        <input class="qin" id="qkText" type="text" autocomplete="off" spellcheck="false"
+               placeholder="NQ +185" aria-describedby="qkHint">
+        <p class="qhint" id="qkHint">NQ +185 &nbsp;·&nbsp; MNQ short -90 &nbsp;·&nbsp; NQ L 2x @20150 sl20120 out20190 9:45</p>
+        <details class="qkvocab">
+          <summary>Qué entiende de la línea</summary>
+          <dl>
+            <dt>NQ · MNQZ5</dt><dd>el instrumento, también con el código de mes que escribe el bróker.</dd>
+            <dt>L · long · short · s</dt><dd>la dirección.</dd>
+            <dt>2x · x2 · 2c</dt><dd>los contratos.</dd>
+            <dt>@20150</dt><dd>la entrada. Con el stop, de ahí sale el riesgo.</dd>
+            <dt>sl20120 · stop 20120</dt><dd>el stop.</dd>
+            <dt>tp20200 · obj 20200</dt><dd>el objetivo. Con el stop da la R planificada.</dd>
+            <dt>out20190 · salida 20190</dt><dd>la salida real. Con la entrada, el motor calcula el resultado y ya no hace falta escribirlo.</dd>
+            <dt>+185 · -90</dt><dd>el resultado en dólares.</dd>
+            <dt>+12p · -9pts</dt><dd>el resultado en puntos, que el multiplicador del contrato traduce a dólares.</dd>
+            <dt>9:45</dt><dd>la hora de entrada. Sin ella se usa la de apuntarla.</dd>
+          </dl>
+          <p>El orden no importa y nada se adivina por la posición: lo que no lleve marca y no se reconozca sale nombrado en la vista previa, sin guardarse.</p>
+        </details>
+        <div class="qkprev" id="qkPrev" aria-live="polite"></div>
+        <div>
+          <span class="lab">Calidad de ejecución <span style="text-transform:none;letter-spacing:0">· opcional</span></span>
+          <div class="qkchips" id="qkCal"></div>
+        </div>
+        <div>
+          <span class="lab">Qué pasó <span style="text-transform:none;letter-spacing:0">· opcional, se guarda como etiqueta</span></span>
+          <div class="qkchips" id="qkTags"></div>
+        </div>
+      </div>
+
+      <div id="qkNotaBox" hidden>
+        <label class="lab" for="qkNota">Cómo fue la sesión</label>
+        <textarea id="qkNota" rows="4" placeholder="Una frase basta. Se añade a la nota del día."></textarea>
+        <p class="qhint">Se guarda en la nota del día que ya existe, no en un sitio nuevo.</p>
+      </div>
+    </div>
+    <footer>
+      <span class="sp"></span>
+      <button type="button" class="btn ghost" id="qkCancel">Cancelar</button>
+      <button type="button" class="btn" id="qkDetalles">Añadir detalles</button>
+      <button type="button" class="btn primary" id="qkSave">Guardar</button>
+    </footer>
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+<div class="lightbox" id="lightbox" role="dialog" aria-label="Imagen"><img alt=""></div>
+
+<!-- LA APLICACION VIVE EN app.js, y no aqui dentro, para que la CSP pueda
+     declarar `script-src 'self'` sin 'unsafe-inline'. El motivo completo esta
+     en la cabecera de ese fichero. Sigue siendo bloqueante y en esta misma
+     posicion: ve el mismo DOM que veia inline. -->
+<script src="./app.js"></script>
+
+
 
 </body>
 </html>
