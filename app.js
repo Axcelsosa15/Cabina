@@ -1153,7 +1153,13 @@
     "+ Rápido": "+ Quick",
     "1R en la simulación vale": "1R in the simulation is worth",
     "Ahora no": "Not now",
+    "Ajustes": "Settings",
     "Antes de operar": "Before trading",
+    "Dónde está lo demás": "Where everything else lives",
+    "Idioma y datos de muestra": "Language and sample data",
+    "Ir a Cabina": "Go to Cockpit",
+    "Ir a Cuentas": "Go to Accounts",
+    "Ir a Futuros": "Go to Futures",
     "Antítesis / riesgos / limitaciones": "Counter-thesis / risks / limitations",
     "Análisis": "Analysis",
     "Aportes por mes": "Contributions per month",
@@ -2619,6 +2625,13 @@
     viewPrefsRoot.hidden = true; document.body.style.overflow = "";
     if (viewPrefsReturnFocus && typeof viewPrefsReturnFocus.focus === "function") viewPrefsReturnFocus.focus();
   }
+  /* Los enlaces del inventario de Ajustes, con UN solo oyente delegado en el
+     documento: son siete botones que sólo llaman a showTab, y siete oyentes
+     para eso es cromo que hay que recordar desenganchar. */
+  document.addEventListener("click", e => {
+    const b = e.target.closest("[data-ajuste-ir]");
+    if (b) showTab(b.dataset.ajusteIr);
+  });
   document.getElementById("viewPrefsOpen").addEventListener("click", openViewPrefs);
   document.getElementById("viewPrefsClose").addEventListener("click", closeViewPrefs);
   document.getElementById("viewPrefsDone").addEventListener("click", closeViewPrefs);

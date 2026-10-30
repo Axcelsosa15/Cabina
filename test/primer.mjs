@@ -84,7 +84,18 @@ console.log('\n═══ UN DESCONOCIDO ═══');
   const vacio = await p.evaluate(() => /SIN CUENTAS REGISTRADAS/i.test(document.body.innerText));
   ok(vacio, 'y el estado vacio le dice que añada su primera cuenta', vacio ? 'si' : 'no aparece');
   /* El demo sigue enseñando una cabina llena, con numeros en las reglas. */
-  await p.click('#demoToggle'); await p.waitForTimeout(900);
+  /* Los dos botones globales viven en Ajustes desde que se organizó la
+     configuración; antes estaban en la barra superior. Se recorre el camino
+     real —entrar, pulsar, volver a donde estábamos— en vez de pulsar por
+     `evaluate`, que funcionaría sobre el botón oculto y dejaría pasar un botón
+     inalcanzable. */
+  const enAjustes = async (p, sel) => {
+    const vuelta = await p.evaluate(() => (document.querySelector('.tab.active') || {}).dataset?.tab || 'cabina');
+    await p.click('#tabnav .tabbtn[data-tab="ajustes"]');
+    await p.click(sel);
+    if (vuelta && vuelta !== 'ajustes') await p.click(`#tabnav .tabbtn[data-tab="${vuelta}"]`);
+  };
+  await enAjustes(p, '#demoToggle'); await p.waitForTimeout(900);
   const demo = await foto(p);
   ok(demo.cuentas.length > 0 && demo.reglas.filter(r => r.kind === 'num').some(r => Number(r.value) > 0),
      '«Ver demo» sigue enseñando una cabina llena: cuentas y reglas con valor', `${demo.cuentas.length} cuentas · ${demo.reglas.filter(r => Number(r.value) > 0).length} reglas con valor`);

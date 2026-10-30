@@ -331,10 +331,21 @@ console.log('\n═══ 6 · el buscador y las categorías ═══');
   ok(true, 'volver a pulsarla devuelve el catálogo entero');
 }
 
+/* Los dos botones globales viven en Ajustes desde que se organizó la
+   configuración; antes estaban en la barra superior. Se recorre el camino
+   real —entrar, pulsar, volver a donde estábamos— en vez de pulsar por
+   `evaluate`, que funcionaría sobre el botón oculto y dejaría pasar un botón
+   inalcanzable. */
+const enAjustes = async (p, sel) => {
+  const vuelta = await p.evaluate(() => (document.querySelector('.tab.active') || {}).dataset?.tab || 'cabina');
+  await p.click('#tabnav .tabbtn[data-tab="ajustes"]');
+  await p.click(sel);
+  if (vuelta && vuelta !== 'ajustes') await p.click(`#tabnav .tabbtn[data-tab="${vuelta}"]`);
+};
 console.log('\n═══ 8 · el inglés llega a las 160 filas, no a la cabecera sola ═══');
 {
   const antes = await p.evaluate(() => window.fila('profitFactor').lab);
-  await p.click('#idiomaBtn');
+  await enAjustes(p, '#idiomaBtn');
   let llego = true;
   try { await p.waitForFunction(() => window.fila('pnlTotal') && window.fila('pnlTotal').lab === 'Total PnL', null, { timeout: 10000 }); }
   catch (e) { llego = false; }
@@ -349,7 +360,7 @@ console.log('\n═══ 8 · el inglés llega a las 160 filas, no a la cabecera
   ok(r.conAcento.length === 0, 'ninguna etiqueta se queda en español', r.conAcento.slice(0, 4).join(' | ') || 'ninguna');
   ok(r.grupos.every(g => !/[áéíóúñ]/i.test(g)), 'los títulos de grupo tampoco', r.grupos.join(' | '));
   ok(antes === 'Profit factor' && r.pf === 'Profit factor', 'una etiqueta que se escribe igual en los dos idiomas no se rompe');
-  await p.click('#idiomaBtn');
+  await enAjustes(p, '#idiomaBtn');
 }
 
 console.log('\n═══ 9 · el CSV lleva el número crudo Y el guion, sin convertir uno en otro ═══');

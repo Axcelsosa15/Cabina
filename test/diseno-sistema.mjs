@@ -39,7 +39,7 @@ exige(html.includes('scroll-padding-top'),
   'scroll-padding-top: con barra fija, un ancla sin él aterriza debajo de ella');
 
 /* ---------- lo que la capa visual NO puede haberse llevado ---------- */
-for (const tab of ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc']) {
+for (const tab of ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc', 'ajustes']) {
   exige(html.includes('data-tab="' + tab + '"'), 'la pestaña debe conservarse: ' + tab);
 }
 exige(/<script[^>]+src=["'](\.\/)?app\.js["']/.test(html),
@@ -56,4 +56,4 @@ if (fallos.length) {
   for (const f of fallos) console.error('   · ' + f);
   process.exit(1);
 }
-console.log('PASS diseno-sistema: ergonomía, cinco capas, diez pestañas, app.js y la paleta descartada sin volver');
+console.log('PASS diseno-sistema: ergonomía, cinco capas, once pestañas, app.js y la paleta descartada sin volver');

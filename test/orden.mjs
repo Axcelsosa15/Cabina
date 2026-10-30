@@ -211,7 +211,18 @@ console.log('\n═══ 7 · entrar en demo limpia también la búsqueda ══
    existían. Ahora se limpian por FT_FILTROS, la única lista. */
 await buscar('zzzz-no-existe');
 ok(await n() === 0, 'control: la búsqueda vacía la tabla', await n());
-await p.click('#demoToggle'); await quieto(p);
+/* Los dos botones globales viven en Ajustes desde que se organizó la
+   configuración; antes estaban en la barra superior. Se recorre el camino
+   real —entrar, pulsar, volver a donde estábamos— en vez de pulsar por
+   `evaluate`, que funcionaría sobre el botón oculto y dejaría pasar un botón
+   inalcanzable. */
+const enAjustes = async (p, sel) => {
+  const vuelta = await p.evaluate(() => (document.querySelector('.tab.active') || {}).dataset?.tab || 'cabina');
+  await p.click('#tabnav .tabbtn[data-tab="ajustes"]');
+  await p.click(sel);
+  if (vuelta && vuelta !== 'ajustes') await p.click(`#tabnav .tabbtn[data-tab="${vuelta}"]`);
+};
+await enAjustes(p, '#demoToggle'); await quieto(p);
 ok(await p.inputValue('#ftQ') === '', 'entrar en demo limpió la búsqueda', JSON.stringify(await p.inputValue('#ftQ')));
 const enDemo = await n();
 ok(enDemo > 0, 'y el journal del demo muestra sus operaciones', enDemo);

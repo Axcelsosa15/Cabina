@@ -274,10 +274,11 @@ const viol = await cp.evaluate(() => window.__csp);
    «no se miro nada». Al añadir una pestaña hay que venir aqui, y eso es la
    senal, no la molestia. Se nombran las tres que mas facil es dejarse: ESTUDIO,
    que falto desde que se creo; CUENTAS, que pinta tablas y chips derivados de
-   datos del usuario; e HISTORIAL, que pinta las dos familias en una tabla --
+   datos del usuario; HISTORIAL, que pinta las dos familias en una tabla; y AJUSTES, que
+   pinta el resumen de la copia con datos del usuario dentro --
    justo lo que una CSP mal puesta rompe. */
-ok(pestanas.length === 10 && pestanas.includes('estudio') && pestanas.includes('cuentas') && pestanas.includes('historial'),
-   'se recorrieron las diez pestañas, incluidas ESTUDIO, CUENTAS e HISTORIAL', pestanas.join(' · '));
+ok(pestanas.length === 11 && pestanas.includes('estudio') && pestanas.includes('cuentas') && pestanas.includes('historial') && pestanas.includes('ajustes'),
+   'se recorrieron las once pestañas, incluidas ESTUDIO, CUENTAS, HISTORIAL y AJUSTES', pestanas.join(' · '));
 ok(viol.length === 0, 'ninguna violación de CSP usando la app', viol.length ? viol.join(' | ') : 'ninguna');
 ok(cerrs.length === 0, 'y ningún error de página con la política puesta', cerrs.join(' | ') || 'ninguno');
 /* Sin red, ese fetch fallaría igual: lo que se afirma es que lo para la CSP, o

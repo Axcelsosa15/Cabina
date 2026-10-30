@@ -2183,9 +2183,7 @@ tbody tr:last-child td{border-bottom:0}
     <button type="button" class="editbtn conflbtn" id="resolveConflict" hidden>Resolver conflicto</button>
     <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)" aria-haspopup="dialog" aria-expanded="false" aria-controls="quickOv">+ Rápido</button>
     <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
-    <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
     <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
-    <button type="button" class="editbtn" id="idiomaBtn" aria-pressed="false" title="Language / Idioma">EN</button>
     <button type="button" class="editbtn" id="viewPrefsOpen" aria-haspopup="dialog" aria-controls="viewPrefs" title="Personalizar módulos visibles y densidad">Vista</button>
   </div>
 </div>
@@ -2200,6 +2198,7 @@ tbody tr:last-child td{border-bottom:0}
   <button class="tabbtn" data-tab="ideas">Formas de hacer dinero<span class="n" id="nIdeas"></span></button>
   <button class="tabbtn" data-tab="estudio">Estudio<span class="n" id="nResearch"></span></button>
   <button class="tabbtn" data-tab="calc">Calculadora</button>
+  <button class="tabbtn" data-tab="ajustes">Ajustes</button>
 
   <button type="button" id="mobileMoreBtn" aria-label="Más secciones" aria-haspopup="dialog" aria-expanded="false" aria-controls="mobileMoreOv">Más</button>
 </nav>
@@ -2218,6 +2217,7 @@ tbody tr:last-child td{border-bottom:0}
       <button type="button" data-mobile-more-tab="playbook">Playbook</button>
       <button type="button" data-mobile-more-tab="ideas">Formas de hacer dinero</button>
       <button type="button" data-mobile-more-tab="calc">Calculadora</button>
+      <button type="button" data-mobile-more-tab="ajustes">Ajustes</button>
     </div>
   </section>
 </div>
@@ -2442,7 +2442,44 @@ tbody tr:last-child td{border-bottom:0}
 </section>
 
 <div id="migPanel" hidden style="margin-top:24px"></div>
-<section class="panel" id="panelDatos" style="margin-top:24px">
+
+</div>
+
+<!-- ======================= AJUSTES =======================
+     UN SITIO PARA LO QUE SE CONFIGURA UNA VEZ. Antes esto estaba repartido
+     en tres: la barra superior (idioma, datos de muestra), la pestaña Cabina
+     (la copia de seguridad, que no tiene nada que ver con la sesión de hoy) y
+     un modal suelto.
+
+     LO QUE **NO** SE HA MOVIDO, Y POR QUÉ — que es la parte que importa,
+     porque mudarlo todo habría sido peor:
+
+     · Reglas duras, checklist de pre-sesión y niveles se QUEDAN en Cabina.
+       No se configuran una vez: se miran operando. La checklist se marca
+       justo antes de abrir la plataforma; si viviera aquí habría que salir de
+       la Cabina para marcarla y volver, dos viajes en el peor momento.
+
+     · «Editar» se queda en la barra. No es una preferencia global: showTab lo
+       esconde fuera de Cabina a propósito (`hidden = name !== "cabina"`), así
+       que aquí sería un botón que nunca se ve.
+
+     · «Vista» se queda en la barra. Es POR PESTAÑA: se abre desde la pestaña
+       que se está mirando, y desde aquí sólo configuraría los módulos de
+       Ajustes.
+
+     Esas tres se nombran abajo con su sitio, para que haya un inventario
+     completo en un lugar aunque los controles sigan donde se usan.
+
+     NO SE AÑADE CSS. Todo se construye con primitivas que ya existen y que
+     están escritas sobre tokens (`.panel`, `.bkgrid`, `.bkcard`, `.lab`,
+     `.help`, `.btn`): el tema claro redefine los tokens en `:root`, así que
+     un componente hecho con tokens entra ya pintado. Un componente con
+     colores a mano nacería con los del tema oscuro de debajo — la deuda que
+     docs/DISENO.md deja anotada. -->
+<div class="tab" data-tab="ajustes">
+<section class="deck" aria-label="Resumen de Ajustes"><span class="deck-n">10</span><h1 class="deck-t">Ajustes</h1><span class="deck-stage">Configuración</span><span class="deck-parts">Datos · Idioma · Dónde está lo demás</span></section>
+
+<section class="panel" id="panelDatos">
   <header><h2>Copia de seguridad y traspaso</h2><span class="meta" id="bkMeta">—</span></header>
   <div class="body">
     <p class="hint">Un solo archivo con todo: ajustes, reglas duras, cuentas, sesiones, operaciones, playbook, ideas e inversiones. Sirve de respaldo y es la vía para llevar los datos a otra copia de Cabina.</p>
@@ -2480,6 +2517,70 @@ tbody tr:last-child td{border-bottom:0}
   </div>
 </section>
 
+<section class="panel" id="panelPrefs" style="margin-top:24px">
+  <header><h2>Idioma y datos de muestra</h2></header>
+  <div class="body">
+    <p class="hint">Las dos preferencias que no pertenecen a ninguna pestaña: en qué idioma se lee el cromo de la aplicación, y si lo que se ve son tus datos o un juego inventado para revisar el diseño.</p>
+    <div class="bkgrid">
+      <div class="bkcard">
+        <span class="lab">Idioma</span>
+        <p class="help">Traduce los rótulos, botones y encabezados. <b>No toca tus datos</b>: el nombre de una cuenta, una nota o un instrumento se quedan como los escribiste.</p>
+        <div class="bkbtns">
+          <button type="button" class="editbtn" id="idiomaBtn" aria-pressed="false" title="Language / Idioma">EN</button>
+        </div>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Datos de muestra</span>
+        <p class="help">Rellena la cabina con operaciones, setups, cuentas y cartera inventados para ver cómo queda todo con datos dentro. <b>No se guarda nada</b>: al salir vuelven tus datos reales intactos.</p>
+        <div class="bkbtns">
+          <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel" id="panelDondeEsta" style="margin-top:24px">
+  <header><h2>Dónde está lo demás</h2></header>
+  <div class="body">
+    <p class="hint">Lo que se configura mientras operas se queda donde se usa: traerlo aquí añadiría un viaje justo cuando menos sobra. Esta lista existe para que el inventario esté completo en un sitio.</p>
+    <div class="bkgrid">
+      <div class="bkcard">
+        <span class="lab">Reglas duras</span>
+        <p class="help">Los límites que la cabina comprueba sola. Se consultan operando, no se escriben una vez.</p>
+        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="cabina">Ir a Cabina</button></div>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Checklist de pre-sesión</span>
+        <p class="help">Se marca justo antes de abrir la plataforma. Vive en la Cabina porque es ahí donde se usa.</p>
+        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="cabina">Ir a Cabina</button></div>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Niveles</span>
+        <p class="help">Los precios que vigilas en la sesión. Cambian con el día, no con la configuración.</p>
+        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="cabina">Ir a Cabina</button></div>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Cuentas</span>
+        <p class="help">Firmas, tamaños, drawdown y objetivos. Tiene pestaña propia porque es un registro, no un ajuste.</p>
+        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="cuentas">Ir a Cuentas</button></div>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Importar CSV del bróker</span>
+        <p class="help">El mapeador y su vista previa. Está en Futuros porque lo que importa son operaciones de futuros.</p>
+        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-ir="futuros">Ir a Futuros</button></div>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Vista: módulos y densidad</span>
+        <p class="help">Se configura <b>por pestaña</b>, con el botón «Vista» de la barra superior: elige qué módulos aparecen en la pestaña que estás mirando. Desde aquí sólo configuraría los de Ajustes.</p>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Modo edición</span>
+        <p class="help">El botón «Editar» de la barra superior, y sólo aparece en la Cabina: es lo único que se puede reordenar a mano.</p>
+      </div>
+    </div>
+  </div>
+</section>
 </div>
 
 <!-- ======================= FUTUROS ======================= -->
@@ -3785,7 +3886,8 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   #tabnav .tabbtn[data-tab="historial"],
   #tabnav .tabbtn[data-tab="playbook"],
   #tabnav .tabbtn[data-tab="ideas"],
-  #tabnav .tabbtn[data-tab="calc"] { display: none !important; }
+  #tabnav .tabbtn[data-tab="calc"],
+  #tabnav .tabbtn[data-tab="ajustes"] { display: none !important; }
   #tabnav .tabbtn[data-tab="cabina"],
   #tabnav .tabbtn[data-tab="futuros"],
   #tabnav .tabbtn[data-tab="invest"],
