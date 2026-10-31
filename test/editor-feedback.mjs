@@ -25,7 +25,8 @@ try {
     await page.goto(base, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
 
-    await page.locator('.tabbtn[data-tab="ajustes"]').click();
+    await page.locator('#mobileMoreBtn').click();
+    await page.locator('#mobileMoreOv [data-mobile-more-tab="ajustes"]').click();
     await page.locator('#bkPaste').click();
     await page.locator('#edFields textarea').fill('NO ES JSON');
     await page.locator('#edSave').click();
