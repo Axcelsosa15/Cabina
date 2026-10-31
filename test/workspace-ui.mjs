@@ -44,6 +44,20 @@ try {
         width + 'px · paneles y controles de Resumen conservados');
       check(cabina.radius >= 8 && cabina.radius <= 12,
         width + 'px · superficies de Resumen usan radio sobrio', String(cabina.radius));
+      const cabOrder = await page.evaluate(() => {
+        const ids=['panelAccts','panelJournal','panelHist','panelRules','panelCheck','panelLevels','panelCabCal'];
+        return ids.map(id => document.getElementById(id)).every(Boolean)
+          && ids.every((id,i) => i === 0 || !!(document.getElementById(ids[i-1]).compareDocumentPosition(document.getElementById(id)) & Node.DOCUMENT_POSITION_FOLLOWING));
+      });
+      check(cabOrder, width + 'px · cuenta, operativa y preparación siguen el orden de trabajo');
+      const checkFold = page.locator('.cab-checklist-fold');
+      check(await checkFold.count() === 1 && await checkFold.getAttribute('open') !== null,
+        width + 'px · checklist accesible y expandida por defecto');
+      await checkFold.locator('summary').click();
+      check(await checkFold.getAttribute('open') === null &&
+        await page.locator('#checkList').count() === 1,
+        width + 'px · la checklist se repliega sin borrar sus pasos');
+      await checkFold.locator('summary').click();
 
       await page.locator('#tabnav .tabbtn[data-tab="futuros"]').click();
       await page.locator('#ftTiles .tile').first().waitFor({ timeout: 15000 });
@@ -76,6 +90,17 @@ try {
         width + 'px · rejilla sin desbordamiento horizontal', 'rows=' + stats.rows);
       check(stats.chartWidthsOK && stats.heading === 'Radiografía cuantitativa',
         width + 'px · cuatro gráficas y radiografía presentes');
+      const futuresOrder = await page.evaluate(() => {
+        const ids=['ftTiles','eqWrap','dailyWrap','uwWrap','rollWrap','ftStreaks','qeSec'];
+        return ids.every((id,i) => i===0 || !!(document.getElementById(ids[i-1]).compareDocumentPosition(document.getElementById(id)) & Node.DOCUMENT_POSITION_FOLLOWING));
+      });
+      check(futuresOrder, width + 'px · la curva y el resultado diario anteceden al análisis profundo');
+      const radiography = page.locator('.cab-analytics-fold');
+      await radiography.locator('summary').click();
+      check(await radiography.getAttribute('open') === null &&
+        await page.locator('#qePanel').count() === 1,
+        width + 'px · análisis plegable sin destruir estadísticas');
+      await radiography.locator('summary').click();
       check(errors.length === 0,
         width + 'px · sin errores de JavaScript', errors.slice(0, 3).join(' | '));
     } finally {
