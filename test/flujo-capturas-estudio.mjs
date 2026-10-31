@@ -158,13 +158,17 @@ await lenta.setFiles({ name: 'lenta.png', mimeType: 'image/png', buffer: PNG });
 const bloqueado = await ana.p.waitForFunction(() => document.getElementById('edSave').disabled === true,
   null, { timeout: 5000 }).then(() => true).catch(() => false);
 ok(bloqueado, 'Guardar se desactiva mientras la captura sube');
+/* Esperar un contador igual ANTES de que el POST termine daría falso verde.
+   Este test exige la respuesta real de subida y de limpieza del bucket. */
+const post = ana.p.waitForResponse(res => res.request().method() === 'POST' &&
+  res.url().includes('/storage/v1/object/'), { timeout: 15000 }).then(() => true).catch(() => false);
+const del = ana.p.waitForResponse(res => res.request().method() === 'DELETE' &&
+  res.url().includes('/storage/v1/object/'), { timeout: 15000 }).then(() => true).catch(() => false);
 await ana.p.click('#edCancel');
-/* Se espera el final REAL de la limpieza: la ruta lenta retrasa también el
-   DELETE del objeto huérfano, así que un tiempo fijo mediría otra cosa. */
-let vivos = D.e.objetos.size;
-for (let i = 0; i < 48 && vivos !== antes7; i++) { await ana.p.waitForTimeout(250); vivos = D.e.objetos.size; }
-ok(vivos === antes7, 'la captura abandonada no deja un objeto hu\u00e9rfano en el bucket',
-  'antes=' + antes7 + ' ahora=' + vivos);
+const [postOk, deleteOk] = await Promise.all([post, del]);
+const vivos = D.e.objetos.size;
+ok(postOk && deleteOk && vivos === antes7, 'la subida cancelada terminó en un DELETE confirmado',
+  'POST=' + postOk + ' DELETE=' + deleteOk + ' antes=' + antes7 + ' ahora=' + vivos);
 ok(await ana.p.evaluate(() => FUT.trades().length) === 1, 'cancelar a mitad de la subida no crea un trade');
 /* Y el editor siguiente no hereda el bloqueo: si Guardar se quedara apagado,
    la operaci\u00f3n siguiente ser\u00eda imposible de registrar. */
