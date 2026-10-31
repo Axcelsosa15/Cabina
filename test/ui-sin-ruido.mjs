@@ -57,7 +57,7 @@ try {
     }
     // An explanatory paragraph should be collapsed, recoverable and keyboard accessible.
     await page.locator('#tabnav .tabbtn[data-tab="cabina"]').click();
-    const why=page.locator('details.cab-why').first();
+    const why=page.locator('.tab.active details.cab-why').first();
     check(await why.count()===1&&await why.getAttribute('open')===null,
       width+'px · help text collapsed by default');
     await why.locator('summary').click();
