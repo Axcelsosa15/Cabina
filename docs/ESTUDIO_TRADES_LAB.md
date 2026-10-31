@@ -150,3 +150,20 @@ Decisiones que no se ven en la pantalla:
   revés, un fallo de red dejaría una referencia a un objeto que ya no existe.
 
 Cubierto por `test/escenarios.mjs`.
+
+## Entrega 7 — capturas desde el editor de FUTUROS
+
+- En **FUTUROS → Nueva operación / Editar operación → Capturas**, cada imagen
+  tiene un selector **En Estudio** con las nueve ranuras existentes. Si queda
+  en **Sólo FUTUROS**, la imagen no se clasifica ni aparece en Estudio.
+- Tras **Guardar**, el trade conserva su referencia en `trades.images` y se
+  añade la **misma ID del bucket privado** en `research/<reviewId>.scenes`,
+  usando el `tradeId` real. No se sube una segunda copia ni se cambia P&L.
+- Editar el selector mueve la referencia entre ranuras sin re-subir el archivo;
+  se mantienen los campos de revisión y los escenarios añadidos directamente
+  desde ESTUDIO.
+- Quitar una escena no borra el objeto mientras FUTUROS lo necesite; quitar
+  una imagen del editor no borra el objeto mientras ESTUDIO lo referencie.
+- Subir imágenes nuevas requiere sesión conectada y el bucket privado. No se
+  habilitan URLs externas ni permisos nuevos. Se valida con
+  `test/capturas-estudio-editor.mjs` y `test/escenarios.mjs`.
