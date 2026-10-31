@@ -43,7 +43,8 @@ await p.waitForFunction(() => !document.querySelector('#studyModal').classList.c
 await quieto(p);
 ok((await p.locator('#studyGrid').innerText()).includes('Research Desk'), 'muestra autor/publicación en la ficha');
 ok((await p.locator('#studyGrid').innerText()).includes('Revisión pendiente'), 'marca la próxima revisión vencida');
-const doc1Id = await p.locator('#studyGrid .study-card button[data-study-edit]').first().getAttribute('data-study-edit');
+const doc1Id = await p.locator('#studyGrid .study-card').filter({ hasText: 'Research alpha' })
+  .locator('button[data-study-edit]:not(.study-tag)').first().getAttribute('data-study-edit');
 ok(!!doc1Id, 'el documento guardado tiene ID estable');
 await p.locator('#studyGrid .study-card').filter({ hasText: 'Research alpha' }).locator('button[data-study-read]').click();
 await p.waitForFunction(() => document.querySelector('#studyReader').classList.contains('open'));
@@ -84,10 +85,17 @@ ok((await p.locator('#studyGrid').innerText()).includes('Research alpha'), 'el f
    reloj»— y aquí se estaba esperando al reloj con otro nombre.
    La aserción NO se relaja: si la tarjeta no aparece en 10 s, `count()` sigue
    siendo 0 y la fila sigue saliendo en rojo. */
+/* La confirmación visual no equivale a haber escrito el snapshot local.
+   Se espera a la persistencia real ANTES de recargar, y después al documento
+   concreto. Una demora de almacenamiento ya no se confunde con pérdida. */
+await p.waitForFunction(id => {
+  const snapshot = localStorage.getItem('cabina-mnq:v1') || '';
+  return snapshot.includes(id) && snapshot.includes('Research alpha') && snapshot.includes('Research beta');
+}, doc1Id, { timeout: 15000, polling: 100 });
 await p.reload(); await p.waitForFunction(() => window.FUT && document.querySelector('#studyNew'));
 await p.click('.tabbtn[data-tab="estudio"]');
 const alphaCard = p.locator('#studyGrid .study-card[data-study-doc-id="' + doc1Id + '"]');
-await alphaCard.waitFor({ state: 'attached', timeout: 10000 }).catch(() => {});
+await alphaCard.waitFor({ state: 'attached', timeout: 20000 });
 await quieto(p);
 ok(await alphaCard.count() === 1, 'la tarjeta conserva un ID de documento estable', doc1Id);
 const editAlpha = alphaCard.locator('button[data-study-edit]:not(.study-tag)').first();

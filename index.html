@@ -3823,6 +3823,57 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
     box-shadow: 0 -8px 0 var(--surface); border-radius: 0;
   }
 }
+
+/* CABINA WORKSPACE · navegación del análisis y composición del cockpit. */
+/* Reutiliza los tokens y paneles universales; no cambia dimensiones de las primitivas. */
+.tab[data-tab="cabina"] .cab-workspace { display:grid; gap:14px; min-width:0; }
+.tab[data-tab="cabina"] .cab-workspace-columns { display:grid; grid-template-columns:minmax(0,1.18fr) minmax(0,.82fr); gap:14px; align-items:start; min-width:0; }
+.tab[data-tab="cabina"] .cab-workspace-primary, .tab[data-tab="cabina"] .cab-workspace-secondary { display:grid; align-content:start; gap:14px; min-width:0; }
+.tab[data-tab="cabina"] .cab-workspace :is(.cab-workspace-primary,.cab-workspace-secondary) > * { min-width:0; }
+#panelJournal { box-shadow:inset 0 3px 0 var(--accent); }
+#panelCheck .check { gap:0; }
+#panelCheck .check li { border-bottom:1px solid var(--line); }
+#panelCheck .check li:last-child { border-bottom:0; }
+#panelCheck .check .lbl small { font-size:12px; line-height:1.4; }
+.cab-checklist-fold { min-width:0; }
+.cab-checklist-fold > summary,.cab-analytics-fold > summary {
+  display:flex;align-items:center;justify-content:space-between;min-height:44px;box-sizing:border-box;
+  gap:12px;cursor:pointer;list-style:none;color:var(--text);font:650 12px/1.4 var(--font-ui,system-ui);
+}
+.cab-checklist-fold > summary {border-block:1px solid var(--line);padding:8px 4px;margin:6px 0;}
+.cab-analytics-fold > summary {background:var(--surface-2);border:1px solid var(--line);padding:10px 14px;border-radius:var(--r-md);}
+.cab-checklist-fold > summary::-webkit-details-marker,.cab-analytics-fold > summary::-webkit-details-marker {display:none;}
+.cab-checklist-fold > summary::after,.cab-analytics-fold > summary::after {content:"+";font-size:18px;color:var(--muted);}
+.cab-checklist-fold[open] > summary::after,.cab-analytics-fold[open] > summary::after {content:"−";}
+.cab-checklist-fold > summary:focus-visible,.cab-analytics-fold > summary:focus-visible {outline:2px solid var(--accent);outline-offset:2px;}
+.cab-analytics-fold {min-width:0;}
+.cab-analytics-fold[open] > summary {margin-bottom:10px;}
+.tab[data-tab="futuros"] .cab-futures-workspace {gap:14px;}
+#ftTiles.tiles.five {grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;background:transparent;border:0;overflow:visible;}
+#ftTiles .tile {border:1px solid var(--line);border-radius:var(--r-md);box-shadow:none;}
+#ftTiles .tile:first-child {grid-column:span 2;border-left:3px solid var(--accent);}
+#ftTiles .tile:last-child {grid-column:span 2;}
+#ftTiles .tile:first-child:not(.sin-dato) .v {font-size:clamp(28px,2.5vw,34px);line-height:1.2;}
+#ftTiles .tile .s {line-height:1.4;}
+.cab-futures-charts-primary,.cab-futures-charts-secondary {gap:12px;align-items:stretch;}
+.cab-futures-charts-primary .panel {box-shadow:inset 0 2px 0 var(--accent);}
+#qeSec .qeg {grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:9px;}
+#qeSec .qec {border-color:var(--line);border-radius:var(--r-md);box-shadow:none;}
+@media(max-width:1100px){
+ .tab[data-tab="cabina"] .cab-workspace-columns {grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+ #ftTiles.tiles.five {grid-template-columns:repeat(4,minmax(0,1fr));}
+}
+@media(max-width:850px){.tab[data-tab="cabina"] .cab-workspace-columns {grid-template-columns:minmax(0,1fr);}}
+@media(max-width:700px){
+ .tab[data-tab="cabina"] .cab-workspace-columns {gap:10px;}
+ #ftTiles.tiles.five {grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
+ #ftTiles .tile:first-child {grid-column:span 2;}
+ #ftTiles .tile:last-child {grid-column:span 2;}
+ #ftTiles .tile:first-child:not(.sin-dato) .v {font-size:29px;}
+ #qeSec .qeg {grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media(max-width:380px){#qeSec .qeg {grid-template-columns:minmax(0,1fr);}}
+
 </style>
 </head>
 <body>
@@ -4025,57 +4076,17 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
 <button type="button" class="credo-trace view-only" id="credoTrace" hidden></button>
 
 <section class="deck" aria-label="Resumen de Cabina"><h1 class="deck-t">Cabina</h1></section>
+<!-- Workstation operativa: cuenta completa, ejecución prioritaria, protección al lado. -->
+<div class="cab-workspace">
 <section class="panel" id="panelAccts">
       <header><h2>Cuentas prop</h2><div class="hgroup"><select id="cabAcct" aria-label="Cuenta de trabajo"><option value="">todas las cuentas</option></select><span class="meta" id="acctsMeta"></span><button type="button" class="btn sm ghost" id="addAcct">+ Añadir cuenta</button><button type="button" class="btn ghost sm selbtn" id="selbtn-accts" title="Selecciona varias cuentas y bórralas de una vez">Seleccionar</button></div></header>
       <div class="body">
         <div class="accts" id="accts"></div>
       </div>
 </section>
-<div class="grid" style="margin-top:var(--s5)">
-  <div class="col">
-    <section class="panel" id="panelRules">
-      <header><h2>Reglas duras</h2><span class="rulesstate" id="rulesState"><i></i>—</span></header>
-      <div class="body">
-        <p class="hint" id="rulesHint"></p>
-        <div class="rules" id="rules"></div>
-        <button type="button" class="add edit-only" id="addRule">+ Añadir regla</button>
-      </div>
-    </section>
-    <section class="panel" id="panelCheck">
-      <header><h2>Pre-sesión</h2><span class="meta" id="checkMeta">0 / 0 · hoy</span></header>
-      <div class="body">
-        <div class="winbox">
-          <div class="winline view-only"><span class="winlbl">Ventana operativa</span><span class="winval" id="winView">—</span></div>
-          <div class="winedit edit-only">
-            <span class="winlbl">Ventana operativa</span>
-            <div class="winhoras">
-              <label>Desde <input type="time" id="winStart" step="300" aria-label="Hora de apertura de tu ventana (ET)"></label>
-              <label>Hasta <input type="time" id="winEnd" step="300" aria-label="Hora de cierre de tu ventana (ET)"></label>
-            </div>
-            <div class="seschips windays" id="winDays" role="group" aria-label="Días operativos"></div>
-            <details class="cab-why"><summary>Sobre la ventana horaria</summary><p class="hint">Hora de Nueva York. Es tu regla, no la del mercado: las sesiones del día (Asia, Londres, NY AM…) no se mueven, y una operación vieja no cambia de sesión. Lo que cambia es el permiso de hoy y la señal «fuera de ventana», también en lo ya registrado.</p></details>
-          </div>
-        </div>
-        <div class="seschips view-only" id="sesChips" role="tablist" aria-label="Sesión que se prepara"></div>
-        <ul class="check" id="checkList"></ul>
-        <button type="button" class="add edit-only" id="addCheck">+ Añadir paso</button>
-        <div class="progress view-only"><i id="checkBar"></i></div>
-        <div class="go view-only" id="goBox"><span id="goText">Completa la lista antes de la ventana operativa.</span><span id="goCount">0/0</span></div>
-        <div id="preBanner" hidden class="closed-banner"></div>
-        <div class="jactions view-only">
-          <button type="button" class="btn primary" id="preSave">Guardar pre-sesión</button>
-          <button type="button" class="btn ghost" id="preReopen" hidden>Reabrir</button>
-          <span class="note" id="preSaved"></span>
-        </div>
-      </div>
-    </section>
-    <section class="panel" id="panelLevels">
-      <header><h2>Niveles del día</h2><span class="meta">MNQ · se guardan con la sesión</span></header>
-      <div class="body" id="mktLevels"></div>
-    </section>
-  </div>
-  <div class="col">
-    <section class="panel" id="panelJournal">
+<div class="cab-workspace-columns">
+  <div class="cab-workspace-primary">
+  <section class="panel" id="panelJournal">
       <header><h2>Sesión de hoy</h2><div class="hgroup"><div class="sesnow off" id="sesNow" aria-live="polite"></div><span class="meta" id="todayLabel">—</span></div></header>
       <div class="body">
         <div id="closedBanner" hidden class="closed-banner"></div>
@@ -4109,11 +4120,53 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
         </div>
       </div>
     </section>
-    <section class="panel" id="panelHist">
+  <section class="panel" id="panelHist">
       <header><h2>Últimas 14 sesiones</h2><span class="meta" id="histMeta"></span>
         <button type="button" class="btn ghost sm selbtn" id="selbtn-histWrap" title="Selecciona varias sesiones y bórralas de una vez">Seleccionar</button></header>
       <div class="tiles" id="tiles"></div>
       <div class="body"><div class="twrap" id="histWrap"></div></div>
+    </section>
+  </div>
+  <div class="cab-workspace-secondary">
+  <section class="panel" id="panelRules">
+      <header><h2>Reglas duras</h2><span class="rulesstate" id="rulesState"><i></i>—</span></header>
+      <div class="body">
+        <p class="hint" id="rulesHint"></p>
+        <div class="rules" id="rules"></div>
+        <button type="button" class="add edit-only" id="addRule">+ Añadir regla</button>
+      </div>
+    </section>
+  <section class="panel" id="panelCheck">
+      <header><h2>Pre-sesión</h2><span class="meta" id="checkMeta">0 / 0 · hoy</span></header>
+      <div class="body">
+        <div class="winbox">
+          <div class="winline view-only"><span class="winlbl">Ventana operativa</span><span class="winval" id="winView">—</span></div>
+          <div class="winedit edit-only">
+            <span class="winlbl">Ventana operativa</span>
+            <div class="winhoras">
+              <label>Desde <input type="time" id="winStart" step="300" aria-label="Hora de apertura de tu ventana (ET)"></label>
+              <label>Hasta <input type="time" id="winEnd" step="300" aria-label="Hora de cierre de tu ventana (ET)"></label>
+            </div>
+            <div class="seschips windays" id="winDays" role="group" aria-label="Días operativos"></div>
+            <details class="cab-why"><summary>Sobre la ventana horaria</summary><p class="hint">Hora de Nueva York. Es tu regla, no la del mercado: las sesiones del día (Asia, Londres, NY AM…) no se mueven, y una operación vieja no cambia de sesión. Lo que cambia es el permiso de hoy y la señal «fuera de ventana», también en lo ya registrado.</p></details>
+          </div>
+        </div>
+        <div class="seschips view-only" id="sesChips" role="tablist" aria-label="Sesión que se prepara"></div>
+        <details class="cab-checklist-fold" open><summary>Checklist · ocultar o mostrar pasos</summary><ul class="check" id="checkList"></ul></details>
+        <button type="button" class="add edit-only" id="addCheck">+ Añadir paso</button>
+        <div class="progress view-only"><i id="checkBar"></i></div>
+        <div class="go view-only" id="goBox"><span id="goText">Completa la lista antes de la ventana operativa.</span><span id="goCount">0/0</span></div>
+        <div id="preBanner" hidden class="closed-banner"></div>
+        <div class="jactions view-only">
+          <button type="button" class="btn primary" id="preSave">Guardar pre-sesión</button>
+          <button type="button" class="btn ghost" id="preReopen" hidden>Reabrir</button>
+          <span class="note" id="preSaved"></span>
+        </div>
+      </div>
+    </section>
+  <section class="panel" id="panelLevels">
+      <header><h2>Niveles del día</h2><span class="meta">MNQ · se guardan con la sesión</span></header>
+      <div class="body" id="mktLevels"></div>
     </section>
   </div>
 </div>
@@ -4127,6 +4180,7 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
     
   </div>
 </section>
+</div>
 
 <div id="migPanel" hidden style="margin-top:24px"></div>
 
@@ -4339,32 +4393,28 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
   <div class="ftfilt" id="ftFilters" hidden></div>
   <p class="synced" id="ftSync"></p>
 
-  <!-- ---------- resumen ---------- -->
+  <!-- ---------- resumen: resultados primero, estadística profunda después ---------- -->
   <div class="ftview active" data-v="resumen">
-    <div class="stack">
+    <div class="stack cab-futures-workspace">
       <section class="panel">
         <div class="tiles five" id="ftTiles"></div>
       </section>
-      <section class="panel" id="qeSec">
-        <header><h2>Radiografía cuantitativa</h2><span class="meta" id="qeMeta"></span></header>
-        <div class="body"><div id="qePanel"></div></div>
-      </section>
-      <div class="grid eq">
-        <section class="panel">
+      <div class="grid eq cab-futures-charts-primary">
+      <section class="panel">
           <header><h2>Curva de equity</h2><span class="meta" id="eqMeta"></span></header>
           <div class="body"><div class="chartwrap" id="eqWrap"></div></div>
         </section>
-        <section class="panel">
-          <header><h2>Bajo el agua</h2><span class="meta" id="uwMeta"></span></header>
-          <div class="body"><details class="cab-why"><summary>Cómo leerlo</summary><p class="csub">Distancia al máximo anterior. Plano en cero = cuenta en máximos.</p></details><div class="chartwrap" id="uwWrap"></div></div>
-        </section>
-      </div>
-      <div class="grid eq">
-        <section class="panel">
+      <section class="panel">
           <header><h2>P&amp;L diario</h2><span class="meta" id="dailyMeta"></span></header>
           <div class="body"><div class="chartwrap" id="dailyWrap"></div></div>
         </section>
-        <section class="panel">
+      </div>
+      <div class="grid eq cab-futures-charts-secondary">
+      <section class="panel">
+          <header><h2>Bajo el agua</h2><span class="meta" id="uwMeta"></span></header>
+          <div class="body"><details class="cab-why"><summary>Cómo leerlo</summary><p class="csub">Distancia al máximo anterior. Plano en cero = cuenta en máximos.</p></details><div class="chartwrap" id="uwWrap"></div></div>
+        </section>
+      <section class="panel">
           <header><h2>Expectativa móvil</h2><span class="meta" id="rollMeta"></span></header>
           <div class="body"><details class="cab-why"><summary>Cómo leerlo</summary><p class="csub">Media de R de las últimas 20 operaciones. Por encima de cero el sistema paga.</p></details><div class="chartwrap" id="rollWrap"></div></div>
         </section>
@@ -4373,6 +4423,13 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
         <header><h2>Rachas y disciplina</h2><span class="meta" id="strMeta"></span></header>
         <div class="body"><div class="tiles three" id="ftStreaks" style="border:1px solid var(--line);border-radius:4px;overflow:hidden"></div></div>
       </section>
+      <details class="cab-analytics-fold" open>
+        <summary>Radiografía estadística · ocultar o mostrar el análisis</summary>
+        <section class="panel" id="qeSec">
+        <header><h2>Radiografía cuantitativa</h2><span class="meta" id="qeMeta"></span></header>
+        <div class="body"><div id="qePanel"></div></div>
+      </section>
+      </details>
     </div>
   </div>
 
