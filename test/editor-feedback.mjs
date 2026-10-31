@@ -46,7 +46,7 @@ try {
     ok(await alert.count() === 0, mode + ' · se limpia el error cuando el usuario corrige');
     await page.locator('#edCancel').click();
 
-    await page.locator('.tabbtn[data-tab="cuentas"]').click();
+    await page.locator('.tabbtn[data-tab="cabina"]').click();
     const open = page.locator('#accts .vacio button').first();
     ok(await open.count() === 1, mode + ' · cuenta vacía ofrece abrir su editor');
     if (await open.count() === 1) {
