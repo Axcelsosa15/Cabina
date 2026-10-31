@@ -36,6 +36,10 @@ try {
         <input id="uiProbeError" aria-invalid="true" value="error">
         <label for="uiProbeRead">Resultado calculado</label>
         <input id="uiProbeRead" readonly value="120.50">
+        <label for="uiProbeNote">Nota de la operación</label>
+        <textarea id="uiProbeNote" rows="2"></textarea>
+        <label for="uiProbeSelect">Cuenta</label>
+        <select id="uiProbeSelect"><option value="demo">Demo</option></select>
       `;
       document.body.appendChild(probe);
       const css = (sel) => getComputedStyle(document.querySelector(sel));
@@ -69,6 +73,31 @@ try {
         'mobile · objetivo táctil y sin zoom Safari', `${estado.inputHeight}px / ${estado.inputFont}px`);
     }
     ok(estado.styleCount === 5, `${ancho}px · sin nueva capa CSS`, String(estado.styleCount));
+
+    // Reproducción del fallo en iPhone: al enfocar, el textarea volvía a negro.
+    for (const id of ['uiProbe', 'uiProbeNote', 'uiProbeSelect']) {
+      await pagina.locator('#' + id).focus();
+      await pagina.waitForFunction(key => getComputedStyle(document.getElementById(key)).backgroundColor === 'rgb(255, 255, 255)', id, { timeout: 1200 }).catch(() => {});
+      const visto = await pagina.evaluate(key => {
+        const css = getComputedStyle(document.getElementById(key));
+        return { bg: css.backgroundColor, color: css.color, border: css.borderTopColor,
+          scheme: css.colorScheme, accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() };
+      }, id);
+      ok(visto.bg === 'rgb(255, 255, 255)' && visto.color === 'rgb(23, 35, 52)',
+        `${ancho}px · ${id} sigue claro al recibir foco`, JSON.stringify(visto));
+      ok(visto.border === 'rgb(29, 78, 216)' && visto.scheme === 'light',
+        `${ancho}px · ${id} usa foco azul y controles nativos claros`, JSON.stringify(visto));
+    }
+    // El arreglo no debe borrar el tema oscuro original.
+    await pagina.evaluate(() => { document.documentElement.dataset.cabinaTheme = 'dark'; });
+    await pagina.locator('#uiProbeNote').focus();
+    await pagina.waitForFunction(() => getComputedStyle(document.getElementById('uiProbeNote')).backgroundColor === 'rgb(14, 23, 30)', null, { timeout: 1200 }).catch(() => {});
+    const oscuro = await pagina.evaluate(() => {
+      const css = getComputedStyle(document.getElementById('uiProbeNote'));
+      return { bg: css.backgroundColor, scheme: css.colorScheme };
+    });
+    ok(oscuro.bg === 'rgb(14, 23, 30)' && oscuro.scheme === 'dark',
+      `${ancho}px · textarea enfocado conserva tema oscuro`, JSON.stringify(oscuro));
     await contexto.close();
   }
 } finally {
