@@ -17140,6 +17140,9 @@
     var $u = function (id) { return document.getElementById(id); };
     var en = function () { return (document.documentElement.lang || 'es').slice(0, 2) === 'en'; };
     var pintado = false;
+    /* Una version detectada sigue pendiente hasta recargar, aunque se vuelva
+       a pulsar Comprobar: la pagina no ha cambiado su codigo en memoria. */
+    var actualizacionPendiente = false, archivosPendientes = [];
 
     function nota(txt) { var n = $u('updNote'); if (n) n.textContent = txt; }
     function meta(txt) { var m = $u('updMeta'); if (m) m.textContent = txt; }
@@ -17249,7 +17252,7 @@
       var btn = $u('updCheck'), aplicarBtn = $u('updApply');
       if (!btn) return Promise.resolve();
       btn.disabled = true;
-      if (aplicarBtn) aplicarBtn.hidden = true;
+      if (aplicarBtn) aplicarBtn.hidden = !actualizacionPendiente;
       meta(en() ? 'checking' : 'comprobando');
       nota(en() ? 'Checking the published payload…' : 'Comprobando el payload publicado…');
       var suelta = function () { btn.disabled = false; };
@@ -17275,22 +17278,32 @@
           nota((en() ? 'The check failed inside the service worker: ' : 'La comprobación falló dentro del trabajador de servicio: ') + r.error);
           return;
         }
-        if (!r.comprobados) {
+        /* Un solo fichero omitido impide decir "al dia". En particular, si
+           falla app.js pero index.html coincide, NO hay veredicto verde. */
+        if (!r.comprobados || r.comprobados !== r.requeridos ||
+            (r.fallidos || []).length || (r.sinCache || []).length) {
           meta(en() ? 'could not check' : 'no se pudo comprobar');
-          nota(en() ? 'Nothing could be compared: the offline cache has no copy of the code yet. Reload once with a connection and try again.'
-                    : 'No se pudo comparar nada: la caché sin conexión todavía no tiene copia del código. Recarga una vez con red y vuelve a intentarlo.');
+          var faltan = (r.fallidos || []).concat(r.sinCache || []).join(', ');
+          nota((en() ? 'Incomplete check. Files not verified: ' : 'Comprobación incompleta. Archivos sin verificar: ')
+            + (faltan || '—') + '.');
           return;
         }
-        if (!r.distintos.length) {
+        if (!r.distintos.length && !actualizacionPendiente) {
           meta((en() ? 'up to date · ' : 'al día · ') + hora());
           nota((en() ? 'You are on the published version. Checked at ' : 'Estás en la versión publicada. Comprobado a las ')
             + hora() + ' · ' + r.comprobados + (en() ? ' files compared.' : ' archivos comparados.'));
           pintado = false; pintaEstado();
           return;
         }
+        if (r.distintos.length) {
+          actualizacionPendiente = true;
+          archivosPendientes = [...new Set(archivosPendientes.concat(r.distintos))];
+        }
         meta(en() ? 'update available' : 'hay versión nueva');
-        nota((en() ? 'A newer version is published. Changed: ' : 'Hay una versión nueva publicada. Cambian: ') + r.distintos.join(', ')
-          + (en() ? '. Your data is not affected.' : '. Tus datos no se ven afectados.'));
+        nota((en() ? 'A new version was detected and this page has not reloaded. Changed: '
+                   : 'Se detectó una versión nueva y esta página aún no se ha recargado. Cambian: ')
+          + archivosPendientes.join(', ')
+          + (en() ? '. Your data is not affected by checking.' : '. Comprobar no modifica tus datos.'));
         if (aplicarBtn) { aplicarBtn.hidden = false; aplicarBtn.disabled = false; }
       }).catch(function (err) {
         suelta();
@@ -17323,7 +17336,19 @@
        si hay un cambio en peligro como si no hay ninguno, y acostumbra a
        pulsar «sí». */
     function cambiosEnPeligro() {
-      var n = 0;
+      var n = 0, rutas = new Set();
+      /* El rótulo no alcanza: PENDIENTES puede vivir solo en RAM si IndexedDB
+         falló. Se lee el mismo estado de la cola, sin mutarlo. */
+      var uid = state.nube && nube.ses ? nube.ses.uid : null;
+      var pendientes = uid ? cola.lista(uid) : [];
+      var enCola = new Set(pendientes.map(function (r) { return r.ruta; }));
+      if (!cola.durable) pendientes.forEach(function (r) { rutas.add(r.ruta); });
+      sinGuardar.forEach(function (_motivo, ruta) {
+        if (!enCola.has(ruta) || !cola.durable) rutas.add(ruta);
+      });
+      conflictos.forEach(function (_info, ruta) { rutas.add(ruta); });
+      n = Math.max(rutas.size, enVuelo);
+      /* Respaldo para estados renderizados y para pruebas de seguridad UI. */
       var nodos = document.querySelectorAll('.save-state.nosave');
       for (var i = 0; i < nodos.length; i++) {
         var m = /SIN GUARDAR\s*·\s*(\d+)/.exec(nodos[i].textContent || '');
@@ -17331,12 +17356,13 @@
       }
       return n;
     }
-    var armado = 0;
+    var armado = 0, armadoRiesgo = 0;
     function aplicar() {
       var b = $u('updApply');
       var peligro = cambiosEnPeligro();
-      if (peligro && Date.now() > armado) {
+      if (peligro && (Date.now() > armado || peligro !== armadoRiesgo)) {
         armado = Date.now() + 8000;
+        armadoRiesgo = peligro;
         if (b) b.textContent = en() ? 'Reload anyway and lose ' + peligro : 'Recargar igual y perder ' + peligro;
         nota(en()
           ? 'Careful: ' + peligro + ' change(s) did not save and are only on this screen. Reloading loses them — export a backup first, or press again within 8 s to reload anyway.'
