@@ -3485,9 +3485,10 @@ body { font-variant-numeric: tabular-nums lining-nums; }
   --read-title: clamp(17px, 1.7vw, 21px);
 }
 body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: antialiased; }
-.tab .deck-t { font-family: var(--font-ui); font-size: clamp(22px, 2.25vw, 28px); font-weight: 720; line-height: 1.17; letter-spacing: -.035em; }
-.tab .deck-parts { font: 450 var(--read-meta)/1.45 var(--font-ui); letter-spacing: 0; }
-.tab .panel > header h2 { font: 700 15px/1.35 var(--font-ui); letter-spacing: .015em; text-transform: none; }
+.tab[data-tab] .deck-t { font-family: var(--font-ui); font-size: clamp(22px, 2.25vw, 28px); font-weight: 720; line-height: 1.17; letter-spacing: -.035em; }
+.tab[data-tab] .deck-parts { font: 450 var(--read-meta)/1.45 var(--font-ui); letter-spacing: 0; }
+.tab:not([data-tab="estudio"]) .panel > header h2,
+.tab[data-tab="estudio"] .panel > header h2 { font: 700 15px/1.35 var(--font-ui); letter-spacing: .015em; text-transform: none; }
 .tab .panel > header .meta { font: 450 var(--read-meta)/1.4 var(--font-ui); letter-spacing: 0; }
 .tab .panel .lab, .tab .cab-filter-caption { font: 650 var(--read-label)/1.4 var(--font-ui); letter-spacing: .01em; text-transform: none; }
 .tab .hint, .tab .csub, .tab .note-p, .tab .empty,
@@ -3506,8 +3507,9 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 .tab .toolbar input, .tab .toolbar select { font-size: 14px; }
 @media (max-width: 700px) {
   :root { --read-body: 14px; --read-meta: 12px; --read-label: 13px; }
-  .tab .deck-t { font-size: 22px; }
-  .tab .panel > header h2 { font-size: 14px; }
+  .tab[data-tab] .deck-t { font-size: 22px; }
+  .tab:not([data-tab="estudio"]) .panel > header h2,
+  .tab[data-tab="estudio"] .panel > header h2 { font-size: 14px; }
   .tab .qec .qv { font-size: 23px; }
 }
 
