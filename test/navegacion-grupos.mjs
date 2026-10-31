@@ -34,11 +34,13 @@ try {
       routes: [...document.querySelectorAll('#tabnav > .tabbtn[data-tab]')].map(b => b.dataset.tab),
       active: document.querySelector('#tabnav .tabbtn.active')?.dataset.tab,
       groups: [...document.querySelectorAll('#navGroupBar button')].map(b => b.dataset.group),
-      shown: getComputedStyle(document.getElementById('navGroupBar')).display !== 'none'
+      shown: getComputedStyle(document.getElementById('navGroupBar')).display !== 'none',
+      allVisible: [...document.querySelectorAll('#tabnav .tabbtn')].every(b => getComputedStyle(b).display !== 'none')
     }));
     check(allTabs.length === 11 && initial.routes.length === 11 &&
       allTabs.every(tab => initial.routes.includes(tab)), theme + ': all original 11 routes retained');
-    check(initial.groups.length === 6 && initial.shown, theme + ': six visible desktop areas');
+    check(initial.groups.length === 7 && initial.shown && initial.groups.includes('todas') && initial.allVisible,
+      theme + ': six task groups plus All keep legacy direct routes accessible');
 
     for (const [name, spec] of Object.entries(groups)) {
       await page.locator('#navGroupBar button[data-group="' + name + '"]').click();
@@ -72,6 +74,9 @@ try {
     await page.locator('#navGroupBar [data-group="operar"]').click();
     check(await page.evaluate(() => document.querySelector('#tabnav .tabbtn.active')?.dataset.tab) === 'futuros',
       theme + ': returning to a group restores its last visited tab');
+    await page.locator('#navGroupBar [data-group="todas"]').click();
+    check(await page.evaluate(() => [...document.querySelectorAll('#tabnav .tabbtn')].every(b => getComputedStyle(b).display !== 'none')),
+      theme + ': All restores every tab without modifying current route');
     await context.close();
   }
 
