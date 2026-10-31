@@ -12,6 +12,33 @@
   try {
     if (localStorage.getItem('cabina-sidebar-collapsed:v1') === 'true') root.dataset.sidebarCollapsed = 'true';
   } catch (_) {}
+  // Navigation must remain usable even if the main application cannot initialize.
+  function syncSidebar() {
+    const button = document.getElementById('sidebarToggle');
+    if (!button) return;
+    const collapsed = root.dataset.sidebarCollapsed === 'true';
+    const label = collapsed ? 'Abrir menú lateral' : 'Cerrar menú lateral';
+    button.setAttribute('aria-expanded', String(!collapsed));
+    button.setAttribute('aria-label', label);
+    button.title = label;
+  }
+  document.addEventListener('click', event => {
+    const button = event.target.closest && event.target.closest('#sidebarToggle');
+    if (!button) return;
+    // Capture also protects against a previous cached app binding the old handler.
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const collapsed = root.dataset.sidebarCollapsed !== 'true';
+    root.dataset.sidebarCollapsed = String(collapsed);
+    try { localStorage.setItem('cabina-sidebar-collapsed:v1', String(collapsed)); } catch (_) {}
+    syncSidebar();
+  }, true);
+  document.addEventListener('DOMContentLoaded', syncSidebar, { once: true });
+  addEventListener('storage', event => {
+    if (event.key !== 'cabina-sidebar-collapsed:v1' && event.key !== null) return;
+    root.dataset.sidebarCollapsed = String(event.newValue === 'true');
+    syncSidebar();
+  });
   const media = typeof matchMedia === 'function'
     ? matchMedia('(prefers-color-scheme: dark)') : null;
 
