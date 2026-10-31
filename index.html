@@ -2292,7 +2292,7 @@ html{scroll-padding-top:24px}
   outline-offset:2px!important;
 }
 :where(input,textarea)::placeholder{color:var(--control-placeholder)!important;opacity:1}
-:is(input,textarea):read-only:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=hidden]):not([type=file]){
+:is(input,textarea):read-only:not(:disabled):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=hidden]):not([type=file]){
   background-color:var(--control-readonly)!important;
   color:var(--muted)!important;
   cursor:default;
@@ -2340,6 +2340,18 @@ html{scroll-padding-top:24px}
 }
 :where(input:-webkit-autofill:focus,textarea:-webkit-autofill:focus,select:-webkit-autofill:focus){
   -webkit-box-shadow:0 0 0 1000px var(--control-focus-bg) inset!important;
+}
+/* Los campos móviles del tema oscuro también necesitan 16px para evitar
+   zoom involuntario de Safari y un objetivo táctil de al menos 44px.
+   No alterar el input integrado de los buscadores ni el texto grande de
+   Registro Rápido, que tiene su propia escala intencional. */
+@media (max-width:700px){
+  :where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=hidden]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not(#cmdQ):not(#studySearch):not(#qkText),select,textarea){
+    font-size:16px!important;
+  }
+  :where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=hidden]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not(#cmdQ):not(#studySearch),select){
+    min-height:44px!important;
+  }
 }
 .chip,.badge,.tag{border-color:#2d3c47}
 .empty{border-color:#344550;background:linear-gradient(145deg,rgba(19,29,38,.7),rgba(13,19,26,.55));border-radius:11px}
@@ -3153,7 +3165,7 @@ body { color-scheme: light !important; }
 :is(input, select, textarea)[aria-invalid="true"]:focus-visible {
   outline-color: var(--control-error) !important;
 }
-:is(input, textarea):read-only:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]):not([type="range"]) {
+:is(input, textarea):read-only:not(:disabled):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]):not([type="range"]) {
   background: var(--control-readonly) !important;
   color: var(--muted) !important;
   cursor: default;
