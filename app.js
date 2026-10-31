@@ -16580,6 +16580,9 @@
     estudioSoloSinRevisar = false;
     const tab = document.querySelector('.tabbtn[data-tab="estudio"]');
     if (tab) tab.click(); else showTab("estudio");
+    /* Navegar no dispara por si solo un cambio de datos. Renderizar ahora
+       evita que un dia sin trades deje el contexto anterior u oculto. */
+    renderEstudioTrades();
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
   }
   function estudioRenderDiaContexto(){
