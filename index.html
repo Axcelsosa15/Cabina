@@ -3636,6 +3636,94 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
   #mxLearnPanel .mx-learn-topics button { min-height: 44px; padding: 8px; }
 }
 
+
+/* CABINA · controles más compactos en móvil: filtros, inversiones y reglas personales. */
+@media (max-width: 700px) {
+  .tab[data-tab="futuros"] .toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    padding: 8px;
+  }
+  .tab[data-tab="futuros"] #ftSeg {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: 100%;
+    gap: 3px;
+    padding: 3px;
+  }
+  .tab[data-tab="futuros"] #ftSeg button {
+    min-width: 0;
+    min-height: 38px;
+    padding: 7px 3px;
+    font-size: 12px;
+    line-height: 1.15;
+    white-space: normal;
+  }
+  .tab[data-tab="futuros"] .toolbar .sp { display: none; }
+  .tab[data-tab="futuros"] .cab-filter-field {
+    min-width: 0;
+    flex: initial;
+    gap: 3px;
+  }
+  .tab[data-tab="futuros"] .cab-filter-field:has(input[type="search"]) {
+    grid-column: 1 / -1;
+    flex-basis: auto;
+  }
+  .tab[data-tab="futuros"] .cab-filter-caption {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  .tab[data-tab="futuros"] .cab-filter-field > :is(input, select) {
+    min-height: 42px;
+    padding-block: 7px;
+    font-size: 14px;
+  }
+  .tab[data-tab="futuros"] #selbtn-jrTable { min-height: 40px; }
+  .tab[data-tab="futuros"] #ftNew { grid-column: 1 / -1; min-height: 46px; }
+
+  .tab[data-tab="invest"] .toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    padding: 8px;
+  }
+  .tab[data-tab="invest"] .toolbar .sp { display: none; }
+  .tab[data-tab="invest"] #ivAccountFilter,
+  .tab[data-tab="invest"] #ivSetup {
+    grid-column: span 1;
+    min-width: 0;
+    width: 100%;
+    min-height: 42px;
+    padding-block: 7px;
+    font-size: 14px;
+  }
+  .tab[data-tab="invest"] #ivAcctAdd,
+  .tab[data-tab="invest"] #ivAcctManage,
+  .tab[data-tab="invest"] #selbtn-ivOps {
+    min-width: 0;
+    min-height: 42px;
+    padding-inline: 8px;
+    font-size: 13px;
+    white-space: normal;
+  }
+  .tab[data-tab="invest"] #ivNew {
+    grid-column: 1 / -1;
+    min-height: 46px;
+    padding: 9px 12px;
+    font-size: 14px;
+  }
+
+  .credo-list { padding: 6px 12px 10px; }
+  .credo-list li {
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+  .credo-list li::before { padding-top: 1px; font-size: 10px; }
+}
 </style>
 </head>
 <body>
