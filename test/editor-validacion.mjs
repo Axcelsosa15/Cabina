@@ -71,6 +71,31 @@ try {
     await page.locator('#edSave').click();
     await page.waitForTimeout(250);
     ok(await page.evaluate(() => FUT.trades().length) === 1, mode + ': valid trade saves after correction');
+
+    /* El teclado del móvil: enteros sin punto, fracciones CON punto. El mismo
+       `qty` es «Contratos» (step 1) en FUTUROS y «Cantidad» (step 0.0001) en
+       inversiones, así que una regla por nombre de campo rompería una de las
+       dos. Se comprueban las dos pestañas en la misma corrida. */
+    await page.locator('.tabbtn[data-tab="futuros"]').click();
+    await page.locator('#ftNew').click();
+    const futKb = await page.evaluate(() => ['qty', 'entry', 'fees']
+      .map(k => document.getElementById('ef_' + k))
+      .filter(Boolean)
+      .map(el => ({ id: el.id, step: el.step, keyboard: el.inputMode })));
+    ok(futKb.some(x => x.id === 'ef_qty' && x.step === '1' && x.keyboard === 'numeric')
+      && futKb.filter(x => x.step !== '1').every(x => x.keyboard === 'decimal'),
+      mode + ': futures contracts use the integer keyboard, prices keep decimals', JSON.stringify(futKb));
+    await page.locator('#edCancel').click();
+
+    await page.locator('.tabbtn[data-tab="invest"]').click();
+    await page.locator('#ivNew').click();
+    const invKb = await page.evaluate(() => {
+      const el = document.getElementById('ef_qty');
+      return el ? { step: el.step, keyboard: el.inputMode } : null;
+    });
+    ok(!!invKb && invKb.step === '0.0001' && invKb.keyboard === 'decimal',
+      mode + ': fractional investment quantity keeps the decimal keyboard', JSON.stringify(invKb));
+    await page.locator('#edCancel').click();
     await context.close();
   }
   ok(errors.length === 0, 'no runtime exceptions', errors.join(' | '));

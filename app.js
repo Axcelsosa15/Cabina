@@ -2670,7 +2670,13 @@
       let ctl;
       if (f.type === "select") ctl = `<select id="ef_${f.key}">${f.options.map(o => `<option value="${esc(o[0])}" ${String(v ?? "") === String(o[0]) ? "selected" : ""}>${esc(o[1])}</option>`).join("")}</select>`;
       else if (f.type === "textarea") ctl = `<textarea id="ef_${f.key}" placeholder="${esc(f.ph || "")}" style="min-height:${f.rows ? f.rows * 22 : 60}px">${esc(v ?? "")}</textarea>`;
-      else ctl = `<input type="${f.type || "text"}" id="ef_${f.key}" value="${esc(v ?? "")}" placeholder="${esc(f.ph || "")}" ${f.step ? `step="${f.step}"` : ""} ${f.type === "number" ? 'inputmode="decimal"' : ""}>`;
+      /* El teclado lo decide el PASO del campo, no su nombre. «Contratos» va
+         con step 1 y pide un teclado de enteros; «Cantidad» de una inversión va
+         con step 0.0001 y necesita el punto decimal — y las dos se llaman `qty`.
+         Una lista de nombres se equivocaría justo ahí: le quitaría la coma a las
+         fracciones de una acción o de un cripto. Un campo puede imponer el suyo
+         con `inputmode` si algún día hace falta. */
+      else ctl = `<input type="${f.type || "text"}" id="ef_${f.key}" value="${esc(v ?? "")}" placeholder="${esc(f.ph || "")}" ${f.step ? `step="${f.step}"` : ""} ${f.type === "number" ? `inputmode="${f.inputmode || (Number(f.step) === 1 ? "numeric" : "decimal")}"` : ""}>`;
       return `<div class="fld${w}"><label class="lab" for="ef_${f.key}">${esc(f.label)}</label>${ctl}${f.help ? `<div class="help">${esc(f.help)}</div>` : ""}</div>`;
     }).join("");
     clearEditorValidation();
