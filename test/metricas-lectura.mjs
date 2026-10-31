@@ -33,6 +33,16 @@ try {
       } else await page.locator('#tabnav .tabbtn[data-tab="edge"]').click();
     };
     await gotoEdge();
+    const defaultHelp = await page.evaluate(() => ({
+      hidden: getComputedStyle(document.getElementById('mxLearnPanel')).display === 'none',
+      aria: document.getElementById('mxLearnToggle').getAttribute('aria-expanded')
+    }));
+    check(defaultHelp.hidden && defaultHelp.aria === 'false',
+      scenario.theme + ': contextual learning is opt-in');
+    await page.locator('#mxLearnToggle').click();
+    await page.waitForFunction(() =>
+      document.body.dataset.help === 'on' &&
+      getComputedStyle(document.getElementById('mxLearnPanel')).display !== 'none');
     await page.waitForFunction(()=>document.getElementById('mxLearnPanel') &&
       document.getElementById('mxLearnSample').textContent.length > 0);
     const prefix = scenario.theme + '/' + scenario.lang + '/' + scenario.width;
