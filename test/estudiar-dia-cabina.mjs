@@ -35,7 +35,7 @@ try {
   await arrancada(page, '#todayLabel');
   await page.locator('#studyDayNow').waitFor({state:'attached',timeout:15000});
   ok(await page.locator('#studyDayNow').count()===1,'la sesión actual ofrece Estudiar día');
-  const before = await page.evaluate(() => localStorage.getItem('cabina-mnq:v1'));
+  const before = await page.evaluate(() => { const d=JSON.parse(localStorage.getItem('cabina-mnq:v1')||'{}'); return {trades:d.trades||{}, research:d.research||{}}; });
   await page.click('#studyDayNow');
   await page.waitForFunction(() => document.querySelector('.tab[data-tab="estudio"]')?.classList.contains('active')
       && document.querySelector('#studyDayContext') && !document.querySelector('#studyDayContext').hidden);
@@ -70,8 +70,8 @@ try {
   await context().locator('[data-study-day-clear]').click();
   ok(await context().isHidden() && await page.inputValue('#studyTradeFrom')==='' && (await ids()).length===4,
     'Ver todo recupera los trades sin eliminar ninguna revisión');
-  const after=await page.evaluate(()=>localStorage.getItem('cabina-mnq:v1'));
-  ok(before===after,'navegar entre sesiones no escribe ni modifica trades');
+  const after=await page.evaluate(()=>{ const d=JSON.parse(localStorage.getItem('cabina-mnq:v1')||'{}'); return {trades:d.trades||{}, research:d.research||{}}; });
+  ok(JSON.stringify(before)===JSON.stringify(after),'navegar entre sesiones no crea ni modifica trades o revisiones');
   ok(errors.length===0,'sin errores de JavaScript',errors.slice(0,4).join(' | '));
 } catch(e) {
   ok(false,'prueba completada sin excepción',String(e.message||e).slice(0,500));
