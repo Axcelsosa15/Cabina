@@ -24,7 +24,14 @@ await op(20990,'10:15','2026-09-17');  // -$40   día 2
 await op(21015,'11:05','2026-09-18');  // +$60   día 3  -> total +$140
 
 const num = s => { const m=String(s||'').match(/-?\$?-?[\d][\d,]*(\.\d+)?/); return m? m[0].replace(/[$,]/g,'') : null; };
-const tras = (t, et) => { const i=t.indexOf(et); return i<0? null : t.slice(i+et.length, i+et.length+16); };
+/* El contrato es NUMÉRICO, no tipográfico: "P&L neto" y "P&L NETO"
+   son la misma etiqueta. Un cambio deliberado de mayúsculas en la UI no
+   debe inventar una discrepancia de dinero. Sigue exigiendo la presencia
+   de la etiqueta y la igualdad exacta del valor. */
+const tras = (t, et) => {
+  const i=String(t).toLocaleLowerCase('es').indexOf(String(et).toLocaleLowerCase('es'));
+  return i<0? null : t.slice(i+et.length, i+et.length+16);
+};
 
 await p.click('.tabbtn[data-tab="cabina"]'); await p.waitForTimeout(800);
 /* textContent y no innerText: con el rediseño, el detalle de cada métrica
