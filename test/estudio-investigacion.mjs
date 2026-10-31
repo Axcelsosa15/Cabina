@@ -71,11 +71,27 @@ ok((await alpha.innerText()).includes('Referenciado por') && (await alpha.innerT
 await p.click('[data-study-filter="review"]'); await quieto(p);
 ok((await p.locator('#studyGrid').innerText()).includes('Research alpha'), 'el filtro encuentra documentos cuya revisión venció');
 
-await p.reload(); await p.waitForFunction(() => window.FUT && document.querySelector('#studyNew')); await quieto(p);
-await p.click('.tabbtn[data-tab="estudio"]'); await quieto(p);
+/* Tras la recarga se espera A LA TARJETA, no a que el DOM se quede quieto.
+   `#studyNew` es markup estático: existe en cuanto se parsea el HTML, así que
+   esperarlo sólo dice «app.js arrancó», y `#studyGrid` nace VACÍO y lo rellena
+   el render. `quieto()` resuelve en cuanto el DOM lleva unos ms sin mutar, que
+   es una condición que se cumple ANTES de que la rejilla esté pintada; y
+   `locator.count()` no espera a nada, devuelve lo que hay en ese instante.
+   Entre las dos cosas, bajo carga, esta prueba leía 0 tarjetas y cerraba la
+   compuerta de `main` sin que nada estuviera roto: pasó en el CI de la PR #98
+   y falló en el mismo árbol al entrar en main (corrida 41179229747).
+   La doctrina ya estaba escrita en espera.mjs —«esperar a la condición, no al
+   reloj»— y aquí se estaba esperando al reloj con otro nombre.
+   La aserción NO se relaja: si la tarjeta no aparece en 10 s, `count()` sigue
+   siendo 0 y la fila sigue saliendo en rojo. */
+await p.reload(); await p.waitForFunction(() => window.FUT && document.querySelector('#studyNew'));
+await p.click('.tabbtn[data-tab="estudio"]');
 const alphaCard = p.locator('#studyGrid .study-card[data-study-doc-id="' + doc1Id + '"]');
+await alphaCard.waitFor({ state: 'attached', timeout: 10000 }).catch(() => {});
+await quieto(p);
 ok(await alphaCard.count() === 1, 'la tarjeta conserva un ID de documento estable', doc1Id);
 const editAlpha = alphaCard.locator('button[data-study-edit]:not(.study-tag)').first();
+await editAlpha.waitFor({ state: 'attached', timeout: 5000 }).catch(() => {});
 ok(await editAlpha.count() === 1, 'Editar apunta al documento actual, no al backlink');
 await editAlpha.click();
 ok(await p.inputValue('#studyAuthor') === 'Research Desk', 'autor y metadatos persisten tras recargar');
