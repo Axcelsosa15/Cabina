@@ -55,7 +55,13 @@ try {
       await page.locator('#mobileMoreBtn').click();
       await page.locator('#mobileMoreOv [data-mobile-more-tab="edge"]').click();
     }
-    // An explanatory paragraph should be collapsed, recoverable and keyboard accessible.
+    // First-use education is opt-in; the user can hide it permanently afterward.
+    if (width===1440) await page.locator('#tabnav .tabbtn[data-tab="edge"]').click();
+    check(await page.evaluate(() => document.body.dataset.help === 'off'),
+      width+'px · helpful descriptions start hidden');
+    await page.locator('#mxLearnToggle').click();
+    check(await page.evaluate(() => document.body.dataset.help === 'on'),
+      width+'px · one-click education is available');
     await page.locator('#tabnav .tabbtn[data-tab="futuros"]').click();
     const why=page.locator('.tab[data-tab="futuros"] details.cab-why:visible').first();
     check(await why.count()===1&&await why.getAttribute('open')===null,
@@ -63,6 +69,13 @@ try {
     await why.locator('summary').click();
     check(await why.evaluate(el=>el.open&&!!el.querySelector('p')&&el.querySelector('p').textContent.length>20),
       width+'px · original teaching content readable on demand');
+    await page.locator('#viewPrefsOpen').click();
+    const checked = await page.locator('#viewPrefsHelp').isChecked();
+    check(checked, width+'px · view preferences reflect enabled help');
+    await page.locator('#viewPrefsHelp').uncheck();
+    await page.locator('#viewPrefsDone').click();
+    check(await page.evaluate(() => document.body.dataset.help === 'off'),
+      width+'px · explanations can be turned off for future sessions');
     await ctx.close();
   }
   check(errors.length===0,'no browser JS errors',errors.join(' | '));
