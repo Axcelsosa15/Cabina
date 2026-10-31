@@ -50,7 +50,7 @@ const PROHIBIDO = [
   ['javascript:', 'urls javascript:'], ['.outerHTML', 'outerHTML'], ['insertAdjacentHTML', 'insertAdjacentHTML'],
   ['srcdoc', 'srcdoc'], ['document.domain', 'document.domain'],
   ['XMLHttpRequest', 'XMLHttpRequest'], ['new WebSocket', 'WebSocket'], ['new EventSource', 'EventSource'],
-  ['sendBeacon', 'sendBeacon'], ['postMessage', 'postMessage'], ['window.open', 'window.open'],
+  ['sendBeacon', 'sendBeacon'], ['window.open', 'window.open'],
 ];
 PROHIBIDO.forEach(([pat, nom]) => {
   const n = sinComentarios.split(pat).length - 1;
@@ -58,6 +58,43 @@ PROHIBIDO.forEach(([pat, nom]) => {
   ok(n === 0, `cero ${nom}`,
      n ? `${n} apariciones EN CODIGO` : (enProsa ? `0 en codigo (${enProsa} en comentarios)` : '0'));
 });
+
+/* postMessage: ESTRECHADO, NO LEVANTADO · decidido el 31/10/2026.
+   ─────────────────────────────────────────────────────────────────────────────
+   Estaba en la lista de arriba y la lista dice, en su propia cabecera, que si
+   alguna vez hace falta uno de estos patrones de verdad tendra que ser una
+   decision consciente que ponga esta prueba en rojo primero. Lo hizo.
+
+   QUE HIZO FALTA. El panel «Versión y actualizaciones» compara el codigo
+   cargado con el publicado. La pagina NO puede pedirselo al servidor: la
+   siguiente seccion de este mismo fichero exige que `connect-src` sea SOLO el
+   proyecto Supabase, asi que un fetch al propio origen falla. Quien puede es
+   el trabajador de servicio, que ademas es el dueño de la cache que hay que
+   comparar. Entre pagina y trabajador el unico canal es un mensaje.
+
+   POR QUE ESTABA PROHIBIDO, Y POR QUE ESTE CASO NO ES ESE CASO. El riesgo de
+   postMessage es el canal ENTRE ORIGENES: una ventana que escribe a otra, o un
+   oyente que acepta lo que llegue de donde llegue. Aqui no hay ventanas:
+   `navigator.serviceWorker.controller` es el trabajador de ESTE origen, el
+   puerto de vuelta lo crea la propia pagina, y el trabajador solo contesta a
+   un `tipo` concreto con una lista de nombres de fichero. No lee ni escribe un
+   solo dato del usuario.
+
+   LO QUE SE SIGUE PROHIBIENDO, y es lo que de verdad importaba: que la pagina
+   hable con una ventana, o que escuche mensajes de quien sea. */
+const psm = sinComentarios.split('postMessage').length - 1;
+const psmPermitido = sinComentarios.split('navigator.serviceWorker.controller.postMessage(').length - 1;
+ok(psm === psmPermitido && psmPermitido <= 1,
+   'el unico postMessage de la pagina es el del trabajador de servicio',
+   `${psm} en total, ${psmPermitido} al trabajador`);
+for (const [pat, nom] of [['window.postMessage', 'postMessage a una ventana'],
+                          ['parent.postMessage', 'postMessage al padre'],
+                          ['.contentWindow', 'contentWindow'],
+                          ['addEventListener("message"', 'oyente de message en la pagina'],
+                          ["addEventListener('message'", 'oyente de message en la pagina']]) {
+  const n = sinComentarios.split(pat).length - 1;
+  ok(n === 0, `cero ${nom}`, n ? `${n} apariciones EN CODIGO` : '0');
+}
 
 console.log('\n═══ ENLACES CON DATOS DEL USUARIO · esc() no mira el esquema ═══');
 /* esc() escapa & < > " ' y NADA MAS. Un href cuyo esquema no sea http o https
