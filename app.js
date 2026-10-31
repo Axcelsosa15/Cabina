@@ -16603,7 +16603,8 @@
     const perdidas = cerradas.filter(t => t.pnlEff < 0).length;
     const neutras = cerradas.length - ganadas - perdidas;
     const cuentas = new Set(ops.map(t => String(t.accountId || "")).filter(Boolean)).size;
-    const dia = historyMerged().find(d => d.date === estudioDiaEnfoque);
+    const dia = state.day && state.day.date === estudioDiaEnfoque
+      ? state.day : historyMerged().find(d => d.date === estudioDiaEnfoque);
     const nota = dia && String(dia.note || "").trim();
     const pre = dia ? Object.values(presOf(dia)).map(p => sesShort(p.ses) + " " + p.done + "/" + p.total).join(" · ") : "";
     const stat = (label, value) => '<div style="min-width:110px;flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)"><span class="study-note" style="display:block;margin:0">' + label + '</span><b style="display:block;margin-top:4px">' + value + '</b></div>';
