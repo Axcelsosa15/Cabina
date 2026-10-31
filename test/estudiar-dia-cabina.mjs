@@ -72,6 +72,30 @@ try {
     'Ver todo recupera los trades sin eliminar ninguna revisión');
   const after=await page.evaluate(()=>{ const d=JSON.parse(localStorage.getItem('cabina-mnq:v1')||'{}'); return {trades:d.trades||{}, research:d.research||{}}; });
   ok(JSON.stringify(before)===JSON.stringify(after),'navegar entre sesiones no crea ni modifica trades o revisiones');
+
+  // Un día todavía abierto debe conservar su nota y preparación, con o sin trades.
+  for (const [caso, trades] of [
+    ['sólo operación abierta', { abierta: op('abierta','2026-09-17','a2',null) }],
+    ['sin operaciones', {}],
+  ]) {
+    const c = await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
+    const q = await c.newPage();
+    q.on('pageerror', e => errors.push(e.message));
+    await q.addInitScript(`{const F=${fixed};const O=Date;class D extends O{constructor(...a){super(...(a.length?a:[F]));}static now(){return F;}}window.Date=D;}`);
+    await q.addInitScript(data => localStorage.setItem('cabina-mnq:v1',JSON.stringify(data)),{
+      settings:seed.settings, trades,
+      days:{'2026-09-17':{date:'2026-09-17',result:null,closed:false,broke:false,
+        note:'Nota de preparación aún abierta',pres:{nyam:{ses:'nyam',done:3,total:3}}}}
+    });
+    await q.goto('file://' + process.cwd() + '/../index.html');
+    await arrancada(q,'#todayLabel');
+    await q.click('#studyDayNow');
+    await q.waitForFunction(() => !!document.querySelector('#studyDayContext') && !document.querySelector('#studyDayContext').hidden);
+    const t = await q.locator('#studyDayContext').innerText();
+    ok(t.includes('Nota de preparación aún abierta') && t.includes('Pre-sesiones') && t.includes('3/3'),
+      'día '+caso+' conserva nota y pre-sesión sin resultado cerrado',t.replace(/\s+/g,' ').slice(-170));
+    await c.close();
+  }
   ok(errors.length===0,'sin errores de JavaScript',errors.slice(0,4).join(' | '));
 } catch(e) {
   ok(false,'prueba completada sin excepción',String(e.message||e).slice(0,500));
