@@ -9,6 +9,9 @@
   const COLOR = /^#[0-9a-fA-F]{6}$/;
   const DEFAULT = { mode: 'light', accent: 'default', custom: '#1d4ed8' };
   const root = document.documentElement;
+  try {
+    if (localStorage.getItem('cabina-sidebar-collapsed:v1') === 'true') root.dataset.sidebarCollapsed = 'true';
+  } catch (_) {}
   const media = typeof matchMedia === 'function'
     ? matchMedia('(prefers-color-scheme: dark)') : null;
 
