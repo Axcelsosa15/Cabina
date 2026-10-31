@@ -143,12 +143,12 @@
   #mobileMoreOv .mobile-more-label:first-child { padding-top: 0; }
   @media (min-width: 701px) {
     nav.tabnav#tabnav { top: 48px; }
-    #tabnav[data-active-group="operar"] > .tabbtn:not([data-nav-group="operar"]),
-    #tabnav[data-active-group="analizar"] > .tabbtn:not([data-nav-group="analizar"]),
-    #tabnav[data-active-group="mejorar"] > .tabbtn:not([data-nav-group="mejorar"]),
-    #tabnav[data-active-group="portafolio"] > .tabbtn:not([data-nav-group="portafolio"]),
-    #tabnav[data-active-group="herramientas"] > .tabbtn:not([data-nav-group="herramientas"]),
-    #tabnav[data-active-group="sistema"] > .tabbtn:not([data-nav-group="sistema"]) { display: none !important; }
+    #tabnav[data-filter-enabled="true"][data-active-group="operar"] > .tabbtn:not([data-nav-group="operar"]),
+    #tabnav[data-filter-enabled="true"][data-active-group="analizar"] > .tabbtn:not([data-nav-group="analizar"]),
+    #tabnav[data-filter-enabled="true"][data-active-group="mejorar"] > .tabbtn:not([data-nav-group="mejorar"]),
+    #tabnav[data-filter-enabled="true"][data-active-group="portafolio"] > .tabbtn:not([data-nav-group="portafolio"]),
+    #tabnav[data-filter-enabled="true"][data-active-group="herramientas"] > .tabbtn:not([data-nav-group="herramientas"]),
+    #tabnav[data-filter-enabled="true"][data-active-group="sistema"] > .tabbtn:not([data-nav-group="sistema"]) { display: none !important; }
   }
   @media (max-width: 700px) { .cab-nav-groups { display: none !important; } }
   @media (prefers-reduced-motion: reduce) { .cab-nav-group { transition: none; } }
@@ -3546,14 +3546,15 @@ body { font-variant-numeric: tabular-nums lining-nums; }
   </div>
 </div>
 <nav id="navGroupBar" class="cab-nav-groups" aria-label="Áreas de trabajo">
-  <button type="button" class="cab-nav-group" data-group="operar" data-first-tab="cabina" aria-pressed="true">Operar</button>
+  <button type="button" class="cab-nav-group" data-group="todas" aria-pressed="true">Todas</button>
+  <button type="button" class="cab-nav-group" data-group="operar" data-first-tab="cabina" aria-pressed="false">Operar</button>
   <button type="button" class="cab-nav-group" data-group="analizar" data-first-tab="historial" aria-pressed="false">Analizar</button>
   <button type="button" class="cab-nav-group" data-group="mejorar" data-first-tab="playbook" aria-pressed="false">Mejorar</button>
   <button type="button" class="cab-nav-group" data-group="portafolio" data-first-tab="invest" aria-pressed="false">Portafolio</button>
   <button type="button" class="cab-nav-group" data-group="herramientas" data-first-tab="ideas" aria-pressed="false">Herramientas</button>
   <button type="button" class="cab-nav-group" data-group="sistema" data-first-tab="ajustes" aria-pressed="false">Sistema</button>
 </nav>
-<nav class="tabnav" id="tabnav" data-active-group="operar" aria-label="Secciones">
+<nav class="tabnav" id="tabnav" data-active-group="operar" data-filter-enabled="false" aria-label="Secciones">
   <button class="tabbtn active" data-tab="cabina" data-nav-group="operar">Cabina</button>
   <button class="tabbtn" data-tab="futuros" data-nav-group="operar">Futuros<span class="n" id="nFut"></span></button>
   <button class="tabbtn" data-tab="cuentas" data-nav-group="operar">Cuentas<span class="n" id="nCuentas"></span></button>
