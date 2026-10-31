@@ -182,7 +182,11 @@ ok(sinEnlazar.length === 0, 'el pie de la aplicación enlaza las tres',
    sinEnlazar.length ? `sin enlace: ${sinEnlazar.join(' · ')}` : LEGALES.join(' · '));
 
 const mapa = lee('sitemap.xml');
-const enMapa = Array.from(mapa.matchAll(/<loc>https:\/\/axcelsosa15\.github\.io\/Cabina\/([^<]*)<\/loc>/g)).map(m => m[1]).filter(Boolean);
+const urlsMapa = Array.from(mapa.matchAll(/<loc>([^<]+)<\/loc>/g)).map(m => new URL(m[1]));
+const canonical = new URL((html.match(/rel="canonical" href="([^"]+)"/) || [])[1]);
+const enMapa = urlsMapa.map(url => url.pathname.replace(/^\//, '')).filter(Boolean);
+ok(urlsMapa.every(url => url.origin === canonical.origin) && canonical.protocol === 'https:',
+   'el sitemap usa el mismo dominio HTTPS que la URL principal');
 ok(LEGALES.every(f => enMapa.includes(f)), 'el sitemap lista las tres páginas legales', enMapa.join(' · '));
 ok(enMapa.every(f => existsSync(join(raiz, f))), 'el sitemap no lista ninguna página que no exista');
 ok(/Contact: https:\/\/github\.com\/Axcelsosa15\/Cabina\/security\/advisories\/new/.test(lee('.well-known/security.txt')),

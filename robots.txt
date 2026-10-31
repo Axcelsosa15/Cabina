@@ -6,4 +6,4 @@ Allow: /
 Disallow: /sw.js
 Disallow: /manifest.webmanifest
 
-Sitemap: https://axcelsosa15.github.io/Cabina/sitemap.xml
+Sitemap: https://www.cabina.site/sitemap.xml

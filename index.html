@@ -13,17 +13,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cabina · cockpit de sesión</title>
 <meta name="description" content="Cabina: trading, inversiones y estudio profundo de mercados, macroeconomía y riesgo.">
-<!-- Lo que ve quien recibe el enlace. La imagen vive DENTRO del repositorio
-     (og.png, servida por Pages): ningun servidor ajeno. Las dos URL absolutas de
-     abajo son obligatorias — og:image relativa no la resuelven ni Twitter ni
-     LinkedIn — y son el unico sitio del fichero donde la URL de Pages esta
-     escrita a mano. Si la pagina cambia de dominio, se cambian aqui.
-     Ver docs/LANZAMIENTO.md. -->
+<!-- Dominio principal para buscadores y enlaces compartidos. -->
+<link rel="canonical" href="https://www.cabina.site/">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://axcelsosa15.github.io/Cabina/">
+<meta property="og:url" content="https://www.cabina.site/">
 <meta property="og:title" content="Cabina · diario de trading">
 <meta property="og:description" content="Diario de trading de futuros con reglas duras, cuentas prop, pre-sesión y análisis de tus errores. Tus datos se quedan en tu navegador.">
-<meta property="og:image" content="https://axcelsosa15.github.io/Cabina/og.png">
+<meta property="og:image" content="https://www.cabina.site/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Cabina · diario de trading de futuros">
@@ -3639,50 +3635,6 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
 
 /* CABINA · controles más compactos en móvil: filtros, inversiones y reglas personales. */
 @media (max-width: 700px) {
-  .tab[data-tab="futuros"] .toolbar {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 7px;
-    padding: 8px;
-  }
-  .tab[data-tab="futuros"] #ftSeg {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    width: 100%;
-    gap: 3px;
-    padding: 3px;
-  }
-  .tab[data-tab="futuros"] #ftSeg button {
-    min-width: 0;
-    min-height: 38px;
-    padding: 7px 3px;
-    font-size: 12px;
-    line-height: 1.15;
-    white-space: normal;
-  }
-  .tab[data-tab="futuros"] .toolbar .sp { display: none; }
-  .tab[data-tab="futuros"] .cab-filter-field {
-    min-width: 0;
-    flex: initial;
-    gap: 3px;
-  }
-  .tab[data-tab="futuros"] .cab-filter-field:has(input[type="search"]) {
-    grid-column: 1 / -1;
-    flex-basis: auto;
-  }
-  .tab[data-tab="futuros"] .cab-filter-caption {
-    font-size: 11px;
-    line-height: 1.2;
-  }
-  .tab[data-tab="futuros"] .cab-filter-field > :is(input, select) {
-    min-height: 42px;
-    padding-block: 7px;
-    font-size: 14px;
-  }
-  .tab[data-tab="futuros"] #selbtn-jrTable { min-height: 40px; }
-  .tab[data-tab="futuros"] #ftNew { grid-column: 1 / -1; min-height: 46px; }
-
   .tab[data-tab="invest"] .toolbar {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3822,6 +3774,62 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
     margin-top: auto; border-top-color: var(--line) !important;
     box-shadow: 0 -8px 0 var(--surface); border-radius: 0;
   }
+}
+
+/* Flujos auditados: acción principal separada de filtros y avisos compactos. */
+.cuentabar { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.account-notice-copy { display:grid; gap:3px; min-width:0; }
+.account-notice-copy > span { font:450 13px/1.45 var(--font-ui); color:var(--muted); max-width:78ch; }
+.account-notice-actions { display:flex; gap:8px; flex:none; }
+.tab[data-tab="futuros"] .toolbar.cab-futures-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; }
+.cab-futures-nav { min-width:0; }
+.cab-futures-nav .seg { display:flex; width:fit-content; max-width:100%; }
+.cab-futures-nav .seg button { min-height:44px; font-family:var(--font-ui); letter-spacing:0; }
+.cab-futures-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; }
+.cab-futures-actions .selbtn:disabled { display:none; }
+.cab-futures-actions #ftNew { min-height:44px; white-space:nowrap; }
+.cab-futures-scope { grid-column:1 / -1; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; min-width:0; }
+.cab-futures-toolbar .cab-filter-field { min-width:0; max-width:none; }
+.cab-futures-toolbar .cab-filter-field > :is(input,select) { max-width:100%; min-height:44px; font-family:var(--font-ui); font-size:14px; }
+.cab-futures-filters { grid-column:1 / -1; min-width:0; border-top:1px solid var(--line); }
+.cab-futures-filters > summary { display:flex; align-items:center; gap:10px; min-height:44px; padding:6px 0; cursor:pointer; font:650 13px/1.4 var(--font-ui); color:var(--text); }
+#ftMoreCount { color:var(--accent); font-size:12px; }
+.cab-futures-filter-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; padding:4px 0 8px; }
+.cab-futures-filter-grid .cab-filter-field:has(input) { grid-column:1 / -1; }
+#panelRules { container-type:inline-size; }
+@container (max-width:900px) {
+ .rulec .rh { grid-template-columns:20px minmax(0,1fr) auto 32px; gap:8px; align-items:center; }
+ .rulec .rn { grid-column:1; grid-row:1; }
+ .rulec .rname { grid-column:2 / 4; grid-row:1; }
+ .rulec .rtog { grid-column:4; grid-row:1; width:32px; min-height:44px; text-align:center; }
+ .rulec .rnow { grid-column:2 / 4; grid-row:3; white-space:normal; overflow:visible; }
+ .rulec .rv { grid-column:2; grid-row:2; justify-content:flex-start; }
+ .rulec .rvin { min-width:64px; }
+ .rulec .rst { grid-column:3 / 5; grid-row:2; text-align:right; letter-spacing:.035em; }
+}
+#panelAccts .vacio { padding:0; }
+#panelAccts:has(#accts > .vacio) :is(#cabAcct,#acctsMeta,#selbtn-accts) { display:none; }
+#panelAccts:has(#accts > .vacio) .vacio .btn { display:none; }
+#panelAccts .vacio p { max-width:70ch; }
+#credoVacio:not([hidden]) { display:flex; align-items:center; gap:16px; justify-content:space-between; }
+#credoVacio > p { margin:0; }
+#credoVacio > .btn { flex:none; }
+@media(max-width:700px) {
+ .cuentabar { gap:10px; padding:12px; }
+ .account-notice-actions { width:100%; justify-content:flex-end; }
+ .account-notice-actions .editbtn { min-height:44px; }
+ .tab[data-tab="futuros"] .toolbar.cab-futures-toolbar { grid-template-columns:minmax(0,1fr); gap:10px; padding:10px; }
+ .cab-futures-toolbar > * { grid-column:1; }
+ .cab-futures-nav { grid-row:2; }
+ .cab-futures-actions { grid-row:1; }
+ .cab-futures-actions #ftNew { flex:1; }
+ .cab-futures-nav .seg { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); width:100%; }
+ .cab-futures-nav .seg button { min-width:0; padding:8px 3px; font-size:12px; line-height:1.25; white-space:normal; }
+ .cab-futures-scope { grid-template-columns:minmax(0,1fr); gap:8px; }
+ .cab-futures-toolbar .cab-filter-field { gap:3px; }
+ .cab-futures-toolbar .cab-filter-field > :is(input,select) { font-size:16px; }
+ .cab-futures-filter-grid { grid-template-columns:minmax(0,1fr); gap:10px; }
+ #credoVacio:not([hidden]) { align-items:flex-start; flex-direction:column; gap:10px; }
 }
 
 /* CABINA WORKSPACE · navegación del análisis y composición del cockpit. */
@@ -3965,10 +3973,10 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
   <button type="button" class="editbtn" id="demoExit" style="margin-left:auto">Salir y volver a mis datos</button>
 </div>
 <div class="cuentabar" id="cuentaBar" hidden>
-  <b>Sin cuenta</b>
-  <span>Lo que apuntes se queda sólo en este navegador y se pierde si borras sus datos. Con cuenta, tu cabina es tuya: nadie más la ve, ni quien te dio el enlace.</span>
-  <button type="button" class="editbtn" id="cuentaBarCrear" style="margin-left:auto">Crear cuenta</button>
-  <button type="button" class="editbtn" id="cuentaBarNo">Ahora no</button>
+  <div class="account-notice-copy"><b>Sin cuenta</b>
+  <span>Tus datos se guardan sólo en este navegador. Crea una cuenta para conservarlos y sincronizarlos entre dispositivos.</span></div>
+  <div class="account-notice-actions"><button type="button" class="editbtn" id="cuentaBarCrear">Crear cuenta</button>
+  <button type="button" class="editbtn" id="cuentaBarNo">Ahora no</button></div>
 </div>
 <div class="editbar">
   <span>Modo edición: añade, borra y reescribe cuentas, reglas y pasos. Los cambios se guardan solos.</span>
@@ -4058,8 +4066,7 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
     <button type="button" class="btn sm primary" id="credoOk">Leídas</button>
   </header>
   <div class="credo-vacio" id="credoVacio" hidden>
-    <p>Las reglas duras de abajo las vigila Cabina sola. Éstas son las otras: las
-       que ninguna máquina puede comprobarte y se olvidan con el mercado abierto.</p>
+    <p>Escribe tus reglas personales para revisarlas antes de operar.</p>
     <button type="button" class="btn primary" id="credoEmpezar">Escribir mis reglas</button>
   </div>
   <ol class="credo-list" id="credoList"></ol>
@@ -4372,23 +4379,33 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
 <div class="tab" data-tab="futuros">
 <section class="deck" aria-label="Resumen de Futuros"><h1 class="deck-t">Futuros</h1></section>
 
-  <div class="toolbar">
+  <div class="toolbar cab-futures-toolbar">
+    <div class="cab-futures-nav">
     <div class="seg" id="ftSeg">
-      <button data-v="resumen" class="active">Resumen</button>
-      <button data-v="cuentas">Cuentas</button>
-      <button data-v="analisis">Análisis</button>
-      <button data-v="diario">Diario</button>
-      <button data-v="presesion">Pre-sesión</button>
+      <button data-v="resumen" class="active" aria-pressed="true">Resumen</button>
+      <button data-v="cuentas" aria-pressed="false">Cuentas</button>
+      <button data-v="analisis" aria-pressed="false">Análisis</button>
+      <button data-v="diario" aria-pressed="false">Diario</button>
+      <button data-v="presesion" aria-pressed="false">Pre-sesión</button>
     </div>
-    <span class="sp"></span>
-    <label class="cab-filter-field"><span class="cab-filter-caption">Cuenta</span><select id="ftAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select></label>
-    <label class="cab-filter-field"><span class="cab-filter-caption">Período</span><select id="ftRange" aria-label="Rango"><option value="all">todo el historial</option><option value="month">este mes</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select></label>
-    <label class="cab-filter-field"><span class="cab-filter-caption">Setup</span><select id="ftSetup" aria-label="Filtrar por setup"><option value="">todos los setups</option></select></label>
-    <label class="cab-filter-field"><span class="cab-filter-caption">Instrumento</span><select id="ftInstr" aria-label="Instrumento"><option value="">todos los instrumentos</option></select></label>
-    <label class="cab-filter-field"><span class="cab-filter-caption">Sesión</span><select id="ftSes" aria-label="Sesión"><option value="">todas las sesiones</option></select></label>
-    <label class="cab-filter-field"><span class="cab-filter-caption">Buscar operaciones</span><input id="ftQ" type="search" aria-label="Buscar operaciones" placeholder="buscar instrumento, etiqueta, lección…" autocomplete="off"></label>
-    <button type="button" class="btn ghost sm selbtn" id="selbtn-jrTable" title="Selecciona varias operaciones y bórralas de una vez">Seleccionar</button>
-    <button type="button" class="btn primary" id="ftNew">+ Nueva operación</button>
+    </div>
+    <div class="cab-futures-actions">
+      <button type="button" class="btn ghost sm selbtn" id="selbtn-jrTable" title="Selecciona varias operaciones y bórralas de una vez">Seleccionar</button>
+      <button type="button" class="btn primary" id="ftNew">+ Nueva operación</button>
+    </div>
+    <div class="cab-futures-scope">
+      <label class="cab-filter-field"><span class="cab-filter-caption">Cuenta</span><select id="ftAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select></label>
+      <label class="cab-filter-field"><span class="cab-filter-caption">Período</span><select id="ftRange" aria-label="Rango"><option value="all">todo el historial</option><option value="month">este mes</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select></label>
+    </div>
+    <details class="cab-futures-filters" id="ftMoreFilters" open>
+      <summary>Más filtros <span id="ftMoreCount" hidden></span></summary>
+      <div class="cab-futures-filter-grid">
+        <label class="cab-filter-field"><span class="cab-filter-caption">Setup</span><select id="ftSetup" aria-label="Filtrar por setup"><option value="">todos los setups</option></select></label>
+        <label class="cab-filter-field"><span class="cab-filter-caption">Instrumento</span><select id="ftInstr" aria-label="Instrumento"><option value="">todos los instrumentos</option></select></label>
+        <label class="cab-filter-field"><span class="cab-filter-caption">Sesión</span><select id="ftSes" aria-label="Sesión"><option value="">todas las sesiones</option></select></label>
+        <label class="cab-filter-field"><span class="cab-filter-caption">Buscar operaciones</span><input id="ftQ" type="search" aria-label="Buscar operaciones" placeholder="buscar instrumento, etiqueta, lección…" autocomplete="off"></label>
+      </div>
+    </details>
   </div>
   <div class="ftfilt" id="ftFilters" hidden></div>
   <p class="synced" id="ftSync"></p>

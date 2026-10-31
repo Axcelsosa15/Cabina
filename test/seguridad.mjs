@@ -88,7 +88,10 @@ const decl = (sinComentarios.match(/function urlNavegable\([^)]*\)\s*\{[^}]*\}/)
 ok(/\^https\?:/.test(decl), 'la guardia ancla el esquema permitido al principio', decl ? 'anclada en ^https?:' : 'no se encontro la funcion');
 
 console.log('\n═══ RECURSOS EXTERNOS · la cadena de suministro del navegador ═══');
-const externos = Array.from(documento.matchAll(/(?:src|href)="(https?:\/\/[^"]+)"/g)).map(m => m[1]);
+// La URL canónica es metadato: no descarga un recurso ni ejecuta código.
+// Las pruebas de red de abajo siguen vigilando las peticiones reales.
+const recursos = documento.replace(/<link\b(?=[^>]*rel="canonical")[^>]*>/gi, '');
+const externos = Array.from(recursos.matchAll(/(?:src|href)="(https?:\/\/[^"]+)"/g)).map(m => m[1]);
 const hosts = Array.from(new Set(externos.map(u => { try { return new URL(u).host; } catch { return u; } })));
 ok(hosts.every(h => /(^|\.)fonts\.googleapis\.com$|(^|\.)fonts\.gstatic\.com$/.test(h)),
    'los unicos origenes externos son las fuentes de Google', hosts.join(' · ') || 'ninguno');
