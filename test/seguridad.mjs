@@ -106,8 +106,8 @@ ok(hosts.every(h => /(^|\.)fonts\.googleapis\.com$|(^|\.)fonts\.gstatic\.com$/.t
   const ajenos = srcs.filter(u => /^(https?:)?\/\//i.test(u));
   ok(ajenos.length === 0, 'ningún <script src> de otro origen: no se carga codigo de terceros',
      ajenos.length ? ajenos.join(' | ') : `${srcs.length} script(s), todos del propio sitio: ${srcs.join(' ') || 'ninguno'}`);
-  ok(JSON.stringify(srcs) === JSON.stringify(['./appearance.js', './app.js']),
-     'sólo appearance.js antes de CSS y app.js: sin scripts ajenos', srcs.join(' · '));
+  ok(JSON.stringify(srcs) === JSON.stringify(['./appearance.js', './discipline.js', './app.js']),
+     'sólo módulos locales de apariencia, disciplina y aplicación: sin scripts ajenos', srcs.join(' · '));
   ok(documento.indexOf('<script src="./appearance.js">') < documento.indexOf('<style>'),
      'el bootstrap del tema está antes de la primera hoja CSS');
 }

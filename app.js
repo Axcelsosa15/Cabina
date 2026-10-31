@@ -605,7 +605,7 @@
   function coll(name) {
     if (colls[name]) return colls[name];
     const c = {
-      name, items: [], cbs: [], rev: 0,
+      name, items: [], cbs: [], rev: 0, loaded: false,
       subscribe(cb) { this.cbs.push(cb); cb(this.items); },
       /* rev sube en cada mutación. Es la clave para memorizar trabajo derivado
          sin adivinar si los datos cambiaron. */
@@ -613,7 +613,9 @@
       get(id) { return this.items.find(x => x.id === id); },
       async set(id, data) {
         data = clone(data); data.id = id; data.updatedAt = Date.now();
-        const i = this.items.findIndex(x => x.id === id); if (i >= 0) this.items[i] = data; else this.items.push(data); this.emit();
+        const i = this.items.findIndex(x => x.id === id);
+        if (name === "trades" && i >= 0 && (this.items[i].accountId !== data.accountId || this.items[i].date !== data.date)) delete data.processRules;
+        if (i >= 0) this.items[i] = data; else this.items.push(data); this.emit();
         if (state.demo) return;
         const clave = name + "/" + id;
         try { await state.db.collection(name).doc(id).set(data); siSeGuardo(clave); } catch (e) { noSeGuardo(clave, motivoDb(e), "la ficha"); }
@@ -639,6 +641,7 @@
          mas alto, y empate o ausencia la deja ganar al servidor, que es lo que
          hacia antes. */
       attachDb(db) {
+        this.loaded = false;
         db.collection(name).onSnapshot(q => {
           if (state.demo) return;
           const pend = new Map(this.items.filter(x => sinGuardar.has(name + "/" + x.id)).map(x => [x.id, x]));
@@ -650,7 +653,7 @@
           });
           const ids = new Set(llegan.map(x => x.id));
           pend.forEach((x, id) => { if (!ids.has(id)) llegan.push(x); });
-          this.items = llegan; this.emit();
+          this.items = llegan; this.loaded = true; this.emit();
         }, () => {});
       },
     };
@@ -849,8 +852,9 @@
     }, 500);
   }
   function persistDay() {
-    if (state.demo) return;
+    if (state.demo) { renderDiscipline(); return; }
     state.day.updatedAt = Date.now();
+    debounce("discipline-render", renderDiscipline, 120);
     debounce("day", async () => {
       const clave = "days/" + state.day.date;
       try { await state.db.doc(clave).set(clone(state.day)); siSeGuardo(clave, state.nube ? "guardado" : "guardado en este navegador"); } catch (e) { noSeGuardo(clave, motivoDb(e), "el dia"); }
@@ -868,6 +872,7 @@
      acto, antes del primer pintado (por eso los render esperan a state.listo);
      con la cuenta llega cuando contesta la red. */
   function connectDb() {
+    state.daysKnown = false;
     const db = state.db;
     db.doc("settings/main").onSnapshot(snap => {
       if (state.demo) return;
@@ -916,17 +921,20 @@
     db.collection("days").onSnapshot(q => {
       if (state.demo) return;
       state.dias = q.docs.map(d => d.data()).filter(d => d && d.date);
+      state.daysKnown = true;
       derivaHistoria();
-      if (state.listo) renderHistory();
+      if (state.listo) { renderHistory(); renderDiscipline(); }
     }, () => {});
     COLLS.forEach(n => coll(n).attachDb(db));
   }
   function subscribeDay() {
+    state.dayKnown = false;
     state.unsub.forEach(u => u()); state.unsub = [];
     state.unsub.push(state.db.doc("days/" + state.today).onSnapshot(snap => {
       if (state.demo) return;
+      state.dayKnown = true;
       if (snap.exists) { const remote = snap.data(); if ((remote.updatedAt || 0) >= (state.day.updatedAt || 0)) state.day = migrateDay(Object.assign(newDay(state.today), remote)); }
-      if (state.listo) { renderChecklist(); renderJournalDay(); renderLevels(); }
+      if (state.listo) { renderChecklist(); renderJournalDay(); renderLevels(); renderDiscipline(); }
     }, () => {}));
   }
   function setStoreLabel() {
@@ -1330,6 +1338,7 @@
     "Protocolo de investigación": "Research protocol",
     "Qué entiende de la línea": "What it reads from the line",
     "Rachas y disciplina": "Streaks and discipline",
+    "Rachas de resultados · sin XP": "Result streaks · no XP",
     "Radiografía cuantitativa": "Quantitative breakdown",
     "Reabrir": "Reopen",
     "Registro rápido": "Quick log",
@@ -1523,7 +1532,8 @@
     const b = document.getElementById("idiomaBtn");
     if (b) b.addEventListener("click", () => {
       const v = idioma() === "en" ? "es" : "en"; idiomaGuarda(v); traduce(v);
-      repintaEstadisticas();
+      repintaEstadisticas(); renderDiscipline();
+      if (state.tab === "futuros") renderFutures();
     });
   }
 
@@ -4538,7 +4548,7 @@
   });
   function renderSettings() { renderMeta(); renderWindow(); renderChecklist(); renderRules(); renderAccounts(); if (typeof renderFutAccounts === "function") { try { renderFutAccounts(); } catch (e) { } } }
   const _renderHistory = renderHistory; renderHistory = function () { _renderHistory(); if (typeof renderCalendar === "function" && $("cal")) { try { renderCalendar(); } catch {} } if (typeof renderCabCalendar === "function") { try { renderCabCalendar(); } catch {} } };
-  function renderAll() { renderSettings(); renderJournalDay(); renderSessionStrip(); renderHistory(); renderLevels(); if (typeof renderBackup === "function") { try { renderBackup(); } catch (e) { } } }
+  function renderAll() { renderSettings(); renderJournalDay(); renderSessionStrip(); renderHistory(); renderLevels(); renderDiscipline(); if (typeof renderBackup === "function") { try { renderBackup(); } catch (e) { } } }
 
   /* ==================================================================
      DÓNDE SE CALCULA: QuantEngine, justo debajo.
@@ -7764,6 +7774,16 @@
            este campo existe para no inventar. Editar una vieja conserva su ausencia,
            porque `values` la arrastra tal cual. */
         if (isNew && !rec.source) rec.source = "manual";
+        // Freeze configured entry limits only for a new manual record today.
+        // This is a registration-time inference, never proof of broker compliance.
+        if (isNew && type === "futuros" && rec.date === state.today && state.cfgConocida) {
+          const a = acctById(rec.accountId), max = reglaDe(a, "maxContracts", rec.date).valor,
+            instruments = allowedInstruments(a, rec.date);
+          if (a && (max > 0 || instruments.length)) {
+            rec.processRules = { at: Date.now(), scope: "configured-entry-limits", maxContracts: max,
+              instruments: instruments.slice(), window: clone(state.settings.window) };
+          }
+        }
         /* Igual que `invalida` y `plan`: la ausencia significa algo. Sólo se
            guarda cuando se marcó; un `false` escrito por el editor diría «alguien
            miró y dijo que sí lo recuerda», que no es lo mismo que no haber mirado.
@@ -9305,7 +9325,7 @@
        de un vistazo en qué franja se ganó y en cuál se devolvió. */
     const porSes = {}; list.forEach(t => { const k = tradeSes(t) || "__sin"; (porSes[k] || (porSes[k] = [])).push(t); });
     const ordenSes = SESSIONS.map(x => x.id).concat(["__sin"]).filter(k => porSes[k]);
-    const filaOp = t => `<tr data-id="${t.id}"><td>${esc(t.time ? h12(t.time) : "—")}</td><td>${esc(t.instrument)}</td><td class="ui">${esc(pbName(t.setupId)) || '<span class="dim">—</span>'}</td><td class="${t.direction === "short" ? "neg" : "pos"}">${t.direction === "short" ? "S" : "L"}</td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.entry ?? "—"}</td><td class="r">${t.exit ?? `<button type="button" class="hitstop" data-act="hitstop" title="Marcar que tocó el stop"${t.stop == null ? " disabled" : ""}>abierta${t.stop != null ? " · tocó el stop" : ""}</button>`}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="r ${t.pnlEff > 0 ? "pos" : t.pnlEff < 0 ? "neg" : ""}">${t.pnlEff == null ? (t.multUnknown ? `<span class="chip warn" title="No hay valor de punto para ${esc(String(t.instrument || ""))}. Escribe el resultado a mano en «Resultado $» o usa un instrumento conocido.">falta $/punto</span>` : "—") : money(t.pnlEff)}</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.tags || "")}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button></td></tr>`;
+    const filaOp = t => `<tr data-id="${t.id}"><td>${esc(t.time ? h12(t.time) : "—")}</td><td>${esc(t.instrument)}${disciplineTradeBadge(t)}</td><td class="ui">${esc(pbName(t.setupId)) || '<span class="dim">—</span>'}</td><td class="${t.direction === "short" ? "neg" : "pos"}">${t.direction === "short" ? "S" : "L"}</td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.entry ?? "—"}</td><td class="r">${t.exit ?? `<button type="button" class="hitstop" data-act="hitstop" title="Marcar que tocó el stop"${t.stop == null ? " disabled" : ""}>abierta${t.stop != null ? " · tocó el stop" : ""}</button>`}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="r ${t.pnlEff > 0 ? "pos" : t.pnlEff < 0 ? "neg" : ""}">${t.pnlEff == null ? (t.multUnknown ? `<span class="chip warn" title="No hay valor de punto para ${esc(String(t.instrument || ""))}. Escribe el resultado a mano en «Resultado $» o usa un instrumento conocido.">falta $/punto</span>` : "—") : money(t.pnlEff)}</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.tags || "")}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button></td></tr>`;
     const grupo = k => {
       const ops = porSes[k].slice().sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
       const cerradas = ops.filter(t => t.pnlEff != null);
@@ -9613,6 +9633,214 @@
     const hs = e.target.closest("button[data-act='hitstop']");
     if (hs) { hitStop(hs.closest("tr").dataset.id); return; }
     const btn = e.target.closest("button[data-act='edit']"); if (!btn) return; const t = coll("trades").get(btn.closest("tr").dataset.id); if (t) openTrade(t);
+  });
+
+  /* ===================== DISCIPLINA DE PROCESO =====================
+     Derived from saved declarations. No points for P&L, trading frequency,
+     or unrecorded intent. Sharing paints only an explicit aggregate whitelist. */
+  function dp(es, en) { return idioma() === "en" ? en : es; }
+  function disciplineInput() {
+    const days = state.demo ? state.history.slice() : state.dias.slice();
+    if (state.day) {
+      const i = days.findIndex(d => d.date === state.day.date);
+      if (i < 0) days.push(state.day); else days[i] = state.day;
+    }
+    return { trades: coll("trades").items, days, today: state.today, now: Date.now() };
+  }
+  function disciplineCriterion(key) {
+    const labels = {
+      preparation: ["Preparación guardada antes de entrar", "Preparation saved before entry"],
+      risk: ["Stop e invalidación documentados", "Documented stop and invalidation"],
+      conditions: ["Cuatro condiciones declaradas", "Four declared conditions"],
+      rules: ["Límites configurados registrados", "Recorded configured limits"],
+      review: ["Revisión de la salida", "Exit review"],
+    };
+    const x = labels[key] || ["Proceso", "Process"]; return dp(x[0], x[1]);
+  }
+  function disciplineTradeScore(t) {
+    const input = disciplineInput();
+    return CabinaDiscipline.scoreTrade(t, { day: input.days.find(d => d.date === t.date), today: input.today, now: input.now });
+  }
+  function disciplineTradeLabel(s) {
+    return s.status === "open" ? dp("Pendiente de cierre", "Awaiting close") : s.stars === null
+      ? dp("Sin datos suficientes", "Insufficient evidence")
+      : `${"★".repeat(s.stars)}${"☆".repeat(5 - s.stars)} · ${s.score}/100`;
+  }
+  function disciplineTradeBadge(t) {
+    const label = disciplineTradeLabel(disciplineTradeScore(t));
+    return `<button type="button" class="discipline-badge" data-discipline="trade" data-trade-id="${esc(t.id)}" aria-label="${esc(dp("Disciplina: ", "Discipline: ") + label)}">${esc(label)}</button>`;
+  }
+  function renderDiscipline() {
+    const home = $("disciplineHome"), futures = $("disciplineFutures");
+    if (!home || !window.CabinaDiscipline) return;
+    $("disciplineTitle").textContent = dp("Disciplina de proceso", "Process discipline");
+    $("disciplineScope").textContent = state.demo ? dp("Datos de ejemplo · demo", "Example data · demo") : dp("Todos los registros de futuros", "All futures records");
+    if (!state.listo || (!state.demo && (!state.cfgConocida || !state.daysKnown || !state.dayKnown || !coll("trades").loaded))) {
+      const loading = `<p class="empty">${dp("Cargando hábitos…", "Loading habits…")}</p>`;
+      home.innerHTML = loading; if (futures) futures.innerHTML = loading; return;
+    }
+    const input = disciplineInput(), s = CabinaDiscipline.summarize(input), w = CabinaDiscipline.weekSummary(input);
+    const today = s.days.find(d => d.date === state.today) || { xp: 0 };
+    const stars = s.tradeScores.filter(t => t.stars !== null);
+    const stat = (value, label, best) => `<div class="discipline-stat"><strong>${value}</strong><span>${label}<br>${dp("Mejor", "Best")}: ${best}</span></div>`;
+    const streaks = stat(s.streaks.checklist.current, dp("Días de checklist", "Checklist days"), s.streaks.checklist.best)
+      + stat(s.streaks.journal.current, dp("Días de journal", "Journal days"), s.streaks.journal.best)
+      + stat(s.streaks.noEdge.current, dp("Días sin edge respetados", "No-edge days respected"), s.streaks.noEdge.best);
+    const noTrades = !input.trades.some(t => t.type === "futuros" && t.date === state.today)
+      && !(Number(state.day && state.day.trades) > 0) && !(state.day && state.day.resultManual && state.day.result != null);
+    const canNoEdge = noTrades && state.dayKnown && !state.demo && !state.day.closed;
+    const noEdgeCaption = !noTrades ? dp("Hay operaciones o resultados manuales registrados: no se puede confirmar un día sin operar.", "Trades or manual results are recorded: a no-trade day cannot be established.")
+      : state.day && state.day.processDecision && today.noEdge ? dp("Decisión guardada: hoy sin edge. Se anula el bonus si registras una operación.", "Decision saved: no edge today. Recording a trade removes this bonus.")
+      : dp("Registra esta decisión sólo al terminar el día sin operar por falta de edge.", "Record this decision only when ending a day without trading because there was no edge.");
+    const milestones = s.milestones.map(m => {
+      const labels = { checklist_10: dp("10 días de preparación", "10 preparation days"), journal_10: dp("10 cierres con reflexión", "10 reflective closes"), no_edge_5: dp("5 días sin edge respetados", "5 no-edge days respected") };
+      return `<span class="discipline-tag">${m.complete ? "✓" : "○"} ${labels[m.key]} · ${Math.min(m.progress, m.target)}/${m.target}</span>`;
+    }).join("");
+    const recap = w.processDays ? `${dp("Hecho registrado", "Recorded fact")}: ${w.checklistDays} ${dp("días con checklist", "checklist days")} · ${w.journalDays} ${dp("con journal", "journal days")} · ${w.noEdgeDays} ${dp("sin edge", "without edge")}.`
+      : dp("Aún no hay hábitos registrados esta semana. Puedes comenzar guardando tu checklist; no necesitas operar.", "No habits recorded this week yet. Start by saving your checklist; you do not need to trade.");
+    const error = w.frequentError ? `${dp("Inferencia · criterio fallido más frecuente", "Inference · most frequent failed criterion")}: ${disciplineCriterion(w.frequentError.key)} (${w.frequentError.count}).`
+      : dp("Sin errores de proceso documentados suficientes para señalar un patrón.", "Not enough documented process errors to identify a pattern.");
+    const common = `<div class="discipline-top"><strong>${s.totalXP} XP · ${dp("Nivel", "Level")} ${s.level.number}</strong><span class="discipline-caption">${dp("Hoy", "Today")}: ${today.xp}/20 XP</span></div>
+      <progress class="discipline-progress" value="${s.level.progress}" max="100" aria-label="${dp("Progreso hacia el siguiente nivel", "Progress to next level")}"></progress>
+      <p class="discipline-caption">${dp("Inferencia basada en registros declarados. No certifica cumplimiento ni rentabilidad.", "Inference based on declared records. This does not certify compliance or profitability.")}</p>
+      <div class="discipline-grid">${streaks}</div>
+      <p class="discipline-caption">${dp("Hoy entra en la racha al cerrar. Los huecos laborables la rompen; los fines de semana sin actividad se omiten.", "Today joins the streak when closed. Weekday gaps break it; inactive weekends are skipped.")}</p>
+      <div class="discipline-day"><strong>${dp("Tu proceso esta semana", "Your process this week")}</strong><p class="discipline-caption">${w.start} — ${w.end} · ET</p><p class="discipline-note">${recap}</p>
+      ${w.bestProcessDay ? `<p class="discipline-note">${dp("Inferencia · mejor día de proceso", "Inference · best process day")}: ${w.bestProcessDay} · ${dp("por hábitos registrados, sin P&L", "by recorded habits, without P&L")}.</p>` : ""}
+      <p class="discipline-note dim">${esc(error)}</p>
+      <button type="button" class="btn ghost" data-discipline="share">${dp("Crear tarjeta sin P&L", "Create card without P&L")}</button></div>
+      <details class="discipline-results"><summary>${dp("Cómo se suman los puntos y logros", "How points and milestones work")}</summary>
+      <p class="discipline-note">${dp("Checklist completa guardada: 10 XP. Día cerrado con nota: 5 XP. Decisión explícita sin edge y sin operaciones: 5 XP. Máximo 20 al día; operar más o ganar dinero no suma XP.", "Saved complete checklist: 10 XP. Closed day with a note: 5 XP. Explicit no-edge decision without trades: 5 XP. Maximum 20 per day; trading more or making money earns no XP.")}</p>
+      <div class="discipline-tags">${milestones}</div>
+      <p class="discipline-note">${dp("Estrellas por trade: cinco criterios de 20 puntos. Sólo hay nota global cuando todos tienen evidencia y la operación está cerrada. Las importadas y rápidas conservan la advertencia de datos insuficientes.", "Trade stars: five criteria worth 20 points each. An overall score requires evidence for every criterion and a closed trade. Imports and quick entries retain the insufficient-evidence warning.")} ${stars.length} ${dp("trades con nota calculable", "trades with a calculable score")}.</p></details>`;
+    home.innerHTML = common + `<div class="discipline-day"><strong>${dp("Hoy no hay edge", "No edge today")}</strong><p class="discipline-note">${noEdgeCaption}</p><button type="button" class="btn ghost" data-discipline="no-edge" ${canNoEdge ? "" : "disabled"}>${dp("Cerrar día sin operar · sin edge", "Close no-trade day · no edge")}</button>${state.demo ? `<p class="discipline-caption">${dp("La demo es de ejemplo y no guarda decisiones.", "The demo uses example data and does not save decisions.")}</p>` : ""}</div>`;
+    if (futures) futures.innerHTML = common;
+    document.querySelectorAll("button[data-discipline='trade']").forEach(b => {
+      const t = coll("trades").get(b.dataset.tradeId); if (!t) return;
+      const label = disciplineTradeLabel(disciplineTradeScore(t));
+      b.textContent = label; b.setAttribute("aria-label", dp("Disciplina: ", "Discipline: ") + label);
+    });
+  }
+  var disciplineReturnFocus = null, disciplineReturnSelector = null, disciplineShareUrl = null, disciplineShareBlob = null, disciplineShareSerial = 0;
+  function disciplineDialog(title) {
+    disciplineReturnFocus = document.activeElement;
+    const origin = disciplineReturnFocus && disciplineReturnFocus.closest("#disciplineHome,#disciplineFutures,#jrTable");
+    const action = disciplineReturnFocus && disciplineReturnFocus.dataset.discipline;
+    const tradeId = disciplineReturnFocus && disciplineReturnFocus.dataset.tradeId;
+    disciplineReturnSelector = origin && action ? `#${origin.id} button[data-discipline="${action}"]${tradeId ? `[data-trade-id="${CSS.escape(tradeId)}"]` : ""}` : null;
+    disciplineShareSerial++;
+    if (disciplineShareUrl) URL.revokeObjectURL(disciplineShareUrl);
+    disciplineShareUrl = null; disciplineShareBlob = null;
+    $("disciplineDialogTitle").textContent = title;
+    $("disciplineShareClose").textContent = dp("Cerrar", "Close");
+    $("disciplineShareImage").hidden = true;
+    $("disciplineShareImage").removeAttribute("src");
+    $("disciplineShareActions").hidden = true;
+    $("disciplineShareStatus").textContent = "";
+    $("disciplineDetailBody").innerHTML = "";
+    $("disciplineShareOv").classList.add("open");
+    $("disciplineShareClose").focus();
+    return disciplineShareSerial;
+  }
+  function closeDisciplineDialog() {
+    $("disciplineShareOv").classList.remove("open"); disciplineShareSerial++;
+    if (disciplineShareUrl) URL.revokeObjectURL(disciplineShareUrl);
+    disciplineShareUrl = null; disciplineShareBlob = null;
+    const target = disciplineReturnFocus && disciplineReturnFocus.isConnected ? disciplineReturnFocus
+      : disciplineReturnSelector ? document.querySelector(disciplineReturnSelector) : null;
+    if (target && !target.disabled) target.focus();
+    else { $("disciplineTitle").tabIndex = -1; $("disciplineTitle").focus(); }
+    disciplineReturnFocus = null; disciplineReturnSelector = null;
+  }
+  function openDisciplineTrade(id) {
+    const t = coll("trades").get(id); if (!t) return;
+    const s = disciplineTradeScore(t);
+    disciplineDialog(dp("Disciplina de este trade", "This trade's discipline"));
+    const heading = s.status === "open" ? dp("Pendiente de cierre: la nota se calcula al cerrar", "Awaiting close: the score is calculated when closed") : s.score === null ? dp("Sin datos suficientes para una nota global", "Insufficient evidence for an overall score") : `${s.score}/100 · ${s.stars}/5 ${dp("estrellas", "stars")}`;
+    const statusLabel = st => st === "pass" ? dp("✓ Registrado", "✓ Recorded") : st === "fail" ? dp("✕ Incumplido", "✕ Failed") : dp("? Sin evidencia", "? No evidence");
+    $("disciplineDetailBody").innerHTML = `<strong>${heading}</strong><p class="discipline-note">${dp("Inferencia · registros declarados. Cobertura", "Inference · declared records. Coverage")}: ${Math.round(s.coverage * 100)}%. ${s.confirmedPoints}/100 ${dp("puntos observables; los huecos no se rellenan", "observable points; gaps are not filled in")}.</p>
+      <ul class="discipline-criteria">${s.criteria.map(c => `<li><strong>${statusLabel(c.status)} · ${disciplineCriterion(c.key)} · ${c.points}/20</strong>${esc(idioma() === "es" ? c.reason : c.status === "unknown" ? "The saved record cannot establish this criterion." : c.status === "fail" ? "The record documents a condition that did not meet this criterion." : "The saved declarations support this criterion; this is not independent verification.")}</li>`).join("")}</ul>
+      <p class="discipline-note dim">${dp("El stop y las casillas no prueban cuándo se escribieron. Los límites se congelan al crear un registro manual de hoy con una cuenta configurada; no certifican todas las reglas del bróker. No se aplican las reglas actuales a trades antiguos.", "Stops and checkboxes do not prove when they were written. Limits are frozen when creating today's manual record with a configured account; they do not certify all broker rules. Current rules are not applied to old trades.")}</p>`;
+  }
+  async function openDisciplineShare() {
+    const serial = disciplineDialog(dp("Mi semana de proceso", "My week of process"));
+    // No DOM capture, identifiers, private text or financial fields enter this renderer.
+    const safe = CabinaDiscipline.weekSummary(disciplineInput()).shareSummary;
+    const card = { start: safe.period.start, end: safe.period.end, xp: safe.xp,
+      checklist: safe.checklistDays, journal: safe.journalDays, noEdge: safe.noEdgeDays,
+      streak: safe.streaks.checklist };
+    $("disciplineDetailBody").innerHTML = `<p class="discipline-note">${dp("Vista previa: sólo fechas, hábitos y XP. No contiene nombre, cuentas, notas, operaciones ni resultados financieros.", "Preview: dates, habits and XP only. No name, accounts, notes, trades or financial results.")}</p>`;
+    $("disciplineShareStatus").textContent = dp("Creando imagen…", "Creating image…");
+    try {
+      const canvas = document.createElement("canvas"); canvas.width = 1080; canvas.height = 1160;
+      const c = canvas.getContext("2d"); if (!c) throw new Error("canvas");
+      c.fillStyle = "#102823"; c.fillRect(0, 0, 1080, 1160);
+      c.fillStyle = "#c6ebca"; c.font = "bold 30px system-ui"; c.fillText(dp("CABINA / PROCESO", "CABINA / PROCESS"), 72, 92);
+      c.fillStyle = "#ffffff"; c.font = "bold 62px system-ui";
+      c.fillText(dp("Mi semana de proceso", "My week of process"), 72, 202);
+      c.font = "28px system-ui"; c.fillStyle = "#c6d8d1";
+      c.fillText(`${card.start} — ${card.end} · ET`, 72, 262);
+      const rows = [
+        [card.checklist, dp("días con checklist guardada", "days with saved checklists")],
+        [card.journal, dp("días cerrados con reflexión", "closed days with reflection")],
+        [card.noEdge, dp("días sin edge respetados", "no-edge days respected")],
+      ];
+      rows.forEach((r, i) => { const y = 385 + i * 155;
+        c.fillStyle = "#ffffff"; c.font = "bold 76px system-ui"; c.fillText(String(r[0]), 72, y);
+        c.fillStyle = "#c6d8d1"; c.font = "31px system-ui"; c.fillText(r[1], 192, y - 10);
+      });
+      c.fillStyle = "#c6ebca"; c.font = "bold 34px system-ui";
+      c.fillText(`${card.xp} XP · ${dp("racha checklist", "checklist streak")}: ${card.streak}`, 72, 855);
+      c.fillStyle = "#c6d8d1"; c.font = "25px system-ui";
+      c.fillText(dp("Inferencia basada en registros declarados.", "Inference based on declared records."), 72, 961);
+      c.fillText(dp("El proceso suma. El P&L permanece privado.", "Process adds up. P&L stays private."), 72, 1009);
+      c.font = "22px system-ui";
+      c.fillText(dp("Cabina no es asesoría financiera. cabina.site", "Cabina is not financial advice. cabina.site"), 72, 1090);
+      const blob = await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error("png")), "image/png"));
+      if (serial !== disciplineShareSerial || !$("disciplineShareOv").classList.contains("open")) return;
+      disciplineShareBlob = blob; disciplineShareUrl = URL.createObjectURL(blob);
+      const img = $("disciplineShareImage"); img.src = disciplineShareUrl; img.hidden = false;
+      img.alt = dp("Resumen semanal de hábitos sin información financiera", "Weekly habit summary without financial information");
+      $("disciplineShareDownload").textContent = dp("Descargar PNG", "Download PNG");
+      $("disciplineShareNative").textContent = dp("Compartir…", "Share…");
+      $("disciplineShareActions").hidden = false;
+      const file = new File([blob], "cabina-proceso.png", { type: "image/png" });
+      $("disciplineShareNative").hidden = !(navigator.canShare && navigator.canShare({ files: [file] }));
+      $("disciplineShareStatus").textContent = dp("Lista para descargar. Tú decides si la compartes.", "Ready to download. You decide whether to share it.");
+    } catch (e) { if (serial === disciplineShareSerial) $("disciplineShareStatus").textContent = dp("No se pudo crear la imagen. Cierra y vuelve a intentar.", "Could not create the image. Close and try again."); }
+  }
+  document.addEventListener("click", e => {
+    const b = e.target.closest("button[data-discipline]"); if (!b) return;
+    if (b.dataset.discipline === "share") openDisciplineShare();
+    if (b.dataset.discipline === "trade") openDisciplineTrade(b.dataset.tradeId);
+    if (b.dataset.discipline === "no-edge") {
+      if (state.demo || !state.listo || !state.cfgConocida || !state.dayKnown || !coll("trades").loaded || state.day.closed) return;
+      if (coll("trades").items.some(t => t.type === "futuros" && t.date === state.today) || Number(state.day.trades) > 0 || (state.day.resultManual && state.day.result != null)) return;
+      state.day.processDecision = { kind: "no_edge", at: Date.now() };
+      state.day.closed = true; persistDay(); renderJournalDay(); renderHistory();
+      $("jReopen").focus();
+    }
+  });
+  $("disciplineShareClose").addEventListener("click", closeDisciplineDialog);
+  $("disciplineShareOv").addEventListener("click", e => { if (e.target === $("disciplineShareOv")) closeDisciplineDialog(); });
+  $("disciplineShareOv").addEventListener("keydown", e => {
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeDisciplineDialog(); }
+    if (e.key === "Tab") {
+      const a = Array.from($("disciplineShareOv").querySelectorAll("button:not([disabled])")).filter(x => x.getClientRects().length);
+      if (!a.length) return;
+      if (e.shiftKey && document.activeElement === a[0]) { e.preventDefault(); a[a.length - 1].focus(); }
+      else if (!e.shiftKey && document.activeElement === a[a.length - 1]) { e.preventDefault(); a[0].focus(); }
+    }
+  });
+  $("disciplineShareDownload").addEventListener("click", () => {
+    if (!disciplineShareUrl) return;
+    const a = document.createElement("a"); a.href = disciplineShareUrl; a.download = "cabina-proceso.png";
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  $("disciplineShareNative").addEventListener("click", async () => {
+    if (!disciplineShareBlob || !navigator.share) return;
+    try { await navigator.share({ files: [new File([disciplineShareBlob], "cabina-proceso.png", { type: "image/png" })] }); }
+    catch (e) { if (e.name !== "AbortError") $("disciplineShareStatus").textContent = dp("No se pudo compartir. Puedes descargar el PNG.", "Could not share. You can download the PNG."); }
   });
 
   /* =============================== GRÁFICOS DE APOYO =============================== */
@@ -14321,6 +14549,7 @@
   });
 
   const Z = {
+    disciplina: ["disciplina de proceso", () => renderDiscipline()],
     edge:       ["métricas / edge", () => renderEdge()],
     futuros:    ["operaciones", () => renderFutures()],
     invOps:     ["inversión", () => renderInvestOps()],
@@ -14395,7 +14624,7 @@
      costó cambia la caja y la tabla del ciclo de vida, y sin esta zona la
      pestaña se quedaba con los números de cuando se abrió. */
   const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia, Z.edge, Z.ciclo];
-  const FANOUT_TRADES = [Z.historial, Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
+  const FANOUT_TRADES = [Z.disciplina, Z.historial, Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
                          Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion, Z.edge,
                          Z.estudio, Z.invDetalle, Z.importar, Z.ejecuciones, Z.ciclo];
   function pinta(lista) {
@@ -14757,6 +14986,11 @@
     r: () => showTab("calc"),
   };
   document.addEventListener("keydown", e => {
+    if ($("disciplineShareOv").classList.contains("open")) {
+      if (e.key === "Escape") { e.preventDefault(); closeDisciplineDialog(); }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") e.preventDefault();
+      return;
+    }
     // ⌘K / Ctrl+K abre la paleta desde donde sea, incluso escribiendo
     if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
       e.preventDefault();

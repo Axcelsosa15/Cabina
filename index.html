@@ -3882,6 +3882,31 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
 }
 @media(max-width:380px){#qeSec .qeg {grid-template-columns:minmax(0,1fr);}}
 
+
+/* Process discipline uses the same surfaces and respects reduced motion. */
+.discipline-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+.discipline-stat{padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);min-width:0}
+.discipline-stat strong{display:block;font-size:24px;line-height:1.4;font-variant-numeric:tabular-nums}
+.discipline-stat span,.discipline-caption{font:12px/1.5 var(--font-ui,system-ui);color:var(--muted)}
+.discipline-top,.discipline-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.discipline-top{justify-content:space-between}.discipline-top strong{font-size:16px}
+.discipline-progress{width:100%;height:6px;accent-color:var(--accent);margin:8px 0}
+.discipline-note{font:13px/1.6 var(--font-ui,system-ui);margin:10px 0;color:var(--text)}
+.discipline-note.dim{color:var(--muted)}
+.discipline-day{border-top:1px solid var(--line);padding:12px 0}
+.discipline-tags{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.discipline-tag{border:1px solid var(--line);border-radius:5px;padding:5px 8px;font:12px/1.4 var(--font-ui,system-ui)}
+.discipline-results{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.discipline-results summary{cursor:pointer;font:13px/1.5 var(--font-ui,system-ui);padding:7px 0}
+.discipline-badge{display:block;max-width:180px;white-space:normal;text-align:left;margin-top:5px;padding:5px 7px;border:1px solid var(--line);border-radius:4px;color:var(--text);background:var(--surface-2);font:11px/1.5 var(--font-ui,system-ui);cursor:pointer}
+.discipline-dialog{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:12px;width:min(620px,100%);max-height:calc(100dvh - 32px);overflow:auto;padding:20px;box-sizing:border-box}
+.discipline-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.discipline-dialog h2{font-size:20px}.discipline-dialog img{width:auto;max-width:100%;height:auto;max-height:55dvh;object-fit:contain;border-radius:8px;margin-inline:auto}.discipline-dialog img:not([hidden]){display:block}
+.discipline-criteria{list-style:none;padding:0;margin:12px 0}
+.discipline-criteria li{padding:12px 0;border-bottom:1px solid var(--line);font:13px/1.6 var(--font-ui,system-ui)}
+.discipline-criteria strong{display:block}
+.discipline-actions .btn{min-height:44px;white-space:normal}
+@media(max-width:600px){.discipline-grid{gap:6px}.discipline-stat{padding:10px 8px}.discipline-stat strong{font-size:21px}.discipline-dialog{padding:16px}.discipline-actions{align-items:stretch}.discipline-actions .btn{flex:1 1 160px}}
 </style>
 </head>
 <body>
@@ -4127,6 +4152,10 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
         </div>
       </div>
     </section>
+  <section class="panel" id="panelDiscipline">
+    <header><h2 id="disciplineTitle">Disciplina de proceso</h2><span class="meta" id="disciplineScope">Todos los registros de futuros</span></header>
+    <div class="body" id="disciplineHome"><p class="empty">Cargando hábitos…</p></div>
+  </section>
   <section class="panel" id="panelHist">
       <header><h2>Últimas 14 sesiones</h2><span class="meta" id="histMeta"></span>
         <button type="button" class="btn ghost sm selbtn" id="selbtn-histWrap" title="Selecciona varias sesiones y bórralas de una vez">Seleccionar</button></header>
@@ -4438,7 +4467,7 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
       </div>
       <section class="panel">
         <header><h2>Rachas y disciplina</h2><span class="meta" id="strMeta"></span></header>
-        <div class="body"><div class="tiles three" id="ftStreaks" style="border:1px solid var(--line);border-radius:4px;overflow:hidden"></div></div>
+        <div class="body"><div id="disciplineFutures"></div><details class="discipline-results"><summary>Rachas de resultados · sin XP</summary><div class="tiles three" id="ftStreaks" style="border:1px solid var(--line);border-radius:4px;overflow:hidden"></div></details></div>
       </section>
       <details class="cab-analytics-fold" open>
         <summary>Radiografía estadística · ocultar o mostrar el análisis</summary>
@@ -4994,6 +5023,16 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
   <span class="legal"><a href="./privacidad.html">Privacidad</a> · <a href="./terminos.html">Términos</a> · <a href="./seguridad.html">Seguridad</a></span>
 </footer>
 
+<div class="ov" id="disciplineShareOv" role="dialog" aria-modal="true" aria-labelledby="disciplineDialogTitle">
+  <section class="discipline-dialog">
+    <header><h2 id="disciplineDialogTitle">Mi proceso</h2><button type="button" class="btn ghost" id="disciplineShareClose">Cerrar</button></header>
+    <div id="disciplineDetailBody"></div>
+    <img id="disciplineShareImage" hidden alt="Resumen semanal de hábitos sin información financiera">
+    <p id="disciplineShareStatus" role="status"></p>
+    <div class="discipline-actions" id="disciplineShareActions" hidden><button type="button" class="btn primary" id="disciplineShareDownload">Descargar PNG</button><button type="button" class="btn ghost" id="disciplineShareNative" hidden>Compartir…</button></div>
+  </section>
+</div>
+
 <!-- ═══ PALETA DE COMANDOS ═══
      Una sola entrada para todo lo que está a dos o tres clics. Se abre con
      ⌘K / Ctrl+K y se cierra con Esc. No sustituye a la navegación: la
@@ -5123,6 +5162,7 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
      declarar `script-src 'self'` sin 'unsafe-inline'. El motivo completo esta
      en la cabecera de ese fichero. Sigue siendo bloqueante y en esta misma
      posicion: ve el mismo DOM que veia inline. -->
+<script src="./discipline.js"></script>
 <script src="./app.js"></script>
 
 
