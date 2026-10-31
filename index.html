@@ -3074,10 +3074,11 @@ body { color-scheme: light !important; }
 .panel > header h2, .study-panel h3, .study-card h3, .study-dialog-head h3,
 .view-prefs-head h2, .deck-t { color: var(--text) !important; }
 .deck {
-  border: 1px solid var(--line) !important;
-  border-radius: 8px !important;
-  padding: 12px 16px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 8px 0 12px !important;
   margin-bottom: 14px !important;
+  background: transparent !important;
 }
 .deck::before, .tab[data-tab="cabina"] .deck::before { display: none !important; }
 .deck-n, .study-kicker, .study-stat-top, .study-note, .study-card-foot,
@@ -3454,7 +3455,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
   /* Los títulos, selectores y acciones no deben saltar de caja ni superponerse. */
   .deck, .tab[data-tab="cabina"] .deck {
     gap: 6px 10px; align-items: center; margin-bottom: 12px !important;
-    padding: 12px 14px !important; border-radius: var(--r-lg) !important;
+    padding: 8px 0 12px !important; border-radius: 0 !important;
   }
   .deck .deck-t { font-size: 18px; line-height: 1.25; }
   .deck .deck-parts { font-size: 11px; line-height: 1.4; }
@@ -3671,7 +3672,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 
 <!-- ======================= ESTUDIO ======================= -->
 <div class="tab" data-tab="estudio" id="studyTab"><section class="study-shell">
-<section class="deck" aria-label="Resumen de Estudio"><span class="deck-n">08</span><h1 class="deck-t">Estudio</h1><span class="deck-stage">Recall</span><span class="deck-parts"><b id="studyTotal">0</b> documentos · <span id="studyActive">0 en curso</span> · <span id="studySources">0 fuentes</span> · <span id="studyCompletion">0% revisado</span><i class="deck-bar"><span id="studyProgress"></span></i></span></section>
+<section class="deck" aria-label="Resumen de Estudio"><h1 class="deck-t">Estudio</h1><span class="deck-parts"><b id="studyTotal">0</b> documentos · <span id="studyActive">0 en curso</span> · <span id="studySources">0 fuentes</span> · <span id="studyCompletion">0% revisado</span><i class="deck-bar"><span id="studyProgress"></span></i></span></section>
 <label class="study-searchrow" for="studySearch"><span class="study-searchicon">⌕</span><input id="studySearch" type="text" autocomplete="off" placeholder="Buscar conceptos, tesis, evidencia, preguntas o etiquetas…" aria-label="Buscar en la biblioteca de estudio"><span class="study-shortcut">⌘ K · búsqueda global</span></label>
 <div class="study-toolbar"><div class="study-date-filters" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)">Desde <input id="studyFrom" type="date" aria-label="Fecha consultada desde" style="width:132px"></label><label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)">Hasta <input id="studyTo" type="date" aria-label="Fecha consultada hasta" style="width:132px"></label></div><div class="study-filters" id="studyFilters" aria-label="Filtrar documentos"><button class="study-filter" data-study-filter="all" aria-pressed="true">Todo</button><button class="study-filter" data-study-filter="concept">Conceptos</button><button class="study-filter" data-study-filter="brief">Research briefs</button><button class="study-filter" data-study-filter="source">Fuentes</button><button class="study-filter" data-study-filter="flashcard">Flashcards</button><button class="study-filter" data-study-filter="todo">Por estudiar</button><button class="study-filter" data-study-filter="review">Revisión pendiente</button></div><div class="study-actions"><span id="studyResults" class="muted" style="font-size:10px">0 resultados</span><button type="button" class="btn ghost sm" id="studyExport">Exportar JSON</button><button type="button" class="btn primary sm" id="studyNew">＋ Nuevo documento</button></div></div>
 <div id="studyTradeOverview" aria-live="polite" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin:12px 0 14px"><div class="study-panel"><span class="study-note">Trades en filtro</span><strong id="studyTradeMetricCount" style="display:block;font-size:22px;margin-top:5px">—</strong></div><div class="study-panel"><span class="study-note">Win rate · P&amp;L disponible</span><strong id="studyTradeMetricWin" style="display:block;font-size:22px;margin-top:5px">—</strong></div><div class="study-panel"><span class="study-note">P&amp;L neto disponible</span><strong id="studyTradeMetricPnl" style="display:block;font-size:22px;margin-top:5px">—</strong></div><div class="study-panel"><span class="study-note">R promedio disponible</span><strong id="studyTradeMetricR" style="display:block;font-size:22px;margin-top:5px">—</strong></div></div>
@@ -3752,7 +3753,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 </section>
 <button type="button" class="credo-trace view-only" id="credoTrace" hidden></button>
 
-<section class="deck" aria-label="Resumen de Cabina"><span class="deck-n">01</span><h1 class="deck-t">Cabina</h1><span class="deck-stage">Ejecución</span><span class="deck-parts">Pre-sesión · Reglas duras · Diario</span></section>
+<section class="deck" aria-label="Resumen de Cabina"><h1 class="deck-t">Cabina</h1></section>
 <section class="panel" id="panelAccts">
       <header><h2>Cuentas prop</h2><div class="hgroup"><select id="cabAcct" aria-label="Cuenta de trabajo"><option value="">todas las cuentas</option></select><span class="meta" id="acctsMeta"></span><button type="button" class="btn sm ghost" id="addAcct">+ Añadir cuenta</button><button type="button" class="btn ghost sm selbtn" id="selbtn-accts" title="Selecciona varias cuentas y bórralas de una vez">Seleccionar</button></div></header>
       <div class="body">
@@ -3892,7 +3893,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
      colores a mano nacería con los del tema oscuro de debajo — la deuda que
      docs/DISENO.md deja anotada. -->
 <div class="tab" data-tab="ajustes">
-<section class="deck" aria-label="Resumen de Ajustes"><span class="deck-n">10</span><h1 class="deck-t">Ajustes</h1><span class="deck-stage">Configuración</span><span class="deck-parts">Datos · Idioma · Dónde está lo demás</span></section>
+<section class="deck" aria-label="Resumen de Ajustes"><h1 class="deck-t">Ajustes</h1></section>
 
 <section class="panel" id="panelAppearance">
   <header><h2>Apariencia</h2><span class="meta">Tema aplicado desde el inicio</span></header>
@@ -4044,7 +4045,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 
 <!-- ======================= FUTUROS ======================= -->
 <div class="tab" data-tab="futuros">
-<section class="deck" aria-label="Resumen de Futuros"><span class="deck-n">02</span><h1 class="deck-t">Futuros</h1><span class="deck-stage">Revisión</span><span class="deck-parts">Historial · Equity · Expectativa R</span></section>
+<section class="deck" aria-label="Resumen de Futuros"><h1 class="deck-t">Futuros</h1></section>
 
   <div class="toolbar">
     <div class="seg" id="ftSeg">
@@ -4258,7 +4259,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 <!-- MÉTRICAS / EDGE · sólo operaciones de FUTUROS del journal, netas de comisión.
      Las inversiones no entran nunca: tradesOf("futuros") las deja fuera por tipo. -->
 <div class="tab" data-tab="cuentas">
-<section class="deck" aria-label="Resumen de Cuentas"><span class="deck-n">09</span><h1 class="deck-t">Cuentas</h1><span class="deck-stage">Ciclo de vida</span><span class="deck-parts">Compradas &middot; Quemadas &middot; Autopsia</span></section>
+<section class="deck" aria-label="Resumen de Cuentas"><h1 class="deck-t">Cuentas</h1></section>
 
   <div class="toolbar">
     <select id="cuFiltro" aria-label="Qué cuentas se ven">
@@ -4294,7 +4295,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 </div>
 
 <div class="tab" data-tab="edge">
-<section class="deck" aria-label="Resumen de Métricas y Edge"><span class="deck-n">03</span><h1 class="deck-t">Métricas / Edge</h1><span class="deck-stage">Validación</span><span class="deck-parts">P&amp;L neto · Drawdown · Riesgo</span></section>
+<section class="deck" aria-label="Resumen de Métricas y Edge"><h1 class="deck-t">Métricas / Edge</h1></section>
 
   <div class="toolbar">
     <label class="cab-filter-field"><span class="cab-filter-caption">Cuenta</span><select id="mxAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select></label>
@@ -4407,7 +4408,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 </div>
 
 <div class="tab" data-tab="playbook">
-<section class="deck" aria-label="Resumen del Playbook"><span class="deck-n">04</span><h1 class="deck-t">Playbook</h1><span class="deck-stage">Proceso</span><span class="deck-parts">Reglas · Checklist · Revisión</span></section>
+<section class="deck" aria-label="Resumen del Playbook"><h1 class="deck-t">Playbook</h1></section>
 
   <nav class="tabnav sub" id="pbNav" aria-label="Tipo de inversión o trading"></nav>
   <div class="toolbar">
@@ -4429,7 +4430,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 
 <!-- ======================= IDEAS ======================= -->
 <div class="tab" data-tab="ideas">
-<section class="deck" aria-label="Resumen de Formas de hacer dinero"><span class="deck-n">05</span><h1 class="deck-t">Formas de hacer dinero</h1><span class="deck-stage">Evaluación</span><span class="deck-parts">Capital · Riesgo · Validación</span></section>
+<section class="deck" aria-label="Resumen de Formas de hacer dinero"><h1 class="deck-t">Formas de hacer dinero</h1></section>
 
   <div class="toolbar">
     <select id="idCat" aria-label="Categoría"><option value="">todas las categorías</option></select>
@@ -4444,7 +4445,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 
 <!-- ======================= INVERSIONES ======================= -->
 <div class="tab" data-tab="invest">
-<section class="deck" aria-label="Resumen de Inversiones"><span class="deck-n">06</span><h1 class="deck-t">Inversiones</h1><span class="deck-stage">Seguimiento</span><span class="deck-parts">Asignación · Rendimiento · Ingresos</span></section>
+<section class="deck" aria-label="Resumen de Inversiones"><h1 class="deck-t">Inversiones</h1></section>
 
   <div class="toolbar">
     <select id="ivAccountFilter" aria-label="Filtrar por cuenta de inversión"><option value="__all">Todas las cuentas</option></select>
@@ -4519,7 +4520,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
      dos espacios de nombres, así que el filtro de cuenta dice de qué familia es
      cada una en vez de fingir que son una lista. -->
 <div class="tab" data-tab="historial">
-<section class="deck" aria-label="Resumen de Historial"><span class="deck-n">09</span><h1 class="deck-t">Historial</h1><span class="deck-stage">Registro</span><span class="deck-parts">Futuros · Inversiones · Resultado</span></section>
+<section class="deck" aria-label="Resumen de Historial"><h1 class="deck-t">Historial</h1></section>
 
   <div class="toolbar">
     <label class="cab-filter-field"><span class="cab-filter-caption">Mercado</span><select id="hsTipo" aria-label="Tipo de operación"><option value="">futuros e inversiones</option><option value="futuros">sólo futuros</option><option value="inversion">sólo inversiones</option></select></label>
@@ -4543,7 +4544,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 
 <!-- ======================= CALCULADORA ======================= -->
 <div class="tab" data-tab="calc">
-<section class="deck" aria-label="Resumen de Calculadora"><span class="deck-n">07</span><h1 class="deck-t">Calculadora</h1><span class="deck-stage">Simulación</span><span class="deck-parts">Capital · Retorno · Drawdown</span></section>
+<section class="deck" aria-label="Resumen de Calculadora"><h1 class="deck-t">Calculadora</h1></section>
 
   <div class="toolbar">
     <div class="seg" id="calcSeg">
