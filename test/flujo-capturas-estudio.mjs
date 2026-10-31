@@ -123,6 +123,20 @@ ok(docs.length === 1 && docs[0].data.scenes['entrada:15m']?.length === 1,
 ok((await segunda.p.evaluate(() => FUT.trades().find(x => x.id === document.querySelector('#studyTradeId').value)?.images.length)) === 3,
   'una captura añadida en ESTUDIO no altera el journal');
 ok(D.e.objetos.size === 4, 'cuatro capturas únicas en almacenamiento');
+console.log('\n═══ 6 · nueva captura de ESTUDIO en timeframe ya usado por FUTUROS ═══');
+const [repetida] = await Promise.all([
+  segunda.p.waitForEvent('filechooser'),
+  segunda.p.click('#studyScenes button[data-escena-add="htf:1D"]')
+]);
+await repetida.setFiles({ name: 'nota-diaria.png', mimeType: 'image/png', buffer: PNG });
+await quieto(segunda.p, 60, 3000);
+const finalDocs = D.filasDe(segunda.uid).filter(f => f.path.startsWith('research/') && f.data.type === 'trade-review');
+ok(finalDocs.length === 1 && finalDocs[0].data.scenes['htf:1D']?.length === 1,
+  'research sólo guarda la captura propia, no una copia del screenshot de FUTUROS');
+ok(await segunda.p.locator(slot('htf:1D')).count() === 2,
+  'ambas capturas aparecen en la misma fase sin duplicación');
+ok(D.e.objetos.size === 5, 'dos capturas visibles, dos IDs diferentes');
+
 ok(csp.length === 0, 'sin violaciones CSP', csp.join(' | '));
 ok(errores.length === 0, 'sin errores de JavaScript', errores.join(' | '));
 
