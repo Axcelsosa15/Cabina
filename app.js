@@ -2476,6 +2476,7 @@
     if (!tab) return [];
     const selectors = ".panel, .study-panel, .deck, .study-toolbar, #studyGrid";
     return Array.from(tab.querySelectorAll(selectors)).filter(el => {
+      if (el.id === "mxLearnPanel") return false; // lo controla Ayuda, no dos preferencias incompatibles
       if (el.classList.contains("panel") && el.closest(".panel") !== el) return false;
       if (el.classList.contains("study-panel") && el.closest(".study-panel") !== el) return false;
       if (el.classList.contains("deck") && el.closest(".deck") !== el) return false;
