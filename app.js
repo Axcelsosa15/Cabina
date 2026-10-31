@@ -2670,7 +2670,7 @@
       let ctl;
       if (f.type === "select") ctl = `<select id="ef_${f.key}">${f.options.map(o => `<option value="${esc(o[0])}" ${String(v ?? "") === String(o[0]) ? "selected" : ""}>${esc(o[1])}</option>`).join("")}</select>`;
       else if (f.type === "textarea") ctl = `<textarea id="ef_${f.key}" placeholder="${esc(f.ph || "")}" style="min-height:${f.rows ? f.rows * 22 : 60}px">${esc(v ?? "")}</textarea>`;
-      else ctl = `<input type="${f.type || "text"}" id="ef_${f.key}" value="${esc(v ?? "")}" placeholder="${esc(f.ph || "")}" ${f.step ? `step="${f.step}"` : ""} ${f.type === "number" ? 'inputmode="decimal"' : ""}>`;
+      else ctl = `<input type="${f.type || "text"}" id="ef_${f.key}" value="${esc(v ?? "")}" placeholder="${esc(f.ph || "")}" ${f.step ? `step="${f.step}"` : ""} ${f.type === "number" ? `inputmode="${f.inputmode === "decimal" ? "decimal" : (f.inputmode === "numeric" || Number(f.step) === 1 || /^(qty|r_maxContracts|r_maxLosses|r_minDays|maxContracts|maxLosses|days)$/.test(f.key) ? "numeric" : "decimal")}"` : ""}>`;
       return `<div class="fld${w}"><label class="lab" for="ef_${f.key}">${esc(f.label)}</label>${ctl}${f.help ? `<div class="help">${esc(f.help)}</div>` : ""}</div>`;
     }).join("");
     $("edDelete").hidden = !cfg.onDelete;
@@ -2782,8 +2782,8 @@
      re-suscribirse en cada openEditor iba acumulando un listener por apertura. */
   (function () {
     const fe = $("edFields"); if (!fe) return;
-    fe.addEventListener("input", () => { try { edRevisarPrecios(); } catch (e) { } try { edPintaRiesgo(); } catch (e) { } });
-    fe.addEventListener("change", () => { try { edRevisarPrecios(); } catch (e) { } try { edPintaRiesgo(); } catch (e) { } });
+    fe.addEventListener("input", () => { $("edValidationError")?.remove(); try { edRevisarPrecios(); } catch (e) { } try { edPintaRiesgo(); } catch (e) { } });
+    fe.addEventListener("change", () => { $("edValidationError")?.remove(); try { edRevisarPrecios(); } catch (e) { } try { edPintaRiesgo(); } catch (e) { } });
     /* Delegado en el contenedor, no en cada botón: el contenido se repinta y un
        listener por nodo se pierde con él. */
     const za = $("edAvisos");
@@ -2820,7 +2820,29 @@
   document.addEventListener("keydown", e => { if (e.key === "Escape" && ov.classList.contains("open")) closeEditor(); });
   $("edSave").addEventListener("click", () => { if (!edCfg) return; const v = readEditor(); if (edCfg.validate) { const err = edCfg.validate(v); if (err) { flashEd(err); return; } } edCfg.onSave(v); closeEditor(); });
   $("edDelete").addEventListener("click", function () { if (!edCfg || !edCfg.onDelete) return; if (!armed(this)) return; edCfg.onDelete(); closeEditor(); });
-  function flashEd(msg) { const el = $("edTitle"); const old = el.textContent; el.textContent = msg; el.style.color = "var(--bad)"; setTimeout(() => { el.textContent = old; el.style.color = ""; }, 2200); }
+  function flashEd(msg) {
+    // El error permanece hasta que el usuario edita el campo o reintenta guardar.
+    // El título temporal se conserva por compatibilidad con flujos existentes.
+    const fields = $("edFields");
+    if (fields) {
+      let summary = $("edValidationError");
+      if (!summary) {
+        summary = document.createElement("div");
+        summary.id = "edValidationError";
+        summary.className = "ed-validation";
+        summary.setAttribute("role", "alert");
+        summary.setAttribute("tabindex", "-1");
+        fields.prepend(summary);
+      }
+      summary.textContent = String(msg);
+      summary.focus();
+    }
+    const el = $("edTitle"); const old = edCfg?.title || el.textContent;
+    el.textContent = String(msg); el.style.color = "var(--bad)";
+    setTimeout(() => {
+      if (edCfg && edCfg.title === old) { el.textContent = old; el.style.color = ""; }
+    }, 2200);
+  }
   function armed(btn) { if (btn.dataset.armed === "1") return true; btn.dataset.armed = "1"; const old = btn.textContent; btn.textContent = "¿borrar?"; setTimeout(() => { btn.dataset.armed = ""; btn.textContent = old; }, 3000); return false; }
   function move(arr, i, dir) { const j = i + dir; if (j < 0 || j >= arr.length) return false; [arr[i], arr[j]] = [arr[j], arr[i]]; return true; }
 
