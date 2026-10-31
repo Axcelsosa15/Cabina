@@ -7322,7 +7322,7 @@
   // Bloque de capturas dentro del editor modal. Devuelve el estado para leerlo al guardar.
   function attachShots(fieldsEl, initial, type) {
     const isFut = type === "futuros";
-    const st = { imgs: (initial || []).filter(hasImg).map(x => { const im = Object.assign({}, x); if (isFut && !TRADE_SHOT_KEYS.has(im.scene)) delete im.scene; return im; }) };
+    const st = { imgs: (initial || []).filter(hasImg).map(x => { const im = Object.assign({}, x); if (isFut && !TRADE_SHOT_KEYS.has(im.scene)) delete im.scene; return im; }), removals: [] };
     const box = document.createElement("div");
     box.className = "fld w6"; box.id = "edShots";
     fieldsEl.appendChild(box);
@@ -7343,8 +7343,8 @@
       if (!b) { if (e.target.tagName === "IMG" && e.target.closest("figure.pbimg")) openLightbox(e.target.src, e.target.alt); return; }
       if (b.dataset.act === "rm") {
         if (!armed(b)) return;
-        const i = Number(b.dataset.i); const im = st.imgs[i]; st.imgs.splice(i, 1); draw();
-        if (im && im.id && !im.data && assetsReady()) { try { await pb.assets.delete(im.id); } catch (err) { } }
+        const i = Number(b.dataset.i); const im = st.imgs[i]; st.imgs.splice(i, 1); if (im && im.id && !im.data) st.removals.push(im.id); draw();
+        /* El archivo NO se borra aquí: puede cancelarse el editor o fallar el guardado. */
         return;
       }
       if (b.dataset.act === "add") {
@@ -7666,7 +7666,25 @@
            miró y dijo que sí lo recuerda», que no es lo mismo que no haber mirado.
            Y un stop escrito gana siempre: deja de faltar, así que la marca sobra. */
         if (rec.stopUnknown !== true || !enBlanco(rec.stop)) delete rec.stopUnknown;
-        coll("trades").set(rec.id, rec);
+        const usuarioAlGuardar = nube.ses && nube.ses.uid;
+        const escritura = coll("trades").set(rec.id, rec);
+        if (shots && shots.removals.length && assetsReady()) {
+          /* El bucket sólo se limpia DESPUÉS de confirmar la escritura; un
+             conflicto o un cancel no debe romper una referencia existente. */
+          const retiradas = [...new Set(shots.removals)];
+          Promise.resolve(escritura).then(async () => {
+            if (sinGuardar.has("trades/" + rec.id) || !nube.ses || nube.ses.uid !== usuarioAlGuardar || !assetsReady()) return;
+            for (const id of retiradas) {
+              const enTrade = coll("trades").items.some(t => (t.images || []).some(im => im.id === id));
+              const enPlaybook = coll("playbooks").items.some(p => (p.images || []).some(im => im.id === id));
+              const enReview = coll("research").items.some(d => d.scenes && Object.values(d.scenes).some(v => Array.isArray(v) && v.some(im => im.id === id)));
+              if (!enTrade && !enPlaybook && !enReview) {
+                try { await pb.assets.delete(id); }
+                catch (err) { flash("La captura se quitó del trade, pero no pudo eliminarse del almacenamiento."); }
+              }
+            }
+          });
+        }
         /* Quien abrió el editor puede necesitar saber qué id salió — una tesis,
            por ejemplo, para enlazar su post-mortem sin que nadie copie la R. */
         if (alGuardar) { try { alGuardar(rec); } catch (e) { } }
