@@ -2581,6 +2581,20 @@ a:hover{color:#a4f2e6}
   background: var(--surface);
 }
 .ed > header h3 { font-size: 14px; line-height: 1.35; }
+/* Validación persistente y anunciada para el editor genérico. */
+.ed-validation {
+  grid-column: 1 / -1;
+  padding: 12px 14px;
+  border: 1px solid var(--negative);
+  background: var(--bad-soft);
+  border-radius: var(--control-radius, 8px);
+  color: var(--negative);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.ed-validation:focus { outline: 2px solid var(--negative); outline-offset: 2px; }
 .ed .fields {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 16px 18px;
