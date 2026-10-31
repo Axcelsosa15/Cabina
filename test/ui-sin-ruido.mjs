@@ -18,7 +18,7 @@ try {
     await page.goto('http://127.0.0.1:'+server.address().port+'/');
     await page.waitForFunction(()=>typeof window.FUT !== 'undefined',{},{timeout:20000});
     const init=await page.evaluate(()=>{
-      const decks=[...document.querySelectorAll('.tab > .deck')];
+      const decks=[...document.querySelectorAll('.tab .deck')];
       const details=[...document.querySelectorAll('details.cab-why')];
       return {
         num:decks.length, numbers:decks.filter(d=>d.querySelector('.deck-n')).length,
