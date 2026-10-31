@@ -99,7 +99,29 @@ ok(/app\.js/.test(nota4), 'nombra el archivo que cambió', nota4.trim().slice(0,
 ok(await p.locator('#updApply').isVisible(), 'ofrece «Actualizar y recargar»');
 ok(await p.evaluate(() => FUT.trades().length) === opsAntes, 'comprobar no tocó ni una operación', 'ops=' + opsAntes);
 
-console.log('\n═══ 5 · sin conexión no inventa un verde ═══');
+console.log('\n═══ 5 · recargar no se lleva por delante un cambio sin guardar ═══');
+/* La barra pinta «SIN GUARDAR · N» cuando una escritura falla sin entrar en la
+   cola, y su propio texto dice que recargar los pierde. El botón lee ESE
+   veredicto ya renderizado, así que la prueba lo pone en la pantalla tal y
+   como la app lo pintaría, y exige que el primer clic avise en vez de
+   recargar. La URL antes y después es la evidencia de que no recargó. */
+await p.evaluate(() => {
+  const d = document.createElement('span');
+  d.className = 'save-state nosave';
+  d.textContent = 'SIN GUARDAR · 3';
+  document.body.appendChild(d);
+});
+const urlAntes = p.url();
+await p.click('#updApply');
+await p.waitForTimeout(700);
+ok(p.url() === urlAntes, 'con cambios en peligro, el primer clic NO recarga');
+const aviso = await p.locator('#updNote').textContent();
+ok(/3 cambio\(s\) no se guardaron/.test(aviso), 'avisa de cuántos se perderían', aviso.trim().slice(0, 95));
+ok(/perder 3/.test(await p.locator('#updApply').textContent()), 'y el botón dice lo que va a costar',
+  (await p.locator('#updApply').textContent()).trim());
+await p.evaluate(() => { const d = document.querySelector('.save-state.nosave'); if (d) d.remove(); });
+
+console.log('\n═══ 6 · sin conexión no inventa un verde ═══');
 sufijoAppJs = '';
 await ctx.setOffline(true);
 await p.click('#updCheck');
@@ -108,7 +130,7 @@ const meta5 = await p.locator('#updMeta').textContent();
 ok(/sin conexión|offline/i.test(meta5), 'con la red caída lo dice, en vez de decir que estás al día', meta5.trim());
 await ctx.setOffline(false);
 
-console.log('\n═══ 6 · las dos tarjetas del inventario que no llevaban a ninguna parte ═══');
+console.log('\n═══ 7 · las dos tarjetas del inventario que no llevaban a ninguna parte ═══');
 await p.click('[data-ajuste-accion="vista"]');
 await p.waitForTimeout(400);
 ok(await p.locator('#viewPrefs').isVisible(), '«Abrir Vista» abre el panel de módulos y densidad');

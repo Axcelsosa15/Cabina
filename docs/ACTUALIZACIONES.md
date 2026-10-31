@@ -71,3 +71,24 @@ su botón. Ahora lo tienen, por el mismo oyente delegado que ya usaban las
 demás: `data-ajuste-accion="vista"` abre el panel de Vista, y
 `data-ajuste-accion="editar"` lleva a la Cabina y activa el modo edición, que
 es la única pestaña donde ese botón existe.
+
+## Recargar puede perder datos, y el botón lo sabe
+
+Cuando una escritura falla sin entrar en la cola, la barra pinta
+`SIN GUARDAR · N` y su propio texto lo dice: «están en la pantalla y en ningún
+sitio más. Si recargas, se pierden». Un botón de actualizar que recargue a
+ciegas en ese estado destruye exactamente eso.
+
+«Actualizar y recargar» lee ese veredicto **ya renderizado** —no recalcula la
+lógica de sincronización, que daría dos verdades sobre lo mismo— y, si hay
+cambios en peligro, el primer clic avisa con la cuenta y arma el botón durante
+ocho segundos en vez de recargar.
+
+Se usa el armado de dos pulsaciones que el resto de la cabina ya emplea para lo
+irreversible, y no un `confirm()`: el confirm se lee igual tanto si hay un
+cambio en peligro como si no hay ninguno, y acostumbra a pulsar «sí».
+
+La idea viene de la PR #104, que planteaba un `confirm()` antes de recargar.
+Esa PR no llegó a funcionar —su comprobación hace `fetch` desde la página y la
+CSP lo prohíbe— pero el riesgo que señalaba era real y aquí está cubierto, con
+`test/actualizacion.mjs` §5 exigiendo que el primer clic no recargue.

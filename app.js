@@ -17229,8 +17229,41 @@
       });
     }
 
+    /* RECARGAR PUEDE PERDER DATOS, y la app ya lo sabe decir. Cuando una
+       escritura falla sin entrar en la cola, la barra pinta «SIN GUARDAR · N»
+       y su propio texto avisa: «están en la pantalla y en ningún sitio más. Si
+       recargas, se pierden». Un botón de actualizar que recargue a ciegas en
+       ese estado destruye exactamente eso.
+
+       Se lee el veredicto YA RENDERIZADO en vez de recalcularlo: duplicar aquí
+       la lógica de sincronización daría dos verdades sobre lo mismo, y la de
+       aquí envejecería sola. Si la barra lo dice, se avisa; si no, se recarga.
+
+       El aviso usa el armado de dos pulsaciones que el resto de la cabina ya
+       usa para lo irreversible, no un confirm(): el confirm se lee igual tanto
+       si hay un cambio en peligro como si no hay ninguno, y acostumbra a
+       pulsar «sí». */
+    function cambiosEnPeligro() {
+      var n = 0;
+      var nodos = document.querySelectorAll('.save-state.nosave');
+      for (var i = 0; i < nodos.length; i++) {
+        var m = /SIN GUARDAR\s*·\s*(\d+)/.exec(nodos[i].textContent || '');
+        if (m) n = Math.max(n, Number(m[1]) || 0);
+      }
+      return n;
+    }
+    var armado = 0;
     function aplicar() {
       var b = $u('updApply');
+      var peligro = cambiosEnPeligro();
+      if (peligro && Date.now() > armado) {
+        armado = Date.now() + 8000;
+        if (b) b.textContent = en() ? 'Reload anyway and lose ' + peligro : 'Recargar igual y perder ' + peligro;
+        nota(en()
+          ? 'Careful: ' + peligro + ' change(s) did not save and are only on this screen. Reloading loses them — export a backup first, or press again within 8 s to reload anyway.'
+          : 'Cuidado: ' + peligro + ' cambio(s) no se guardaron y sólo están en esta pantalla. Recargar los pierde — exporta un respaldo primero, o pulsa otra vez en 8 s para recargar igualmente.');
+        return;
+      }
       if (b) b.disabled = true;
       nota(en() ? 'Applying and reloading…' : 'Aplicando y recargando…');
       var fin = function () { location.reload(); };
