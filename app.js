@@ -7297,30 +7297,111 @@
     if (c === "size" || st === 413) return "imagen demasiado grande (máx. 20 MB)";
     return "no se pudo subir la imagen";
   }
+  /* El mismo id del bucket puede aparecer en FUTUROS y en ESTUDIO. Nunca
+     duplicamos el objeto ni lo borramos mientras otra vista lo referencia. */
+  function reviewDeTrade(tradeId) {
+    if (!tradeId) return null;
+    return coll("research").items
+      .filter(d => d && d.type === "trade-review" && String(d.tradeId) === String(tradeId))
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0] || null;
+  }
+  function fotoEnEstudio(id) {
+    if (!id) return false;
+    return coll("research").items.some(d => d && d.type === "trade-review" &&
+      d.scenes && Object.values(d.scenes).some(v =>
+        Array.isArray(v) && v.some(im => im && String(im.id) === String(id))));
+  }
+  function fotoEnFuturos(id) {
+    if (!id) return false;
+    return coll("trades").items.some(t => Array.isArray(t.images) &&
+      t.images.some(im => im && String(im.id) === String(id)));
+  }
+  function escenaDeFoto(review, id) {
+    if (!review || !id || !review.scenes) return "";
+    for (const g of ESTUDIO_ESCENAS) for (const [slot] of g.slots) {
+      const k = g.key + ":" + slot, ims = review.scenes[k];
+      if (Array.isArray(ims) && ims.some(im => im && String(im.id) === String(id))) return k;
+    }
+    return "";
+  }
+  /* Una imagen del editor sólo pasa a ESTUDIO si se eligió una fase. Las
+     revisiones preexistentes, incluidos los escenarios subidos en ESTUDIO, se
+     conservan. El trade guarda sus imágenes como antes; research guarda IDs. */
+  async function enviarCapturasEstudio(trade, shotState) {
+    const old = reviewDeTrade(trade.id);
+    const keys = ESTUDIO_ESCENAS.flatMap(g => g.slots.map(([slot]) => g.key + ":" + slot));
+    const permitted = new Set(keys), before = {}, after = {};
+    for (const k of keys) {
+      const items = old && old.scenes && old.scenes[k];
+      if (Array.isArray(items) && items.length) before[k] = items.filter(hasImg);
+    }
+    const imgs = (shotState.imgs || []).filter(im => im && im.id);
+    const ids = new Set(imgs.map(im => String(im.id)));
+    for (const k of keys) {
+      const kept = (before[k] || []).filter(im => !im.id || !ids.has(String(im.id)));
+      if (kept.length) after[k] = kept;
+    }
+    for (const im of imgs) {
+      const dest = shotState.slots[String(im.id)];
+      if (!permitted.has(dest)) continue;
+      const existing = Object.values(before).flat().find(x => x.id && String(x.id) === String(im.id));
+      const ref = existing ? { ...existing } : { id: String(im.id), name: String(im.name || "").slice(0, 180), caption: String(im.caption || "").slice(0, 120) };
+      (after[dest] ||= []).push(ref);
+    }
+    if (JSON.stringify(before) === JSON.stringify(after)) return;
+    const id = old ? old.id : uid("trade-review"), now = Date.now();
+    const d = { ...(old || {}), id, type: "trade-review", tradeId: String(trade.id),
+      title: "Revisión: " + (trade.instrument || "trade") + " · " + (trade.date || "Sin fecha"),
+      status: (old && old.status) || "todo", question: (old && old.question) || "",
+      evidence: (old && old.evidence) || "", conclusion: (old && old.conclusion) || "",
+      tags: (old && old.tags) || ["trade-review", String(trade.instrument || "").toUpperCase()].filter(Boolean),
+      scenes: after, createdAt: (old && old.createdAt) || now, updatedAt: now };
+    try {
+      await coll("research").set(id, d);
+      if (sinGuardar.has("research/" + id)) flash("Captura en FUTUROS; no se confirmó su vínculo con ESTUDIO.");
+      else flash("Capturas vinculadas a ESTUDIO.");
+    } catch (err) { flash("No se pudo vincular la captura a ESTUDIO."); }
+  }
   // Bloque de capturas dentro del editor modal. Devuelve el estado para leerlo al guardar.
-  function attachShots(fieldsEl, initial) {
-    const st = { imgs: (initial || []).filter(hasImg).map(x => Object.assign({}, x)) };
+  function attachShots(fieldsEl, initial, tradeId, withStudy) {
+    const st = { imgs: (initial || []).filter(hasImg).map(x => Object.assign({}, x)), slots: Object.create(null) };
+    if (withStudy) {
+      const review = reviewDeTrade(tradeId);
+      st.imgs.forEach(im => { if (im.id) st.slots[String(im.id)] = escenaDeFoto(review, im.id); });
+    }
     const box = document.createElement("div");
     box.className = "fld w6"; box.id = "edShots";
     fieldsEl.appendChild(box);
     const draw = () => {
       // Las capturas que ya existen se ven siempre; añadir nuevas necesita almacenamiento.
+      const choices = withStudy ? ESTUDIO_ESCENAS.flatMap(g => g.slots.map(([slot, label]) =>
+        [g.key + ":" + slot, g.titulo.split(" · ")[1] + " · " + label])) : [];
       const grid = st.imgs.length
-        ? `<div class="pbimgs">${st.imgs.map((im, i) => `<figure class="pbimg" data-i="${i}"><img ${imgAttrs(im)} alt="captura ${i + 1}" loading="lazy"><input class="tin small cap" type="text" data-cap="${i}" value="${esc(im.caption || "")}" placeholder="qué se ve" aria-label="Nota de la captura ${i + 1}"><button type="button" class="icon del" data-act="rm" data-i="${i}" title="Quitar captura">×</button></figure>`).join("")}</div>`
+        ? `<div class="pbimgs">${st.imgs.map((im, i) => `<figure class="pbimg" data-i="${i}"><img ${imgAttrs(im)} alt="captura ${i + 1}" loading="lazy"><input class="tin small cap" type="text" data-cap="${i}" value="${esc(im.caption || "")}" placeholder="qué se ve" aria-label="Nota de la captura ${i + 1}">${withStudy && im.id ? `<label class="help" style="display:block;margin:5px 0 0">En Estudio <select class="tin small" data-study-slot="${i}" aria-label="Destino en Estudio de la captura ${i + 1}" style="display:block;width:100%;max-width:100%;margin-top:3px"><option value="">Sólo FUTUROS</option>${choices.map(([k, label]) => `<option value="${esc(k)}" ${st.slots[String(im.id)] === k ? "selected" : ""}>${esc(label)}</option>`).join("")}</select></label>` : ""}<button type="button" class="icon del" data-act="rm" data-i="${i}" title="Quitar captura">×</button></figure>`).join("")}</div>`
         : "";
-      box.innerHTML = `<span class="lab">Capturas · antes, durante y después</span>` + grid + (assetsReady()
+      box.innerHTML = `<span class="lab">Capturas · antes, durante y después</span>` +
+        (withStudy ? '<span class="help">Elige la fase de cada imagen para verla también en ESTUDIO.</span>' : '') +
+        grid + (assetsReady()
         ? `<div class="imgbar"><button type="button" class="btn sm" data-act="add" data-source="gallery">+ Galería</button><button type="button" class="btn sm" data-act="add" data-source="camera">Tomar foto</button><span class="help">${st.imgs.length ? plu(st.imgs.length, "captura adjunta", "capturas adjuntas") : "adjunta el gráfico para revisar la entrada"}</span></div>`
         : `<p class="help" style="font-family:var(--font-mono);font-size:11.5px;color:var(--dim);margin:4px 0 0">${st.imgs.length ? plu(st.imgs.length, "captura adjunta", "capturas adjuntas") + ", traídas en un respaldo. Las capturas nuevas se guardan en tu cuenta: entra con ella para añadir más." : "Las capturas se guardan en tu cuenta, no en este navegador: entra con ella para adjuntarlas."}</p>`);
     };
     draw();
     box.addEventListener("input", e => { const i = e.target.dataset.cap; if (i != null && st.imgs[Number(i)]) st.imgs[Number(i)].caption = e.target.value.slice(0, 120); });
+    box.addEventListener("change", e => {
+      const i = e.target.dataset.studySlot, im = i == null ? null : st.imgs[Number(i)];
+      if (im && im.id) st.slots[String(im.id)] = e.target.value;
+    });
     box.addEventListener("click", async e => {
       const b = e.target.closest("button[data-act]");
       if (!b) { if (e.target.tagName === "IMG" && e.target.closest("figure.pbimg")) openLightbox(e.target.src, e.target.alt); return; }
       if (b.dataset.act === "rm") {
         if (!armed(b)) return;
         const i = Number(b.dataset.i); const im = st.imgs[i]; st.imgs.splice(i, 1); draw();
-        if (im && im.id && !im.data && assetsReady()) { try { await pb.assets.delete(im.id); } catch (err) { } }
+        if (im && im.id && !im.data && assetsReady() && !fotoEnEstudio(im.id) &&
+            !coll("trades").items.some(t => String(t.id) !== String(tradeId) &&
+              Array.isArray(t.images) && t.images.some(x => x && String(x.id) === String(im.id)))) {
+          try { await pb.assets.delete(im.id); } catch (err) { }
+        }
         return;
       }
       if (b.dataset.act === "add") {
@@ -7593,7 +7674,7 @@
           box.innerHTML = `<label><input type="checkbox" id="ef_stopUnknown"${values.stopUnknown === true ? " checked" : ""}> No recuerdo el stop de esta operación</label><span class="help">Importada de un CSV, y ningún bróker exporta el stop. Marcarlo la saca de la cola sin inventar un número; seguirá sin contar en R.</span>`;
           if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(box, anchor.nextSibling); else fieldsEl.appendChild(box);
         }
-        shots = attachShots(fieldsEl, vals.images);
+        shots = attachShots(fieldsEl, vals.images, t && t.id, type === "futuros");
       },
       read: (out, fieldsEl) => {
         const boxes = fieldsEl.querySelectorAll("#setupConds input[data-sc]"); if (boxes.length) { out.setupChecks = {}; boxes.forEach(b => { out.setupChecks[b.dataset.sc] = b.checked; }); } else out.setupChecks = null;
@@ -7642,7 +7723,17 @@
            miró y dijo que sí lo recuerda», que no es lo mismo que no haber mirado.
            Y un stop escrito gana siempre: deja de faltar, así que la marca sobra. */
         if (rec.stopUnknown !== true || !enBlanco(rec.stop)) delete rec.stopUnknown;
-        coll("trades").set(rec.id, rec);
+        const escrituraTrade = coll("trades").set(rec.id, rec);
+        if (type === "futuros" && shots) {
+          const linked = { imgs: shots.imgs.map(im => ({ ...im })), slots: { ...shots.slots } };
+          Promise.resolve(escrituraTrade).then(() => {
+            if (sinGuardar.has("trades/" + rec.id)) {
+              flash("El trade no está sincronizado: las capturas aún no se vincularon a ESTUDIO.");
+              return;
+            }
+            return enviarCapturasEstudio(rec, linked);
+          }).catch(() => flash("No se pudo vincular la captura a ESTUDIO."));
+        }
         /* Quien abrió el editor puede necesitar saber qué id salió — una tesis,
            por ejemplo, para enlazar su post-mortem sin que nadie copie la R. */
         if (alGuardar) { try { alGuardar(rec); } catch (e) { } }
@@ -16507,9 +16598,14 @@
     if (!armed(rm)) return;
     const k = rm.dataset.escenaRm, i = Number(rm.dataset.i), ims = estudioEscenaImgs(k), im = ims[i];
     if (!im) return;
+    const previo = estudioEscenas[k];
     ims.splice(i, 1); estudioEscenas[k] = ims; renderEstudioEscenas();
-    await estudioGuardarEscenas("Captura quitada.");
-    if (im.id && im.data == null && assetsReady()) { try { await pb.assets.delete(im.id); } catch (err) { } }
+    if (!(await estudioGuardarEscenas("Captura quitada."))) {
+      estudioEscenas[k] = previo; renderEstudioEscenas(); return;
+    }
+    if (im.id && im.data == null && assetsReady() && !fotoEnFuturos(im.id) && !fotoEnEstudio(im.id)) {
+      try { await pb.assets.delete(im.id); } catch (err) { }
+    }
   });
   coll("research").subscribe(()=>fanout([Z.estudio]));document.addEventListener("keydown",e=>{if(e.key==="Escape")estudioCerrar();});renderEstudio();
 
