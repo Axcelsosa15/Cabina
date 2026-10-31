@@ -15,8 +15,8 @@ await new Promise(r => server.listen(0, '127.0.0.1', r));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const navegador = await chromium.launch();
 const escenarios = [
-  { mode: 'light', width: 1280, accent: 'default', bg: 'rgb(255, 255, 255)', border: 'rgb(203, 213, 225)', read: 'rgb(241, 245, 249)', disabled: 'rgb(238, 242, 246)', error: 'rgb(180, 35, 24)' },
-  { mode: 'light', width: 390, accent: 'violet', bg: 'rgb(255, 255, 255)', border: 'rgb(203, 213, 225)', read: 'rgb(241, 245, 249)', disabled: 'rgb(238, 242, 246)', error: 'rgb(180, 35, 24)' },
+  { mode: 'light', width: 1280, accent: 'default', bg: 'rgb(255, 255, 255)', border: 'rgb(132, 146, 166)', read: 'rgb(241, 245, 249)', disabled: 'rgb(238, 242, 246)', error: 'rgb(180, 35, 24)' },
+  { mode: 'light', width: 390, accent: 'violet', bg: 'rgb(255, 255, 255)', border: 'rgb(132, 146, 166)', read: 'rgb(241, 245, 249)', disabled: 'rgb(238, 242, 246)', error: 'rgb(180, 35, 24)' },
   { mode: 'dark', width: 1280, accent: 'default', bg: 'rgb(17, 26, 36)', border: 'rgb(89, 107, 128)', read: 'rgb(38, 50, 64)', disabled: 'rgb(28, 38, 50)', error: 'rgb(226, 105, 89)' },
   { mode: 'dark', width: 390, accent: 'violet', bg: 'rgb(17, 26, 36)', border: 'rgb(89, 107, 128)', read: 'rgb(38, 50, 64)', disabled: 'rgb(28, 38, 50)', error: 'rgb(226, 105, 89)' }
 ];
