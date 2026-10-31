@@ -159,6 +159,8 @@ Cubierto por `test/escenarios.mjs`.
 - Tras **Guardar**, el trade conserva su referencia en `trades.images` y se
   añade la **misma ID del bucket privado** en `research/<reviewId>.scenes`,
   usando el `tradeId` real. No se sube una segunda copia ni se cambia P&L.
+- Las capturas por sí solas no marcan una operación como **revisada**: la revisión
+  se completa explícitamente desde el formulario de ESTUDIO.
 - Editar el selector mueve la referencia entre ranuras sin re-subir el archivo;
   se mantienen los campos de revisión y los escenarios añadidos directamente
   desde ESTUDIO.
