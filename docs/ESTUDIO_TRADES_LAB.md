@@ -150,3 +150,25 @@ Decisiones que no se ven en la pantalla:
   revés, un fallo de red dejaría una referencia a un objeto que ya no existe.
 
 Cubierto por `test/escenarios.mjs`.
+
+## Entrega 7 — capturas desde FUTUROS hacia ESTUDIO
+
+Las imágenes que el usuario adjunta en el editor de **FUTUROS** conservan su
+almacenamiento habitual: `trade.images[]` contiene `id`, `name`, `caption`
+y, si el usuario la asignó, `scene` con uno de los nueve valores documentados
+arriba. No se presupone un timeframe; una captura sin asignar se muestra en
+ESTUDIO bajo **Sin clasificar** y se puede clasificar abriendo el editor de
+la misma operación.
+
+ESTUDIO une durante la lectura las capturas etiquetadas del trade con las
+capturas históricas guardadas en `research.scenes`. No duplica documentos,
+no vuelve a subir imágenes y no escribe nuevas revisiones por el mero hecho
+de consultar una operación. Los IDs repetidos en ambos sitios se muestran
+una sola vez. Las imágenes cuyo origen es FUTUROS se editan desde el editor
+original; ESTUDIO no las borra del bucket ni modifica el trade por su cuenta.
+Las capturas añadidas directamente en ESTUDIO siguen guardándose en
+`research.scenes` como antes.
+
+Prueba de regresión: `test/flujo-capturas-estudio.mjs` cubre la asignación
+por imagen, visualización móvil, sesión independiente, reclasificación,
+conservación del ID de trade y funcionamiento de capturas exclusivas de ESTUDIO.
