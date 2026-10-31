@@ -187,7 +187,7 @@
 .tab[data-tab="cabina"] .deck-parts{margin-left:auto;color:var(--muted);font-size:11px;letter-spacing:.015em}
 #panelAccts{background:linear-gradient(145deg,rgba(21,30,39,.99),rgba(15,20,28,.99))}
 #panelAccts{border-top-color:#1e2531}
-#panelAccts>header h2{font-size:11px;letter-spacing:.09em;color:var(--text)}
+#panelAccts>header h2{color:var(--text)}
 /* Mantener las primitivas del sistema visual unificadas en el panel de cuentas. */
 #panelAccts>header{gap:12px;background:linear-gradient(90deg,rgba(112,224,207,.045),transparent 68%)}
 #panelAccts .acct{transition:border-color var(--mo),background var(--mo),transform var(--mo),box-shadow var(--mo)}
@@ -3117,10 +3117,11 @@ body { color-scheme: light !important; }
 .panel > header h2, .study-panel h3, .study-card h3, .study-dialog-head h3,
 .view-prefs-head h2, .deck-t { color: var(--text) !important; }
 .deck {
-  border: 1px solid var(--line) !important;
-  border-radius: 8px !important;
-  padding: 12px 16px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 8px 0 12px !important;
   margin-bottom: 14px !important;
+  background: transparent !important;
 }
 .deck::before, .tab[data-tab="cabina"] .deck::before { display: none !important; }
 .deck-n, .study-kicker, .study-stat-top, .study-note, .study-card-foot,
@@ -3497,7 +3498,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
   /* Los títulos, selectores y acciones no deben saltar de caja ni superponerse. */
   .deck, .tab[data-tab="cabina"] .deck {
     gap: 6px 10px; align-items: center; margin-bottom: 12px !important;
-    padding: 12px 14px !important; border-radius: var(--r-lg) !important;
+    padding: 8px 0 12px !important; border-radius: 0 !important;
   }
   .deck .deck-t { font-size: 18px; line-height: 1.25; }
   .deck .deck-parts { font-size: 11px; line-height: 1.4; }
@@ -3518,6 +3519,123 @@ body { font-variant-numeric: tabular-nums lining-nums; }
     max-height: min(78dvh, 650px); padding-bottom: max(16px,env(safe-area-inset-bottom));
   }
 }
+
+/* CABINA 2.0 · Tipografía con jerarquía y lectura financiera.
+   Una sola capa existente, sin reescribir los colores de los temas. */
+:root {
+  --read-body: 14.5px;
+  --read-meta: 12px;
+  --read-label: 12.5px;
+  --read-title: clamp(17px, 1.7vw, 21px);
+}
+body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.tab[data-tab] .deck-t { font-family: var(--font-ui); font-size: clamp(22px, 2.25vw, 28px); font-weight: 720; line-height: 1.17; letter-spacing: -.035em; }
+.tab[data-tab] .deck-parts { font: 450 var(--read-meta)/1.45 var(--font-ui); letter-spacing: 0; }
+.tab:not([data-tab="estudio"]) .panel > header h2,
+.tab[data-tab="estudio"] .panel > header h2 { font: 700 15px/1.35 var(--font-ui); letter-spacing: .015em; text-transform: none; }
+.tab .panel > header .meta { font: 450 var(--read-meta)/1.4 var(--font-ui); letter-spacing: 0; }
+.tab .panel .lab, .tab .cab-filter-caption { font: 650 var(--read-label)/1.4 var(--font-ui); letter-spacing: .01em; text-transform: none; }
+.tab .hint, .tab .csub, .tab .note-p, .tab .empty,
+.tab .panel .help { font-family: var(--font-ui); font-size: var(--read-body); line-height: 1.55; letter-spacing: 0; }
+.tab .qec .qk { font: 650 var(--read-label)/1.3 var(--font-ui); text-transform: none; letter-spacing: 0; }
+.tab .qec .qv, .tab .tile .v, .tab .estrow .ev {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums lining-nums; letter-spacing: -.025em;
+}
+.tab .qec .qv { font-size: clamp(21px, 2.3vw, 27px); line-height: 1.25; }
+.tab .qec .qs { font: 450 13px/1.5 var(--font-ui); }
+.tab th { font: 650 var(--read-meta)/1.4 var(--font-ui); letter-spacing: .01em; text-transform: none; }
+.tab table.t td { font-size: 13px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+.tab .estrow .el b { font-family: var(--font-ui); font-size: 13.5px; line-height: 1.4; }
+.tab .estrow .es2 { font-family: var(--font-ui); font-size: 12.5px; line-height: 1.5; }
+.tab .toolbar, .tab .cab-filter-field { font-family: var(--font-ui); }
+.tab .toolbar input, .tab .toolbar select { font-size: 14px; }
+@media (max-width: 700px) {
+  :root { --read-body: 14px; --read-meta: 12px; --read-label: 13px; }
+  .tab[data-tab] .deck-t { font-size: 22px; }
+  .tab:not([data-tab="estudio"]) .panel > header h2,
+  .tab[data-tab="estudio"] .panel > header h2 { font-size: 14px; }
+  .tab .qec .qv { font-size: 23px; }
+}
+
+
+/* Textos compartidos fuera de las pestañas: navegación, barra global y editores. */
+:root { --t-body: 14px; --t-section: 12.5px; --t-meta: 12px; }
+.topbar .brand h1 { font-family: var(--font-ui); font-size: clamp(22px,2vw,28px); line-height: 1.2; letter-spacing: -.035em; }
+.topbar .brand .sub { font: 450 13px/1.45 var(--font-ui); }
+.topbar .clock .tz, .topbar .save-state { font-family: var(--font-ui); font-size: 12px; line-height: 1.4; }
+@media (min-width: 701px) {
+  #tabnav > .tabbtn { font-family: var(--font-ui); font-size: 12px; letter-spacing: .01em; text-transform: none; }
+}
+#mobileMoreOv .mobile-more-head h2 { font: 700 16px/1.35 var(--font-ui); letter-spacing: 0; }
+#mobileMoreOv [data-mobile-more-tab] { font: 600 13.5px/1.45 var(--font-ui); }
+.ed .fld > label, .ed .fld > .lab { font-family: var(--font-ui); font-size: 13px; line-height: 1.4; letter-spacing: 0; text-transform: none; }
+.ed .fld .help, .ed .edsec-h { font-family: var(--font-ui); font-size: 12.5px; line-height: 1.5; }
+.ed .edsec h3 { font-family: var(--font-ui); font-size: 15px; line-height: 1.4; letter-spacing: -.01em; text-transform: none; }
+
+
+/* Menos ruido por defecto: notas didácticas opcionales, no texto pegado a cada KPI. */
+.cab-why { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; min-width: 0; }
+.cab-why > summary {
+  display: list-item; width: fit-content; max-width: 100%; padding: 7px 4px;
+  color: var(--muted); font: 600 12px/1.35 var(--font-ui); cursor: pointer;
+  border-radius: 6px; list-style-position: inside;
+}
+.cab-why > summary:hover { color: var(--text); }
+.cab-why > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cab-why > p { margin: 8px 0 4px; max-width: 75ch; font: 450 13px/1.55 var(--font-ui); color: var(--muted); }
+
+
+/* La cabecera de cuentas usa un selector por ID en la capa antigua. */
+#panelAccts > header > h2 { font: 700 15px/1.35 var(--font-ui); letter-spacing: .015em; text-transform: none; }
+/* Interfaz centrada en cifras. La lectura didáctica es opt-in, no contenido obligatorio. */
+body:not([data-help="on"]) .cab-why,
+body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
+.cab-help-pref { display: inline-flex; align-items: center; gap: 7px; font: 600 13px/1.35 var(--font-ui); color: var(--text); cursor: pointer; }
+.cab-help-pref input { width: 16px; height: 16px; accent-color: var(--accent); }
+#mxLearnToggle { margin-left: auto; }
+
+/* Una lectura guiada, vinculada directamente al mismo resultado de mxCalc.
+   Color sólo indica beneficio/pérdida medidos, nunca juicio sin muestra. */
+#mxLearnPanel { min-width: 0; }
+#mxLearnPanel .mx-learn-head { min-width: 0; }
+#mxLearnPanel .mx-learn-head h2 { margin: 0; }
+#mxLearnPanel .mx-learn-intro { margin: 5px 0 0; font: 450 13px/1.5 var(--font-ui); color: var(--muted); max-width: 64ch; }
+#mxLearnPanel .mx-learn-topics { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+#mxLearnPanel .mx-learn-topics button {
+  background: var(--surface-2); border: 1px solid var(--line-strong);
+  border-radius: 9px; min-height: 40px; padding: 8px 13px; color: var(--text);
+  font: 600 13px/1.3 var(--font-ui); cursor: pointer;
+}
+#mxLearnPanel .mx-learn-topics button[aria-pressed="true"] {
+  border-color: var(--accent); color: var(--accent); background: var(--accent-soft);
+}
+#mxLearnPanel .mx-learn-topics button:focus-visible,
+#mxLearnPanel .mx-learn-formula summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#mxLearnPanel .mx-learn-layout { display: grid; grid-template-columns: minmax(210px, 1fr) minmax(0, 2fr); gap: 18px; }
+#mxLearnPanel .mx-learn-number {
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-width: 0;
+  gap: 8px; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: clamp(14px, 2.5vw, 24px);
+}
+#mxLearnPanel .mx-learn-kicker { color: var(--muted); font: 650 var(--read-label)/1.35 var(--font-ui); }
+#mxLearnPanel .mx-learn-value { color: var(--text); font: 700 clamp(28px, 3.5vw, 40px)/1.15 var(--font-mono); font-variant-numeric: tabular-nums; word-break: break-word; letter-spacing: -.045em; }
+#mxLearnPanel .mx-learn-value[data-sign="positive"] { color: var(--positive); }
+#mxLearnPanel .mx-learn-value[data-sign="negative"] { color: var(--negative); }
+#mxLearnPanel .mx-learn-units { color: var(--muted); font: 450 12px/1.45 var(--font-ui); }
+#mxLearnPanel .mx-learn-explain { min-width: 0; padding-block: 5px; }
+#mxLearnPanel .mx-learn-explain h3 { color: var(--text); margin: 0 0 10px; font: 720 16px/1.4 var(--font-ui); }
+#mxLearnPanel .mx-learn-explain p { margin: 0 0 10px; font: 450 14px/1.6 var(--font-ui); }
+#mxLearnPanel .mx-learn-caution { color: var(--muted); }
+#mxLearnPanel .mx-learn-formula { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; }
+#mxLearnPanel .mx-learn-formula summary { color: var(--accent); font: 650 13px/1.5 var(--font-ui); cursor: pointer; width: fit-content; }
+#mxLearnPanel .mx-learn-formula p { color: var(--muted); font: 450 13px/1.65 var(--font-ui); margin: 9px 0 0; max-width: 95ch; }
+@media (max-width: 700px) {
+  #mxLearnPanel .mx-learn-layout { grid-template-columns: 1fr; gap: 12px; }
+  #mxLearnPanel .mx-learn-value { font-size: 32px; }
+  #mxLearnPanel .mx-learn-topics { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  #mxLearnPanel .mx-learn-topics button { min-height: 44px; padding: 8px; }
+}
+
 </style>
 </head>
 <body>
@@ -3623,9 +3741,10 @@ body { font-variant-numeric: tabular-nums lining-nums; }
       <strong style="font-size:12px">Densidad</strong>
       <label><input type="radio" name="viewDensity" value="compact"> Compacta</label>
       <label><input type="radio" name="viewDensity" value="comfortable"> Cómoda</label>
+      <label class="cab-help-pref"><input type="checkbox" id="viewPrefsHelp"> Ayuda contextual</label>
       <button type="button" class="editbtn" id="viewPrefsReset">Restaurar esta pestaña</button>
     </div>
-    <p class="view-prefs-note" id="viewPrefsNote">Elige qué módulos aparecen en la pestaña actual. Tus preferencias se guardan en este navegador y no alteran los datos de trading.</p>
+    <p class="view-prefs-note" id="viewPrefsNote">Preferencias sólo de este navegador.</p>
     <div class="view-prefs-list" id="viewPrefsList"></div>
     <footer class="view-prefs-foot"><button type="button" class="editbtn" id="viewPrefsDone">Listo</button></footer>
   </section>
@@ -3633,7 +3752,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 
 <!-- ======================= ESTUDIO ======================= -->
 <div class="tab" data-tab="estudio" id="studyTab"><section class="study-shell">
-<section class="deck" aria-label="Resumen de Estudio"><span class="deck-n">08</span><h1 class="deck-t">Estudio</h1><span class="deck-stage">Recall</span><span class="deck-parts"><b id="studyTotal">0</b> documentos · <span id="studyActive">0 en curso</span> · <span id="studySources">0 fuentes</span> · <span id="studyCompletion">0% revisado</span><i class="deck-bar"><span id="studyProgress"></span></i></span></section>
+<section class="deck" aria-label="Resumen de Estudio"><h1 class="deck-t">Estudio</h1><span class="deck-parts"><b id="studyTotal">0</b> documentos · <span id="studyActive">0 en curso</span> · <span id="studySources">0 fuentes</span> · <span id="studyCompletion">0% revisado</span><i class="deck-bar"><span id="studyProgress"></span></i></span></section>
 <label class="study-searchrow" for="studySearch"><span class="study-searchicon">⌕</span><input id="studySearch" type="text" autocomplete="off" placeholder="Buscar conceptos, tesis, evidencia, preguntas o etiquetas…" aria-label="Buscar en la biblioteca de estudio"><span class="study-shortcut">⌘ K · búsqueda global</span></label>
 <div class="study-toolbar"><div class="study-date-filters" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)">Desde <input id="studyFrom" type="date" aria-label="Fecha consultada desde" style="width:132px"></label><label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)">Hasta <input id="studyTo" type="date" aria-label="Fecha consultada hasta" style="width:132px"></label></div><div class="study-filters" id="studyFilters" aria-label="Filtrar documentos"><button class="study-filter" data-study-filter="all" aria-pressed="true">Todo</button><button class="study-filter" data-study-filter="concept">Conceptos</button><button class="study-filter" data-study-filter="brief">Research briefs</button><button class="study-filter" data-study-filter="source">Fuentes</button><button class="study-filter" data-study-filter="flashcard">Flashcards</button><button class="study-filter" data-study-filter="todo">Por estudiar</button><button class="study-filter" data-study-filter="review">Revisión pendiente</button></div><div class="study-actions"><span id="studyResults" class="muted" style="font-size:10px">0 resultados</span><button type="button" class="btn ghost sm" id="studyExport">Exportar JSON</button><button type="button" class="btn primary sm" id="studyNew">＋ Nuevo documento</button></div></div>
 <div id="studyTradeOverview" aria-live="polite" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin:12px 0 14px"><div class="study-panel"><span class="study-note">Trades en filtro</span><strong id="studyTradeMetricCount" style="display:block;font-size:22px;margin-top:5px">—</strong></div><div class="study-panel"><span class="study-note">Win rate · P&amp;L disponible</span><strong id="studyTradeMetricWin" style="display:block;font-size:22px;margin-top:5px">—</strong></div><div class="study-panel"><span class="study-note">P&amp;L neto disponible</span><strong id="studyTradeMetricPnl" style="display:block;font-size:22px;margin-top:5px">—</strong></div><div class="study-panel"><span class="study-note">R promedio disponible</span><strong id="studyTradeMetricR" style="display:block;font-size:22px;margin-top:5px">—</strong></div></div>
@@ -3714,7 +3833,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 </section>
 <button type="button" class="credo-trace view-only" id="credoTrace" hidden></button>
 
-<section class="deck" aria-label="Resumen de Cabina"><span class="deck-n">01</span><h1 class="deck-t">Cabina</h1><span class="deck-stage">Ejecución</span><span class="deck-parts">Pre-sesión · Reglas duras · Diario</span></section>
+<section class="deck" aria-label="Resumen de Cabina"><h1 class="deck-t">Cabina</h1></section>
 <section class="panel" id="panelAccts">
       <header><h2>Cuentas prop</h2><div class="hgroup"><select id="cabAcct" aria-label="Cuenta de trabajo"><option value="">todas las cuentas</option></select><span class="meta" id="acctsMeta"></span><button type="button" class="btn sm ghost" id="addAcct">+ Añadir cuenta</button><button type="button" class="btn ghost sm selbtn" id="selbtn-accts" title="Selecciona varias cuentas y bórralas de una vez">Seleccionar</button></div></header>
       <div class="body">
@@ -3743,7 +3862,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
               <label>Hasta <input type="time" id="winEnd" step="300" aria-label="Hora de cierre de tu ventana (ET)"></label>
             </div>
             <div class="seschips windays" id="winDays" role="group" aria-label="Días operativos"></div>
-            <p class="hint">Hora de Nueva York. Es tu regla, no la del mercado: las sesiones del día (Asia, Londres, NY AM…) no se mueven, y una operación vieja no cambia de sesión. Lo que cambia es el permiso de hoy y la señal «fuera de ventana», también en lo ya registrado.</p>
+            <details class="cab-why"><summary>Sobre la ventana horaria</summary><p class="hint">Hora de Nueva York. Es tu regla, no la del mercado: las sesiones del día (Asia, Londres, NY AM…) no se mueven, y una operación vieja no cambia de sesión. Lo que cambia es el permiso de hoy y la señal «fuera de ventana», también en lo ya registrado.</p></details>
           </div>
         </div>
         <div class="seschips view-only" id="sesChips" role="tablist" aria-label="Sesión que se prepara"></div>
@@ -3814,7 +3933,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
   </header>
   <div class="body" style="padding:12px">
     <div class="cal" id="calCab"></div>
-    <p class="csub" style="margin:12px 0 0">Resultado de cada sesión. Toca un día para abrirlo en el diario de futuros.</p>
+    
   </div>
 </section>
 
@@ -3854,12 +3973,12 @@ body { font-variant-numeric: tabular-nums lining-nums; }
      colores a mano nacería con los del tema oscuro de debajo — la deuda que
      docs/DISENO.md deja anotada. -->
 <div class="tab" data-tab="ajustes">
-<section class="deck" aria-label="Resumen de Ajustes"><span class="deck-n">10</span><h1 class="deck-t">Ajustes</h1><span class="deck-stage">Configuración</span><span class="deck-parts">Datos · Idioma · Dónde está lo demás</span></section>
+<section class="deck" aria-label="Resumen de Ajustes"><h1 class="deck-t">Ajustes</h1></section>
 
 <section class="panel" id="panelAppearance">
   <header><h2>Apariencia</h2><span class="meta">Tema aplicado desde el inicio</span></header>
   <div class="body">
-    <p class="hint">Elige qué capa visual quieres usar y el color principal. Esta preferencia pertenece al navegador: no modifica tus operaciones, cuentas, estadísticas ni los datos de Supabase.</p>
+    <details class="cab-why"><summary>Cómo leerlo</summary><p class="hint">Elige qué capa visual quieres usar y el color principal. Esta preferencia pertenece al navegador: no modifica tus operaciones, cuentas, estadísticas ni los datos de Supabase.</p></details>
     <div class="cab-appearance-grid">
       <div class="cab-appearance-field">
         <label for="cabAppearanceMode">Tema</label>
@@ -3903,7 +4022,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 <section class="panel" id="panelDatos">
   <header><h2>Copia de seguridad y traspaso</h2><span class="meta" id="bkMeta">—</span></header>
   <div class="body">
-    <p class="hint">Un solo archivo con todo: ajustes, reglas duras, cuentas, sesiones, operaciones, playbook, ideas e inversiones. Sirve de respaldo y es la vía para llevar los datos a otra copia de Cabina.</p>
+    <details class="cab-why"><summary>Sobre el respaldo</summary><p class="hint">Un solo archivo con todo: ajustes, reglas duras, cuentas, sesiones, operaciones, playbook, ideas e inversiones. Sirve de respaldo y es la vía para llevar los datos a otra copia de Cabina.</p></details>
     <div class="bkgrid">
       <div class="bkcard">
         <span class="lab">Exportar</span>
@@ -3941,7 +4060,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 <section class="panel" id="panelPrefs" style="margin-top:24px">
   <header><h2>Idioma y datos de muestra</h2></header>
   <div class="body">
-    <p class="hint">Las dos preferencias que no pertenecen a ninguna pestaña: en qué idioma se lee el cromo de la aplicación, y si lo que se ve son tus datos o un juego inventado para revisar el diseño.</p>
+    
     <div class="bkgrid">
       <div class="bkcard">
         <span class="lab">Idioma</span>
@@ -3964,7 +4083,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 <section class="panel" id="panelDondeEsta" style="margin-top:24px">
   <header><h2>Dónde está lo demás</h2></header>
   <div class="body">
-    <p class="hint">Lo que se configura mientras operas se queda donde se usa: traerlo aquí añadiría un viaje justo cuando menos sobra. Esta lista existe para que el inventario esté completo en un sitio.</p>
+    
     <div class="bkgrid">
       <div class="bkcard">
         <span class="lab">Reglas duras</span>
@@ -4006,7 +4125,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 
 <!-- ======================= FUTUROS ======================= -->
 <div class="tab" data-tab="futuros">
-<section class="deck" aria-label="Resumen de Futuros"><span class="deck-n">02</span><h1 class="deck-t">Futuros</h1><span class="deck-stage">Revisión</span><span class="deck-parts">Historial · Equity · Expectativa R</span></section>
+<section class="deck" aria-label="Resumen de Futuros"><h1 class="deck-t">Futuros</h1></section>
 
   <div class="toolbar">
     <div class="seg" id="ftSeg">
@@ -4046,7 +4165,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
         </section>
         <section class="panel">
           <header><h2>Bajo el agua</h2><span class="meta" id="uwMeta"></span></header>
-          <div class="body"><p class="csub">Distancia al máximo anterior. Plano en cero = cuenta en máximos.</p><div class="chartwrap" id="uwWrap"></div></div>
+          <div class="body"><details class="cab-why"><summary>Cómo leerlo</summary><p class="csub">Distancia al máximo anterior. Plano en cero = cuenta en máximos.</p></details><div class="chartwrap" id="uwWrap"></div></div>
         </section>
       </div>
       <div class="grid eq">
@@ -4056,7 +4175,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
         </section>
         <section class="panel">
           <header><h2>Expectativa móvil</h2><span class="meta" id="rollMeta"></span></header>
-          <div class="body"><p class="csub">Media de R de las últimas 20 operaciones. Por encima de cero el sistema paga.</p><div class="chartwrap" id="rollWrap"></div></div>
+          <div class="body"><details class="cab-why"><summary>Cómo leerlo</summary><p class="csub">Media de R de las últimas 20 operaciones. Por encima de cero el sistema paga.</p></details><div class="chartwrap" id="rollWrap"></div></div>
         </section>
       </div>
       <section class="panel">
@@ -4068,7 +4187,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 
   <!-- ---------- cuentas ---------- -->
   <div class="ftview" data-v="cuentas">
-    <p class="note-p">Cada operación se apunta a una cuenta. Lo que ves aquí sale del journal, no de números escritos a mano: ganancia acumulada, mejor día, colchón hasta el drawdown y la regla de consistencia, cuenta por cuenta. El saldo previo y los movimientos (retiros, costos, resets) los registras tú.</p>
+    <details class="cab-why"><summary>Cómo leerlo</summary><p class="note-p">Cada operación se apunta a una cuenta. Lo que ves aquí sale del journal, no de números escritos a mano: ganancia acumulada, mejor día, colchón hasta el drawdown y la regla de consistencia, cuenta por cuenta. El saldo previo y los movimientos (retiros, costos, resets) los registras tú.</p></details>
     <div id="ftAccts"></div>
     <button type="button" class="add" id="ftAcctAdd">+ Registrar cuenta</button>
   </div>
@@ -4086,11 +4205,11 @@ body { font-variant-numeric: tabular-nums lining-nums; }
       <div class="grid eq">
         <section class="panel">
           <header><h2>Distribución de R</h2><span class="meta" id="rdMeta"></span></header>
-          <div class="body"><p class="csub">Cuántas operaciones caen en cada múltiplo de riesgo. La barra <b>-1R</b> son stops respetados; lo que quede a su izquierda son stops que se saltaron.</p><div class="chartwrap" id="rdWrap"></div></div>
+          <div class="body"><details class="cab-why"><summary>Cómo leerlo</summary><p class="csub">Cuántas operaciones caen en cada múltiplo de riesgo. La barra <b>-1R</b> son stops respetados; lo que quede a su izquierda son stops que se saltaron.</p></details><div class="chartwrap" id="rdWrap"></div></div>
         </section>
         <section class="panel">
           <header><h2>El protocolo, ¿paga?</h2><span class="meta" id="prMeta"></span></header>
-          <div class="body"><p class="csub">Operaciones con las cuatro condiciones marcadas frente al resto.</p><div class="chartwrap" id="prWrap"></div><div id="prOut"></div></div>
+          <div class="body"><div class="chartwrap" id="prWrap"></div><div id="prOut"></div></div>
         </section>
       </div>
       <section class="panel">
@@ -4099,7 +4218,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
       </section>
       <section class="panel">
         <header><h2>Por sesión de mercado</h2><span class="meta" id="seMeta"></span></header>
-        <div class="body"><p class="csub">Cada operación cae en su sesión por la hora de entrada. Aquí se ve si la ventana de NY AM de verdad es la que paga, o si el dinero está en otro sitio.</p><div class="chartwrap" id="seWrap"></div><div id="seOut"></div></div>
+        <div class="body"><div class="chartwrap" id="seWrap"></div><div id="seOut"></div></div>
       </section>
       <div class="grid eq">
         <section class="panel">
@@ -4113,7 +4232,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
       </div>
       <section class="panel">
         <header><h2>Consistencia</h2><span class="meta" id="cnMeta"></span></header>
-        <div class="body"><p class="csub">Peso de cada día dentro de la ganancia acumulada. Un solo día gigante rompe la regla de las prop firms. La tabla de abajo mide lo mismo cuenta por cuenta, con el total de cada una.</p><div class="chartwrap" id="cnWrap"></div><div id="cnOut"></div></div>
+        <div class="body"><details class="cab-why"><summary>Cómo leerlo</summary><p class="csub">Peso de cada día dentro de la ganancia acumulada. Un solo día gigante rompe la regla de las prop firms. La tabla de abajo mide lo mismo cuenta por cuenta, con el total de cada una.</p></details><div class="chartwrap" id="cnWrap"></div><div id="cnOut"></div></div>
       </section>
       <section class="panel">
         <header><h2>Desglose</h2><span class="meta">dónde está el edge y dónde se va el dinero</span></header>
@@ -4134,11 +4253,11 @@ body { font-variant-numeric: tabular-nums lining-nums; }
       <section class="panel"><div class="tiles" id="prTiles"></div></section>
       <section class="panel">
         <header><h2>¿Preparar paga?</h2><span class="meta" id="prPayMeta"></span></header>
-        <div class="body"><p class="csub">Resultado medio de una sesión según cómo llegó su pre-sesión. Es la única forma de saber si la lista sirve o es un ritual.</p><div class="chartwrap" id="prPayWrap"></div><div id="prPayOut"></div></div>
+        <div class="body"><div class="chartwrap" id="prPayWrap"></div><div id="prPayOut"></div></div>
       </section>
       <section class="panel">
         <header><h2>Pasos que más te saltas</h2><span class="meta" id="prStepMeta"></span></header>
-        <div class="body"><p class="csub">Cada paso, cuántas veces quedó sin marcar y qué resultado dio la sesión en cada caso.</p><div class="twrap" id="prSteps"></div></div>
+        <div class="body"><div class="twrap" id="prSteps"></div></div>
       </section>
       <section class="panel">
         <header><h2>Historial de pre-sesiones</h2><span class="meta" id="prHistMeta"></span></header>
@@ -4220,7 +4339,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 <!-- MÉTRICAS / EDGE · sólo operaciones de FUTUROS del journal, netas de comisión.
      Las inversiones no entran nunca: tradesOf("futuros") las deja fuera por tipo. -->
 <div class="tab" data-tab="cuentas">
-<section class="deck" aria-label="Resumen de Cuentas"><span class="deck-n">09</span><h1 class="deck-t">Cuentas</h1><span class="deck-stage">Ciclo de vida</span><span class="deck-parts">Compradas &middot; Quemadas &middot; Autopsia</span></section>
+<section class="deck" aria-label="Resumen de Cuentas"><h1 class="deck-t">Cuentas</h1></section>
 
   <div class="toolbar">
     <select id="cuFiltro" aria-label="Qué cuentas se ven">
@@ -4256,7 +4375,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 </div>
 
 <div class="tab" data-tab="edge">
-<section class="deck" aria-label="Resumen de Métricas y Edge"><span class="deck-n">03</span><h1 class="deck-t">Métricas / Edge</h1><span class="deck-stage">Validación</span><span class="deck-parts">P&amp;L neto · Drawdown · Riesgo</span></section>
+<section class="deck" aria-label="Resumen de Métricas y Edge"><h1 class="deck-t">Métricas / Edge</h1></section>
 
   <div class="toolbar">
     <label class="cab-filter-field"><span class="cab-filter-caption">Cuenta</span><select id="mxAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select></label>
@@ -4268,6 +4387,39 @@ body { font-variant-numeric: tabular-nums lining-nums; }
   </div>
   <div id="mxAviso"></div>
   <div class="stack">
+    <section class="panel mx-learn" id="mxLearnPanel" aria-labelledby="mxLearnHeading">
+      <header>
+        <div class="mx-learn-head">
+          <h2 id="mxLearnHeading">Entiende tus números</h2>
+          <p class="mx-learn-intro" id="mxLearnIntro">Lee qué mide cada cifra y qué conclusiones permite sacar.</p>
+        </div>
+        <span class="meta" id="mxLearnSample">Sin operaciones</span>
+      </header>
+      <div class="body">
+        <div class="mx-learn-topics" role="group" aria-label="Elige la métrica que quieres entender">
+          <button type="button" data-learn-topic="expectancy" aria-pressed="true">Expectativa</button>
+          <button type="button" data-learn-topic="pf" aria-pressed="false">Profit factor</button>
+          <button type="button" data-learn-topic="winrate" aria-pressed="false">Win rate</button>
+          <button type="button" data-learn-topic="drawdown" aria-pressed="false">Drawdown</button>
+        </div>
+        <div class="mx-learn-layout">
+          <div class="mx-learn-number">
+            <span id="mxLearnMetric" class="mx-learn-kicker">Expectativa por operación</span>
+            <strong id="mxLearnValue" class="mx-learn-value">—</strong>
+            <span class="mx-learn-units" id="mxLearnUnits">P&amp;L neto · futuros</span>
+          </div>
+          <div class="mx-learn-explain" aria-live="polite" aria-atomic="true">
+            <h3 id="mxLearnTitle">Qué significa</h3>
+            <p id="mxLearnMeaning">Elige un indicador para ver cómo interpretarlo.</p>
+            <p class="mx-learn-caution" id="mxLearnCaution">Los resultados históricos no garantizan resultados futuros.</p>
+          </div>
+        </div>
+        <details class="mx-learn-formula">
+          <summary>Ver fórmula y datos utilizados</summary>
+          <p id="mxLearnFormula"></p>
+        </details>
+      </div>
+    </section>
     <section class="panel">
       <header><h2>Parámetros</h2><span class="meta">se guardan con tu configuración</span></header>
       <div class="body">
@@ -4281,7 +4433,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
       </div>
     </section>
     <section class="panel">
-      <header><h2>Edge</h2><span class="meta" id="mxEdgeMeta"></span></header>
+      <header><h2>Edge</h2><span class="meta" id="mxEdgeMeta"></span><button type="button" class="btn ghost sm" id="mxLearnToggle" aria-label="Mostrar ayuda contextual" aria-controls="mxLearnPanel" aria-expanded="false" aria-pressed="false" title="Mostrar ayuda contextual">?</button></header>
       <div class="body"><div class="qeg" id="mxEdge"></div><div id="mxEdgeNotas"></div></div>
     </section>
     <section class="panel" id="mxEstPanel">
@@ -4292,7 +4444,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
           <div class="estcats" id="mxEstCats" role="group" aria-label="Categor&iacute;as"></div>
         </div>
         <div id="mxEstLista"></div>
-        <p class="csub" style="margin:14px 0 0">Todas salen de las mismas operaciones que la expectativa y la curva de arriba, con el mismo P&amp;L neto. Una cifra que no se puede medir sale con &laquo;&mdash;&raquo; y la raz&oacute;n al lado, nunca como cero.</p>
+        <details class="cab-why"><summary>Cómo leerlo</summary><p class="csub" style="margin:14px 0 0">Todas salen de las mismas operaciones que la expectativa y la curva de arriba, con el mismo P&amp;L neto. Una cifra que no se puede medir sale con &laquo;&mdash;&raquo; y la raz&oacute;n al lado, nunca como cero.</p></details>
       </div>
     </section>
     <section class="panel">
@@ -4336,7 +4488,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 </div>
 
 <div class="tab" data-tab="playbook">
-<section class="deck" aria-label="Resumen del Playbook"><span class="deck-n">04</span><h1 class="deck-t">Playbook</h1><span class="deck-stage">Proceso</span><span class="deck-parts">Reglas · Checklist · Revisión</span></section>
+<section class="deck" aria-label="Resumen del Playbook"><h1 class="deck-t">Playbook</h1></section>
 
   <nav class="tabnav sub" id="pbNav" aria-label="Tipo de inversión o trading"></nav>
   <div class="toolbar">
@@ -4358,7 +4510,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 
 <!-- ======================= IDEAS ======================= -->
 <div class="tab" data-tab="ideas">
-<section class="deck" aria-label="Resumen de Formas de hacer dinero"><span class="deck-n">05</span><h1 class="deck-t">Formas de hacer dinero</h1><span class="deck-stage">Evaluación</span><span class="deck-parts">Capital · Riesgo · Validación</span></section>
+<section class="deck" aria-label="Resumen de Formas de hacer dinero"><h1 class="deck-t">Formas de hacer dinero</h1></section>
 
   <div class="toolbar">
     <select id="idCat" aria-label="Categoría"><option value="">todas las categorías</option></select>
@@ -4367,13 +4519,13 @@ body { font-variant-numeric: tabular-nums lining-nums; }
     <button type="button" class="btn ghost sm selbtn" id="selbtn-idCards" title="Selecciona varias y bórralas de una vez">Seleccionar</button>
     <button type="button" class="btn primary" id="idNew">+ Nueva forma</button>
   </div>
-  <p class="note-p">Repositorio de formas de hacer dinero en los mercados. Cada una con capital, tiempo, riesgo y por qué funcionaría. Una idea sin "próximo paso" es un deseo, no una idea.</p>
+  
   <div class="cards" id="idCards"></div>
 </div>
 
 <!-- ======================= INVERSIONES ======================= -->
 <div class="tab" data-tab="invest">
-<section class="deck" aria-label="Resumen de Inversiones"><span class="deck-n">06</span><h1 class="deck-t">Inversiones</h1><span class="deck-stage">Seguimiento</span><span class="deck-parts">Asignación · Rendimiento · Ingresos</span></section>
+<section class="deck" aria-label="Resumen de Inversiones"><h1 class="deck-t">Inversiones</h1></section>
 
   <div class="toolbar">
     <select id="ivAccountFilter" aria-label="Filtrar por cuenta de inversión"><option value="__all">Todas las cuentas</option></select>
@@ -4400,17 +4552,17 @@ body { font-variant-numeric: tabular-nums lining-nums; }
     </section>
     <section class="panel">
       <header><h2>Rendimiento por posición</h2><span class="meta" id="ivPerfMeta"></span></header>
-      <div class="body"><p class="csub">Rendimiento neto sobre lo invertido: precio, ventas, dividendos y comisiones. Solo las posiciones con precio actual escrito o ya cerradas — sin precio no hay nada que medir.</p><div class="chartwrap" id="ivPerfWrap"></div></div>
+      <div class="body"><details class="cab-why"><summary>Cómo leerlo</summary><p class="csub">Rendimiento neto sobre lo invertido: precio, ventas, dividendos y comisiones. Solo las posiciones con precio actual escrito o ya cerradas — sin precio no hay nada que medir.</p></details><div class="chartwrap" id="ivPerfWrap"></div></div>
     </section>
   </div>
   <div class="grid eq" style="margin-bottom:24px">
     <section class="panel">
       <header><h2>Aportes por mes</h2><span class="meta" id="ivFlowMeta"></span></header>
-      <div class="body"><p class="csub">Compras y aportes registrados. La constancia importa más que el importe.</p><div class="chartwrap" id="ivFlowWrap"></div></div>
+      <div class="body"><div class="chartwrap" id="ivFlowWrap"></div></div>
     </section>
     <section class="panel">
       <header><h2>Ingresos cobrados</h2><span class="meta" id="ivIncMeta"></span></header>
-      <div class="body"><p class="csub">Dividendos, cupones, primas de opciones y alquileres registrados como cobro.</p><div class="chartwrap" id="ivIncWrap"></div></div>
+      <div class="body"><div class="chartwrap" id="ivIncWrap"></div></div>
     </section>
   </div>
   <section class="panel" style="margin-bottom:24px">
@@ -4448,7 +4600,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
      dos espacios de nombres, así que el filtro de cuenta dice de qué familia es
      cada una en vez de fingir que son una lista. -->
 <div class="tab" data-tab="historial">
-<section class="deck" aria-label="Resumen de Historial"><span class="deck-n">09</span><h1 class="deck-t">Historial</h1><span class="deck-stage">Registro</span><span class="deck-parts">Futuros · Inversiones · Resultado</span></section>
+<section class="deck" aria-label="Resumen de Historial"><h1 class="deck-t">Historial</h1></section>
 
   <div class="toolbar">
     <label class="cab-filter-field"><span class="cab-filter-caption">Mercado</span><select id="hsTipo" aria-label="Tipo de operación"><option value="">futuros e inversiones</option><option value="futuros">sólo futuros</option><option value="inversion">sólo inversiones</option></select></label>
@@ -4461,7 +4613,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
     <button type="button" class="btn ghost sm" id="hsExport" title="Descarga TODO lo que el filtro selecciona, no s&oacute;lo las filas visibles">Exportar CSV</button>
     <button type="button" class="btn ghost sm" id="hsLimpiar">Ver todo</button>
   </div>
-  <p class="note-p">Cada fila es una operación que registraste, de futuros o de inversión. Sale del mismo sitio que el journal y que las métricas, no de una copia: el filtro es el de la puerta única. Pulsa una fila para abrirla.</p>
+  
   <div class="stack">
     <section class="panel">
       <header><h2>Todas las operaciones</h2><span class="meta" id="hsMeta"></span></header>
@@ -4472,7 +4624,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 
 <!-- ======================= CALCULADORA ======================= -->
 <div class="tab" data-tab="calc">
-<section class="deck" aria-label="Resumen de Calculadora"><span class="deck-n">07</span><h1 class="deck-t">Calculadora</h1><span class="deck-stage">Simulación</span><span class="deck-parts">Capital · Retorno · Drawdown</span></section>
+<section class="deck" aria-label="Resumen de Calculadora"><h1 class="deck-t">Calculadora</h1></section>
 
   <div class="toolbar">
     <div class="seg" id="calcSeg">

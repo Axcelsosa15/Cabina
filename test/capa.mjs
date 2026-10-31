@@ -24,6 +24,15 @@ await op(20990,'10:15','2026-09-17');  // -$40   día 2
 await op(21015,'11:05','2026-09-18');  // +$60   día 3  -> total +$140
 
 const num = s => { const m=String(s||'').match(/-?\$?-?[\d][\d,]*(\.\d+)?/); return m? m[0].replace(/[$,]/g,'') : null; };
+/* Búsqueda EXACTA, a propósito. Se probó ignorar mayúsculas para tolerar un
+   renombrado tipográfico, y el resultado fue un falso negativo: «mejor día»
+   aparece antes en la PROSA de las dos pestañas —«...sin superar el mejor
+   día. Salud...» en CABINA y «...ganancia acumulada, mejor día, colchón...»
+   en FUTUROS—, así que la primera coincidencia ya no era la etiqueta y la
+   fila salía «—» contra 120. Peor que fallar: si esa prosa hubiera llevado
+   un número, la prueba habría comparado el número EQUIVOCADO y pasado. Una
+   etiqueta que cambie de mayúsculas se corrige aquí, en su par, o se lee del
+   DOM como el P&L de los tiles. */
 const tras = (t, et) => { const i=t.indexOf(et); return i<0? null : t.slice(i+et.length, i+et.length+16); };
 
 await p.click('.tabbtn[data-tab="cabina"]'); await p.waitForTimeout(800);
@@ -36,7 +45,7 @@ await p.click('.tabbtn[data-tab="futuros"]'); await p.waitForTimeout(500);
 await p.click('button[data-v="cuentas"]'); await p.waitForTimeout(800);
 const futT = await p.evaluate(()=>document.querySelector('.ftview.active').innerText.replace(/\s+/g,' '));
 await p.click('button[data-v="resumen"]'); await p.waitForTimeout(700);
-const tiles = await p.evaluate(()=>document.getElementById('ftTiles').innerText.replace(/\s+/g,' '));
+const tilesPnl = await p.evaluate(()=>document.querySelector('#ftTiles .tile:first-child .v')?.textContent.trim() || null);
 
 const pares = [
   ['ganancia total', num(tras(cabT,'Ganancia total')),       num(tras(futT,'GANANCIA TOTAL'))],
@@ -45,7 +54,7 @@ const pares = [
   ['suelo / umbral', num(tras(cabT,'Suelo de la cuenta')),   num(tras(futT,'umbral'))],
   ['mejor día',      num(tras(cabT,'Mejor día')),            num(tras(futT,'MEJOR DÍA'))],
   ['consistencia',   num(tras(cabT,'Consistencia')),         num(tras(futT,'mejor día ÷ total ='))],
-  ['P&L (tiles)',    num(tras(cabT,'Ganancia total')),       num(tras(tiles,'P&L NETO'))],
+  ['P&L (tiles)',    num(tras(cabT,'Ganancia total')),       num(tilesPnl)],
 ];
 console.log('3 operaciones en 3 días: +$120, -$40, +$60  ->  total +$140, balance $25,140\n');
 console.log('  magnitud            CABINA      FUTUROS');

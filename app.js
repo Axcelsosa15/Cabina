@@ -1139,6 +1139,13 @@
   /* El idioma EFECTIVO: lo elegido, y si no hay nada, español. */
   function idioma() { return idiomaLee() || "es"; }
   const I18N_EN = {
+    "Entiende tus números": "Understand your numbers",
+    "Ayuda contextual": "Contextual help",
+    "Preferencias sólo de este navegador.": "Preferences for this browser only.",
+    "Expectativa": "Expectancy",
+    "Lee qué mide cada cifra y qué conclusiones permite sacar.": "Understand what each metric measures and what it cannot prove.",
+    "Qué significa": "What it means",
+    "Ver fórmula y datos utilizados": "View formula and source values",
     "+ Añadir cuenta": "+ Add account",
     "+ Añadir mercado": "+ Add market",
     "+ Añadir paso": "+ Add step",
@@ -2463,8 +2470,8 @@
   function readViewPrefs() {
     try {
       const raw = JSON.parse(localStorage.getItem(VIEW_PREF_KEY) || "{}");
-      return { density: raw.density === "compact" ? "compact" : "comfortable", hidden: raw.hidden && typeof raw.hidden === "object" ? raw.hidden : {}, columns: raw.columns && typeof raw.columns === "object" ? raw.columns : {} };
-    } catch { return { density: "comfortable", hidden: {}, columns: {} }; }
+      return { density: raw.density === "compact" ? "compact" : "comfortable", help: raw.help === true, hidden: raw.hidden && typeof raw.hidden === "object" ? raw.hidden : {}, columns: raw.columns && typeof raw.columns === "object" ? raw.columns : {} };
+    } catch { return { density: "comfortable", help: false, hidden: {}, columns: {} }; }
   }
   function writeViewPrefs(prefs) {
     try { localStorage.setItem(VIEW_PREF_KEY, JSON.stringify(prefs)); return true; }
@@ -2475,6 +2482,7 @@
     if (!tab) return [];
     const selectors = ".panel, .study-panel, .deck, .study-toolbar, #studyGrid";
     return Array.from(tab.querySelectorAll(selectors)).filter(el => {
+      if (el.id === "mxLearnPanel") return false; // lo controla Ayuda, no dos preferencias incompatibles
       if (el.classList.contains("panel") && el.closest(".panel") !== el) return false;
       if (el.classList.contains("study-panel") && el.closest(".study-panel") !== el) return false;
       if (el.classList.contains("deck") && el.closest(".deck") !== el) return false;
@@ -2526,6 +2534,17 @@
   function applyViewPrefs() {
     const prefs = readViewPrefs();
     document.body.dataset.density = prefs.density;
+    document.body.dataset.help = prefs.help ? "on" : "off";
+    const toggle = document.getElementById("mxLearnToggle");
+    if (toggle) {
+      const label = idioma() === "en"
+        ? (prefs.help ? "Hide contextual help" : "Show contextual help")
+        : (prefs.help ? "Ocultar ayuda contextual" : "Mostrar ayuda contextual");
+      toggle.setAttribute("aria-expanded", String(prefs.help));
+      toggle.setAttribute("aria-pressed", String(prefs.help));
+      toggle.setAttribute("aria-label", label);
+      toggle.title = label;
+    }
     for (const tab of document.querySelectorAll(".tab")) {
       const name = tab.dataset.tab || "cabina";
       const hidden = new Set(Array.isArray(prefs.hidden[name]) ? prefs.hidden[name] : []);
@@ -2541,6 +2560,8 @@
     const tabName = state.tab || "cabina";
     const prefs = readViewPrefs();
     document.querySelectorAll('input[name="viewDensity"]').forEach(r => { r.checked = r.value === prefs.density; });
+    const helpControl = document.getElementById("viewPrefsHelp");
+    if (helpControl) helpControl.checked = prefs.help;
     viewPrefsList.replaceChildren();
     const candidates = viewCandidates(tabName);
     const hidden = new Set(Array.isArray(prefs.hidden[tabName]) ? prefs.hidden[tabName] : []);
@@ -2646,6 +2667,18 @@
   document.querySelectorAll('input[name="viewDensity"]').forEach(r => r.addEventListener("change", () => {
     if (!r.checked) return; const prefs = readViewPrefs(); prefs.density = r.value; writeViewPrefs(prefs); applyViewPrefs();
   }));
+  document.getElementById("viewPrefsHelp").addEventListener("change", e => {
+    const prefs = readViewPrefs();
+    prefs.help = e.target.checked;
+    if (!writeViewPrefs(prefs)) return;
+    applyViewPrefs();
+  });
+  document.getElementById("mxLearnToggle").addEventListener("click", () => {
+    const prefs = readViewPrefs();
+    prefs.help = !prefs.help;
+    if (!writeViewPrefs(prefs)) return;
+    applyViewPrefs();
+  });
   document.getElementById("viewPrefsReset").addEventListener("click", () => {
     const prefs = readViewPrefs(); const tabName = state.tab || "cabina"; delete prefs.hidden[tabName]; delete prefs.columns[tabName]; writeViewPrefs(prefs); applyViewPrefs(); renderViewPrefs();
   });
@@ -13653,7 +13686,7 @@
      en español hasta el siguiente cambio de pestaña. Es exactamente lo que la
      frontera declarada en la capa de idioma manda hacer: el cromo que un
      render genera se arregla en su sitio de render. */
-  function repintaEstadisticas() { if (mxEstC) renderEstadisticas(mxEstC.lista, mxEstC.c); }
+  function repintaEstadisticas() { if (mxEstC) { renderEstadisticas(mxEstC.lista, mxEstC.c); pintaGuiaNumeros(mxEstC.c); } }
   /* UNA FILA, CALCULADA UNA VEZ. La pantalla y el CSV leen de aquí. Si el
      fichero pudiera discrepar de la tabla, sería una TERCERA verdad sobre los
      mismos números —después de las tarjetas y del catálogo—, que es justo lo
@@ -13759,6 +13792,125 @@
       : `${visibles.length} de ${EST.length} estadísticas · ${a.filas.length} operaciones cerradas`;
   }
 
+
+  /* Edge, explained: the guide reads the same mxCalc result already on screen.
+     No additional trading statistics or rounding models are introduced. */
+  let mxLearnTopic = "expectancy";
+  function pintaGuiaNumeros(c) {
+    const panel = $("mxLearnPanel"); if (!panel || !c) return;
+    const en = idioma() === "en", n = c.N || 0;
+    const sample = n < 30
+      ? (en ? "Small sample: " : "Muestra pequeña: ") + n + "/30"
+      : (en ? n + " closed trades · historical sample" : n + " operaciones cerradas · muestra histórica");
+    $("mxLearnSample").textContent = sample;
+    $("mxLearnIntro").textContent = en
+      ? "Understand what each metric measures and what it cannot prove."
+      : "Lee qué mide cada cifra y qué conclusiones permite sacar.";
+    panel.querySelector(".mx-learn-topics").setAttribute("aria-label",
+      en ? "Choose a metric to understand" : "Elige la métrica que quieres entender");
+    const lowSample = n < 30
+      ? (en ? "Fewer than 30 closed trades: treat any pattern as exploratory, not proven."
+            : "Menos de 30 operaciones cerradas: cualquier patrón es exploratorio, no una ventaja demostrada.")
+      : (en ? "This historical sample does not prove a durable edge. Compare different periods and setups."
+            : "Esta muestra histórica no demuestra un edge estable. Compara periodos y setups diferentes.");
+    const empty = en ? "No closed trades match this filter." : "No hay operaciones cerradas con este filtro.";
+    const missing = en ? "Not available with the current data." : "No se puede medir con los datos disponibles.";
+    const def = {
+      expectancy: {
+        label: en ? "Net expectancy per trade" : "Expectativa neta por operación",
+        value: n && c.E != null ? qeM(roundMD(c.E)) : "—",
+        units: en ? "USD per closed trade, net of fees" : "USD por operación cerrada, neto de comisiones",
+        title: en ? "What does expectancy tell me?" : "¿Qué me dice la expectativa?",
+        meaning: !n ? empty : c.E == null ? missing :
+          c.E > 0 ? (en ? "Your filtered trades averaged a positive net result per trade. That does not guarantee the next trade wins."
+                          : "Las operaciones filtradas tienen un resultado neto medio positivo por trade. No significa que el siguiente trade vaya a ganar.")
+          : c.E < 0 ? (en ? "Your filtered trades averaged a net loss per trade. Review execution, commissions and payoff before trusting this setup."
+                             : "Las operaciones filtradas pierden dinero en promedio por trade. Revisa ejecución, comisiones y payoff antes de confiar en este setup.")
+          : (en ? "The historical average net result was zero." : "El resultado neto medio histórico fue cero."),
+        caution: lowSample,
+        formula: (en ? "E = win rate × average win − loss rate × average loss. " : "E = tasa de ganancia × ganancia media − tasa de pérdida × pérdida media. ")
+          + (en ? "Wins: " : "Ganadoras: ") + c.e.ganadoras + "/" + n
+          + " · W: " + (c.W == null ? "—" : money(c.W))
+          + " · L: " + (c.L == null ? "—" : money(c.L))
+          + (en ? ". Flat trades contribute 0; fees follow the current Parameters." : ". Los trades planos aportan 0; las comisiones siguen los Parámetros actuales."),
+        sign: n && c.E != null ? (c.E > 0 ? "positive" : c.E < 0 ? "negative" : "") : ""
+      },
+      pf: {
+        label: "Profit factor",
+        value: n && c.pf != null ? c.pf.toFixed(2) + " : 1" : "—",
+        units: en ? "Gross net gains / absolute gross net losses" : "Ganancias netas brutas / pérdidas netas absolutas",
+        title: en ? "How much did wins cover losses?" : "¿Cuánto cubrieron las ganancias las pérdidas?",
+        meaning: !n ? empty : c.pf == null ? (c.pfRazon || missing) :
+          c.pf > 1 ? (en ? "Within this filter, cumulative gains exceeded cumulative losses. This does not measure account-level drawdown."
+                        : "En este filtro, las ganancias acumuladas superaron las pérdidas. Esto no mide el drawdown de la cuenta.")
+          : (en ? "Within this filter, cumulative gains did not exceed losses."
+                : "En este filtro, las ganancias acumuladas no superaron las pérdidas."),
+        caution: lowSample,
+        formula: en
+          ? "Profit factor = sum of positive net trade results / absolute sum of negative net trade results. Flat trades add nothing to either sum. The number is undefined without losses."
+          : "Profit factor = suma de resultados netos positivos / valor absoluto de la suma de resultados netos negativos. Los trades planos no suman a ninguno. Sin pérdidas, la razón no se define.",
+        sign: ""
+      },
+      winrate: {
+        label: "Win rate",
+        value: n && c.p != null ? mxPct(c.p) : "—",
+        units: en ? "Winning trades / all closed trades" : "Trades ganadores / todos los cerrados",
+        title: en ? "Is a high win rate enough?" : "¿Es suficiente un win rate alto?",
+        meaning: !n ? empty : (en
+          ? c.e.ganadoras + " out of " + n + " trades were winners. A high hit rate can still lose money if losses are much larger than wins."
+          : c.e.ganadoras + " de " + n + " trades fueron ganadores. Un win rate alto puede perder dinero si las pérdidas son mucho mayores que las ganancias."),
+        caution: (c.pBE == null ? (en ? "Break-even win rate is unavailable without both winning and losing trades."
+                                           : "El win rate de break-even requiere trades ganadores y perdedores.")
+                                 : (en ? "Break-even for the observed average payoff: " : "Break-even con el payoff medio observado: ") + mxPct(c.pBE) + ". ")
+          + lowSample,
+        formula: (en ? "Win rate = winning trades / all closed trades: " : "Win rate = ganadoras / todas las cerradas: ")
+          + c.e.ganadoras + "/" + n
+          + (en ? ". Flat trades count in the denominator. Compare it with payoff, costs and expectancy."
+                : ". Los trades planos cuentan en el denominador. Compáralo con payoff, costes y expectativa."),
+        sign: ""
+      },
+      drawdown: {
+        label: "Max drawdown",
+        value: n && c.capital > 0 && c.curva && c.curva.mddPct != null ? mxPct(c.curva.mddPct) : "—",
+        units: en ? "Peak-to-trough decline as % of reference capital" : "Caída de pico a valle como % del capital de referencia",
+        title: en ? "How deep was the worst decline?" : "¿Qué tan profunda fue la peor caída?",
+        meaning: !n ? empty : !(c.capital > 0) ?
+          (en ? "Enter reference capital in Parameters to express drawdown as a percentage."
+              : "Indica el capital de referencia en Parámetros para expresar el drawdown en porcentaje.")
+          : (en ? "This is the largest decline from an earlier equity peak in the selected trade sequence, not the maximum loss of one trade."
+                : "Es la mayor caída desde un pico anterior de equity en la secuencia filtrada, no la pérdida máxima de un solo trade."),
+        caution: (en ? "An observed drawdown is not a future maximum. Prop-firm trailing rules can use a different reference."
+                      : "Un drawdown histórico no es el máximo futuro. Las reglas trailing de una prop firm pueden usar otra referencia.")
+          + " " + lowSample,
+        formula: (en ? "From the equity curve ordered trade by trade. Reference capital: "
+                      : "Desde la curva de equity ordenada operación por operación. Capital de referencia: ")
+          + (c.capital > 0 ? money(c.capital) : "—")
+          + (en ? ". Max decline in dollars: " : ". Caída máxima en dólares: ")
+          + (c.curva ? money(c.curva.mdd) : "—")
+          + (en ? ". No reference capital means no percentage." : ". Sin capital de referencia no hay porcentaje."),
+        sign: ""
+      }
+    };
+    const topic = def[mxLearnTopic] || def.expectancy;
+    $("mxLearnMetric").textContent = topic.label;
+    const val = $("mxLearnValue"); val.textContent = topic.value;
+    if (topic.sign) val.dataset.sign = topic.sign; else delete val.dataset.sign;
+    $("mxLearnUnits").textContent = topic.units;
+    $("mxLearnTitle").textContent = topic.title;
+    $("mxLearnMeaning").textContent = topic.meaning;
+    $("mxLearnCaution").textContent = topic.caution;
+    $("mxLearnFormula").textContent = topic.formula;
+    panel.querySelectorAll("[data-learn-topic]").forEach(button => {
+      button.setAttribute("aria-pressed", String(button.dataset.learnTopic === mxLearnTopic));
+    });
+  }
+  $("mxLearnPanel").addEventListener("click", e => {
+    const button = e.target.closest("button[data-learn-topic]");
+    if (!button) return;
+    mxLearnTopic = button.dataset.learnTopic;
+    if (mxEstC) pintaGuiaNumeros(mxEstC.c);
+  });
+
   function renderEdge() {
     if (!$("mxEdge")) return;
     const P = mxP();
@@ -13779,6 +13931,7 @@
 
     const mxLista = mxOps();
     const c = mxCalc(mxLista, P);
+    pintaGuiaNumeros(c);
     const N = c.N;
     $("mxN").textContent = `N = ${N} ${N === 1 ? "operación" : "operaciones"} de futuros · netas de comisión`;
     $("mxAviso").innerHTML = N < 30
