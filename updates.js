@@ -24,17 +24,14 @@
           });
         } finally { clearTimeout(timeout); }
         if (!response.ok) throw new Error('El servidor respondió ' + response.status);
-        const remote = await response.text();
-        const current = document.documentElement.outerHTML;
-        // Never compare a live DOM to source HTML: user data and UI mutate the DOM.
-        // A fresh response only proves connectivity, not that a release changed.
+        await response.text();
+        // A successful request proves server availability, not a newer release.
         const registration = 'serviceWorker' in navigator
           ? await navigator.serviceWorker.getRegistration() : null;
         if (registration) await registration.update();
         available = true;
         apply.hidden = false;
         say('Servidor disponible. Puedes recargar la última versión publicada. Los cambios sin guardar deben completarse antes.');
-        void remote; void current;
       } catch (error) {
         say(error.name === 'AbortError' ? 'La comprobación tardó demasiado. Intenta de nuevo.' : error.message);
       } finally { check.disabled = false; }
