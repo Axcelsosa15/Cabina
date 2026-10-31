@@ -1247,7 +1247,7 @@
     "Flashcard: pregunta": "Flashcard: question",
     "Flashcard: respuesta": "Flashcard: answer",
     "Flashcards": "Flashcards",
-    "Formas de hacer dinero": "Ways to make money",
+    "Oportunidades": "Opportunities",
     "Fuente": "Source",
     "Fuentes": "Sources",
     "Futuros": "Futures",
@@ -1301,7 +1301,7 @@
     "Ocultar historial": "Hide history",
     "Listo": "Done",
     "Mis P&L escritos a mano ya son netos": "My hand-written P&L is already net",
-    "Métricas / Edge": "Metrics / Edge",
+    "Rendimiento": "Performance",
     "Niveles del día": "Levels for the day",
     "Nota del día": "Note for the day",
     "Nota · qué hice bien, qué rompí, qué cambia mañana": "Note · what I did well, what I broke, what changes tomorrow",
@@ -1318,6 +1318,9 @@
     "Pendiente": "Pending",
     "Plan / tesis original": "Plan / original thesis",
     "Playbook": "Playbook",
+    "Estrategias": "Strategies",
+    "Recursos": "Resources",
+    "Operativa": "Trading",
     "Por día de la semana": "By day of week",
     "Por estudiar": "To study",
     "Por hora de entrada": "By entry hour",
@@ -6817,7 +6820,7 @@
     { id: "forex", name: "Forex", short: "FX", desc: "Pares de divisas. El mercado más grande del mundo; los futuros de divisas (6E, M6E) son la vía regulada en EEUU.", vehicles: "Broker forex regulado por CFTC/NFA (OANDA, Forex.com) o futuros de divisas en CME.", capital: "Desde $100. Apalancamiento máximo en EEUU: 50:1 en pares mayores.", hours: "24/5. Sesiones Asia → Londres → NY; solapamiento Londres/NY (8:00 AM–12:00 PM ET) es el más líquido.", risk: "Spreads y swaps se comen cuentas pequeñas. Movimientos de bancos centrales.", notes: "" },
     { id: "bonos", name: "Bonos y renta fija", short: "BON", desc: "Préstamos al gobierno o empresas a cambio de interés. Tesoro de EEUU = el activo 'sin riesgo' de referencia.", vehicles: "TreasuryDirect (T-bills directos, sin comisión), ETFs (SGOV, BIL, TLT), CDs bancarios, fondos monetarios.", capital: "T-bills desde $100. Fondos monetarios desde $1.", hours: "Bonos: 8:00 AM–5:00 PM ET. ETFs: horario bursátil.", risk: "Bajo en corto plazo; en largo plazo el precio cae si suben las tasas (TLT puede caer 30%+).", notes: "Aquí va el colchón de emergencia y el capital que espera oportunidades. Rinde mientras espera." },
     { id: "commodities", name: "Materias primas", short: "COM", desc: "Oro, plata, petróleo, gas, granos. Se operan casi siempre vía futuros o ETFs.", vehicles: "Futuros (GC, MGC, CL, MCL), ETFs (GLD, SLV, USO), acciones mineras.", capital: "ETFs desde $1. Futuros micro desde margen intradía, pero con colchón real.", hours: "Casi 23h en futuros. ETFs en horario bursátil.", risk: "Petróleo y gas son extremadamente volátiles. Contango en ETFs de futuros (USO) erosiona el valor.", notes: "" },
-    { id: "inmuebles", name: "Bienes raíces", short: "RE", desc: "Propiedad física o vehículos que la representan. Renta + plusvalía + apalancamiento bancario.", vehicles: "REITs (O, VNQ), crowdfunding (Fundrise), propiedad directa. En RD: alquiler residencial, Airbnb en zonas turísticas, terrenos.", capital: "REITs desde $1. Propiedad directa: desde el inicial (5–20%) más cierre. En RD el ticket es menor pero la financiación es cara.", hours: "REITs en horario bursátil. Propiedad directa: ilíquida, semanas o meses para vender.", risk: "Iliquidez, vacancia, mantenimiento, tasas. En RD: titulación, seguridad jurídica, gestión a distancia.", notes: "Conecta con el plan de propiedad en RD. Cada idea concreta va en 'Formas de hacer dinero'." },
+    { id: "inmuebles", name: "Bienes raíces", short: "RE", desc: "Propiedad física o vehículos que la representan. Renta + plusvalía + apalancamiento bancario.", vehicles: "REITs (O, VNQ), crowdfunding (Fundrise), propiedad directa. En RD: alquiler residencial, Airbnb en zonas turísticas, terrenos.", capital: "REITs desde $1. Propiedad directa: desde el inicial (5–20%) más cierre. En RD el ticket es menor pero la financiación es cara.", hours: "REITs en horario bursátil. Propiedad directa: ilíquida, semanas o meses para vender.", risk: "Iliquidez, vacancia, mantenimiento, tasas. En RD: titulación, seguridad jurídica, gestión a distancia.", notes: "Conecta con el plan de propiedad en RD. Cada idea concreta va en 'Oportunidades'." },
     { id: "prediccion", name: "Mercados de predicción y alternativos", short: "ALT", desc: "Contratos sobre eventos (elecciones, datos económicos, deportes). Precio = probabilidad implícita.", vehicles: "Kalshi (regulado CFTC), Polymarket (cripto), acciones pre-IPO, coleccionables, préstamos P2P.", capital: "Desde $1–$10.", hours: "24/7 en Polymarket; Kalshi según el contrato.", risk: "Liquidez fina, riesgo de resolución, regulación cambiante. Fácil confundir 'opinión' con 'edge'.", notes: "Ya construiste un dashboard de Polymarket: úsalo para buscar precios mal calibrados, no para apostar." },
   ];
   const IDEA_CATS = ["Trading intradía", "Swing / posición", "Inversión largo plazo", "Ingresos por primas", "Arbitraje", "Negocio alrededor del mercado", "Educación / contenido", "Bienes raíces", "Otro"];
@@ -9046,7 +9049,7 @@
       }
       out.push(`</div>`);
       if (!mt.fiable && capital > 0) out.push(`<div class="qnote warn">${esc(mt.razon)} Las dos primeras tarjetas sí se leen con pocos días: describen lo que ya pasó. Sortino extrapola a un año, y con esta muestra esa extrapolación es una invención.</div>`);
-      out.push(`<div class="qnote">Caída máxima y Sharpe están en <b>Métricas / Edge</b>, netos de comisiones y sobre el capital de la cuenta. Aquí no se repiten con otra base.</div>`);
+      out.push(`<div class="qnote">Caída máxima y Sharpe están en <b>Rendimiento</b>, netos de comisiones y sobre el capital de la cuenta. Aquí no se repiten con otra base.</div>`);
       out.push(`<div class="qnote">Mejor día <b>${qeM(mt.mejorDia)}</b> · peor día <b>${qeM(mt.peorDia)}</b> · media diaria <b>${qeM(mt.mediaDiaria)}</b> con una desviación de <b>${money(mt.desvDiaria)}</b>. Un día normal cae, dos de cada tres veces, entre ${qeM(roundMD(mt.mediaDiaria - mt.desvDiaria))} y ${qeM(roundMD(mt.mediaDiaria + mt.desvDiaria))}.</div>`);
     }
 
@@ -14600,16 +14603,16 @@
       { g: "Acciones", i: "＋", t: "Añadir cuenta", s: "", f: () => { showTab("cabina"); openAccountEditor(null); } },
       { g: "Acciones", i: "⤓", t: "Descargar copia de seguridad", s: "", f: () => { showTab("cabina"); const b = $("bkExport"); if (b) b.click(); } },
 
-      { g: "Ir a", i: "▣", t: "Cabina", s: "C", f: ir("cabina") },
+      { g: "Ir a", i: "▣", t: "Resumen", s: "C", f: ir("cabina") },
       { g: "Ir a", i: "▤", t: "Futuros · resumen", s: "F", f: ir("futuros", "resumen") },
       { g: "Ir a", i: "▤", t: "Futuros · cuentas", s: "", f: ir("futuros", "cuentas") },
       { g: "Ir a", i: "▤", t: "Futuros · análisis", s: "", f: ir("futuros", "analisis") },
       { g: "Ir a", i: "▤", t: "Futuros · diario", s: "J", f: ir("futuros", "diario") },
       { g: "Ir a", i: "▤", t: "Futuros · pre-sesión", s: "P", f: ir("futuros", "presesion") },
-      { g: "Ir a", i: "▥", t: "Métricas / Edge", s: "", f: ir("edge") },
+      { g: "Ir a", i: "▥", t: "Rendimiento", s: "", f: ir("edge") },
       { g: "Ir a", i: "◫", t: "Inversiones", s: "", f: ir("invest") },
-      { g: "Ir a", i: "◱", t: "Playbook", s: "", f: ir("playbook") },
-      { g: "Ir a", i: "◰", t: "Formas de hacer dinero", s: "", f: ir("ideas") },
+      { g: "Ir a", i: "◱", t: "Estrategias", s: "", f: ir("playbook") },
+      { g: "Ir a", i: "◰", t: "Oportunidades", s: "", f: ir("ideas") },
       { g: "Ir a", i: "▦", t: "Calculadora de riesgo", s: "R", f: ir("calc") },
     ];
     /* Las cuentas se listan solas: son el filtro que más se cambia, y con tres
