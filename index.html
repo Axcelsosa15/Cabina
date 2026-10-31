@@ -3975,6 +3975,30 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
 <div class="tab" data-tab="ajustes">
 <section class="deck" aria-label="Resumen de Ajustes"><h1 class="deck-t">Ajustes</h1></section>
 
+<section class="panel" id="panelActualizacion">
+  <header><h2>Versión y actualizaciones</h2><span class="meta" id="updMeta">sin comprobar</span></header>
+  <div class="body">
+    <p class="help">Cabina se sirve de la red primero, así que al abrirla ya traes el código publicado. Este panel existe para los casos en que eso no basta: cuando la abriste sin conexión, cuando la tienes instalada y lleva días abierta, o cuando quieres comprobarlo antes de operar.</p>
+    <div class="bkgrid">
+      <div class="bkcard">
+        <span class="lab">Esta copia</span>
+        <p class="help" id="updHuella">Huella del código cargado: <b>—</b></p>
+        <p class="help" id="updSW">Trabajador de servicio: <b>—</b></p>
+        <p class="help" id="updAlmacen">Espacio usado por la app: <b>—</b></p>
+      </div>
+      <div class="bkcard">
+        <span class="lab">Buscar una versión nueva</span>
+        <p class="help">Compara, archivo por archivo, lo que tienes cargado contra lo que el servidor publica ahora mismo. No toca tus datos: ni operaciones, ni cuentas, ni capturas.</p>
+        <div class="bkbtns">
+          <button type="button" class="btn primary" id="updCheck">Buscar actualizaciones</button>
+          <button type="button" class="btn" id="updApply" hidden>Actualizar y recargar</button>
+        </div>
+      </div>
+    </div>
+    <p class="synced" id="updNote" role="status" aria-live="polite"></p>
+  </div>
+</section>
+
 <section class="panel" id="panelAppearance">
   <header><h2>Apariencia</h2><span class="meta">Tema aplicado desde el inicio</span></header>
   <div class="body">
@@ -4113,10 +4137,12 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
       <div class="bkcard">
         <span class="lab">Vista: módulos y densidad</span>
         <p class="help">Se configura <b>por pestaña</b>, con el botón «Vista» de la barra superior: elige qué módulos aparecen en la pestaña que estás mirando. Desde aquí sólo configuraría los de Ajustes.</p>
+        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-accion="vista">Abrir Vista</button></div>
       </div>
       <div class="bkcard">
         <span class="lab">Modo edición</span>
         <p class="help">El botón «Editar» de la barra superior, y sólo aparece en la Cabina: es lo único que se puede reordenar a mano.</p>
+        <div class="bkbtns"><button type="button" class="btn ghost sm" data-ajuste-accion="editar">Abrir modo edición</button></div>
       </div>
     </div>
   </div>
