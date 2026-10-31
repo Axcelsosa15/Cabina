@@ -3541,6 +3541,16 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 .cab-why > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .cab-why > p { margin: 8px 0 4px; max-width: 75ch; font: 450 13px/1.55 var(--font-ui); color: var(--muted); }
 
+
+/* La cabecera de cuentas usa un selector por ID en la capa antigua. */
+#panelAccts > header > h2 { font: 700 15px/1.35 var(--font-ui); letter-spacing: .015em; text-transform: none; }
+/* Interfaz centrada en cifras. La lectura didáctica es opt-in, no contenido obligatorio. */
+body:not([data-help="on"]) .cab-why,
+body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
+.cab-help-pref { display: inline-flex; align-items: center; gap: 7px; font: 600 13px/1.35 var(--font-ui); color: var(--text); cursor: pointer; }
+.cab-help-pref input { width: 16px; height: 16px; accent-color: var(--accent); }
+#mxLearnToggle { margin-left: auto; }
+
 /* Una lectura guiada, vinculada directamente al mismo resultado de mxCalc.
    Color sólo indica beneficio/pérdida medidos, nunca juicio sin muestra. */
 #mxLearnPanel { min-width: 0; }
@@ -3674,9 +3684,10 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
       <strong style="font-size:12px">Densidad</strong>
       <label><input type="radio" name="viewDensity" value="compact"> Compacta</label>
       <label><input type="radio" name="viewDensity" value="comfortable"> Cómoda</label>
+      <label class="cab-help-pref"><input type="checkbox" id="viewPrefsHelp"> Ayuda contextual</label>
       <button type="button" class="editbtn" id="viewPrefsReset">Restaurar esta pestaña</button>
     </div>
-    <p class="view-prefs-note" id="viewPrefsNote">Elige qué módulos aparecen en la pestaña actual. Tus preferencias se guardan en este navegador y no alteran los datos de trading.</p>
+    <p class="view-prefs-note" id="viewPrefsNote">Preferencias sólo de este navegador.</p>
     <div class="view-prefs-list" id="viewPrefsList"></div>
     <footer class="view-prefs-foot"><button type="button" class="editbtn" id="viewPrefsDone">Listo</button></footer>
   </section>
@@ -3865,7 +3876,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
   </header>
   <div class="body" style="padding:12px">
     <div class="cal" id="calCab"></div>
-    <p class="csub" style="margin:12px 0 0">Resultado de cada sesión. Toca un día para abrirlo en el diario de futuros.</p>
+    
   </div>
 </section>
 
@@ -4141,7 +4152,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
         </section>
         <section class="panel">
           <header><h2>El protocolo, ¿paga?</h2><span class="meta" id="prMeta"></span></header>
-          <div class="body"><p class="csub">Operaciones con las cuatro condiciones marcadas frente al resto.</p><div class="chartwrap" id="prWrap"></div><div id="prOut"></div></div>
+          <div class="body"><div class="chartwrap" id="prWrap"></div><div id="prOut"></div></div>
         </section>
       </div>
       <section class="panel">
@@ -4365,7 +4376,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
       </div>
     </section>
     <section class="panel">
-      <header><h2>Edge</h2><span class="meta" id="mxEdgeMeta"></span></header>
+      <header><h2>Edge</h2><span class="meta" id="mxEdgeMeta"></span><button type="button" class="btn ghost sm" id="mxLearnToggle" aria-controls="mxLearnPanel" aria-expanded="false">Aprender</button></header>
       <div class="body"><div class="qeg" id="mxEdge"></div><div id="mxEdgeNotas"></div></div>
     </section>
     <section class="panel" id="mxEstPanel">
@@ -4490,11 +4501,11 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
   <div class="grid eq" style="margin-bottom:24px">
     <section class="panel">
       <header><h2>Aportes por mes</h2><span class="meta" id="ivFlowMeta"></span></header>
-      <div class="body"><p class="csub">Compras y aportes registrados. La constancia importa más que el importe.</p><div class="chartwrap" id="ivFlowWrap"></div></div>
+      <div class="body"><div class="chartwrap" id="ivFlowWrap"></div></div>
     </section>
     <section class="panel">
       <header><h2>Ingresos cobrados</h2><span class="meta" id="ivIncMeta"></span></header>
-      <div class="body"><p class="csub">Dividendos, cupones, primas de opciones y alquileres registrados como cobro.</p><div class="chartwrap" id="ivIncWrap"></div></div>
+      <div class="body"><div class="chartwrap" id="ivIncWrap"></div></div>
     </section>
   </div>
   <section class="panel" style="margin-bottom:24px">
@@ -4545,7 +4556,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
     <button type="button" class="btn ghost sm" id="hsExport" title="Descarga TODO lo que el filtro selecciona, no s&oacute;lo las filas visibles">Exportar CSV</button>
     <button type="button" class="btn ghost sm" id="hsLimpiar">Ver todo</button>
   </div>
-  <p class="note-p">Cada fila es una operación que registraste, de futuros o de inversión. Sale del mismo sitio que el journal y que las métricas, no de una copia: el filtro es el de la puerta única. Pulsa una fila para abrirla.</p>
+  
   <div class="stack">
     <section class="panel">
       <header><h2>Todas las operaciones</h2><span class="meta" id="hsMeta"></span></header>
