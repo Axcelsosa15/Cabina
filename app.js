@@ -1161,6 +1161,12 @@
     "1R en la simulación vale": "1R in the simulation is worth",
     "Ahora no": "Not now",
     "Ajustes": "Settings",
+    "Analizar": "Analyze",
+    "Herramientas": "Tools",
+    "Mejorar": "Improve",
+    "Operar": "Trade",
+    "Portafolio": "Portfolio",
+    "Sistema": "System",
     "Antes de operar": "Before trading",
     "Dónde está lo demás": "Where everything else lives",
     "Idioma y datos de muestra": "Language and sample data",
@@ -2703,9 +2709,16 @@
       let ctl;
       if (f.type === "select") ctl = `<select id="ef_${f.key}">${f.options.map(o => `<option value="${esc(o[0])}" ${String(v ?? "") === String(o[0]) ? "selected" : ""}>${esc(o[1])}</option>`).join("")}</select>`;
       else if (f.type === "textarea") ctl = `<textarea id="ef_${f.key}" placeholder="${esc(f.ph || "")}" style="min-height:${f.rows ? f.rows * 22 : 60}px">${esc(v ?? "")}</textarea>`;
-      else ctl = `<input type="${f.type || "text"}" id="ef_${f.key}" value="${esc(v ?? "")}" placeholder="${esc(f.ph || "")}" ${f.step ? `step="${f.step}"` : ""} ${f.type === "number" ? 'inputmode="decimal"' : ""}>`;
+      /* El teclado lo decide el PASO del campo, no su nombre. «Contratos» va
+         con step 1 y pide un teclado de enteros; «Cantidad» de una inversión va
+         con step 0.0001 y necesita el punto decimal — y las dos se llaman `qty`.
+         Una lista de nombres se equivocaría justo ahí: le quitaría la coma a las
+         fracciones de una acción o de un cripto. Un campo puede imponer el suyo
+         con `inputmode` si algún día hace falta. */
+      else ctl = `<input type="${f.type || "text"}" id="ef_${f.key}" value="${esc(v ?? "")}" placeholder="${esc(f.ph || "")}" ${f.step ? `step="${f.step}"` : ""} ${f.type === "number" ? `inputmode="${f.inputmode || (Number(f.step) === 1 ? "numeric" : "decimal")}"` : ""}>`;
       return `<div class="fld${w}"><label class="lab" for="ef_${f.key}">${esc(f.label)}</label>${ctl}${f.help ? `<div class="help">${esc(f.help)}</div>` : ""}</div>`;
     }).join("");
+    clearEditorValidation();
     $("edDelete").hidden = !cfg.onDelete;
     const za = $("edAvisos"); if (za) { za.hidden = true; za.innerHTML = ""; }
     if (cfg.after) { try { cfg.after($("edFields"), cfg.values); } catch (e) { } }
@@ -2815,8 +2828,8 @@
      re-suscribirse en cada openEditor iba acumulando un listener por apertura. */
   (function () {
     const fe = $("edFields"); if (!fe) return;
-    fe.addEventListener("input", () => { try { edRevisarPrecios(); } catch (e) { } try { edPintaRiesgo(); } catch (e) { } });
-    fe.addEventListener("change", () => { try { edRevisarPrecios(); } catch (e) { } try { edPintaRiesgo(); } catch (e) { } });
+    fe.addEventListener("input", e => { clearEditorValidationAfterEdit(e.target); try { edRevisarPrecios(); } catch (e) { } try { edPintaRiesgo(); } catch (e) { } });
+    fe.addEventListener("change", e => { clearEditorValidationAfterEdit(e.target); try { edRevisarPrecios(); } catch (e) { } try { edPintaRiesgo(); } catch (e) { } });
     /* Delegado en el contenedor, no en cada botón: el contenido se repinta y un
        listener por nodo se pierde con él. */
     const za = $("edAvisos");
@@ -2853,7 +2866,47 @@
   document.addEventListener("keydown", e => { if (e.key === "Escape" && ov.classList.contains("open")) closeEditor(); });
   $("edSave").addEventListener("click", () => { if (!edCfg) return; const v = readEditor(); if (edCfg.validate) { const err = edCfg.validate(v); if (err) { flashEd(err); return; } } edCfg.onSave(v); closeEditor(); });
   $("edDelete").addEventListener("click", function () { if (!edCfg || !edCfg.onDelete) return; if (!armed(this)) return; edCfg.onDelete(); closeEditor(); });
-  function flashEd(msg) { const el = $("edTitle"); const old = el.textContent; el.textContent = msg; el.style.color = "var(--bad)"; setTimeout(() => { el.textContent = old; el.style.color = ""; }, 2200); }
+  /* The editor title is a stable dialog label. Validation belongs in a persistent
+     summary and, when the validator knows the field, beside its control. */
+  function clearEditorValidation() {
+    const summary = $("edValidation");
+    if (summary) { summary.hidden = true; summary.textContent = ""; }
+    $("edFields").querySelectorAll("[data-editor-invalid]").forEach(field => {
+      const errorId = field.id + "_error";
+      field.removeAttribute("data-editor-invalid");
+      field.removeAttribute("aria-invalid");
+      const described = (field.getAttribute("aria-describedby") || "").split(/\s+/).filter(x => x && x !== errorId);
+      if (described.length) field.setAttribute("aria-describedby", described.join(" "));
+      else field.removeAttribute("aria-describedby");
+    });
+    $("edFields").querySelectorAll(".ed-field-error").forEach(el => el.remove());
+  }
+  function clearEditorValidationAfterEdit(target) {
+    const invalid = $("edFields").querySelector("[data-editor-invalid]");
+    if (!invalid || invalid === target) clearEditorValidation();
+  }
+  function flashEd(error) {
+    const message = typeof error === "string" ? error : String(error && error.message || "Revisa los campos del formulario.");
+    const fieldKey = error && typeof error === "object" ? error.field : null;
+    clearEditorValidation();
+    const summary = $("edValidation");
+    if (!summary) return;
+    summary.textContent = message;
+    summary.hidden = false;
+    const field = fieldKey && $("ef_" + fieldKey);
+    if (field) {
+      const hint = document.createElement("div");
+      hint.className = "ed-field-error";
+      hint.id = field.id + "_error";
+      hint.textContent = message;
+      field.closest(".fld")?.appendChild(hint);
+      field.dataset.editorInvalid = "true";
+      field.setAttribute("aria-invalid", "true");
+      const prev = field.getAttribute("aria-describedby");
+      field.setAttribute("aria-describedby", [prev, hint.id].filter(Boolean).join(" "));
+      field.focus();
+    } else summary.focus();
+  }
   function armed(btn) { if (btn.dataset.armed === "1") return true; btn.dataset.armed = "1"; const old = btn.textContent; btn.textContent = "¿borrar?"; setTimeout(() => { btn.dataset.armed = ""; btn.textContent = old; }, 3000); return false; }
   function move(arr, i, dir) { const j = i + dir; if (j < 0 || j >= arr.length) return false; [arr[i], arr[j]] = [arr[j], arr[i]]; return true; }
 
@@ -7643,9 +7696,9 @@
          alquiler— no tiene cantidad: su importe va en «Resultado $». La primera
          versión de esta guarda lo bloqueaba con «la cantidad tiene que ser más de
          cero», que para un dividendo no quiere decir nada. */
-      validate: v => { if (!v.date) return "Falta la fecha"; if (type === "futuros" && !v.instrument) return "Falta el instrumento"; if (type !== "futuros" && !v.asset) return "Falta el activo";
+      validate: v => { if (!v.date) return { message: "Falta la fecha", field: "date" }; if (type === "futuros" && !v.instrument) return { message: "Falta el instrumento", field: "instrument" }; if (type !== "futuros" && !v.asset) return { message: "Falta el activo", field: "asset" };
         const mueveUnidades = type === "futuros" || ["compra", "venta", "aporte"].includes(String(v.op || "compra"));
-        if (mueveUnidades && v.qty != null && v.qty !== "" && !(Number(v.qty) > 0)) return type === "futuros" ? "Los contratos tienen que ser más de cero" : "La cantidad tiene que ser más de cero";
+        if (mueveUnidades && v.qty != null && v.qty !== "" && !(Number(v.qty) > 0)) return { message: type === "futuros" ? "Los contratos tienen que ser más de cero" : "La cantidad tiene que ser más de cero", field: "qty" };
         return null; },
       onSave: v => {
         const rec = Object.assign({}, values, v, { type, id: isNew ? uid("t") : t.id });
@@ -16725,7 +16778,7 @@
     const overlay = document.getElementById("mobileMoreOv");
     const close = document.getElementById("mobileMoreClose");
     if (!nav || !trigger || !overlay || !close) return;
-    const secondary = new Set(["cuentas", "edge", "playbook", "ideas", "calc"]);
+    const secondary = new Set(["cuentas", "edge", "historial", "playbook", "ideas", "calc", "ajustes"]);
     let previousOverflow = "";
     const sheet = overlay.querySelector(".mobile-more-sheet");
     const menuItems = [...overlay.querySelectorAll("[data-mobile-more-tab]")];
@@ -16805,6 +16858,57 @@
       }
     });
     syncMoreActive();
+  })();
+
+
+  /* Cabina 2.0: a second level of navigation, without a second router.
+     Original .tabbtn nodes stay the ONLY source of tab changes. Every
+     keyboard, hash, search and mobile navigation keeps the same showTab(). */
+  (function groupedNavigation() {
+    const bar = document.getElementById("navGroupBar");
+    const nav = document.getElementById("tabnav");
+    if (!bar || !nav) return;
+    const groups = [...bar.querySelectorAll("button[data-group]")];
+    const lastTab = new Map();
+    function syncFromActive() {
+      const active = nav.querySelector(".tabbtn.active");
+      if (!active) return;
+      const group = active.dataset.navGroup;
+      if (!group) return;
+      lastTab.set(group, active.dataset.tab);
+      nav.dataset.activeGroup = group;
+      groups.forEach(button => {
+        const selected = nav.dataset.filterEnabled !== "true" ? button.dataset.group === "todas" : button.dataset.group === group;
+        button.setAttribute("aria-pressed", String(selected));
+        if (selected) button.setAttribute("aria-current", "true");
+        else button.removeAttribute("aria-current");
+      });
+    }
+    bar.addEventListener("click", event => {
+      const button = event.target.closest("button[data-group]");
+      if (!button || !bar.contains(button)) return;
+      if (button.dataset.group === "todas") {
+        nav.dataset.filterEnabled = "false";
+        syncFromActive();
+        return;
+      }
+      nav.dataset.filterEnabled = "true";
+      const tab = lastTab.get(button.dataset.group) || button.dataset.firstTab;
+      const target = [...nav.querySelectorAll(".tabbtn[data-tab]")]
+        .find(candidate => candidate.dataset.tab === tab && candidate.dataset.navGroup === button.dataset.group);
+      if (!target) return;
+      target.click(); // Existing showTab() owns the hash, data and rendering.
+      syncFromActive();
+    });
+    const observer = new MutationObserver(mutations => {
+      if (mutations.some(mutation => mutation.type === "attributes" &&
+        mutation.attributeName === "class" && mutation.target.classList.contains("tabbtn"))) {
+        syncFromActive();
+      }
+    });
+    observer.observe(nav, { subtree: true, attributes: true, attributeFilter: ["class"] });
+    window.addEventListener("hashchange", () => requestAnimationFrame(syncFromActive));
+    syncFromActive();
   })();
 
   /* ── SIN CONEXION · se registra el trabajador de servicio ─────────────────
