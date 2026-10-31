@@ -26,7 +26,13 @@ try {
     page.on('pageerror',err=>pageErrors.push(err.message));
     await page.goto('http://127.0.0.1:' + server.address().port + '/', {waitUntil:'load'});
     await page.waitForFunction(()=>typeof window.FUT !== 'undefined',null,{timeout:20000});
-    await page.locator('#tabnav .tabbtn[data-tab="edge"]').click();
+    const gotoEdge = async () => {
+      if (scenario.width < 701) {
+        await page.locator('#mobileMoreBtn').click();
+        await page.locator('#mobileMoreOv [data-mobile-more-tab="edge"]').click();
+      } else await page.locator('#tabnav .tabbtn[data-tab="edge"]').click();
+    };
+    await gotoEdge();
     await page.waitForFunction(()=>document.getElementById('mxLearnPanel') &&
       document.getElementById('mxLearnSample').textContent.length > 0);
     const prefix = scenario.theme + '/' + scenario.lang + '/' + scenario.width;
@@ -60,7 +66,7 @@ try {
     });
     await page.waitForFunction(()=>FUT.trades().length === 2);
     await page.locator('#tabnav .tabbtn[data-tab="cabina"]').click();
-    await page.locator('#tabnav .tabbtn[data-tab="edge"]').click();
+    await gotoEdge();
     await page.waitForFunction(()=>/2\/30/.test(document.getElementById('mxLearnSample').textContent));
     const expectation = await page.evaluate(() => ({
       guide: document.getElementById('mxLearnValue').textContent,
