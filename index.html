@@ -271,6 +271,20 @@ tbody tr:last-child td{border-bottom:0}
     --line:        #1E2531;
     --line-strong: #2C3442;
 
+    /* Contrato cromático común para controles. Oscuro de base, claro por tokens
+       en :root:not([data-cabina-theme="dark"]); los estados no son temas extra. */
+    --control-bg: #111a24;
+    --control-focus-bg: #172432;
+    --control-border: #596b80;
+    --control-hover: #8495a9;
+    --control-text: var(--text);
+    --control-readonly: #263240;
+    --control-disabled: #1c2632;
+    --control-placeholder: #acb9c9;
+    --control-error: var(--negative);
+    --control-radius: 8px;
+    --control-scheme: dark;
+
     /* ── TEXTO · tres niveles para toda la app ─────────────────────────
        primario = el dato · secundario = la etiqueta · terciario = el matiz
 
@@ -2254,16 +2268,91 @@ html{scroll-padding-top:24px}
 .btn.primary:hover{filter:brightness(1.06);box-shadow:0 5px 20px rgba(79,179,160,.2)}
 .btn.ghost{background:transparent;box-shadow:none}
 .btn.danger{background:rgba(224,96,79,.06);border-color:rgba(224,96,79,.32)}
-:where(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea){
-  border-color:#2d3b47!important;background-color:#0c1219!important;color:#e8eef4;
-  border-radius:8px;box-shadow:inset 0 1px 2px rgba(0,0,0,.12);
-  transition:border-color .16s ease,box-shadow .16s ease,background-color .16s ease;
+/* Una fuente de color para TODOS los campos de datos, incluidos los creados
+   por openEditor(). El buscador global y el de Estudio dibujan el borde en su
+   contenedor y mantienen el input interior transparente. No estilizar controles
+   nativos de archivo/rango/color como si fuesen entradas de texto. */
+:where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=hidden]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not(#cmdQ):not(#studySearch),select,textarea){
+  background-color:var(--control-bg)!important;
+  color:var(--control-text)!important;
+  border:1px solid var(--control-border)!important;
+  border-radius:var(--control-radius)!important;
+  box-shadow:none!important;
+  color-scheme:var(--control-scheme);
+  transition:border-color var(--mo-fast) ease,box-shadow var(--mo-fast) ease;
 }
-:where(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea):focus{
-  border-color:#5abcae!important;box-shadow:var(--ui-focus)!important;background-color:#0e171e!important;
+:where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=hidden]):not([type=file]):not(#cmdQ):not(#studySearch),select,textarea):hover:not(:disabled):not([aria-invalid="true"]){
+  border-color:var(--control-hover)!important;
 }
-:where(input,textarea)::placeholder{color:#738393}
-:where(select,option){color-scheme:dark}
+:where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=hidden]):not([type=file]):not(#cmdQ):not(#studySearch),select,textarea):focus:not(:disabled){
+  background-color:var(--control-focus-bg)!important;
+  border-color:var(--accent)!important;
+  box-shadow:var(--ui-focus)!important;
+  outline:2px solid var(--accent)!important;
+  outline-offset:2px!important;
+}
+:where(input,textarea)::placeholder{color:var(--control-placeholder)!important;opacity:1}
+:is(input,textarea):read-only:not(:disabled):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=hidden]):not([type=file]){
+  background-color:var(--control-readonly)!important;
+  color:var(--muted)!important;
+  cursor:default;
+}
+:is(input,select,textarea):disabled{
+  background-color:var(--control-disabled)!important;
+  color:var(--muted)!important;
+  opacity:1!important;
+  cursor:not-allowed;
+}
+:is(input,select,textarea)[aria-invalid="true"]{
+  border-color:var(--control-error)!important;
+  box-shadow:0 0 0 2px var(--bad-soft)!important;
+}
+:is(input,select,textarea)[aria-invalid="true"]:focus{
+  border-color:var(--control-error)!important;
+  outline-color:var(--control-error)!important;
+}
+:where(select,option,optgroup){
+  color-scheme:var(--control-scheme)!important;
+  background-color:var(--control-bg);
+  color:var(--control-text);
+}
+:is(#cmdQ,#studySearch){
+  background:transparent!important;
+  border-color:transparent!important;
+  box-shadow:none!important;
+  color:var(--control-text)!important;
+}
+:where(input[type="color"],input[type="range"],input[type="file"]){
+  color-scheme:var(--control-scheme);
+  accent-color:var(--accent);
+}
+/* Las casillas/radios no son cajas de texto, pero deben seguir el mismo
+   color principal tanto en oscuro como en claro. */
+:where(input[type="checkbox"],input[type="radio"]){
+  accent-color:var(--accent)!important;
+}
+/* WebKit restaura colores del autocompletado fuera de la hoja de estilos normal.
+   Mantener la superficie y tinta del tema sin anular el texto introducido. */
+:where(input:-webkit-autofill,textarea:-webkit-autofill,select:-webkit-autofill){
+  -webkit-text-fill-color:var(--control-text)!important;
+  -webkit-box-shadow:0 0 0 1000px var(--control-bg) inset!important;
+  caret-color:var(--control-text);
+}
+:where(input:-webkit-autofill:focus,textarea:-webkit-autofill:focus,select:-webkit-autofill:focus){
+  -webkit-box-shadow:0 0 0 1000px var(--control-focus-bg) inset!important;
+}
+/* Los campos móviles del tema oscuro también necesitan 16px para evitar
+   zoom involuntario de Safari y un objetivo táctil de al menos 44px.
+   No alterar el input integrado de los buscadores ni el texto grande de
+   Registro Rápido, que tiene su propia escala intencional. */
+@media (max-width:700px){
+  :where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=hidden]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not(#cmdQ):not(#studySearch):not(#qkText),select,textarea){
+    font-size:16px!important;
+  }
+  :where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=hidden]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not(#cmdQ):not(#studySearch),select){
+    min-height:44px!important;
+  }
+}
 .chip,.badge,.tag{border-color:#2d3c47}
 .empty{border-color:#344550;background:linear-gradient(145deg,rgba(19,29,38,.7),rgba(13,19,26,.55));border-radius:11px}
 :where(table,.table){border-color:#293641}
@@ -2901,11 +2990,17 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   --ui-panel-raised: #f8fafc !important;
   --ui-focus: 0 0 0 3px rgba(29,78,216,.16) !important;
   --control-bg: #ffffff;
+  --control-focus-bg: #ffffff;
+  /* Borde de campo AA (3.16:1 sobre blanco), separado del borde decorativo. */
+  --control-border: #8492a6;
+  --control-hover: #64748b;
+  --control-text: #172334;
   --control-readonly: #f1f5f9;
   --control-disabled: #eef2f6;
   --control-placeholder: #5b6779;
   --control-error: #b42318;
   --control-radius: 8px;
+  --control-scheme: light;
 }
 @scope (html:not([data-cabina-theme="dark"])) {
 
@@ -3037,11 +3132,11 @@ body { color-scheme: light !important; }
   border-color: var(--line) !important;
 }
 /* A · Entradas de datos. El mismo contrato visual para editores, filtros y diálogos. */
-:where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]), select, textarea),
-.study-field input, .study-field select, .study-field textarea, .study-filter {
-  color: var(--text) !important;
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="range"]):not([type="color"]):not(#cmdQ):not(#studySearch), select, textarea),
+.study-field :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea), .study-filter {
+  color: var(--control-text) !important;
   background: var(--control-bg) !important;
-  border: 1px solid var(--line-strong) !important;
+  border: 1px solid var(--control-border) !important;
   border-radius: var(--control-radius) !important;
   box-shadow: none !important;
   min-height: 40px;
@@ -3063,14 +3158,14 @@ body { color-scheme: light !important; }
   color: var(--control-placeholder) !important;
   opacity: 1 !important;
 }
-:where(input, select, textarea)[aria-invalid="true"] {
+:is(input, select, textarea)[aria-invalid="true"] {
   border-color: var(--control-error) !important;
   box-shadow: 0 0 0 2px var(--bad-soft) !important;
 }
-:where(input, select, textarea)[aria-invalid="true"]:focus-visible {
+:is(input, select, textarea)[aria-invalid="true"]:focus-visible {
   outline-color: var(--control-error) !important;
 }
-:where(input, textarea):read-only:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+:is(input, textarea):read-only:not(:disabled):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]):not([type="range"]) {
   background: var(--control-readonly) !important;
   color: var(--muted) !important;
   cursor: default;
@@ -3103,7 +3198,7 @@ body { color-scheme: light !important; }
 }
 input[type="checkbox"], input[type="radio"] { accent-color: var(--accent) !important; }
 @media (max-width: 700px) {
-  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),select,textarea) {
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="color"]):not([type="range"]),select,textarea) {
     min-height: 44px !important;
     font-size: 16px !important;
   }
