@@ -45,6 +45,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Tema local: cargado antes de CSS y de la primera pintura. -->
 <script src="./appearance.js"></script>
+<script src="./updates.js" defer></script>
 <!-- Las fuentes de Google NO van aqui: una hoja de estilos en la cabecera bloquea
      el script y el evento load hasta que Google responde. Las pide el script
      cuando la pagina ya ha cargado (cargaFuentes). Ver test/lanzamiento.mjs. -->
@@ -4016,6 +4017,16 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
       <p class="synced" id="cabAppearanceStatus" role="status" aria-live="polite">Preferencia guardada en este navegador.</p>
       <button type="button" class="btn ghost sm" id="cabAppearanceReset">Restablecer apariencia</button>
     </div>
+  </div>
+</section>
+
+<section class="panel" id="cabUpdatePanel">
+  <header><h2>Actualizaciones</h2><span class="meta">Aplicación</span></header>
+  <div class="body">
+    <p id="cabUpdateStatus" role="status" aria-live="polite">Comprueba si hay una versión nueva.</p>
+    <button type="button" class="btn" id="cabUpdateCheck">Buscar actualizaciones</button>
+    <button type="button" class="btn ghost" id="cabUpdateApply" hidden>Actualizar ahora</button>
+    <details><summary>Cómo funciona</summary><p>Consulta el servidor y el service worker. No borra operaciones, cuentas ni preferencias. Si hay cambios sin guardar, termina de guardarlos antes de recargar.</p></details>
   </div>
 </section>
 
