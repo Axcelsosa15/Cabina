@@ -16950,31 +16950,6 @@
   /* Cabina 2.0: a second level of navigation, without a second router.
      Original .tabbtn nodes stay the ONLY source of tab changes. Every
      keyboard, hash, search and mobile navigation keeps the same showTab(). */
-  (function sidebarVisibility() {
-    const button = document.getElementById("sidebarToggle");
-    if (!button) return;
-    const root = document.documentElement;
-    function sync() {
-      const collapsed = root.dataset.sidebarCollapsed === "true";
-      button.setAttribute("aria-expanded", String(!collapsed));
-      const label = collapsed ? "Abrir menú lateral" : "Cerrar menú lateral";
-      button.setAttribute("aria-label", label);
-      button.title = label;
-    }
-    button.addEventListener("click", () => {
-      const collapsed = root.dataset.sidebarCollapsed !== "true";
-      root.dataset.sidebarCollapsed = String(collapsed);
-      try { localStorage.setItem("cabina-sidebar-collapsed:v1", String(collapsed)); } catch (_) {}
-      sync();
-    });
-    window.addEventListener("storage", event => {
-      if (event.key !== "cabina-sidebar-collapsed:v1" && event.key !== null) return;
-      root.dataset.sidebarCollapsed = String(event.newValue === "true");
-      sync();
-    });
-    sync();
-  })();
-
   (function groupedNavigation() {
     const bar = document.getElementById("navGroupBar");
     const nav = document.getElementById("tabnav");
