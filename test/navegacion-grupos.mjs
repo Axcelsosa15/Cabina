@@ -26,8 +26,10 @@ try {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
     page.on('pageerror', error => jsErrors.push(error.message));
-    await page.addInitScript(mode =>
-      localStorage.setItem('cabina-appearance:v1', JSON.stringify({mode, accent:'default', custom:'#1d4ed8'})), theme);
+    await page.addInitScript(mode => {
+      localStorage.setItem('cabina-appearance:v1', JSON.stringify({mode, accent:'default', custom:'#1d4ed8'}));
+      localStorage.setItem('cabina:idioma:v1', mode === 'dark' ? 'en' : 'es');
+    }, theme);
     await page.goto(base, { waitUntil: 'load' });
     await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
     const initial = await page.evaluate(() => ({
@@ -35,12 +37,15 @@ try {
       active: document.querySelector('#tabnav .tabbtn.active')?.dataset.tab,
       groups: [...document.querySelectorAll('#navGroupBar button')].map(b => b.dataset.group),
       shown: getComputedStyle(document.getElementById('navGroupBar')).display !== 'none',
-      allVisible: [...document.querySelectorAll('#tabnav .tabbtn')].every(b => getComputedStyle(b).display !== 'none')
+      allVisible: [...document.querySelectorAll('#tabnav .tabbtn')].every(b => getComputedStyle(b).display !== 'none'),
+      groupLabel: document.querySelector('#navGroupBar [data-group="operar"]')?.textContent.trim()
     }));
     check(allTabs.length === 11 && initial.routes.length === 11 &&
       allTabs.every(tab => initial.routes.includes(tab)), theme + ': all original 11 routes retained');
     check(initial.groups.length === 7 && initial.shown && initial.groups.includes('todas') && initial.allVisible,
       theme + ': six task groups plus All keep legacy direct routes accessible');
+    check(initial.groupLabel === (theme === 'dark' ? 'Trade' : 'Operar'),
+      theme + ': task navigation follows chosen language');
 
     for (const [name, spec] of Object.entries(groups)) {
       await page.locator('#navGroupBar button[data-group="' + name + '"]').click();
@@ -84,6 +89,7 @@ try {
     const context = await browser.newContext({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true });
     const page = await context.newPage();
     page.on('pageerror', error => jsErrors.push(error.message));
+    await page.addInitScript(() => localStorage.setItem('cabina:idioma:v1', 'en'));
     await page.goto(base, { waitUntil: 'load' });
     await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
     const mobile = await page.evaluate(() => ({
@@ -91,9 +97,11 @@ try {
       dock: ['cabina','futuros','invest','estudio'].every(tab => getComputedStyle(document.querySelector('#tabnav .tabbtn[data-tab="'+tab+'"]')).display !== 'none'),
       menuItems: [...document.querySelectorAll('[data-mobile-more-tab]')].map(el=>el.dataset.mobileMoreTab),
       headings: document.querySelectorAll('.mobile-more-label').length,
+      firstHeading: document.querySelector('.mobile-more-label')?.textContent.trim(),
       overflow: document.documentElement.scrollWidth > innerWidth + 1
     }));
-    check(mobile.barHidden && mobile.dock && mobile.headings === 5, width + 'px: mobile dock intact and More organized');
+    check(mobile.barHidden && mobile.dock && mobile.headings === 5 && mobile.firstHeading === 'Trade',
+      width + 'px: mobile dock intact and More translated');
     check(mobile.menuItems.length === 7 && mobile.menuItems.includes('historial') && mobile.menuItems.includes('ajustes'),
       width + 'px: every secondary route remains in More');
     check(!mobile.overflow, width + 'px: no page-wide horizontal overflow');
