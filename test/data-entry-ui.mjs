@@ -49,7 +49,7 @@ try {
         <label for="probeColor">Color</label><input id="probeColor" type="color" value="#ff0088">
         <label for="probeCheck">Confirmar</label><input id="probeCheck" type="checkbox">
       `;
-      document.querySelector('[data-tab="cabina"]')?.appendChild(probe);
+      document.querySelector('.tab[data-tab="cabina"]')?.appendChild(probe);
       const css = sel => getComputedStyle(document.querySelector(sel));
       const root = css(':root'), normal = css('#probeNumber');
       const names = ['ftQ','ftAcct','cabAcct','qtSym','jNote','studyTitle','studyEvidence','hsQ','mxAcct'];
