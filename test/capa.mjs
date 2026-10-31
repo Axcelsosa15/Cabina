@@ -43,7 +43,7 @@ await p.click('.tabbtn[data-tab="futuros"]'); await p.waitForTimeout(500);
 await p.click('button[data-v="cuentas"]'); await p.waitForTimeout(800);
 const futT = await p.evaluate(()=>document.querySelector('.ftview.active').innerText.replace(/\s+/g,' '));
 await p.click('button[data-v="resumen"]'); await p.waitForTimeout(700);
-const tiles = await p.evaluate(()=>document.getElementById('ftTiles').innerText.replace(/\s+/g,' '));
+const tilesPnl = await p.evaluate(()=>document.querySelector('#ftTiles .tile:first-child .v')?.textContent.trim() || null);
 
 const pares = [
   ['ganancia total', num(tras(cabT,'Ganancia total')),       num(tras(futT,'GANANCIA TOTAL'))],
@@ -52,7 +52,7 @@ const pares = [
   ['suelo / umbral', num(tras(cabT,'Suelo de la cuenta')),   num(tras(futT,'umbral'))],
   ['mejor día',      num(tras(cabT,'Mejor día')),            num(tras(futT,'MEJOR DÍA'))],
   ['consistencia',   num(tras(cabT,'Consistencia')),         num(tras(futT,'mejor día ÷ total ='))],
-  ['P&L (tiles)',    num(tras(cabT,'Ganancia total')),       num(tras(tiles,'P&L NETO'))],
+  ['P&L (tiles)',    num(tras(cabT,'Ganancia total')),       num(tilesPnl)],
 ];
 console.log('3 operaciones en 3 días: +$120, -$40, +$60  ->  total +$140, balance $25,140\n');
 console.log('  magnitud            CABINA      FUTUROS');
