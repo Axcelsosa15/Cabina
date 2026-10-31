@@ -42,10 +42,12 @@ mismo-origen que existe. El motivo está escrito junto a la regla.
 
 ## El orden de la comparación no es negociable
 
-Primero se lee la copia **guardada**, después se pide la red. `sw.js` reescribe
-su caché con lo que recibe, así que invertirlo destruiría el término de
-comparación y el botón diría siempre «estás al día»: un verde que no mide nada,
-que es peor que no tener botón.
+Primero se lee la copia **guardada**, después se pide la red. La comprobación
+**no sobrescribe la caché**: así una segunda comprobación no pierde la referencia
+de la versión que sigue ejecutando la página. El botón de aplicar permanece
+visible hasta recargar, incluso si el servidor no responde a un intento posterior.
+Si falta cualquiera de los tres archivos requeridos o su descarga falla, el
+resultado es **inconcluso**, nunca «al día».
 
 `test/actualizacion.mjs` §2 exige que `app.js` esté en la caché antes de
 publicar nada nuevo, precisamente porque es la condición que hace válido a §4.
@@ -79,10 +81,12 @@ Cuando una escritura falla sin entrar en la cola, la barra pinta
 sitio más. Si recargas, se pierden». Un botón de actualizar que recargue a
 ciegas en ese estado destruye exactamente eso.
 
-«Actualizar y recargar» lee ese veredicto **ya renderizado** —no recalcula la
-lógica de sincronización, que daría dos verdades sobre lo mismo— y, si hay
-cambios en peligro, el primer clic avisa con la cuenta y arma el botón durante
-ocho segundos en vez de recargar.
+«Actualizar y recargar» consulta el estado **de sólo lectura** de la cola y
+de las escrituras en vuelo, además del rótulo renderizado. Una cola guardada en
+IndexedDB sobrevive a la recarga; una cola degradada a memoria **no**. También
+protege conflictos y escrituras fallidas. Si hay cambios en peligro, el primer
+clic avisa con la cuenta y arma el botón durante ocho segundos en vez de recargar.
+Si el riesgo cambia, exige una nueva confirmación.
 
 Se usa el armado de dos pulsaciones que el resto de la cabina ya emplea para lo
 irreversible, y no un `confirm()`: el confirm se lee igual tanto si hay un
