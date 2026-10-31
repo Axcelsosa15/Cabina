@@ -103,8 +103,15 @@ await ana2.p.click('#jrTable button[data-act="edit"]');
 await ana2.p.waitForSelector('#edShots figure.pbimg', { timeout: 5000 });
 const rm = '#edShots button[data-act="rm"]';
 await ana2.p.click(rm); await ana2.p.click(rm).catch(() => {}); await quieto(ana2.p);
-ok(D.e.objetos.size === 0, 'el objeto ya no está en el bucket', `${D.e.objetos.size} objetos`);
-await ana2.p.click('#edSave'); await quieto(ana2.p);
+ok(D.e.objetos.size === 1, 'antes de guardar, el bucket conserva el archivo', `${D.e.objetos.size} objetos`);
+await ana2.p.click('#edCancel'); await quieto(ana2.p);
+ok(D.e.objetos.size === 1 && await ana2.p.evaluate(() => FUT.trades().some(x => x.images && x.images.length)),
+  'cancelar no borra la captura ni rompe su referencia');
+await ana2.p.click('#jrTable button[data-act="edit"]');
+await ana2.p.waitForSelector('#edShots figure.pbimg');
+await ana2.p.click(rm); await ana2.p.click(rm).catch(() => {});
+await ana2.p.click('#edSave'); await quieto(ana2.p, 60, 3500);
+ok(D.e.objetos.size === 0, 'tras guardar, el archivo ya no está en el bucket', `${D.e.objetos.size} objetos`);
 ok(await ana2.p.evaluate(() => !FUT.trades().some(x => x.images && x.images.length)), 'y la operación ya no la referencia');
 
 console.log('\n═══ ERRORES · lo que el bucket rechaza se dice ═══');

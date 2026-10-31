@@ -65,6 +65,17 @@ ok(ranuras.length === 9, 'hay nueve ranuras de captura', ranuras.join(' '));
 ok(['htf:1D', 'htf:4H', 'htf:1H'].every(k => ranuras.includes(k)), 'contexto alto: diario, 4 horas y 1 hora');
 ok(['entrada:1H', 'entrada:30m', 'entrada:15m', 'entrada:3m'].every(k => ranuras.includes(k)), 'entrada: 1 hora, 30, 15 y 3 minutos');
 ok(['post:salida', 'post:despues'].every(k => ranuras.includes(k)), 'después del trade: salida y qué hizo después');
+const denso = await ana.p.evaluate(() => ({
+  empty: document.querySelectorAll('#studyScenes .study-scene-empty').length,
+  cards: document.querySelectorAll('#studyScenes .study-scene-filled').length,
+  ayudaCerrada: !document.querySelector('#studyScenes .study-scene-help')?.open,
+  protocoloCerrado: !document.querySelector('#studyTab details.study-panel')?.open,
+  mensajesVacios: [...document.querySelectorAll('#studyScenes .study-scene-empty')].filter(x => /vacío/i.test(x.textContent)).length
+}));
+ok(denso.empty === 9 && denso.cards === 0, 'las nueve ranuras vacías son botones compactos, no nueve tarjetas', JSON.stringify(denso));
+ok(denso.ayudaCerrada && denso.protocoloCerrado && denso.mensajesVacios === 0,
+  'la ayuda de una sola lectura no ocupa espacio permanente');
+
 
 console.log('\n═══ SUBIR · al bucket de la cuenta, no al trade ═══');
 const [fc] = await Promise.all([ana.p.waitForEvent('filechooser'), ana.p.click(RANURA('htf:1D'))]);

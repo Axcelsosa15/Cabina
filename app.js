@@ -2693,6 +2693,7 @@
     const active = document.activeElement;
     edReturnFocus = active && active !== document.body && typeof active.focus === "function" ? active : null;
     edCfg = cfg;
+    $("edSave").disabled = false;
     $("edTitle").textContent = cfg.title;
     $("edFields").innerHTML = cfg.fields.map(f => {
       const v = cfg.values[f.key];
@@ -7383,30 +7384,54 @@
     if (c === "size" || st === 413) return "imagen demasiado grande (máx. 20 MB)";
     return "no se pudo subir la imagen";
   }
+
+  /* El mismo vocabulario se usa en FUTUROS (metadata de trade.images) y ESTUDIO.
+     Una etiqueta vacía significa que nadie ha identificado el timeframe aún. */
+  const TRADE_SHOT_SCENES = [
+    { key: "htf", titulo: "Antes · contexto alto", nota: "Dónde estaba el precio antes de que existiera la idea.",
+      slots: [["1D", "Diario"], ["4H", "4 horas"], ["1H", "1 hora"]] },
+    { key: "entrada", titulo: "Entrada · al tomar el trade", nota: "Lo que tenías delante en el momento de ejecutar.",
+      slots: [["1H", "1 hora"], ["30m", "30 minutos"], ["15m", "15 minutos"], ["3m", "3 minutos"]] },
+    { key: "post", titulo: "Después del trade", nota: "Qué hizo el precio cuando ya estabas fuera.",
+      slots: [["salida", "Salida y resultado"], ["despues", "Qué hizo después"]] },
+  ];
+  const TRADE_SHOT_KEYS = new Set(TRADE_SHOT_SCENES.flatMap(g => g.slots.map(([s]) => g.key + ":" + s)));
+  function tradeShotOptions(value) {
+    return '<option value="">Sin clasificar</option>' + TRADE_SHOT_SCENES.map(g =>
+      '<optgroup label="' + esc(g.titulo) + '">' +
+      g.slots.map(([slot, nombre]) => {
+        const k = g.key + ":" + slot;
+        return '<option value="' + esc(k) + '"' + (value === k ? ' selected' : '') + '>' + esc(nombre) + '</option>';
+      }).join("") + '</optgroup>'
+    ).join("");
+  }
+
   // Bloque de capturas dentro del editor modal. Devuelve el estado para leerlo al guardar.
-  function attachShots(fieldsEl, initial) {
-    const st = { imgs: (initial || []).filter(hasImg).map(x => Object.assign({}, x)) };
+  function attachShots(fieldsEl, initial, type) {
+    const isFut = type === "futuros";
+    const st = { imgs: (initial || []).filter(hasImg).map(x => { const im = Object.assign({}, x); if (isFut && !TRADE_SHOT_KEYS.has(im.scene)) delete im.scene; return im; }), removals: [], pending: 0 };
     const box = document.createElement("div");
     box.className = "fld w6"; box.id = "edShots";
     fieldsEl.appendChild(box);
     const draw = () => {
       // Las capturas que ya existen se ven siempre; añadir nuevas necesita almacenamiento.
       const grid = st.imgs.length
-        ? `<div class="pbimgs">${st.imgs.map((im, i) => `<figure class="pbimg" data-i="${i}"><img ${imgAttrs(im)} alt="captura ${i + 1}" loading="lazy"><input class="tin small cap" type="text" data-cap="${i}" value="${esc(im.caption || "")}" placeholder="qué se ve" aria-label="Nota de la captura ${i + 1}"><button type="button" class="icon del" data-act="rm" data-i="${i}" title="Quitar captura">×</button></figure>`).join("")}</div>`
+        ? `<div class="pbimgs">${st.imgs.map((im, i) => `<figure class="pbimg" data-i="${i}"><img ${imgAttrs(im)} alt="captura ${i + 1}" loading="lazy"><input class="tin small cap" type="text" data-cap="${i}" value="${esc(im.caption || "")}" placeholder="qué se ve" aria-label="Nota de la captura ${i + 1}">${isFut ? `<select class="tin small" data-scene="${i}" aria-label="Fase y temporalidad de captura ${i + 1}" style="width:100%;margin-top:5px">${tradeShotOptions(im.scene)}</select>` : ""}<button type="button" class="icon del" data-act="rm" data-i="${i}" title="Quitar captura">×</button></figure>`).join("")}</div>`
         : "";
-      box.innerHTML = `<span class="lab">Capturas · antes, durante y después</span>` + grid + (assetsReady()
+      box.innerHTML = `<span class="lab">Capturas · antes, durante y después</span>` + (isFut ? `<span class="help">Asigna cada captura a un momento para verla en ESTUDIO.</span>` : "") + grid + (assetsReady()
         ? `<div class="imgbar"><button type="button" class="btn sm" data-act="add" data-source="gallery">+ Galería</button><button type="button" class="btn sm" data-act="add" data-source="camera">Tomar foto</button><span class="help">${st.imgs.length ? plu(st.imgs.length, "captura adjunta", "capturas adjuntas") : "adjunta el gráfico para revisar la entrada"}</span></div>`
         : `<p class="help" style="font-family:var(--font-mono);font-size:11.5px;color:var(--dim);margin:4px 0 0">${st.imgs.length ? plu(st.imgs.length, "captura adjunta", "capturas adjuntas") + ", traídas en un respaldo. Las capturas nuevas se guardan en tu cuenta: entra con ella para añadir más." : "Las capturas se guardan en tu cuenta, no en este navegador: entra con ella para adjuntarlas."}</p>`);
     };
     draw();
     box.addEventListener("input", e => { const i = e.target.dataset.cap; if (i != null && st.imgs[Number(i)]) st.imgs[Number(i)].caption = e.target.value.slice(0, 120); });
+    box.addEventListener("change", e => { const i = e.target.dataset.scene; if (i == null || !st.imgs[Number(i)]) return; if (TRADE_SHOT_KEYS.has(e.target.value)) st.imgs[Number(i)].scene = e.target.value; else delete st.imgs[Number(i)].scene; });
     box.addEventListener("click", async e => {
       const b = e.target.closest("button[data-act]");
       if (!b) { if (e.target.tagName === "IMG" && e.target.closest("figure.pbimg")) openLightbox(e.target.src, e.target.alt); return; }
       if (b.dataset.act === "rm") {
         if (!armed(b)) return;
-        const i = Number(b.dataset.i); const im = st.imgs[i]; st.imgs.splice(i, 1); draw();
-        if (im && im.id && !im.data && assetsReady()) { try { await pb.assets.delete(im.id); } catch (err) { } }
+        const i = Number(b.dataset.i); const im = st.imgs[i]; st.imgs.splice(i, 1); if (im && im.id && !im.data) st.removals.push(im.id); draw();
+        /* El archivo NO se borra aquí: puede cancelarse el editor o fallar el guardado. */
         return;
       }
       if (b.dataset.act === "add") {
@@ -7417,8 +7442,20 @@
         inp.onchange = async () => {
           const f = inp.files && inp.files[0]; if (!f) return;
           b.disabled = true; b.textContent = "subiendo…";
-          try { st.imgs.push(await uploadShot(f)); draw(); }
-          catch (err) { b.disabled = false; b.textContent = label; flashEd(uploadErrMsg(err)); }
+          st.pending++; $("edSave").disabled = true;
+          try {
+            const im = await uploadShot(f);
+            /* Si el editor se cerró durante la subida, no dejar un asset huérfano. */
+            if (!box.isConnected || !ov.classList.contains("open")) {
+              if (im.id && assetsReady()) { try { await pb.assets.delete(im.id); } catch (err) { } }
+              return;
+            }
+            st.imgs.push(im); draw();
+          } catch (err) { if (box.isConnected && ov.classList.contains("open")) { b.disabled = false; b.textContent = label; flashEd(uploadErrMsg(err)); } }
+          finally {
+            st.pending--;
+            if (!st.pending && box.isConnected && ov.classList.contains("open")) $("edSave").disabled = false;
+          }
         };
         inp.click();
       }
@@ -7679,7 +7716,7 @@
           box.innerHTML = `<label><input type="checkbox" id="ef_stopUnknown"${values.stopUnknown === true ? " checked" : ""}> No recuerdo el stop de esta operación</label><span class="help">Importada de un CSV, y ningún bróker exporta el stop. Marcarlo la saca de la cola sin inventar un número; seguirá sin contar en R.</span>`;
           if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(box, anchor.nextSibling); else fieldsEl.appendChild(box);
         }
-        shots = attachShots(fieldsEl, vals.images);
+        shots = attachShots(fieldsEl, vals.images, type);
       },
       read: (out, fieldsEl) => {
         const boxes = fieldsEl.querySelectorAll("#setupConds input[data-sc]"); if (boxes.length) { out.setupChecks = {}; boxes.forEach(b => { out.setupChecks[b.dataset.sc] = b.checked; }); } else out.setupChecks = null;
@@ -7696,7 +7733,7 @@
          alquiler— no tiene cantidad: su importe va en «Resultado $». La primera
          versión de esta guarda lo bloqueaba con «la cantidad tiene que ser más de
          cero», que para un dividendo no quiere decir nada. */
-      validate: v => { if (!v.date) return { message: "Falta la fecha", field: "date" }; if (type === "futuros" && !v.instrument) return { message: "Falta el instrumento", field: "instrument" }; if (type !== "futuros" && !v.asset) return { message: "Falta el activo", field: "asset" };
+      validate: v => { if (shots && shots.pending) return "La captura todavía se está subiendo"; if (!v.date) return { message: "Falta la fecha", field: "date" }; if (type === "futuros" && !v.instrument) return { message: "Falta el instrumento", field: "instrument" }; if (type !== "futuros" && !v.asset) return { message: "Falta el activo", field: "asset" };
         const mueveUnidades = type === "futuros" || ["compra", "venta", "aporte"].includes(String(v.op || "compra"));
         if (mueveUnidades && v.qty != null && v.qty !== "" && !(Number(v.qty) > 0)) return { message: type === "futuros" ? "Los contratos tienen que ser más de cero" : "La cantidad tiene que ser más de cero", field: "qty" };
         return null; },
@@ -7728,7 +7765,25 @@
            miró y dijo que sí lo recuerda», que no es lo mismo que no haber mirado.
            Y un stop escrito gana siempre: deja de faltar, así que la marca sobra. */
         if (rec.stopUnknown !== true || !enBlanco(rec.stop)) delete rec.stopUnknown;
-        coll("trades").set(rec.id, rec);
+        const usuarioAlGuardar = nube.ses && nube.ses.uid;
+        const escritura = coll("trades").set(rec.id, rec);
+        if (shots && shots.removals.length && assetsReady()) {
+          /* El bucket sólo se limpia DESPUÉS de confirmar la escritura; un
+             conflicto o un cancel no debe romper una referencia existente. */
+          const retiradas = [...new Set(shots.removals)];
+          Promise.resolve(escritura).then(async () => {
+            if (sinGuardar.has("trades/" + rec.id) || !nube.ses || nube.ses.uid !== usuarioAlGuardar || !assetsReady()) return;
+            for (const id of retiradas) {
+              const enTrade = coll("trades").items.some(t => (t.images || []).some(im => im.id === id));
+              const enPlaybook = coll("playbooks").items.some(p => (p.images || []).some(im => im.id === id));
+              const enReview = coll("research").items.some(d => d.scenes && Object.values(d.scenes).some(v => Array.isArray(v) && v.some(im => im.id === id)));
+              if (!enTrade && !enPlaybook && !enReview) {
+                try { await pb.assets.delete(id); }
+                catch (err) { flash("La captura se quitó del trade, pero no pudo eliminarse del almacenamiento."); }
+              }
+            }
+          });
+        }
         /* Quien abrió el editor puede necesitar saber qué id salió — una tesis,
            por ejemplo, para enlazar su post-mortem sin que nadie copie la R. */
         if (alGuardar) { try { alGuardar(rec); } catch (e) { } }
@@ -16593,23 +16648,30 @@
      la validación de esquema, el límite de tamaño y la carga con token. Aquí no
      se guarda ninguna URL arbitraria. El trade base no se toca: todo queda en el
      documento de revisión de la colección `research`, asociado por tradeId. */
-  const ESTUDIO_ESCENAS = [
-    { key: "htf", titulo: "1 · Antes · contexto alto", nota: "Dónde estaba el precio antes de que existiera la idea.",
-      slots: [["1D", "Diario"], ["4H", "4 horas"], ["1H", "1 hora"]] },
-    { key: "entrada", titulo: "2 · Entrada · al tomar el trade", nota: "Lo que tenías delante en el momento de ejecutar.",
-      slots: [["1H", "1 hora"], ["30m", "30 minutos"], ["15m", "15 minutos"], ["3m", "3 minutos"]] },
-    { key: "post", titulo: "3 · Después del trade", nota: "Qué hizo el precio cuando ya estabas fuera.",
-      slots: [["salida", "Salida y resultado"], ["despues", "Qué hizo después"]] },
-  ];
+  const ESTUDIO_ESCENAS = TRADE_SHOT_SCENES;
   let estudioEscenas = {};
   const estudioEscenaKey = (g, s) => g + ":" + s;
-  function estudioEscenaImgs(k){ const v = estudioEscenas && estudioEscenas[k]; return Array.isArray(v) ? v.filter(hasImg) : []; }
+
+  function estudioTradeImgs(){
+    const id = $("studyTradeId").value, t = id && coll("trades").get(id);
+    return t && Array.isArray(t.images) ? t.images.filter(hasImg) : [];
+  }
+  const estudioImgRef = im => im.id != null ? "id:" + String(im.id) : "data:" + String(im.data || "");
+  /* Las del trade se leen en vivo; no se copian a research ni se suben otra vez.
+     Si el mismo id ya existe en una revisión antigua, sólo se muestra una vez. */
+  function estudioEscenaImgs(k){
+    const review = Array.isArray(estudioEscenas[k]) ? estudioEscenas[k] : [];
+    const shared = estudioTradeImgs().filter(im => im.scene === k && TRADE_SHOT_KEYS.has(k));
+    const refs = new Set(shared.map(estudioImgRef));
+    return review.map((im, i) => ({ ...im, _studyIndex: i })).filter(im => hasImg(im) && !refs.has(estudioImgRef(im)))
+      .concat(shared.map(im => ({ ...im, _fromTrade: true })));
+  }
   /* Sólo ranuras conocidas y sólo campos de imagen: lo que venga de un respaldo
      con claves inventadas no se reescribe en el documento. */
   function estudioEscenasLimpias(){
     const out = {};
     ESTUDIO_ESCENAS.forEach(g => g.slots.forEach(([sl]) => {
-      const k = estudioEscenaKey(g.key, sl), ims = estudioEscenaImgs(k);
+      const k = estudioEscenaKey(g.key, sl), v = estudioEscenas[k], ims = Array.isArray(v) ? v.filter(hasImg) : [];
       if (!ims.length) return;
       out[k] = ims.map(im => {
         const o = {};
@@ -16624,11 +16686,18 @@
   }
   function estudioEscenaEstado(msg){ const el = $("studyTradeSaveState"); if (el) el.textContent = msg; }
   function estudioEscenasTotal(){
-    return ESTUDIO_ESCENAS.reduce((n, g) => n + g.slots.reduce((m, [sl]) => m + estudioEscenaImgs(estudioEscenaKey(g.key, sl)).length, 0), 0);
+    return ESTUDIO_ESCENAS.reduce((n, g) => n + g.slots.reduce((m, [sl]) => m + estudioEscenaImgs(estudioEscenaKey(g.key, sl)).length, 0), 0) + estudioTradeImgs().filter(im => !TRADE_SHOT_KEYS.has(im.scene)).length;
   }
   function renderEstudioEscenas(){
     const root = $("studyScenes"); if (!root) return;
     const total = estudioEscenasTotal();
+    const pendientes = estudioTradeImgs().filter(im => !TRADE_SHOT_KEYS.has(im.scene));
+    const extras = pendientes.length ? '<section style="margin-top:16px"><b>Sin clasificar · ' + pendientes.length + '</b>' +
+      '<div class="pbimgs" style="margin-top:8px">' + pendientes.map((im, i) =>
+        '<figure class="pbimg"><img ' + imgAttrs(im) + ' alt="' + estudioEsc("Captura sin clasificar " + (i + 1)) + '" loading="lazy">' +
+        (im.caption ? '<figcaption class="study-note">' + estudioEsc(im.caption) + '</figcaption>' : '') + '</figure>'
+      ).join("") + '</div></section>' : '';
+    const editAction = '<button type="button" class="btn ghost sm" data-study-edit-shots>Editar capturas en FUTUROS</button>';
     const grupos = ESTUDIO_ESCENAS.map(g => {
       const slots = g.slots.map(([sl, etiqueta]) => {
         const k = estudioEscenaKey(g.key, sl), ims = estudioEscenaImgs(k);
@@ -16636,28 +16705,34 @@
           ? '<div class="pbimgs" style="margin-top:6px">' + ims.map((im, i) =>
               '<figure class="pbimg" data-escena-fig="' + estudioEsc(k) + '" data-i="' + i + '">' +
               '<img ' + imgAttrs(im) + ' alt="' + estudioEsc(etiqueta + " · captura " + (i + 1)) + '" loading="lazy">' +
-              '<input class="tin small cap" type="text" data-escena-cap="' + estudioEsc(k) + '" data-i="' + i + '" value="' + estudioEsc(im.caption || "") + '" placeholder="qué se ve" aria-label="' + estudioEsc("Nota de la captura " + (i + 1) + " de " + etiqueta) + '">' +
-              '<button type="button" class="icon del" data-escena-rm="' + estudioEsc(k) + '" data-i="' + i + '" title="Quitar captura">×</button></figure>').join("") + '</div>'
+              (im._fromTrade
+                ? '<figcaption class="study-note">FUTUROS' + (im.caption ? ' · ' + estudioEsc(im.caption) : '') + '</figcaption>'
+                : '<input class="tin small cap" type="text" data-escena-cap="' + estudioEsc(k) + '" data-i="' + i + '" value="' + estudioEsc(im.caption || "") + '" placeholder="qué se ve" aria-label="' + estudioEsc("Nota de la captura " + (i + 1) + " de " + etiqueta) + '">' +
+                  '<button type="button" class="icon del" data-escena-rm="' + estudioEsc(k) + '" data-i="' + i + '" title="Quitar captura">×</button>') +
+              '</figure>').join("") + '</div>'
           : '';
         const accion = assetsReady()
-          ? '<button type="button" class="btn ghost sm" data-escena-add="' + estudioEsc(k) + '" style="margin-top:6px">＋ ' + (ims.length ? "otra captura" : "captura") + '</button>'
-          : '<p class="study-note" style="margin-top:6px">Entra con tu cuenta para adjuntar capturas.</p>';
-        return '<div style="border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 10px">' +
-          '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">' +
-          '<b style="font-size:12.5px">' + estudioEsc(etiqueta) + '</b>' +
-          '<span class="study-note">' + (ims.length ? estudioEsc(plu(ims.length, "captura", "capturas")) : "vacío") + '</span></div>' +
-          figs + accion + '</div>';
+          ? '<button type="button" class="btn ghost sm" data-escena-add="' + estudioEsc(k) + '" title="' + estudioEsc(g.nota) + '" style="margin:0;min-height:34px;padding:6px 10px">＋ ' + estudioEsc(ims.length ? "Otra" : etiqueta) + '</button>'
+          : '';
+        if (!ims.length) return '<div class="study-scene-empty" style="display:flex;flex:0 1 auto;min-width:0">' + accion + '</div>';
+        return '<div class="study-scene-filled" style="flex:1 1 155px;min-width:0;border:1px solid var(--line);border-radius:var(--r-sm);padding:8px">' +
+          '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">' +
+          '<b style="font-size:12.5px">' + estudioEsc(etiqueta) + '</b>' + accion + '</div>' +
+          figs + '</div>';
       }).join("");
       return '<section style="margin-top:10px">' +
         '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline">' +
         '<b style="font-size:13px;color:var(--text)">' + estudioEsc(g.titulo) + '</b>' +
-        '<span class="study-note">' + estudioEsc(g.nota) + '</span></div>' +
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:7px">' + slots + '</div></section>';
+        '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;align-items:stretch;gap:7px;margin-top:7px">' + slots + '</div></section>';
     }).join("");
     root.innerHTML = '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap">' +
-      '<h4 style="margin:0;font-size:13.5px">Escenarios visuales</h4>' +
-      '<span class="study-note" id="studyScenesCount">' + (total ? estudioEsc(plu(total, "captura guardada", "capturas guardadas")) : "sin capturas todavía") + '</span></div>' +
-      '<p class="study-note" style="margin:4px 0 0">Las capturas se guardan solas en esta revisión; el trade de FUTUROS no se modifica.</p>' + grupos;
+      '<h4 style="margin:0;font-size:13.5px">Capturas</h4>' +
+      '<span class="study-note" id="studyScenesCount">' + (total ? estudioEsc(plu(total, "captura", "capturas")) : "0 capturas") + '</span></div>' +
+      (assetsReady() ? '' : '<p class="study-note">Entra con tu cuenta para adjuntar capturas.</p>') + grupos +
+      (estudioTradeImgs().length ? '<div style="margin-top:12px">' + editAction + '</div>' : '') + extras +
+      '<details class="study-scene-help" style="margin-top:12px"><summary class="study-note" style="cursor:pointer">¿Cómo funcionan las capturas?</summary>' +
+      '<p class="study-note" style="margin:6px 0">Las imágenes de FUTUROS aparecen al guardar el trade; las de ESTUDIO quedan en la revisión, sin modificar la operación.</p></details>';
   }
   /* Guarda la revisión con los escenarios actuales. Se llama en cuanto cambia una
      imagen: la captura ya está subida al bucket, así que dejarla sin anotar en el
@@ -16688,7 +16763,7 @@
       btn.disabled = true; btn.textContent = "subiendo…";
       try {
         const im = await uploadShot(f);
-        estudioEscenas[k] = estudioEscenaImgs(k).concat([im]);
+        estudioEscenas[k] = (Array.isArray(estudioEscenas[k]) ? estudioEscenas[k] : []).concat([im]);
         renderEstudioEscenas();
         await estudioGuardarEscenas("Captura añadida a «" + k.replace(":", " · ") + "».");
       } catch (err) { btn.disabled = false; btn.textContent = etiqueta; estudioEscenaEstado(uploadErrMsg(err)); }
@@ -16697,8 +16772,8 @@
   }
   $("studyScenes").addEventListener("input", e => {
     const k = e.target.dataset && e.target.dataset.escenaCap; if (k == null) return;
-    const i = Number(e.target.dataset.i), ims = estudioEscenaImgs(k);
-    if (ims[i]) ims[i].caption = e.target.value.slice(0, 120);
+    const i = Number(e.target.dataset.i), im = estudioEscenaImgs(k)[i];
+    if (im && !im._fromTrade && estudioEscenas[k] && estudioEscenas[k][im._studyIndex]) estudioEscenas[k][im._studyIndex].caption = e.target.value.slice(0, 120);
   });
   $("studyScenes").addEventListener("change", e => {
     if (e.target.dataset && e.target.dataset.escenaCap != null) estudioGuardarEscenas("Nota de la captura guardada.");
@@ -16706,16 +16781,24 @@
   $("studyScenes").addEventListener("click", async e => {
     const img = e.target.tagName === "IMG" ? e.target.closest("figure.pbimg") : null;
     if (img) { openLightbox(e.target.src, e.target.alt); return; }
+    const edit = e.target.closest("button[data-study-edit-shots]");
+    if (edit) { const t = coll("trades").get($("studyTradeId").value); if (t) openTrade(t); return; }
     const add = e.target.closest("button[data-escena-add]");
     if (add) { estudioEscenaAdd(add.dataset.escenaAdd, add); return; }
     const rm = e.target.closest("button[data-escena-rm]");
     if (!rm) return;
     if (!armed(rm)) return;
-    const k = rm.dataset.escenaRm, i = Number(rm.dataset.i), ims = estudioEscenaImgs(k), im = ims[i];
-    if (!im) return;
-    ims.splice(i, 1); estudioEscenas[k] = ims; renderEstudioEscenas();
-    await estudioGuardarEscenas("Captura quitada.");
-    if (im.id && im.data == null && assetsReady()) { try { await pb.assets.delete(im.id); } catch (err) { } }
+    const k = rm.dataset.escenaRm, i = Number(rm.dataset.i), im = estudioEscenaImgs(k)[i];
+    if (!im || im._fromTrade) return;
+    const prev = (estudioEscenas[k] || []).slice();
+    estudioEscenas[k].splice(im._studyIndex, 1); renderEstudioEscenas();
+    if (!(await estudioGuardarEscenas("Captura quitada."))) { estudioEscenas[k] = prev; renderEstudioEscenas(); return; }
+    /* Nunca borrar un objeto aún usado por un trade u otra revisión. */
+    const enTrade = coll("trades").items.some(t => (t.images || []).some(x => x.id && x.id === im.id));
+    const enReview = coll("research").items.some(d => d.scenes && Object.values(d.scenes).some(v => Array.isArray(v) && v.some(x => x.id && x.id === im.id)));
+    if (im.id && im.data == null && assetsReady() && !enTrade && !enReview) {
+      try { await pb.assets.delete(im.id); } catch (err) { estudioEscenaEstado("Captura quitada de la revisión; no se pudo liberar del almacenamiento."); }
+    }
   });
   coll("research").subscribe(()=>fanout([Z.estudio]));document.addEventListener("keydown",e=>{if(e.key==="Escape")estudioCerrar();});renderEstudio();
 
