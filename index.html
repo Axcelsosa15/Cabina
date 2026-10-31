@@ -3802,7 +3802,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 <section class="panel" id="panelAppearance">
   <header><h2>Apariencia</h2><span class="meta">Tema aplicado desde el inicio</span></header>
   <div class="body">
-    <p class="hint">Elige qué capa visual quieres usar y el color principal. Esta preferencia pertenece al navegador: no modifica tus operaciones, cuentas, estadísticas ni los datos de Supabase.</p>
+    <details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Sobre apariencia</summary><p class="hint">Elige qué capa visual quieres usar y el color principal. Esta preferencia pertenece al navegador: no modifica tus operaciones, cuentas, estadísticas ni los datos de Supabase.</p></details>
     <div class="cab-appearance-grid">
       <div class="cab-appearance-field">
         <label for="cabAppearanceMode">Tema</label>
@@ -3846,7 +3846,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 <section class="panel" id="panelDatos">
   <header><h2>Copia de seguridad y traspaso</h2><span class="meta" id="bkMeta">—</span></header>
   <div class="body">
-    <p class="hint">Un solo archivo con todo: ajustes, reglas duras, cuentas, sesiones, operaciones, playbook, ideas e inversiones. Sirve de respaldo y es la vía para llevar los datos a otra copia de Cabina.</p>
+    <details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Sobre el respaldo</summary><p class="hint">Un solo archivo con todo: ajustes, reglas duras, cuentas, sesiones, operaciones, playbook, ideas e inversiones. Sirve de respaldo y es la vía para llevar los datos a otra copia de Cabina.</p></details>
     <div class="bkgrid">
       <div class="bkcard">
         <span class="lab">Exportar</span>
@@ -3907,7 +3907,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 <section class="panel" id="panelDondeEsta" style="margin-top:24px">
   <header><h2>Dónde está lo demás</h2></header>
   <div class="body">
-    <p class="hint">Lo que se configura mientras operas se queda donde se usa: traerlo aquí añadiría un viaje justo cuando menos sobra. Esta lista existe para que el inventario esté completo en un sitio.</p>
+    <details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Sobre ajustes</summary><p class="hint">Lo que se configura mientras operas se queda donde se usa: traerlo aquí añadiría un viaje justo cuando menos sobra. Esta lista existe para que el inventario esté completo en un sitio.</p></details>
     <div class="bkgrid">
       <div class="bkcard">
         <span class="lab">Reglas duras</span>
@@ -3936,7 +3936,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
       </div>
       <div class="bkcard">
         <span class="lab">Vista: módulos y densidad</span>
-        <p class="help">Se configura <b>por pestaña</b>, con el botón «Vista» de la barra superior: elige qué módulos aparecen en la pestaña que estás mirando. Desde aquí sólo configuraría los de Ajustes.</p>
+        <details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Cómo funciona</summary><p class="help">Se configura <b>por pestaña</b>, con el botón «Vista» de la barra superior: elige qué módulos aparecen en la pestaña que estás mirando. Desde aquí sólo configuraría los de Ajustes.</p></details>
       </div>
       <div class="bkcard">
         <span class="lab">Modo edición</span>
@@ -4011,7 +4011,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
 
   <!-- ---------- cuentas ---------- -->
   <div class="ftview" data-v="cuentas">
-    <p class="note-p">Cada operación se apunta a una cuenta. Lo que ves aquí sale del journal, no de números escritos a mano: ganancia acumulada, mejor día, colchón hasta el drawdown y la regla de consistencia, cuenta por cuenta. El saldo previo y los movimientos (retiros, costos, resets) los registras tú.</p>
+    <details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Detalles de cuentas</summary><p class="note-p">Cada operación se apunta a una cuenta. Lo que ves aquí sale del journal, no de números escritos a mano: ganancia acumulada, mejor día, colchón hasta el drawdown y la regla de consistencia, cuenta por cuenta. El saldo previo y los movimientos (retiros, costos, resets) los registras tú.</p></details>
     <div id="ftAccts"></div>
     <button type="button" class="add" id="ftAcctAdd">+ Registrar cuenta</button>
   </div>
@@ -4029,7 +4029,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
       <div class="grid eq">
         <section class="panel">
           <header><h2>Distribución de R</h2><span class="meta" id="rdMeta"></span></header>
-          <div class="body"><p class="csub">Cuántas operaciones caen en cada múltiplo de riesgo. La barra <b>-1R</b> son stops respetados; lo que quede a su izquierda son stops que se saltaron.</p><div class="chartwrap" id="rdWrap"></div></div>
+          <div class="body"><details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Cómo se mide</summary><p class="csub">Cuántas operaciones caen en cada múltiplo de riesgo. La barra <b>-1R</b> son stops respetados; lo que quede a su izquierda son stops que se saltaron.</p></details><div class="chartwrap" id="rdWrap"></div></div>
         </section>
         <section class="panel">
           <header><h2>El protocolo, ¿paga?</h2><span class="meta" id="prMeta"></span></header>
@@ -4038,11 +4038,11 @@ body { font-variant-numeric: tabular-nums lining-nums; }
       </div>
       <section class="panel">
         <header><h2>¿De qué tipo fueron tus pérdidas?</h2><span class="meta" id="erMeta"></span></header>
-        <div class="body"><p class="csub">Cada pérdida, clasificada por la cabina con lo que la operación ya trae — no por cómo te sientes después de perderla. La categoría 4 no se elige: se gana, con esperanza positiva en operaciones limpias.</p><div id="erWrap"></div></div>
+        <div class="body"><details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Cómo se clasifican</summary><p class="csub">Cada pérdida, clasificada por la cabina con lo que la operación ya trae — no por cómo te sientes después de perderla. La categoría 4 no se elige: se gana, con esperanza positiva en operaciones limpias.</p></details><div id="erWrap"></div></div>
       </section>
       <section class="panel">
         <header><h2>Por sesión de mercado</h2><span class="meta" id="seMeta"></span></header>
-        <div class="body"><p class="csub">Cada operación cae en su sesión por la hora de entrada. Aquí se ve si la ventana de NY AM de verdad es la que paga, o si el dinero está en otro sitio.</p><div class="chartwrap" id="seWrap"></div><div id="seOut"></div></div>
+        <div class="body"><details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Cómo se mide</summary><p class="csub">Cada operación cae en su sesión por la hora de entrada. Aquí se ve si la ventana de NY AM de verdad es la que paga, o si el dinero está en otro sitio.</p></details><div class="chartwrap" id="seWrap"></div><div id="seOut"></div></div>
       </section>
       <div class="grid eq">
         <section class="panel">
@@ -4056,7 +4056,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
       </div>
       <section class="panel">
         <header><h2>Consistencia</h2><span class="meta" id="cnMeta"></span></header>
-        <div class="body"><p class="csub">Peso de cada día dentro de la ganancia acumulada. Un solo día gigante rompe la regla de las prop firms. La tabla de abajo mide lo mismo cuenta por cuenta, con el total de cada una.</p><div class="chartwrap" id="cnWrap"></div><div id="cnOut"></div></div>
+        <div class="body"><details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Cómo se mide</summary><p class="csub">Peso de cada día dentro de la ganancia acumulada. Un solo día gigante rompe la regla de las prop firms. La tabla de abajo mide lo mismo cuenta por cuenta, con el total de cada una.</p></details><div class="chartwrap" id="cnWrap"></div><div id="cnOut"></div></div>
       </section>
       <section class="panel">
         <header><h2>Desglose</h2><span class="meta">dónde está el edge y dónde se va el dinero</span></header>
@@ -4127,7 +4127,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
       <section class="panel" id="panelImportar">
         <header><h2>Importar operaciones</h2><span class="meta" id="impMeta">—</span></header>
         <div class="body">
-          <p class="hint">Un CSV del bróker. No sale del navegador: se lee aquí. <strong>Tú dices qué columna es qué</strong> —esta cabina no conoce la cabecera de ningún bróker, y adivinarla es cómo se importan doce meses al día equivocado—. Nada se escribe antes de que veas la tabla exacta que va a entrar.</p>
+          <details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Cómo importar</summary><p class="hint">Un CSV del bróker. No sale del navegador: se lee aquí. <strong>Tú dices qué columna es qué</strong> —esta cabina no conoce la cabecera de ningún bróker, y adivinarla es cómo se importan doce meses al día equivocado—. Nada se escribe antes de que veas la tabla exacta que va a entrar.</p></details>
           <div class="bkbtns">
             <button type="button" class="btn" id="impFileBtn">Elegir archivo…</button>
             <button type="button" class="btn ghost" id="impPaste">Pegar el texto</button>
@@ -4235,7 +4235,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
           <div class="estcats" id="mxEstCats" role="group" aria-label="Categor&iacute;as"></div>
         </div>
         <div id="mxEstLista"></div>
-        <p class="csub" style="margin:14px 0 0">Todas salen de las mismas operaciones que la expectativa y la curva de arriba, con el mismo P&amp;L neto. Una cifra que no se puede medir sale con &laquo;&mdash;&raquo; y la raz&oacute;n al lado, nunca como cero.</p>
+        <details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Cómo se calcula</summary><p class="csub" style="margin:14px 0 0">Todas salen de las mismas operaciones que la expectativa y la curva de arriba, con el mismo P&amp;L neto. Una cifra que no se puede medir sale con &laquo;&mdash;&raquo; y la raz&oacute;n al lado, nunca como cero.</p></details>
       </div>
     </section>
     <section class="panel">
@@ -4310,7 +4310,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
     <button type="button" class="btn ghost sm selbtn" id="selbtn-idCards" title="Selecciona varias y bórralas de una vez">Seleccionar</button>
     <button type="button" class="btn primary" id="idNew">+ Nueva forma</button>
   </div>
-  <p class="note-p">Repositorio de formas de hacer dinero en los mercados. Cada una con capital, tiempo, riesgo y por qué funcionaría. Una idea sin "próximo paso" es un deseo, no una idea.</p>
+  <details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Sobre esta sección</summary><p class="note-p">Repositorio de formas de hacer dinero en los mercados. Cada una con capital, tiempo, riesgo y por qué funcionaría. Una idea sin "próximo paso" es un deseo, no una idea.</p></details>
   <div class="cards" id="idCards"></div>
 </div>
 
@@ -4343,7 +4343,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
     </section>
     <section class="panel">
       <header><h2>Rendimiento por posición</h2><span class="meta" id="ivPerfMeta"></span></header>
-      <div class="body"><p class="csub">Rendimiento neto sobre lo invertido: precio, ventas, dividendos y comisiones. Solo las posiciones con precio actual escrito o ya cerradas — sin precio no hay nada que medir.</p><div class="chartwrap" id="ivPerfWrap"></div></div>
+      <div class="body"><details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Cómo se mide</summary><p class="csub">Rendimiento neto sobre lo invertido: precio, ventas, dividendos y comisiones. Solo las posiciones con precio actual escrito o ya cerradas — sin precio no hay nada que medir.</p></details><div class="chartwrap" id="ivPerfWrap"></div></div>
     </section>
   </div>
   <div class="grid eq" style="margin-bottom:24px">
@@ -4404,7 +4404,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
     <button type="button" class="btn ghost sm" id="hsExport" title="Descarga TODO lo que el filtro selecciona, no s&oacute;lo las filas visibles">Exportar CSV</button>
     <button type="button" class="btn ghost sm" id="hsLimpiar">Ver todo</button>
   </div>
-  <p class="note-p">Cada fila es una operación que registraste, de futuros o de inversión. Sale del mismo sitio que el journal y que las métricas, no de una copia: el filtro es el de la puerta única. Pulsa una fila para abrirla.</p>
+  <details class="cabina-brief" style="margin:4px 0 8px"><summary class="help" style="cursor:pointer;font-size:11px">Sobre el historial</summary><p class="note-p">Cada fila es una operación que registraste, de futuros o de inversión. Sale del mismo sitio que el journal y que las métricas, no de una copia: el filtro es el de la puerta única. Pulsa una fila para abrirla.</p></details>
   <div class="stack">
     <section class="panel">
       <header><h2>Todas las operaciones</h2><span class="meta" id="hsMeta"></span></header>
