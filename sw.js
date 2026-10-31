@@ -92,6 +92,76 @@ function deLaCachePrimero(req) {
   });
 }
 
+/* ── COMPROBAR SI HAY VERSION NUEVA · desde AQUI, no desde la pagina ──────
+   La CSP de index.html no lleva 'self' en `connect-src` —solo el proyecto
+   Supabase, y test/seguridad.mjs lo exige asi— de modo que un
+   `fetch('./app.js')` desde la pagina esta PROHIBIDO y falla con «Failed to
+   fetch». El trabajador no esta sujeto a esa politica, y ademas es el dueño de
+   la cache que hay que comparar, asi que la comparacion vive aqui y la pagina
+   solo pregunta por un MessageChannel.
+
+   EL ORDEN NO ES NEGOCIABLE: se lee la copia GUARDADA antes de pedir la red.
+   Este mismo fichero reescribe la cache con lo que recibe, asi que invertirlo
+   destruiria el termino de comparacion y el resultado seria siempre «estas al
+   dia»: un verde que no mide nada.
+
+   Lo que se compara son los ficheros de CODIGO del propio origen. Nada de
+   datos: la nube no se cachea, asi que no puede estar «desactualizada». */
+function huellaDe(txt) {
+  if (self.crypto && self.crypto.subtle && self.TextEncoder) {
+    return self.crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt)).then(function (b) {
+      var u = new Uint8Array(b), out = '';
+      for (var i = 0; i < 5; i++) out += ('0' + u[i].toString(16)).slice(-2);
+      return out;
+    }).catch(function () { return fnvDe(txt); });
+  }
+  return Promise.resolve(fnvDe(txt));
+}
+function fnvDe(txt) {
+  var h = 0x811c9dc5;
+  for (var i = 0; i < txt.length; i++) { h ^= txt.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return ('0000000' + h.toString(16)).slice(-8);
+}
+function comparaPublicado() {
+  var ARCH = ['./index.html', './app.js', './appearance.js'];
+  return caches.open(CACHE).then(function (c) {
+    var distintos = [], comprobados = 0, sinCache = [];
+    return ARCH.reduce(function (cad, f) {
+      return cad.then(function () {
+        return c.match(f).then(function (hay) { return hay ? hay.text() : null; }).then(function (local) {
+          if (local == null) { sinCache.push(f.replace('./', '')); return; }
+          return fetch(f, { cache: 'reload' }).then(function (res) {
+            if (!res || !res.ok) return;
+            var copia = res.clone();
+            return res.text().then(function (red) {
+              comprobados++;
+              return Promise.all([huellaDe(local), huellaDe(red)]).then(function (h) {
+                if (h[0] === h[1]) return;
+                distintos.push(f.replace('./', ''));
+                /* Ya se tiene el cuerpo nuevo: se guarda, para que una recarga
+                   sin red no vuelva a la version vieja. */
+                return c.put(f, copia).catch(function () {});
+              });
+            });
+          }).catch(function () {});
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      return { distintos: distintos, comprobados: comprobados, sinCache: sinCache };
+    });
+  });
+}
+self.addEventListener('message', function (e) {
+  var d = e.data;
+  if (!d || d.tipo !== 'cabina-version') return;
+  var puerto = e.ports && e.ports[0];
+  if (!puerto) return;
+  e.waitUntil(comparaPublicado().then(
+    function (r) { puerto.postMessage(r); },
+    function (err) { puerto.postMessage({ error: String((err && err.message) || err) }); }
+  ));
+});
+
 self.addEventListener('fetch', function (e) {
   var req = e.request;
   if (req.method !== 'GET') return;
