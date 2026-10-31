@@ -16567,7 +16567,7 @@
   let estudioDiaEnfoque = "";
   function estudioAbrirDia(date){
     const dia = String(date || "").slice(0, 10);
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(dia)) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return;
     estudioDiaEnfoque = dia;
     ["studyTradeAccount","studyTradeInstrument","studyTradeDirection","studyTradeSearch"].forEach(id => {
       const el = $(id); if (el) el.value = "";
@@ -16602,6 +16602,7 @@
     const cuentas = new Set(ops.map(t => String(t.accountId || "")).filter(Boolean)).size;
     const dia = historyMerged().find(d => d.date === estudioDiaEnfoque);
     const nota = dia && String(dia.note || "").trim();
+    const pre = dia ? Object.values(presOf(dia)).map(p => sesShort(p.ses) + " " + p.done + "/" + p.total).join(" · ") : "";
     const stat = (label, value) => '<div style="min-width:110px;flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)"><span class="study-note" style="display:block;margin:0">' + label + '</span><b style="display:block;margin-top:4px">' + value + '</b></div>';
     root.hidden = false;
     root.innerHTML = '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
@@ -16609,9 +16610,11 @@
       '<p class="study-note" style="margin:0">Trades, métricas y capturas de esta fecha. Selecciona un trade abajo para abrir su revisión completa.</p></div>' +
       '<button type="button" class="btn ghost sm" data-study-day-clear>Ver todo</button></div>' +
       '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px">' +
-      stat("P&L en trades", estudioDinero(pnl)) + stat("Trades", String(ops.length)) +
+      stat("P&L trades", estudioDinero(pnl)) + stat("P&L Cabina", dia && dia.result != null ? money(Number(dia.result)) : "—") +
+      stat("Trades", String(ops.length)) +
       stat("Cerradas · W/L/BE", cerradas.length ? ganadas + " / " + perdidas + " / " + neutras : "—") +
       stat("Cuentas", String(cuentas)) + '</div>' +
+      (pre ? '<p class="study-note" style="margin:10px 0 0">Pre-sesiones · ' + estudioEsc(pre) + '</p>' : '') +
       (dia && dia.broke ? '<p class="study-note" style="color:var(--negative,var(--bad,#b42318));margin-bottom:0">Cabina marcó una regla rota.</p>' : '') +
       (nota ? '<p style="white-space:pre-wrap;margin:10px 0 0;color:var(--muted)"><b>Nota de Cabina:</b> ' + estudioEsc(nota) + '</p>' : '');
     root.querySelector("[data-study-day-clear]").addEventListener("click", () => {
