@@ -30,7 +30,8 @@ los enlaces y el estado actual.
 | Superficie | `--surface` | `#FFFFFF` |
 | Superficie secundaria | `--surface-2` | `#F8FAFC` |
 | Borde | `--line` | `#E2E8F0` |
-| Borde de input | `--line-strong` | `#CBD5E1` |
+| Borde de input editable | `--control-border` | `#8492A6` |
+| Borde de contenedor secundario | `--line-strong` | `#CBD5E1` |
 | Texto principal | `--text` | `#172334` |
 | Texto secundario | `--muted` | `#475569` |
 | Focus y acción primaria | `--accent` | `#1D4ED8` |
@@ -43,6 +44,33 @@ los enlaces y el estado actual.
 rojo para loss/errores, ámbar para advertencias. No usar fondo verde o rojo en
 formularios completos. Los datos financieros deben mostrar signo y unidades,
 no depender solo del color.
+
+## Ajuste cromático transversal · 2026-10-30
+
+El campo editable no comparte el borde decorativo de los paneles: en claro,
+`--control-border: #8492A6` da ~3.16:1 de contraste contra el input blanco;
+`--line-strong` se conserva para contenedores. En oscuro se emplean
+`--control-bg: #111A24` y `--control-border: #596B80` (~3.21:1).
+
+El contrato de color se aplica a las entradas de texto, email, password,
+fecha/hora, número, búsqueda, select y textarea, también a campos insertados
+dinámicamente. `--control-focus-bg`, `--control-hover`,
+`--control-readonly`, `--control-disabled`, `--control-placeholder` y
+`--control-error` describen estados diferentes sin reutilizar colores de P&L
+para el fondo del campo. Los selects y opciones respetan `color-scheme`
+claro/oscuro; los colores de enfoque, checkbox y rango respetan el accent
+configurado. La validación en rojo mantiene un significado independiente.
+
+Los inputs internos de la paleta de comandos y del buscador de Estudio
+conservan fondo transparente porque su contenedor ya tiene borde; file, color,
+range, checkbox y radio no heredan las cajas de texto. El autocompletado de
+WebKit usa superficie y texto coherentes con el tema seleccionado.
+
+`test/data-entry-ui.mjs` comprueba colores computados con Chromium en dos
+resoluciones y dos temas, con color violeta en móvil, campos reales, selects
+nativos, lectura, bloqueo, validación y foco. No hay migraciones ni
+modificaciones de persistencia. Las comprobaciones de navegador reales deben
+pasar antes de llamar este trabajo verificado.
 
 ## Contrato visual de data entry (primer incremento)
 
