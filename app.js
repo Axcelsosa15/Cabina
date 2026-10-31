@@ -16662,7 +16662,7 @@
     const bar = document.getElementById("navGroupBar");
     const nav = document.getElementById("tabnav");
     if (!bar || !nav) return;
-    const groups = [...bar.querySelectorAll("button[data-group][data-first-tab]")];
+    const groups = [...bar.querySelectorAll("button[data-group]")];
     const lastTab = new Map();
     function syncFromActive() {
       const active = nav.querySelector(".tabbtn.active");
@@ -16672,15 +16672,21 @@
       lastTab.set(group, active.dataset.tab);
       nav.dataset.activeGroup = group;
       groups.forEach(button => {
-        const selected = button.dataset.group === group;
+        const selected = nav.dataset.filterEnabled !== "true" ? button.dataset.group === "todas" : button.dataset.group === group;
         button.setAttribute("aria-pressed", String(selected));
         if (selected) button.setAttribute("aria-current", "true");
         else button.removeAttribute("aria-current");
       });
     }
     bar.addEventListener("click", event => {
-      const button = event.target.closest("button[data-group][data-first-tab]");
+      const button = event.target.closest("button[data-group]");
       if (!button || !bar.contains(button)) return;
+      if (button.dataset.group === "todas") {
+        nav.dataset.filterEnabled = "false";
+        syncFromActive();
+        return;
+      }
+      nav.dataset.filterEnabled = "true";
       const tab = lastTab.get(button.dataset.group) || button.dataset.firstTab;
       const target = [...nav.querySelectorAll(".tabbtn[data-tab]")]
         .find(candidate => candidate.dataset.tab === tab && candidate.dataset.navGroup === button.dataset.group);
