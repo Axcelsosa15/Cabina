@@ -57,12 +57,10 @@ const importa = async (json, { confirmar = true } = {}) => {
   await p.click('[data-tab="ajustes"]'); await p.waitForTimeout(350);
   await p.click('#bkPaste'); await p.waitForTimeout(600);
   await p.fill('#edFields textarea', json); await p.waitForTimeout(250);
-  /* `flashEd()` escribe el motivo del rechazo EN EL TITULO y lo restaura sola tras
-     un momento. Leer a los 1000 ms lo perdia: la asercion pasaba con el detalle
-     vacio, o sea decia «se rechaza y se dice» sin poder mostrar QUE se dijo. Se
-     captura el destello a los 250 ms y se guarda. */
+  /* El error de validación persiste en #edValidation, sin reemplazar el título.
+     Leemos el mensaje del usuario y no una animación transitoria. */
   await p.click('#edSave'); await p.waitForTimeout(250);
-  const destello = await p.evaluate(() => (document.getElementById('edTitle') || {}).textContent || '');
+  const destello = await p.evaluate(() => (document.getElementById('edValidation') || {}).textContent || '');
   await p.waitForTimeout(900);
   const trasRevisar = await p.evaluate(() => ({
     titulo: (document.getElementById('edTitle') || {}).textContent,
@@ -78,7 +76,7 @@ const importa = async (json, { confirmar = true } = {}) => {
   let pidioConfirmacion = false;
   if (/Importar copia/.test(trasRevisar.titulo || '')) {
     await p.click('#edSave'); await p.waitForTimeout(900);
-    pidioConfirmacion = await p.evaluate(() => /Escribe IMPORTAR/.test((document.getElementById('edTitle') || {}).textContent || ''));
+    pidioConfirmacion = await p.evaluate(() => /Escribe IMPORTAR/.test((document.getElementById('edValidation') || {}).textContent || ''));
     if (pidioConfirmacion && confirmar) {
       await p.fill('#ef_ok', 'IMPORTAR').catch(() => {});
       await p.waitForTimeout(250);
