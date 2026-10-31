@@ -16490,7 +16490,7 @@
       '<div class="pbimgs" style="margin-top:8px">' + pendientes.map((im, i) =>
         '<figure class="pbimg"><img ' + imgAttrs(im) + ' alt="' + estudioEsc("Captura sin clasificar " + (i + 1)) + '" loading="lazy">' +
         (im.caption ? '<figcaption class="study-note">' + estudioEsc(im.caption) + '</figcaption>' : '') + '</figure>'
-      ).join("") + '</div><p class="study-note">Asigna la fase y temporalidad desde el editor del trade.</p></section>' : '';
+      ).join("") + '</div></section>' : '';
     const editAction = '<button type="button" class="btn ghost sm" data-study-edit-shots>Editar capturas en FUTUROS</button>';
     const grupos = ESTUDIO_ESCENAS.map(g => {
       const slots = g.slots.map(([sl, etiqueta]) => {
@@ -16506,25 +16506,27 @@
               '</figure>').join("") + '</div>'
           : '';
         const accion = assetsReady()
-          ? '<button type="button" class="btn ghost sm" data-escena-add="' + estudioEsc(k) + '" style="margin-top:6px">＋ ' + (ims.length ? "otra captura" : "captura") + '</button>'
-          : '<p class="study-note" style="margin-top:6px">Entra con tu cuenta para adjuntar capturas.</p>';
-        return '<div style="border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 10px">' +
-          '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">' +
-          '<b style="font-size:12.5px">' + estudioEsc(etiqueta) + '</b>' +
-          '<span class="study-note">' + (ims.length ? estudioEsc(plu(ims.length, "captura", "capturas")) : "vacío") + '</span></div>' +
-          figs + accion + '</div>';
+          ? '<button type="button" class="btn ghost sm" data-escena-add="' + estudioEsc(k) + '" title="' + estudioEsc(g.nota) + '" style="margin:0;min-height:34px;padding:6px 10px">＋ ' + estudioEsc(ims.length ? "Otra" : etiqueta) + '</button>'
+          : '';
+        if (!ims.length) return '<div class="study-scene-empty" style="display:flex;flex:0 1 auto;min-width:0">' + accion + '</div>';
+        return '<div class="study-scene-filled" style="flex:1 1 155px;min-width:0;border:1px solid var(--line);border-radius:var(--r-sm);padding:8px">' +
+          '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">' +
+          '<b style="font-size:12.5px">' + estudioEsc(etiqueta) + '</b>' + accion + '</div>' +
+          figs + '</div>';
       }).join("");
       return '<section style="margin-top:10px">' +
         '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline">' +
         '<b style="font-size:13px;color:var(--text)">' + estudioEsc(g.titulo) + '</b>' +
-        '<span class="study-note">' + estudioEsc(g.nota) + '</span></div>' +
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:7px">' + slots + '</div></section>';
+        '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;align-items:stretch;gap:7px;margin-top:7px">' + slots + '</div></section>';
     }).join("");
     root.innerHTML = '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap">' +
-      '<h4 style="margin:0;font-size:13.5px">Escenarios visuales</h4>' +
-      '<span class="study-note" id="studyScenesCount">' + (total ? estudioEsc(plu(total, "captura guardada", "capturas guardadas")) : "sin capturas todavía") + '</span></div>' +
-      '<p class="study-note" style="margin:4px 0 0">Las capturas de FUTUROS aparecen aquí al guardar el trade. Las de ESTUDIO se guardan en su revisión.</p>' + grupos +
-      '<div style="margin-top:14px">' + editAction + '</div>' + extras;
+      '<h4 style="margin:0;font-size:13.5px">Capturas</h4>' +
+      '<span class="study-note" id="studyScenesCount">' + (total ? estudioEsc(plu(total, "captura", "capturas")) : "0 capturas") + '</span></div>' +
+      (assetsReady() ? '' : '<p class="study-note">Entra con tu cuenta para adjuntar capturas.</p>') + grupos +
+      (estudioTradeImgs().length ? '<div style="margin-top:12px">' + editAction + '</div>' : '') + extras +
+      '<details class="study-scene-help" style="margin-top:12px"><summary class="study-note" style="cursor:pointer">¿Cómo funcionan las capturas?</summary>' +
+      '<p class="study-note" style="margin:6px 0">Las imágenes de FUTUROS aparecen al guardar el trade; las de ESTUDIO quedan en la revisión, sin modificar la operación.</p></details>';
   }
   /* Guarda la revisión con los escenarios actuales. Se llama en cuanto cambia una
      imagen: la captura ya está subida al bucket, así que dejarla sin anotar en el
@@ -16555,7 +16557,7 @@
       btn.disabled = true; btn.textContent = "subiendo…";
       try {
         const im = await uploadShot(f);
-        estudioEscenas[k] = estudioEscenaImgs(k).concat([im]);
+        estudioEscenas[k] = (Array.isArray(estudioEscenas[k]) ? estudioEscenas[k] : []).concat([im]);
         renderEstudioEscenas();
         await estudioGuardarEscenas("Captura añadida a «" + k.replace(":", " · ") + "».");
       } catch (err) { btn.disabled = false; btn.textContent = etiqueta; estudioEscenaEstado(uploadErrMsg(err)); }
