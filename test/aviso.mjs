@@ -46,9 +46,9 @@ await p.fill('#ef_entry','21000'); await p.fill('#ef_stop','20990'); await p.fil
 for (const q of ['0','-2']) {
   await p.fill('#ef_qty', q); await p.click('#edSave'); await p.waitForTimeout(350);
   const r = await p.evaluate(()=>({ abierto: !!(document.getElementById('edTitle')||{}).offsetParent,
-    titulo: (document.getElementById('edTitle')||{}).textContent||'', ops: FUT.trades().length }));
-  const bien = r.ops === 0 && r.abierto && /contratos tienen que ser/i.test(r.titulo);
-  console.log(`  contratos=${q} → ${bien?'✅':'❌'} operaciones ${r.ops} · editor abierto ${r.abierto} · «${r.titulo.trim()}»`);
+    titulo: (document.getElementById('edTitle')||{}).textContent||'', error: (document.getElementById('edValidation')||{}).textContent||'', ops: FUT.trades().length }));
+  const bien = r.ops === 0 && r.abierto && /contratos tienen que ser/i.test(r.error) && r.titulo !== r.error;
+  console.log(`  contratos=${q} → ${bien?'✅':'❌'} operaciones ${r.ops} · editor abierto ${r.abierto} · «${r.error.trim()}»`);
 }
 await p.fill('#ef_qty',''); await p.click('#edSave'); await p.waitForTimeout(500);
 {
