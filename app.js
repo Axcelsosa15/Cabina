@@ -16572,7 +16572,7 @@
     const overlay = document.getElementById("mobileMoreOv");
     const close = document.getElementById("mobileMoreClose");
     if (!nav || !trigger || !overlay || !close) return;
-    const secondary = new Set(["cuentas", "edge", "playbook", "ideas", "calc"]);
+    const secondary = new Set(["cuentas", "edge", "historial", "playbook", "ideas", "calc", "ajustes"]);
     let previousOverflow = "";
     const sheet = overlay.querySelector(".mobile-more-sheet");
     const menuItems = [...overlay.querySelectorAll("[data-mobile-more-tab]")];
@@ -16652,6 +16652,51 @@
       }
     });
     syncMoreActive();
+  })();
+
+
+  /* Cabina 2.0: a second level of navigation, without a second router.
+     Original .tabbtn nodes stay the ONLY source of tab changes. Every
+     keyboard, hash, search and mobile navigation keeps the same showTab(). */
+  (function groupedNavigation() {
+    const bar = document.getElementById("navGroupBar");
+    const nav = document.getElementById("tabnav");
+    if (!bar || !nav) return;
+    const groups = [...bar.querySelectorAll("button[data-group][data-first-tab]")];
+    const lastTab = new Map();
+    function syncFromActive() {
+      const active = nav.querySelector(".tabbtn.active");
+      if (!active) return;
+      const group = active.dataset.navGroup;
+      if (!group) return;
+      lastTab.set(group, active.dataset.tab);
+      nav.dataset.activeGroup = group;
+      groups.forEach(button => {
+        const selected = button.dataset.group === group;
+        button.setAttribute("aria-pressed", String(selected));
+        if (selected) button.setAttribute("aria-current", "true");
+        else button.removeAttribute("aria-current");
+      });
+    }
+    bar.addEventListener("click", event => {
+      const button = event.target.closest("button[data-group][data-first-tab]");
+      if (!button || !bar.contains(button)) return;
+      const tab = lastTab.get(button.dataset.group) || button.dataset.firstTab;
+      const target = [...nav.querySelectorAll(".tabbtn[data-tab]")]
+        .find(candidate => candidate.dataset.tab === tab && candidate.dataset.navGroup === button.dataset.group);
+      if (!target) return;
+      target.click(); // Existing showTab() owns the hash, data and rendering.
+      syncFromActive();
+    });
+    const observer = new MutationObserver(mutations => {
+      if (mutations.some(mutation => mutation.type === "attributes" &&
+        mutation.attributeName === "class" && mutation.target.classList.contains("tabbtn"))) {
+        syncFromActive();
+      }
+    });
+    observer.observe(nav, { subtree: true, attributes: true, attributeFilter: ["class"] });
+    window.addEventListener("hashchange", () => requestAnimationFrame(syncFromActive));
+    syncFromActive();
   })();
 
   /* ── SIN CONEXION · se registra el trabajador de servicio ─────────────────
