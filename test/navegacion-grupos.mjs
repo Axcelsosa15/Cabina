@@ -23,7 +23,7 @@ const browser = await chromium.launch();
 const base = 'http://127.0.0.1:' + server.address().port + '/';
 try {
   for (const theme of ['light', 'dark']) {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const context = await browser.newContext({ viewport: { width: 1024, height: 900 } });
     const page = await context.newPage();
     page.on('pageerror', error => jsErrors.push(error.message));
     await page.addInitScript(mode => {
