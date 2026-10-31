@@ -2654,6 +2654,7 @@
     const active = document.activeElement;
     edReturnFocus = active && active !== document.body && typeof active.focus === "function" ? active : null;
     edCfg = cfg;
+    $("edSave").disabled = false;
     $("edTitle").textContent = cfg.title;
     $("edFields").innerHTML = cfg.fields.map(f => {
       const v = cfg.values[f.key];
@@ -7322,7 +7323,7 @@
   // Bloque de capturas dentro del editor modal. Devuelve el estado para leerlo al guardar.
   function attachShots(fieldsEl, initial, type) {
     const isFut = type === "futuros";
-    const st = { imgs: (initial || []).filter(hasImg).map(x => { const im = Object.assign({}, x); if (isFut && !TRADE_SHOT_KEYS.has(im.scene)) delete im.scene; return im; }), removals: [] };
+    const st = { imgs: (initial || []).filter(hasImg).map(x => { const im = Object.assign({}, x); if (isFut && !TRADE_SHOT_KEYS.has(im.scene)) delete im.scene; return im; }), removals: [], pending: 0 };
     const box = document.createElement("div");
     box.className = "fld w6"; box.id = "edShots";
     fieldsEl.appendChild(box);
@@ -7355,8 +7356,20 @@
         inp.onchange = async () => {
           const f = inp.files && inp.files[0]; if (!f) return;
           b.disabled = true; b.textContent = "subiendo…";
-          try { st.imgs.push(await uploadShot(f)); draw(); }
-          catch (err) { b.disabled = false; b.textContent = label; flashEd(uploadErrMsg(err)); }
+          st.pending++; $("edSave").disabled = true;
+          try {
+            const im = await uploadShot(f);
+            /* Si el editor se cerró durante la subida, no dejar un asset huérfano. */
+            if (!box.isConnected || !ov.classList.contains("open")) {
+              if (im.id && assetsReady()) { try { await pb.assets.delete(im.id); } catch (err) { } }
+              return;
+            }
+            st.imgs.push(im); draw();
+          } catch (err) { if (box.isConnected && ov.classList.contains("open")) flashEd(uploadErrMsg(err)); }
+          finally {
+            st.pending--;
+            if (!st.pending && box.isConnected && ov.classList.contains("open")) $("edSave").disabled = false;
+          }
         };
         inp.click();
       }
@@ -7634,7 +7647,7 @@
          alquiler— no tiene cantidad: su importe va en «Resultado $». La primera
          versión de esta guarda lo bloqueaba con «la cantidad tiene que ser más de
          cero», que para un dividendo no quiere decir nada. */
-      validate: v => { if (!v.date) return "Falta la fecha"; if (type === "futuros" && !v.instrument) return "Falta el instrumento"; if (type !== "futuros" && !v.asset) return "Falta el activo";
+      validate: v => { if (shots && shots.pending) return "La captura todavía se está subiendo"; if (!v.date) return "Falta la fecha"; if (type === "futuros" && !v.instrument) return "Falta el instrumento"; if (type !== "futuros" && !v.asset) return "Falta el activo";
         const mueveUnidades = type === "futuros" || ["compra", "venta", "aporte"].includes(String(v.op || "compra"));
         if (mueveUnidades && v.qty != null && v.qty !== "" && !(Number(v.qty) > 0)) return type === "futuros" ? "Los contratos tienen que ser más de cero" : "La cantidad tiene que ser más de cero";
         return null; },
