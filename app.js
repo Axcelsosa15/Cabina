@@ -8411,9 +8411,1911 @@
     /* CON LA FECHA DE LA OPERACIÓN, no con hoy. Esta señal clasifica la pérdida
        como categoría 3 —tamaño de más, que casi siempre es ego— y juzgarla contra
        el contrato de HOY etiquetaría de indisciplinada una operación que cumplía
-       el tope que regía ese día. Es 
-... 159182 bytes omitted ...
-im(), type: v.type || "brokerage",
+       el tope que regía ese día. Es exactamente el historial reescrito que el
+       versionado del contrato viene a impedir, en el único sitio donde una regla
+       de la firma se aplica a una operación del pasado. */
+    const tope = reglaDe(acctById(t.accountId), "maxContracts", t.date).valor;
+    /* Y la cantidad ya resuelta por el motor, no `Number(t.qty)`: con una cantidad
+       negativa esa comparación es `-3 > 2` = false, o sea que una operación de 3
+       contratos sobre un tope de 2 se escapaba de la señal. */
+    const cts = t.contratos != null ? t.contratos : QE.contratosDe(t.qty);
+    if (tope > 0 && cts > tope) s.push("tamano");
+    if (previa && previa.pnlEff != null && previa.pnlEff < 0) {
+      const sal = minOfTime(previa.exitTime);
+      if (m != null && sal != null && m >= sal && m - sal <= REVANCHA_MIN) s.push("revancha_tiempo");
+      const ctsPrevia = previa.contratos != null ? previa.contratos : QE.contratosDe(previa.qty);
+      if (cts > ctsPrevia) s.push("revancha_tamano");
+    }
+    if (ETIQUETAS_3.test(String(t.tags || ""))) s.push("etiqueta");
+    return s;
+  }
+  /* La operación inmediatamente anterior del mismo día, por hora de entrada. La
+     revancha es de la persona, no de la cuenta: se busca entre todas. */
+  function previasPorDia(todas) {
+    const porDia = {};
+    for (const t of todas) if (t.date && minOfTime(t.time) != null) (porDia[t.date] = porDia[t.date] || []).push(t);
+    const prev = new Map();
+    for (const d in porDia) {
+      const l = porDia[d].slice().sort((a, b) => minOfTime(a.time) - minOfTime(b.time));
+      for (let i = 1; i < l.length; i++) prev.set(l[i].id, l[i - 1]);
+    }
+    return prev;
+  }
+  function clasificaErrores(lista) {
+    const todas = tradesOf("futuros");
+    const prev = previasPorDia(todas);
+    const info = new Map();
+    for (const t of todas) {
+      const sen = senalesDe(t, prev.get(t.id));
+      info.set(t.id, { sen, peor: sen.reduce((c, k) => Math.max(c, SENAL[k].cat), 0), verificable: verificable(t) });
+    }
+    const setups = {};
+    for (const t of todas) {
+      const i = info.get(t.id);
+      if (t.pnlEff == null || i.peor || !i.verificable || !t.setupId) continue;
+      const o = setups[t.setupId] || (setups[t.setupId] = { n: 0, suma: 0 });
+      o.n++; o.suma += t.pnlEff;
+    }
+    for (const k in setups) {
+      const o = setups[k]; o.esperanza = o.suma / o.n; delete o.suma;
+      o.veredicto = o.n < MUESTRA_MIN ? null : o.esperanza > 0 ? 4 : 1;
+    }
+    const porTrade = [], resumen = { 1: 0, 2: 0, 3: 0, 4: 0, "1o4": 0, sin_datos: 0 };
+    for (const t of lista) {
+      if (t.pnlEff == null || !(t.pnlEff < 0)) continue;
+      const i = info.get(t.id) || { sen: senalesDe(t, prev.get(t.id)), peor: 0, verificable: verificable(t) };
+      if (!info.has(t.id)) i.peor = i.sen.reduce((c, k) => Math.max(c, SENAL[k].cat), 0);
+      let cat;
+      if (i.peor) cat = i.peor;
+      else if (!i.verificable) cat = "sin_datos";
+      else cat = (t.setupId && setups[t.setupId] && setups[t.setupId].veredicto) || "1o4";
+      resumen[cat]++;
+      porTrade.push({ id: t.id, date: t.date, instrument: t.instrument, pnl: t.pnlEff, setupId: t.setupId || "", cat,
+        senales: i.sen.map(k => ({ clave: k, cat: SENAL[k].cat, texto: SENAL[k].t })) });
+    }
+    return { porTrade, resumen, setups, muestraMin: MUESTRA_MIN };
+  }
+
+  /* ═══════════════ EL CICLO DE VIDA DE UNA CUENTA ═══════════════
+     Una cuenta de prop firm se compra, se opera, y acaba de una de dos maneras:
+     cobrando o quemada. Cada tarjeta de cuenta ya contesta «¿cómo va ésta?».
+     Lo que ninguna puede contestar es lo que se ve mirando LA SERIE, y son las
+     tres preguntas de esta pestaña:
+
+     · ¿esto da dinero? Lo pagado en evaluaciones y resets contra lo cobrado.
+       Una fondeada con $2.000 retirados no dice nada si antes se quemaron
+       cinco a $150. El P&L de pantalla de una cuenta quemada NO SE COBRÓ.
+     · ¿de qué murió cada una? Y aquí está la decisión que importa:
+       NO SE PREGUNTA. Se DERIVA de las operaciones de esa cuenta, con el mismo
+       clasificador de docs/ERRORES.md. Un campo «¿por qué se quemó?» lo
+       rellenaría el acusado cuando ya sabe la sentencia, y acabaría siendo el
+       cajón donde se esconden las tres categorías que sí se arreglan — el
+       mismo fallo que ese documento existe para evitar, a escala de cuenta.
+     · ¿qué se repite entre las quemadas? Una señal en una cuenta es una
+       anécdota. La misma en cuatro de cinco es la razón por la que se van
+       quemando, y es lo único de aquí que de verdad enseña algo.
+
+     Lo que SÍ se pregunta son un hecho y una opinión marcada como tal: la
+     fecha en que se quemó —que la app no puede saber— y la lección escrita a
+     mano. La lección NO ENTRA EN NINGÚN CÁLCULO y se pinta al lado de la
+     autopsia derivada, precisamente para que se vea cuando las dos no dicen lo
+     mismo. Ver docs/ERRORES.md · test/ciclo.mjs. */
+
+  /* La compra no necesita un campo nuevo: ya la escribe el ledger. El primer
+     movimiento de tipo `fee` ES el día que se pagó. Si no hay ninguno, la fecha
+     NO SE SABE y se dice: derivarla del primer trade contestaría otra pregunta
+     —cuándo se empezó a operar— y la pondría en la columna «comprada». */
+  function compraDe(a) {
+    const fees = (a.ledger || []).filter(e => e && e.kind === "fee" && e.date).map(e => e.date).sort();
+    return fees.length ? fees[0] : "";
+  }
+  /* La fecha de quema tiene TRES estados, no dos: apuntada, apuntada en blanco
+     (la cuenta pasó por el editor y no se escribió) y ausente (la cuenta es
+     anterior al campo). Las dos últimas se pintan igual —«sin fecha»— pero no
+     son lo mismo, y `tieneCampo` deja que la prueba lo distinga. */
+  function quemaDe(a) {
+    const tiene = !!a && Object.prototype.hasOwnProperty.call(a, "burnedOn");
+    const v = String((a && a.burnedOn) || "").trim();
+    return { fecha: v, apuntada: !!v, tieneCampo: tiene };
+  }
+  function cicloDe(a) {
+    const g = acctAgg(a);
+    const cerradas = tradesDe(a.id, true);
+    const dias = [...new Set(cerradas.map(t => t.date).filter(Boolean))].sort();
+    const est = estadoDe(a), q = quemaDe(a);
+    return {
+      id: a.id, nombre: a.name || a.firm || "cuenta", firma: (a.firm || "").trim(), tipo: a.kind || "",
+      estado: est, label: EST_LABEL[est] || est, cls: EST_CLS[est] || "", viva: vivaLa(a), quemada: est === "quemada",
+      comprada: compraDe(a), quema: q,
+      leccion: String(a.lesson || ""),
+      primerDia: dias[0] || "", ultimoDia: dias[dias.length - 1] || "",
+      diasOperados: dias.length, ops: cerradas.length,
+      pnl: g.total, fees: g.fees, payouts: g.payouts, size: g.size,
+      /* EL RESULTADO DE VERDAD de una cuenta: lo que entró en tu bolsillo menos
+         lo que salió de él. No es `g.total`, que es P&L en la plataforma de la
+         firma, y en una cuenta quemada es dinero que nunca existió. */
+      caja: g.payouts - g.fees,
+    };
+  }
+  /* La autopsia. `clasificaErrores` ya sabe hacer esto —mismas señales, mismo
+     umbral de muestra, misma regla de que la esperanza del setup se mide con
+     todas las cuentas— así que aquí no se reimplementa nada: se le pasa la lista
+     de esta cuenta y se le añade UNA cifra que no está en ninguna otra pantalla.
+
+     Esa cifra es cuánto del agujero lo cavaron operaciones CON error —las
+     categorías 2 y 3, las que se arreglan— y cuánto las limpias. Es la
+     diferencia entre «me falta sistema» y «me falta disciplina», y es lo que
+     decide qué hay que cambiar ANTES de comprar la siguiente cuenta. */
+  /* MEMORIZADA, y por el mismo motivo que `acctAgg`: `clasificaErrores` recorre
+     TODAS las operaciones para construir la esperanza de cada setup, no sólo las
+     de esta cuenta. Un render de esta pestaña la pedía dos veces por cuenta
+     quemada —una el patrón, otra la autopsia—, así que con cinco quemadas y mil
+     operaciones eran diez mil clasificaciones por repintado, y la pestaña se
+     repinta con cada operación que se guarda.
+
+     La huella es la revisión de la colección de operaciones más la cuenta: si
+     entra, se edita o se borra una operación, la autopsia se recalcula sola. No
+     hay que acordarse de invalidar nada. Las comisiones automáticas entran en la
+     clave porque cambian el P&L, y el P&L decide el signo de la esperanza. */
+  const _autopsiaMemo = new Map();
+  function autopsiaDe(a) {
+    const clave = coll("trades").rev + "|" + (autoFeesOn() ? 1 : 0);
+    const cache = _autopsiaMemo.get(a.id);
+    if (cache && cache.key === clave) return cache.val;
+    const val = autopsiaCruda(a);
+    _autopsiaMemo.set(a.id, { key: clave, val });
+    return val;
+  }
+  function autopsiaCruda(a) {
+    const r = FUT.clasificaErrores(a.id);
+    const suma = f => r.porTrade.filter(f).reduce((s, x) => s + x.pnl, 0);
+    const conError = x => x.cat === 2 || x.cat === 3;
+    const veces = {};
+    r.porTrade.forEach(x => x.senales.forEach(sn => { veces[sn.clave] = (veces[sn.clave] || 0) + 1; }));
+    return {
+      resumen: r.resumen, perdidas: r.porTrade.length, porTrade: r.porTrade,
+      evitable: suma(conError), limpio: suma(x => !conError(x)),
+      senales: ordenaSenales(veces, "veces"),
+    };
+  }
+  /* Orden estable y una sola copia: por frecuencia, y a igualdad por gravedad
+     —una señal de categoría 3 pesa más que una de 2 con el mismo recuento—. */
+  function ordenaSenales(mapa, campo) {
+    return Object.keys(mapa).sort((x, y) => mapa[y] - mapa[x] || SENAL[y].cat - SENAL[x].cat)
+      .map(k => ({ clave: k, [campo]: mapa[k], cat: SENAL[k].cat, texto: SENAL[k].t }));
+  }
+  /* El patrón entre las quemadas. Se cuenta EN CUÁNTAS CUENTAS aparece cada
+     señal, no cuántas veces en total: cien «sin stop» en una sola cuenta son un
+     mal día largo; «sin stop» en cuatro cuentas de cinco es por qué se queman. */
+  function patronQuemadas() {
+    const q = (state.settings.accounts || []).filter(a => estadoDe(a) === "quemada");
+    const porCuenta = {};
+    q.forEach(a => { new Set(autopsiaDe(a).senales.map(s => s.clave)).forEach(k => { porCuenta[k] = (porCuenta[k] || 0) + 1; }); });
+    return { quemadas: q.length, senales: ordenaSenales(porCuenta, "cuentas") };
+  }
+  /* La economía, y la razón por la que no devuelve sólo números: si no has
+     apuntado NI UN movimiento de coste, lo pagado no es $0 — es desconocido, y
+     decir «has gastado $0» convierte un hueco en una afirmación falsa que
+     además sale a tu favor. Misma disciplina que `accountHealth` con los
+     factores ciegos: lo que no se puede medir se dice. */
+  function economiaCuentas() {
+    const todas = state.settings.accounts || [];
+    const porFirma = new Map();
+    let fees = 0, payouts = 0, conFee = 0, conPayout = 0;
+    todas.forEach(a => {
+      const g = acctAgg(a), est = estadoDe(a);
+      fees += g.fees; payouts += g.payouts;
+      if (g.fees > 0) conFee++;
+      if (g.payouts > 0) conPayout++;
+      const k = (a.firm || "").trim();
+      const o = porFirma.get(k) || { firma: k, fees: 0, payouts: 0, n: 0, quemadas: 0, vivas: 0 };
+      o.fees += g.fees; o.payouts += g.payouts; o.n++;
+      if (est === "quemada") o.quemadas++; else if (vivaLa(a)) o.vivas++;
+      porFirma.set(k, o);
+    });
+    const firmas = [...porFirma.values()].sort((x, y) => (y.payouts - y.fees) - (x.payouts - x.fees) || y.n - x.n);
+    return {
+      cuentas: todas.length, fees, payouts, caja: payouts - fees, firmas,
+      /* `costeDesconocido` NO es «fees === 0»: una cuenta gratuita existe. Es
+         «ninguna cuenta tiene un solo movimiento de coste apuntado», que es la
+         señal de que el ledger está vacío, no de que nada se pagó. */
+      costeDesconocido: conFee === 0, sinCobros: conPayout === 0,
+      quemadas: todas.filter(a => estadoDe(a) === "quemada").length,
+      vivas: todas.filter(a => vivaLa(a)).length,
+    };
+  }
+
+  const _tradesMemo = { key: null, val: null };
+  function tradesOf(type) {
+    const c = coll("trades");
+    const key = c.rev + "|" + type + "|" + (autoFeesOn() ? 1 : 0);
+    if (_tradesMemo.key === key) return _tradesMemo.val;
+    const val = c.items.filter(t => t.type === type).map(t => tradeCalc(Object.assign({}, t)))
+      .sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.time || "").localeCompare(a.time || "") || (b.updatedAt || 0) - (a.updatedAt || 0));
+    _tradesMemo.key = key; _tradesMemo.val = val;
+    return val;
+  }
+  /* ══════════════════ UN SOLO FILTRO DE OPERACIONES ══════════════════
+     La colección `trades` se filtraba en cinco sitios con cinco vocabularios:
+     Futuros con presets de rango, Métricas y el historial de ejecuciones con
+     desde/hasta, Inversiones con cuenta y estrategia, las pre-sesiones con
+     presets otra vez. Cinco implementaciones de «¿qué operaciones entran?»
+     sobre los MISMOS datos, y la de Métricas decide la expectativa, el profit
+     factor y el drawdown — el número que dice si el sistema paga.
+
+     No es una abstracción nueva: la fachada FUT ya se declara más abajo como
+     «CAPA DE DATOS — PUERTA ÚNICA», con la regla escrita de que si dos
+     pantallas discrepan es porque una se saltó la puerta. `mxOps()` se la
+     saltaba. Esto la termina.
+
+     LO QUE HACE QUE LAS DOS GRAMÁTICAS DE FECHA NO PUEDAN DIVERGIR: el preset
+     se RESUELVE a desde/hasta, y de ahí abajo hay UNA comparación. Antes
+     «últimos 30 días» era `d >= lim` en un sitio y `d >= mx.desde` en otro —
+     dos expresiones que daban lo mismo por suerte, no por construcción. Las
+     dos gramáticas siguen existiendo porque las dos pantallas las necesitan de
+     verdad: Futuros quiere «este mes» de un clic, y las métricas necesitan una
+     ventana cerrada. Lo que no puede haber es dos implementaciones de ella.
+     test/filtros.mjs afirma la equivalencia, y cae si se rompe. */
+  function ventanaDe(spec) {
+    /* Devuelve { desde, hasta } en ISO; "" es «sin cota por ese lado».
+       Los límites de cada preset son EXACTAMENTE los que calculaba `inRange`:
+       «este mes» y «este año» acotan por los dos lados —eran una igualdad de
+       prefijo— y los de 30/90 días sólo por abajo, que es lo que hacía
+       `d >= lim`. Cambiar eso aquí movería en silencio qué entra en el edge. */
+    const hoy = state.today;
+    const r = spec.rango || "all";
+    let desde = spec.desde || "", hasta = spec.hasta || "";
+    if (r === "month") {
+      const mes = hoy.slice(0, 7);
+      // El 0 del mes siguiente es el último día de este: no hay tabla de 28/30/31.
+      const fin = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0, 12));
+      desde = desde || mes + "-01"; hasta = hasta || fin.toISOString().slice(0, 10);
+    } else if (r === "year") {
+      const anio = hoy.slice(0, 4);
+      desde = desde || anio + "-01-01"; hasta = hasta || anio + "-12-31";
+    } else if (r === "30" || r === "90") {
+      const lim = new Date(hoy + "T12:00:00Z"); lim.setUTCDate(lim.getUTCDate() - Number(r));
+      desde = desde || lim.toISOString().slice(0, 10);
+    }
+    return { desde, hasta };
+  }
+  /* El predicado. `spec` lleva sólo lo que acota; lo ausente no filtra.
+       acct   id de cuenta, o "__none" para «sin cuenta asignada»
+       setup  id de playbook        instr  instrumento exacto
+       ses    sesión de mercado, o "__sin" para «sin hora»
+       rango  preset                desde / hasta  fechas exactas
+       q      búsqueda libre (varios términos = AND) */
+  function tradeFiltro(spec) {
+    const s = spec || {};
+    const { desde, hasta } = ventanaDe(s);
+    const terms = normQ(s.q || "").trim().split(/\s+/).filter(Boolean);
+    return t => {
+      const d = t.date || "";
+      if (desde && d < desde) return false;
+      if (hasta && d > hasta) return false;
+      if (s.acct && (s.acct === "__none" ? !!t.accountId : t.accountId !== s.acct)) return false;
+      if (s.setup && t.setupId !== s.setup) return false;
+      // `instrument` en futuros, `asset` en inversiones: la misma pregunta.
+      if (s.instr && (t.instrument || t.asset) !== s.instr) return false;
+      if (s.ses && (tradeSes(t) || "__sin") !== s.ses) return false;
+      if (terms.length && !qMatch(t, terms)) return false;
+      return true;
+    };
+  }
+  /* Los dos que quedan por compatibilidad con quien ya los llamaba, ahora
+     delegando: una sola respuesta, dos nombres viejos. */
+  function inRange(t) { return tradeFiltro({ rango: ft.range })(t); }
+  function acctMatch(t) { return tradeFiltro({ acct: ft.acct })(t); }
+  const FT_FILTROS = [
+    { k: "acct", lb: "Cuenta", txt: v => v === "__none" ? "sin cuenta asignada" : acctLabel(v) },
+    { k: "range", lb: "Rango", txt: v => ({ month: "este mes", "30": "últimos 30 días", "90": "últimos 90 días", year: "este año" })[v] || v, off: "all" },
+    { k: "setup", lb: "Setup", txt: v => { const q = coll("playbooks").get(v); return q ? q.name : v; } },
+    { k: "instr", lb: "Instrumento", txt: v => v },
+    { k: "ses", lb: "Sesión", txt: v => v === "__sin" ? "sin hora" : sesShort(v) },
+    { k: "q", lb: "Búsqueda", txt: v => `«${v}»` },
+  ];
+  function activeFilters() { return FT_FILTROS.filter(f => { const v = ft[f.k]; return v && v !== (f.off || ""); }); }
+  function renderFtFilters() {
+    const el = $("ftFilters"); if (!el) return;
+    const act = activeFilters();
+    el.hidden = !act.length;
+    if (!act.length) { el.innerHTML = ""; return; }
+    el.innerHTML = `<span class="lb">Filtrando</span>` + act.map(f => `<span class="fchip"><b>${esc(f.lb)}</b>${esc(String(f.txt(ft[f.k])))}<button type="button" data-clr="${f.k}" title="Quitar este filtro" aria-label="Quitar filtro de ${esc(f.lb)}">×</button></span>`).join("")
+      + `<button type="button" class="clr" data-clr="all">Ver todo</button>`;
+  }
+  $("ftFilters").addEventListener("click", e => {
+    const b = e.target.closest("button[data-clr]"); if (!b) return;
+    if (b.dataset.clr === "all") FT_FILTROS.forEach(f => { ft[f.k] = f.off || ""; });
+    else { const f = FT_FILTROS.find(x => x.k === b.dataset.clr); if (f) ft[f.k] = f.off || ""; }
+    renderFutures();
+  });
+  /* Memorizada por los mismos motivos, y con la misma disciplina: la clave
+     incluye TODO lo que el filtro lee. Si cambia un filtro o entra una
+     operación, se recalcula. Devolver siempre el mismo array mientras nada
+     cambie es lo que permite que futStats acierte en su memoria. */
+  const _filtMemo = { key: null, val: null };
+  /* Búsqueda libre: sin acentos y en minúsculas, para que «leccion» encuentre
+     «lección» y «nq» encuentre «NQ». Varios términos son un AND, no un OR: así
+     «mnq revenge» acota de verdad en vez de ensanchar. */
+  function normQ(v) { return String(v == null ? "" : v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+  function qMatch(t, terms) {
+    const pb = coll("playbooks").get(t.setupId);
+    const esFut = t.type !== "inversion";
+    /* LAS PALABRAS DE DIRECCIÓN SÓLO SI HAY DIRECCIÓN. Esto ponía «largo long l»
+       en el pajar de CUALQUIER operación sin `direction` —el else de un ternario
+       sin tercera salida—, así que en cuanto el historial dejó buscar en las
+       inversiones, buscar «largo» devolvía todos los dividendos. Para una
+       operación de futuros no cambia nada: siempre trae dirección. */
+    const hay = normQ([t.instrument, t.tags, t.lesson, t.quality, t.note,
+      esFut ? (t.direction === "short" ? "corto short s" : "largo long l") : "",
+      /* Lo de la familia de inversión: activo, tipo de operación, mercado y el
+         nombre de SU cuenta, que vive en otro espacio de nombres. */
+      esFut ? "" : [t.asset, t.op, t.market, investmentAccountName(t.accountId)].join(" "),
+      pb ? pb.name : "", acctLabel(t.accountId) || "", t.date, t.time || "",
+      t.exit == null ? "abierta" : ""].join(" "));
+    return terms.every(term => hay.indexOf(term) >= 0);
+  }
+  function futFiltered() {
+    const key = coll("trades").rev + "|" + (autoFeesOn() ? 1 : 0) + "|" +
+      [state.today, ft.range, ft.month, ft.day, ft.setup, ft.instr, ft.ses, ft.acct, ft.q].join("~") +
+      /* La búsqueda lee NOMBRES que no viven en la operación: el del setup y el
+         de la cuenta. Renombrar un setup cambiaba a quién encuentra «breakout»
+         sin cambiar ninguna operación ni ningún filtro, así que la memoria
+         seguía devolviendo la lista anterior. Sólo cuenta cuando hay búsqueda:
+         sin ella, los nombres no entran en el filtro y añadirlos a la clave
+         tiraría la memoria en cada cambio de playbook por nada. */
+      /* acctLabel() cae a `firm` cuando la cuenta no tiene nombre —y el editor
+         permite crearla así—, así que la clave lleva la etiqueta EFECTIVA, no
+         sólo `name`: renombrar la firma de una cuenta sin nombre cambiaba a
+         quién encuentra la búsqueda sin mover la clave. */
+      (ft.q ? "|" + coll("playbooks").rev + "|" + (state.settings.accounts || []).map(a => a.id + ":" + (acctLabel(a.id) || "")).join(",") : "");  // inRange mira state.today
+    if (_filtMemo.key === key) return _filtMemo.val;
+    /* Seis `filter` en cadena pasan a UNA pasada por el predicado de la puerta.
+       Lo que se filtra y en qué orden no cambia —el predicado hace las mismas
+       seis preguntas— pero ahora las hace en el mismo sitio que Métricas. */
+    const l = tradesOf("futuros").filter(tradeFiltro(ftSpec()));
+    _filtMemo.key = key; _filtMemo.val = l;
+    return l;
+  }
+  /* El estado de los filtros de Futuros, dicho como spec de la puerta. Vive
+     aquí y no dentro de futFiltered porque lo lee también `FUT.filtered()`. */
+  function ftSpec() {
+    return { rango: ft.range, setup: ft.setup, instr: ft.instr, ses: ft.ses, acct: ft.acct, q: ft.q };
+  }
+  /* futStats hace seis pasadas sobre la lista y dos filtros más dentro de grp().
+     Con 1.500 operaciones en el journal, guardar UNA repetía ese trabajo sobre
+     3.000 operaciones: la misma lista para los tiles y para cada tarjeta de
+     cuenta.
+
+     La memoria va sobre la IDENTIDAD de la lista, no sobre su contenido: las
+     listas que se reutilizan (tradesOf, tradesDe, futFiltered) son memorizadas y
+     devuelven siempre el mismo array mientras nada cambie, así que aciertan. Una
+     lista construida al vuelo —el P&L de un día del calendario— falla y se
+     calcula, que es justo lo que debe pasar. Es débil: no retiene nada.
+
+     Pura sobre la lista: todo lo que lee ya viene calculado en cada operación. */
+  const _statsMemo = new WeakMap();
+  function futStats(list) {
+    const hit = _statsMemo.get(list);
+    if (hit) return hit;
+    const val = futStatsCrudo(list);
+    _statsMemo.set(list, val);
+    return val;
+  }
+  function futStatsCrudo(list) {
+    const closed = list.filter(t => t.pnlEff != null || t.rReal != null);
+    const wins = closed.filter(t => (t.pnlEff ?? t.rReal) > 0), losses = closed.filter(t => (t.pnlEff ?? t.rReal) < 0), be = closed.length - wins.length - losses.length;
+    const gw = wins.reduce((s, t) => s + (t.pnlEff || 0), 0), gl = Math.abs(losses.reduce((s, t) => s + (t.pnlEff || 0), 0));
+    const rs = closed.filter(t => t.rReal != null).map(t => t.rReal);
+    const avgR = rs.length ? rs.reduce((a, b) => a + b, 0) / rs.length : null;
+    const pnl = closed.reduce((s, t) => s + (t.pnlEff || 0), 0);
+    const proto = list.filter(t => t.cStruct && t.cPull && t.cWindow && t.cSize).length;
+    const byDay = {}; closed.forEach(t => { byDay[t.date] = (byDay[t.date] || 0) + (t.pnlEff || 0); });
+    const days = Object.values(byDay); const greenDays = days.filter(v => v > 0).length;
+    // orden cronológico: `list` viene en orden descendente
+    const ordered = closed.slice().reverse();
+    let cum = 0, peak = 0, maxDD = 0;
+    ordered.forEach(t => { cum += (t.pnlEff || 0); if (cum > peak) peak = cum; if (cum - peak < maxDD) maxDD = cum - peak; });
+    let ws = 0, ls = 0, mw = 0, ml = 0;
+    ordered.forEach(t => { const v = (t.pnlEff ?? t.rReal); if (v > 0) { ws++; ls = 0; if (ws > mw) mw = ws; } else if (v < 0) { ls++; ws = 0; if (ls > ml) ml = ls; } });
+    const totalR = closed.reduce((s, t) => s + (t.rReal || 0), 0);
+    const grp = f => { const g = closed.filter(f); const w = g.filter(t => (t.pnlEff ?? t.rReal) > 0).length; const rs = g.filter(t => t.rReal != null); return { n: g.length, wr: g.length ? w / g.length : null, avgR: rs.length ? rs.reduce((s, t) => s + t.rReal, 0) / rs.length : null, pnl: g.reduce((s, t) => s + (t.pnlEff || 0), 0) }; };
+    const isProto = t => !!(t.cStruct && t.cPull && t.cWindow && t.cSize);
+    const protoA = grp(isProto), protoB = grp(t => !isProto(t));
+    const bestDay = days.length ? Math.max(...days) : null;
+    const bestShare = pnl > 0 && bestDay > 0 ? bestDay / pnl : null;
+    return { n: list.length, closed: closed.length, wins: wins.length, losses: losses.length, be, wr: closed.length ? wins.length / closed.length : null,
+      avgWin: wins.length ? gw / wins.length : null, avgLoss: losses.length ? gl / losses.length : null,
+      /* Sin perdedoras el profit factor NO es infinito: es indefinido. Imprimir «∞»
+         invita a creer en un sistema perfecto que sólo tuvo pocas operaciones. */
+      pf: gl ? gw / gl : null, pfRazon: gl ? null : (gw ? "sin operaciones perdedoras: indefinido" : closed.length ? "sin ganancias ni pérdidas" : null),
+      avgR, totalR, pnl, expect: closed.length ? pnl / closed.length : null, proto: list.length ? proto / list.length : null, days: days.length, greenDays, dayWr: days.length ? greenDays / days.length : null,
+      bestDay, worstDay: days.length ? Math.min(...days) : null, byDay, maxDD, maxWinStreak: mw, maxLossStreak: ml, curStreak: ws > 0 ? ws : -ls, protoA, protoB, bestShare };
+  }
+  /* ══════════════════ RADIOGRAFÍA CUANTITATIVA ══════════════════
+     Superficie del motor. No repite lo que ya muestran los tiles de arriba:
+     muestra lo que los tiles NO pueden decir — cuánta de esa cifra es señal y
+     cuánta es ruido, y qué probabilidad tiene esta cuenta de sobrevivir.
+     Todo sale de QE; aquí no se calcula nada. */
+
+  function qeCard(k, v, cls, sub, ci) {
+    return `<div class="qec"><span class="qk">${esc(k)}</span><div class="qv ${cls || ""}">${v}</div>` +
+      (ci ? `<div class="qci">${esc(ci)}</div>` : "") +
+      (sub ? `<div class="qs">${sub}</div>` : "") + `</div>`;
+  }
+  function qeR(x, dec) { return x == null ? "—" : (x >= 0 ? "+" : "") + Number(x).toFixed(dec == null ? 2 : dec) + "R"; }
+  /* Dinero con signo SIEMPRE visible. En una rejilla de cifras un menos fino se
+     pierde de vista; "+$120" frente a "-$120" no se confunde nunca. */
+  function qeM(x) { return x == null ? "—" : (x > 0 ? "+" : "") + money(x); }
+  function qeCls(x) { return x == null ? "" : x > 0 ? "good" : x < 0 ? "bad" : "dim"; }
+  function roundMD(x) { return x == null ? null : Math.round(x * 100) / 100; }
+  function qeP(x) { return x == null ? "—" : (x * 100).toFixed(1) + "%"; }
+  /* Una probabilidad de Monte Carlo no se imprime como un hecho. Con 2.000
+     caminos la resolución es 0,05%: escribir "100,0%" afirma una certeza que
+     el método no tiene. En los extremos se degrada a «>99%» y «<0,1%». */
+  function qePmc(x, se, compacto) {
+    if (x == null) return "—";
+    if (x >= 0.999) return "&gt;99,9%";
+    if (x > 0 && x <= 0.001) return "&lt;0,1%";
+    if (x === 0) return compacto ? "0%" : `0% <span style="font-size:12px;color:var(--dim)">(ninguno de los ${"2.000"} caminos)</span>`;
+    const s = se && !compacto ? ` <span style="font-size:12px;color:var(--dim)">±${(se * 196).toFixed(1)}</span>` : "";
+    return (x * 100).toFixed(1) + "%" + s;
+  }
+
+  let qeSweep = null;   // resultado del barrido, solo cuando se pide
+  let qeDemo = false;   // ejemplo en rojo; NUNCA toca las operaciones reales
+
+  /* Un sistema perdedor realista para ver la radiografía en rojo sin tener que
+     perder dinero de verdad: 32% de acierto con payoff 1.6:1 sobre MNQ, que es
+     exactamente el perfil que a ojo parece "casi rentable" y no lo es.
+     Es data sintética y se dice en pantalla; no entra en ninguna colección. */
+  const QE_DEMO = (function () {
+    const rs = [-1, -1, 1.6, -1, -1, -1, 2.1, -1, -1, 1.4, -1, -1, -1, -1, 1.8, -1,
+                -1, 1.2, -1, -1, -1, 2.4, -1, -1, -1, 1.5, -1, -1, 1.1, -1, -1, -1,
+                1.9, -1, -1, -1, -1, 1.3, -1, -1];
+    const riesgo = 40;                       // 10 puntos MNQ x 2 contratos
+    const ops = rs.map((r, i) => {
+      const d = new Date(Date.UTC(2026, 6, 6 + Math.floor(i / 2) + Math.floor(i / 10) * 2));
+      return { pnl: Math.round(r * riesgo * 100) / 100, r, fecha: d.toISOString().slice(0, 10) };
+    });
+    return { rs, ops, riesgo, cuenta: { name: "Cuenta de ejemplo 25K", size: 25000, dd: 1000,
+             ddKind: "trailing_lock", limit: 50, target: 1500 } };
+  })();
+
+  function renderQE() {
+    const el = $("qePanel"); if (!el) return;
+    const meta = $("qeMeta");
+    const list = qeDemo ? [] : futFiltered();
+    const cerradas = qeDemo ? [] : list.filter(t => t.pnlEff != null);
+    const ops = qeDemo ? QE_DEMO.ops : cerradas.map(t => ({ pnl: t.pnlEff, r: t.rReal, fecha: t.date }));
+    const e = QE.analizarEdge(ops).value;
+
+    if (!e.n) {
+      el.innerHTML = `<p class="empty">Sin operaciones cerradas en este filtro. El motor no inventa una ventaja a partir de nada.</p>
+        <div style="margin-top:12px"><button type="button" class="btn" id="qeDemoBtn">Ver un ejemplo en rojo</button></div>`;
+      if (meta) meta.textContent = "";
+      const db0 = $("qeDemoBtn"); if (db0) db0.addEventListener("click", () => { qeDemo = true; qeSweep = null; renderQE(); });
+      return;
+    }
+    if (meta) meta.textContent = qeDemo ? "datos de ejemplo" : `${plu(e.n, "operación cerrada", "operaciones cerradas")} en el filtro actual`;
+
+    const vd = e.veredicto;
+    const vcls = vd.fiable ? "ok" : vd.nivel === "anecdota" ? "bad" : "no";
+    const out = [];
+
+    out.push(qeDemo
+      ? `<div class="qdemo"><div><b>Ejemplo · estos NO son tus datos.</b> Sistema sintético de ${e.n} operaciones con 32% de acierto y payoff 1.6:1 sobre MNQ — el perfil que a ojo parece casi rentable y no lo es. Nada de esto se guarda en ninguna cuenta.</div><button type="button" class="btn" id="qeDemoOff">Volver a mis datos</button></div>`
+      : `<div style="display:flex;justify-content:flex-end"><button type="button" class="btn ghost" id="qeDemoBtn">Ver un ejemplo en rojo</button></div>`);
+
+    /* ---------- ventaja ---------- */
+    out.push(`<div class="qhead"><h3>Ventaja medida</h3><span class="qsub"><span class="qflag ${vcls}">${esc(vd.nivel.replace("_", " "))}</span> ${esc(vd.razon)}</span></div>`);
+
+    const eR = e.esperanzaR;
+    const icR = eR && eR.icBootstrap ? `IC 95% ${qeR(eR.icBootstrap[0])} … ${qeR(eR.icBootstrap[1])}` : null;
+    const wr = e.tasaAcierto;
+
+    out.push(`<div class="qeg">`);
+    out.push(qeCard("Resultado del filtro", qeM(e.pnlTotal), qeCls(e.pnlTotal),
+      `${e.ganadoras} ganadoras · ${e.perdedoras} perdedoras${e.planas ? " · " + e.planas + " planas" : ""}`));
+    out.push(qeCard("Esperanza por operación", eR ? qeR(eR.valor) : "—",
+      eR == null ? "" : eR.positiva ? "good" : (eR.valor < 0 ? "bad" : "warn"),
+      eR == null ? "hacen falta stops registrados para medir R"
+        : eR.positiva ? "El intervalo entero está por encima de cero: la ventaja es real."
+        : (eR.icBootstrap && eR.icBootstrap[1] < 0) ? "<b>El intervalo entero está por debajo de cero.</b> Esto no es mala suerte: el sistema pierde."
+        : eR.valor < 0 ? "<b>La media es negativa</b> y el intervalo cruza el cero. Ni confirmado ni descartado, pero apuntando hacia abajo."
+        : "<b>El intervalo cruza el cero.</b> Con esta muestra no se puede afirmar que ganes.", icR));
+
+    out.push(qeCard("Profit factor",
+      e.profitFactor == null ? "—" : e.profitFactor.toFixed(2),
+      e.profitFactor == null ? "" : e.profitFactor >= 1.5 ? "good" : e.profitFactor >= 1 ? "warn" : "bad",
+      e.profitFactorRazon ? esc(e.profitFactorRazon) : "ganado ÷ perdido"));
+
+    out.push(qeCard("Tasa de acierto", wr ? qeP(wr.valor) : "—",
+      wr == null ? "" : wr.valor >= .5 ? "good" : wr.valor >= .4 ? "warn" : "bad",
+      `${e.ganadoras} W · ${e.planas} BE · ${e.perdedoras} L`,
+      wr ? `IC 95% ${qeP(wr.ic[0])} … ${qeP(wr.ic[1])}` : null));
+
+    out.push(qeCard("SQN", e.sqn == null ? "—" : e.sqn.toFixed(2),
+      e.sqn == null ? "" : e.sqn >= 2 ? "good" : e.sqn >= 1.6 ? "warn" : "bad",
+      e.sqn == null ? "calidad del sistema" : e.sqn < 0 ? "negativo: el sistema destruye capital de forma medible" : esc(e.sqnEscala)));
+
+    out.push(qeCard("Payoff", e.payoff == null ? "—" : e.payoff.toFixed(2) + " : 1",
+      e.payoff == null ? "" : e.payoff >= 1.5 ? "good" : "",
+      `media <span class="good">${e.gananciaMedia == null ? "—" : qeM(e.gananciaMedia)}</span> / <span class="bad">${e.perdidaMedia == null ? "—" : qeM(-e.perdidaMedia)}</span>`));
+
+    const ra = e.rachas;
+    out.push(qeCard("Peor racha", ra.maxPerdedoras + " seguidas",
+      ra.alarma ? "bad" : "",
+      ra.esperadaPorAzar == null ? "" :
+        ra.alarma ? `Por azar tocarían ${ra.esperadaPorAzar}. <b>Esta racha es peor de lo que explica la suerte.</b>`
+                  : `Por azar tocarían ${ra.esperadaPorAzar}: está dentro de lo normal.`));
+    out.push(`</div>`);
+
+    /* ---------- lo que los tiles no pueden decir ---------- */
+    if (e.muestra && e.muestra.requerido !== Infinity && !e.muestra.suficiente) {
+      out.push(`<div class="qnote warn">Para que esta ventaja sea distinguible del azar con 95% de confianza harían falta <b>${e.muestra.requerido} operaciones</b>; llevas ${e.muestra.n}. Faltan <b>${e.muestra.faltan}</b>. No es pesimismo: es el ruido de tu propia distribución (${e.muestra.ruidoRelativo}× la media).</div>`);
+    }
+    if (e.concentracion && e.concentracion.dependeDeUna) {
+      out.push(`<div class="qnote bad">Una sola operación de <b>${money(e.concentracion.mayorGanancia)}</b> explica el <b>${qeP(e.concentracion.pctDelTotal)}</b> de todo el resultado. Quítala y no queda sistema, queda un golpe de suerte.</div>`);
+    }
+    if (e.distribucionR && e.distribucionR.colaGorda) {
+      out.push(`<div class="qnote">Tu distribución de R tiene cola gorda (curtosis ${e.distribucionR.curtosis}). La media miente más de lo normal: la mediana es <b>${qeR(e.distribucionR.mediana)}</b> y el 5% peor llega a <b>${qeR(e.distribucionR.p05)}</b>.</div>`);
+    }
+    if (e.significancia && !e.significancia.significativo && e.n >= QE.UMBRALES.tendencia) {
+      out.push(`<div class="qnote">Prueba de que la media sea distinta de cero: p = <b>${e.significancia.p.toFixed(3)}</b>. Por encima de 0.05 este resultado es compatible con no tener ninguna ventaja.</div>`);
+    }
+
+    /* ---------- excursión: lo que el P&L no puede contener ----------
+       Deliberadamente corto. Dos números, y sólo aparecen cuando hay con qué
+       sostenerlos; si no, sale el contador de cuántas faltan. La tentación aquí
+       era montar otro panel de gráficos: no hace falta más análisis, hace falta
+       más registro, y un contador de progreso hace más por eso que un gráfico. */
+    const exOps = (qeDemo ? [] : cerradas).filter(t => t.mae != null || t.mfe != null)
+      .map(t => ({ simbolo: t.instrument, direccion: t.direction, entrada: t.entry,
+                   stop: t.stop, salida: t.exit, mae: t.mae, mfe: t.mfe }));
+    const ex = QE.analizarExcursion(exOps).value;
+    out.push(`<div class="qhead"><h3>Ejecución</h3><span class="qsub">${ex.n
+      ? `${plu(ex.conMAE, "operación", "operaciones")} con MAE · ${plu(ex.conMFE, "con MFE", "con MFE")}`
+      : "sin MAE ni MFE registrados"}</span></div>`);
+
+    if (ex.stop || ex.salida || ex.devueltas) {
+      out.push(`<div class="qeg">`);
+      if (ex.stop) {
+        const r = ex.stop.recorteSugerido;
+        out.push(qeCard("Stop que sobra", r > 0 ? "−" + qeP(r) : "nada",
+          !ex.stop.fiable ? "dim" : r > 0.3 ? "warn" : r > 0 ? "" : "good",
+          r > 0
+            ? `El 95% de tus ganadoras no pasó del ${qeP(ex.stop.usoP95)} del stop. Ese ${qeP(r)} restante no te protege de nada: sólo hace cada operación más cara.`
+            : `Tus ganadoras usan casi todo el stop. No hay margen que recortar — y eso es buena señal: el stop está donde tiene que estar.`,
+          `uso típico ${qeP(ex.stop.usoTipico)} · n=${ex.stop.n}`));
+      }
+      if (ex.salida) {
+        const c = ex.salida.capturaMedia;
+        out.push(qeCard("Captura de la salida", qeP(c),
+          !ex.salida.fiable ? "dim" : c >= 0.6 ? "good" : c >= 0.4 ? "warn" : "bad",
+          ex.salida.dejadoEnLaMesaR != null
+            ? `Llegó a <b>${qeR(ex.salida.mfeMedioR)}</b> de media y saliste con <b>${qeR(ex.salida.logradoMedioR)}</b>: dejas <b>${qeR(ex.salida.dejadoEnLaMesaR)}</b> en la mesa por operación.`
+            : "cuánto del recorrido disponible te llevas",
+          `mediana ${qeP(ex.salida.capturaMediana)} · n=${ex.salida.n}`));
+      }
+      if (ex.devueltas && ex.devueltas.llegaronA1R >= 3) {
+        const d = ex.devueltas;
+        out.push(qeCard("Ganancias devueltas", d.tasa == null ? "—" : qeP(d.tasa),
+          d.tasa == null ? "" : d.tasa >= 0.4 ? "bad" : d.tasa >= 0.2 ? "warn" : "good",
+          `De las <b>${d.llegaronA1R}</b> que llegaron a estar <b>+1R o más</b> a favor, <b>${d.acabaronEnPerdida}</b> acabaron en pérdida${d.rMedioDevuelto != null ? `, devolviendo <b>${qeR(d.rMedioDevuelto)}</b> de media` : ""}. El P&amp;L sólo ve la pérdida; nunca la ganancia que hubo antes.`,
+          `n=${d.n}`));
+      }
+      out.push(`</div>`);
+      if ((ex.stop && !ex.stop.fiable) || (ex.salida && !ex.salida.fiable)) {
+        out.push(`<div class="qnote warn">Estas dos conclusiones se calculan sobre menos de ${QE.UMBRALES.fiable} operaciones. Apuntan en una dirección; todavía no la demuestran.</div>`);
+      }
+    } else {
+      out.push(`<div class="qnote">MAE y MFE son lo único que separa <b>una salida buena</b> de <b>una salida afortunada</b>: el P&L no distingue las dos. Son dos campos opcionales al cerrar cada operación — el peor precio en contra y el mejor a favor.
+        ${ex.n ? `Llevas <b>${ex.n}</b> ${ex.n === 1 ? "registrada" : "registradas"}; con <b>5</b> empiezan a salir números y con <b>${QE.UMBRALES.fiable}</b> se pueden creer.`
+               : `Con <b>5</b> empiezan a salir números y con <b>${QE.UMBRALES.fiable}</b> se pueden creer.`}</div>`);
+    }
+
+    /* ---------- riesgo de la curva ----------
+       metricasCurva llevaba construido y probado sin que nadie lo llamara.
+       Ninguna de estas cifras existía en la app. Van con su veredicto: el propio
+       motor se niega a que se interpreten por debajo de 60 días, porque un
+       Sharpe anualizado sobre ocho sesiones no significa nada. */
+    const curvaOps = cerradas.slice().reverse()
+      .map((t, i) => ({ fecha: t.date, orden: i, pnl: t.pnlEff }));
+    /* El capital es el de las cuentas del filtro, con la misma regla que Métricas.
+       Antes era 25.000 fijo: úlcera y Sortino salían en % de un dinero que no
+       existe. Sin cuenta no hay capital, y esas dos tarjetas no se pintan. */
+    const acF = ft.acct && ft.acct !== "__none" ? acctById(ft.acct) : null;
+    const capital = qeDemo ? QE_DEMO.cuenta.size : acF ? Number(acF.size) || 0
+      : [...new Set(cerradas.map(t => t.accountId).filter(Boolean))].reduce((s, id) => s + (Number((acctById(id) || {}).size) || 0), 0);
+    const cv = curvaOps.length ? QE.construirCurva(curvaOps, { saldoInicial: capital || 1, ddMaximo: null }).value : null;
+    const mt = cv ? QE.metricasCurva(cv).value : null;
+    if (mt && mt.n) {
+      out.push(`<div class="qhead"><h3>Riesgo de la curva</h3><span class="qsub">${plu(mt.n, "día operado", "días operados")} · ${mt.diasVerdes} verdes / ${mt.diasRojos} rojos</span></div>`);
+      out.push(`<div class="qeg">`);
+      out.push(qeCard("Días bajo el agua", mt.diasEnDrawdown,
+        mt.diasEnDrawdown > mt.n * 0.5 ? "warn" : "",
+        "la racha más larga sin superar un máximo anterior"));
+      out.push(qeCard("Factor de recuperación", mt.factorRecuperacion == null ? "—" : mt.factorRecuperacion.toFixed(2),
+        mt.factorRecuperacion == null ? "" : mt.factorRecuperacion >= 2 ? "good" : mt.factorRecuperacion >= 1 ? "warn" : "bad",
+        "ganancia neta ÷ peor caída. Por debajo de 1 ganas menos de lo que llegaste a perder"));
+      if (capital > 0) {
+        out.push(qeCard("Índice de úlcera", mt.ulcer == null ? "—" : (mt.ulcer * 100).toFixed(2) + "%",
+          mt.ulcer == null ? "" : mt.ulcer < 0.02 ? "good" : mt.ulcer < 0.05 ? "warn" : "bad",
+          `profundidad y duración del sufrimiento, sobre ${money(capital)}`));
+        out.push(qeCard("Sortino (anualizado)", mt.sortino == null ? "—" : mt.sortino.toFixed(2),
+          !mt.fiable ? "dim" : mt.sortino == null ? "" : mt.sortino >= 2 ? "good" : mt.sortino >= 1 ? "warn" : "bad",
+          mt.fiable ? "como Sharpe, pero sólo castiga la volatilidad a la baja" : "sin fiabilidad todavía"));
+      }
+      out.push(`</div>`);
+      if (!mt.fiable && capital > 0) out.push(`<div class="qnote warn">${esc(mt.razon)} Las dos primeras tarjetas sí se leen con pocos días: describen lo que ya pasó. Sortino extrapola a un año, y con esta muestra esa extrapolación es una invención.</div>`);
+      out.push(`<div class="qnote">Caída máxima y Sharpe están en <b>Rendimiento</b>, netos de comisiones y sobre el capital de la cuenta. Aquí no se repiten con otra base.</div>`);
+      out.push(`<div class="qnote">Mejor día <b>${qeM(mt.mejorDia)}</b> · peor día <b>${qeM(mt.peorDia)}</b> · media diaria <b>${qeM(mt.mediaDiaria)}</b> con una desviación de <b>${money(mt.desvDiaria)}</b>. Un día normal cae, dos de cada tres veces, entre ${qeM(roundMD(mt.mediaDiaria - mt.desvDiaria))} y ${qeM(roundMD(mt.mediaDiaria + mt.desvDiaria))}.</div>`);
+    }
+
+    /* ---------- supervivencia ---------- */
+    const ac = qeDemo ? QE_DEMO.cuenta : (ft.acct && ft.acct !== "__none" ? acctById(ft.acct) : null);
+    const rs = qeDemo ? QE_DEMO.rs : cerradas.map(t => t.rReal).filter(x => x != null);
+    const riesgos = qeDemo ? [QE_DEMO.riesgo] : cerradas.map(t => t.riskUsd).filter(x => x != null && x > 0);
+    const riesgoTipico = riesgos.length ? riesgos.reduce((a, b) => a + b, 0) / riesgos.length : null;
+
+    if (!ac) {
+      out.push(`<div class="qhead"><h3>Supervivencia de la cuenta</h3><span class="qsub">elige una cuenta en el filtro de arriba</span></div>
+        <div class="qnote">La simulación necesita el tamaño, el drawdown y el objetivo de una cuenta concreta. Filtra por cuenta para verla.</div>`);
+    } else if (rs.length < 5 || !riesgoTipico) {
+      out.push(`<div class="qhead"><h3>Supervivencia de la cuenta</h3><span class="qsub">${esc(ac.name || "cuenta")}</span></div>
+        <div class="qnote">Hacen falta al menos 5 operaciones con stop registrado para remuestrear tu propia distribución. Llevas ${rs.length}. Sin eso, cualquier probabilidad sería una opinión disfrazada de número.</div>`);
+    } else {
+      const ddTipo = ac.ddKind === "estatico" ? "estatico" : ac.ddKind === "trailing" ? "trailing" : "trailing_lock";
+      const g = qeDemo ? null : acctAgg(ac);
+      const objetivo = Number(ac.target) || (Number(ac.size) ? Number(ac.size) * 0.06 : null);
+      const reglaP = qeDemo ? null : ruleByRole("maxLoss");
+      const dias = qeDemo ? new Set(QE_DEMO.ops.map(o => o.fecha)).size : (g.jDays || 1);
+      const base = {
+        rMultiples: rs, riesgoPorOperacion: riesgoTipico,
+        operacionesPorDia: Math.max(1, (qeDemo ? QE_DEMO.ops.length : cerradas.length) / dias),
+        saldoInicial: Number(ac.size) || 25000, ddTipo, ddMaximo: Number(ac.dd) || null,
+        objetivoGanancia: objetivo, limiteConsistencia: Number(ac.limit) || null,
+        perdidaDiariaMax: reglaP ? Math.abs(Number(reglaP.value) || 0) || null : null,
+        diasMax: 120, semilla: 20260917,
+      };
+      const sim = QE.simularCuenta(Object.assign({}, base, { caminos: 2000 }));
+
+      out.push(`<div class="qhead"><h3>Supervivencia de la cuenta</h3><span class="qsub">${esc(ac.name || "cuenta")} · 2.000 caminos remuestreando tus ${rs.length} operaciones · semilla fija</span></div>`);
+
+      if (!sim.ok) {
+        out.push(`<div class="qnote bad">${esc(sim.error.message)}</div>`);
+      } else {
+        const v = sim.value;
+        out.push(`<div class="qeg">`);
+        out.push(qeCard("Probabilidad de pasarla", qePmc(v.pPasar, v.errorEstandar && v.errorEstandar.pasar),
+          v.pPasar >= .6 ? "good" : v.pPasar >= .35 ? "warn" : "bad",
+          objetivo ? `objetivo ${money(objetivo)} en ${v.supuestos.diasMax} días` : "sin objetivo definido en la cuenta"));
+        out.push(qeCard("Probabilidad de quemarla", qePmc(v.pQuemar, v.errorEstandar && v.errorEstandar.quemar),
+          v.pQuemar <= .05 ? "good" : v.pQuemar <= .15 ? "warn" : "bad",
+          `arriesgando ${money(riesgoTipico)} por operación`));
+        out.push(qeCard("Días hasta pasarla", v.diasPasarMediana == null ? "—" : v.diasPasarMediana,
+          "", v.diasPasarP90 == null ? "mediana" : `mediana · el 10% más lento tarda ${v.diasPasarP90}`));
+        out.push(qeCard("Colchón mínimo esperado", v.colchonMinimo ? qeM(v.colchonMinimo.mediana) : "—",
+          v.colchonMinimo ? (v.colchonMinimo.mediana <= 0 ? "bad" : v.colchonMinimo.p05 <= 0 ? "warn" : "good") : "",
+          v.colchonMinimo ? `en el 5% peor de los casos: <span class="${qeCls(v.colchonMinimo.p05)}">${qeM(v.colchonMinimo.p05)}</span>${v.colchonMinimo.p05 <= 0 ? " — ahí la cuenta ya está quemada" : ""}` : ""));
+        out.push(`</div>`);
+        if (v.pSinResolver > 0.25) {
+          out.push(`<div class="qnote">En el ${qeP(v.pSinResolver)} de los caminos la cuenta sigue viva pero sin pasar a los ${v.supuestos.diasMax} días. Ni éxito ni fracaso: tiempo.</div>`);
+        }
+        out.push(`<div class="qnote${vd.fiable ? "" : " warn"}">${vd.fiable ? "" : `<b>Estas probabilidades heredan el problema de arriba:</b> se calculan remuestreando ${e.n} operaciones, y con ${e.n} operaciones la ventaja todavía no está medida. La simulación es precisa sobre una entrada que no lo es. `}${esc(v.nota)}</div>`);
+        out.push(`<div style="margin-top:12px"><button type="button" class="btn" id="qeBarrer">Barrer tamaños de posición</button></div>`);
+        if (qeSweep && qeSweep.clave === ac.id) {
+          out.push(`<table class="qsweep"><thead><tr><th>Riesgo por operación</th><th>Pasarla</th><th>Quemarla</th><th>Días</th></tr></thead><tbody>` +
+            qeSweep.filas.map(f => `<tr class="${qeSweep.optimo && f.multiplicador === qeSweep.optimo.multiplicador ? "best" : ""}"><td>${money(f.riesgo)}<span style="color:var(--dim)"> · ${f.multiplicador}×</span></td><td class="${f.pPasar >= .6 ? "good" : ""}">${qePmc(f.pPasar, null, true)}</td><td class="${f.pQuemar > .15 ? "bad" : ""}">${qePmc(f.pQuemar, null, true)}</td><td>${f.diasPasarMediana == null ? "—" : f.diasPasarMediana}</td></tr>`).join("") +
+            `</tbody></table>
+            <div class="qnote">Subir tamaño acelera y a la vez mata. El máximo de esta columna es el punto donde dejar de subir: más allá compras velocidad pagando con ruina.</div>`);
+        }
+        el.__qeBase = base;
+        el.__qeAcct = ac.id;
+      }
+    }
+
+    el.innerHTML = out.join("");
+    const don = $("qeDemoBtn"); if (don) don.addEventListener("click", () => { qeDemo = true; qeSweep = null; renderQE(); });
+    const dof = $("qeDemoOff"); if (dof) dof.addEventListener("click", () => { qeDemo = false; qeSweep = null; renderQE(); });
+    const btn = $("qeBarrer");
+    if (btn) btn.addEventListener("click", () => {
+      const base = el.__qeBase; if (!base) return;
+      btn.disabled = true; btn.textContent = "simulando…";
+      setTimeout(() => {
+        const b = QE.barridoDeRiesgo(Object.assign({}, base, { caminos: 1200 }), [0.25, 0.5, 0.75, 1, 1.5, 2, 3]);
+        qeSweep = b.ok ? { clave: el.__qeAcct, filas: b.value.filas, optimo: b.value.optimo } : null;
+        renderQE();
+      }, 20);
+    });
+  }
+
+  function renderFutures() {
+    // un filtro que apunta a una cuenta, setup o instrumento ya borrado vaciaba la vista en silencio
+    if (ft.acct && ft.acct !== "__none" && !acctById(ft.acct)) ft.acct = "";
+    if (ft.setup && !coll("playbooks").get(ft.setup)) ft.setup = "";
+    const all = tradesOf("futuros");
+    if (ft.instr && !all.some(t => t.instrument === ft.instr)) ft.instr = "";
+    const sf = $("ftSetup"); sf.innerHTML = `<option value="">todos los setups</option>` + coll("playbooks").items.filter(p => p.type === "futuros").map(p => `<option value="${p.id}" ${ft.setup === p.id ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+    const instrs = [...new Set(all.map(t => t.instrument).filter(Boolean))].sort();
+    $("ftInstr").innerHTML = `<option value="">todos los instrumentos</option>` + instrs.map(i => `<option value="${esc(i)}" ${ft.instr === i ? "selected" : ""}>${esc(i)}</option>`).join("");
+    // El input no se reconstruye, pero su valor puede venir de un chip borrado
+    // («Ver todo» pone ft.q = ""), así que se refleja el estado en cada render.
+    { const qi = $("ftQ"); if (qi && qi.value !== ft.q) qi.value = ft.q; }
+    // el selector solo ofrece sesiones con operaciones: un filtro que vacía la vista no ayuda
+    const conOps = new Set(all.map(t => tradeSes(t) || "__sin"));
+    if (ft.ses && !conOps.has(ft.ses)) ft.ses = "";
+    const opsSes = SESSIONS.filter(x => conOps.has(x.id)).map(x => [x.id, x.short]).concat(conOps.has("__sin") ? [["__sin", "sin hora"]] : []);
+    $("ftSes").innerHTML = `<option value="">todas las sesiones</option>` + opsSes.map(([v, l]) => `<option value="${esc(v)}" ${ft.ses === v ? "selected" : ""}>${esc(l)}</option>`).join("");
+    renderFtFilters();
+    const list = futFiltered(); const s = futStats(list);
+    const pfTxt = s.pf == null ? "—" : s.pf.toFixed(2);
+    const wl = s.avgWin != null && s.avgLoss ? (s.avgWin / s.avgLoss).toFixed(2) : "—";
+    const tot = s.closed || 1;
+    const hist = historyMerged(); const brokeN = hist.filter(d => d.broke).length;
+    const ac = ft.acct ? acctById(ft.acct) : null; const cons = ac ? consistency(ac) : null;
+    /* ═══════════ EL COLOR ES UN HECHO, NO UNA OPINIÓN ═══════════
+       El verde y el rojo se reservan para el SIGNO del dinero y para los
+       límites que existen de verdad. Un número no se pinta de verde porque
+       supere un umbral que alguien escribió aquí dentro.
+
+       Llevaban color cuatro métricas que no lo merecían: profit factor (verde
+       por encima de 1.5), win rate (verde por encima del 50%), días verdes
+       (verde por encima del 55%) y concentración (verde por debajo del 40%
+       cuando no hay cuenta). Esos cuatro umbrales no salen de ninguna parte, y
+       pintarlos daba un veredicto que la cabina no tiene cómo sostener —
+       justo debajo del badge que dice «ANECDOTA · n=18: por debajo de 20 esto
+       es ruido, no una medición». Una win rate del 61% con mal payoff pierde
+       dinero, y la cabina la felicitaba.
+
+       Lo que SÍ conserva color, porque el signo es un hecho del dato:
+       P&L neto, expectativa, R acumulada, drawdown, y los pares de media y de
+       mejor/peor día. Y la concentración en ROJO cuando pasa el límite REAL de
+       la cuenta prop — ahí el umbral no lo inventó nadie, lo firmó la firma.
+       Estar por debajo no es «bueno»: es estar dentro, y eso no se celebra. */
+    $("ftTiles").innerHTML = `
+      <div class="tile"><span class="lab">P&amp;L neto</span><div class="v ${s.pnl > 0 ? "good" : s.pnl < 0 ? "bad" : ""}">${s.closed ? money(s.pnl) : "—"}</div><div class="s">${plu(s.n, "operación", "operaciones")} · ${plu(s.closed, "cerrada", "cerradas")}</div></div>
+      <div class="tile"><span class="lab">Profit factor</span><div class="v">${pfTxt}</div><div class="s">${s.pfRazon ? esc(s.pfRazon) : "ganado ÷ perdido"}</div></div>
+      <div class="tile"><span class="lab">Win rate</span><div class="v">${s.wr == null ? "—" : pct(s.wr)}</div><div class="bar3"><i style="width:${s.wins / tot * 100}%;background:var(--good)"></i><i style="width:${s.be / tot * 100}%;background:var(--dim)"></i><i style="width:${s.losses / tot * 100}%;background:var(--bad)"></i></div><div class="s">${s.wins} W · ${s.be} BE · ${s.losses} L</div></div>
+      <div class="tile"><span class="lab">Ganancia / pérdida media</span><div class="v dual"><span class="pos">${s.avgWin != null ? money(s.avgWin) : "—"}</span> <span style="color:var(--dim)">/</span> <span class="neg">${s.avgLoss != null ? money(-s.avgLoss) : "—"}</span></div><div class="s">ratio ${wl}</div></div>
+      <div class="tile"><span class="lab">Expectativa</span><div class="v ${s.expect == null ? "" : s.expect > 0 ? "good" : "bad"}">${s.expect == null ? "—" : money(s.expect)}</div><div class="s">${s.avgR == null ? "por operación" : (s.avgR >= 0 ? "+" : "") + s.avgR.toFixed(2) + "R por operación"}</div></div>
+
+      
+      <div class="tile"><span class="lab">Días verdes</span><div class="v">${s.dayWr == null ? "—" : pct(s.dayWr)}</div><div class="s">${s.greenDays} de ${s.days} · protocolo ${s.proto == null ? "—" : pct(s.proto)}</div></div>
+      <div class="tile"><span class="lab">Máx. drawdown</span><div class="v ${s.maxDD < 0 ? "bad" : ""}">${s.closed ? money(s.maxDD) : "—"}</div><div class="s">peor caída desde un máximo</div></div>
+      <div class="tile"><span class="lab">R acumulada</span><div class="v ${s.totalR > 0 ? "good" : s.totalR < 0 ? "bad" : ""}">${s.closed ? (s.totalR >= 0 ? "+" : "") + s.totalR.toFixed(1) + "R" : "—"}</div><div class="s">${s.avgR == null ? "sin stops registrados" : "media " + (s.avgR >= 0 ? "+" : "") + s.avgR.toFixed(2) + "R"}</div></div>
+      <div class="tile"><span class="lab">Mejor / peor día</span><div class="v dual"><span class="pos">${s.bestDay != null ? money(s.bestDay) : "—"}</span> <span style="color:var(--dim)">/</span> <span class="neg">${s.worstDay != null ? money(s.worstDay) : "—"}</span></div><div class="s">${plu(s.days, "día operado", "días operados")}</div></div>
+      <div class="tile"><span class="lab">Concentración</span><div class="v ${s.bestShare != null && cons && s.bestShare > cons.L ? "bad" : ""}">${s.bestShare == null ? "—" : pct(s.bestShare)}</div><div class="s">${cons ? `mejor día ÷ ganancia · límite ${pct(cons.L)}` : "mejor día ÷ ganancia total"}</div></div>`;
+    const sf2 = $("ftAcct"); sf2.innerHTML = `<option value="">todas las cuentas</option>` + acctOptions().map(([v, l]) => `<option value="${esc(v)}" ${ft.acct === v ? "selected" : ""}>${esc(l)}</option>`).join("") + `<option value="__none" ${ft.acct === "__none" ? "selected" : ""}>sin cuenta asignada</option>`;
+    const noAcct = all.filter(t => !t.accountId || !acctById(t.accountId)).length;
+    $("ftSync").className = "synced" + (noAcct ? " manual" : "");
+    $("ftSync").innerHTML = `<span class="dotg"></span><span>${all.length ? `${plu(all.length, "operación de futuros", "operaciones de futuros")} · ${plu(brokeN, "día", "días")} con regla rota en las últimas ${plu(hist.length, "sesión", "sesiones")} · la Cabina, el calendario y las cuentas leen todos de aquí.` : "Sin operaciones todavía. Lo que registres aquí alimenta la Cabina, el calendario y la consistencia de cada cuenta."}</span>${noAcct ? `<span style="color:var(--warn)">${noAcct} sin cuenta asignada</span><button type="button" id="ftFixAcct">asignar en bloque</button>` : ""}`;
+    const fx = $("ftFixAcct"); if (fx) fx.addEventListener("click", bulkAssignAccount);
+    renderQE();
+    try { paintGateButtons(); } catch (e) { }
+    renderCalendar(); renderEquity(list); renderUnderwater(list); renderDaily(list); renderRolling(list); renderStreakTiles(s);
+    renderDay(); renderBreakdown(list); renderJournalTable(list);
+    renderScorecard(list, s); renderRDist(list); renderProto(s); renderErrores(list); renderSesChart(list); renderHourChart(list); renderDowChart(list); renderConsistency(list, s);
+    renderFutAccounts();
+    /* Y SE RECONCILIA LA SELECCIÓN CON LO QUE QUEDÓ EN PANTALLA. `pintaSel()`
+       se programa desde un escuchador de CLICK en fase de captura, así que
+       cubría cambiar de pestaña o de sub-vista pero no un filtro que se mueve
+       sin un clic: escribir en el buscador dispara `input`, y elegir en un
+       `<select>` con el teclado dispara `change`. En esos casos la barra de
+       selección sobrevivía citando filas que el filtro acababa de esconder.
+       Engancharlo al repintado lo cubre por construcción, venga de donde venga. */
+    try { pintaSel(); } catch (e) { }
+  }
+  function bulkAssignAccount() {
+    const opts = acctOptions();
+    if (!opts.length) { flash("primero registra una cuenta en Futuros → Cuentas"); setFtView("cuentas"); return; }
+    openEditor({ title: "Asignar cuenta a las operaciones sueltas", fields: [{ key: "a", label: "Cuenta", type: "select", w: 6, options: opts, help: "solo toca las operaciones sin cuenta o con una cuenta borrada; si esa cuenta ya tenía la ganancia escrita a mano, baja luego la ganancia previa para no contarla dos veces" }], values: { a: opts[0][0] },
+      onSave: v => { const pend = coll("trades").items.filter(t => t.type === "futuros" && (!t.accountId || !acctById(t.accountId))); pend.forEach(t => coll("trades").set(t.id, Object.assign({}, t, { accountId: v.a }))); flash(`${plu(pend.length, "operación asignada", "operaciones asignadas")} a ${acctLabel(v.a)}`); } });
+  }
+
+  /* ---------- calendario ---------- */
+  function dayMap(list) { const m = {}; list.forEach(t => { const d = m[t.date] || (m[t.date] = { pnl: 0, n: 0, closed: 0, r: 0 }); d.n++; if (t.pnlEff != null) { d.pnl += t.pnlEff; d.closed++; } if (t.rReal != null) d.r += t.rReal; }); return m; }
+  /* Un solo pintor para los dos calendarios: el de Futuros (operaciones filtradas)
+     y el de Cabina (resultado de la sesión, venga del journal o escrito a mano). */
+  function paintCalendar(cfg) {
+    const dm = cfg.dm; const [y, m] = cfg.month.split("-").map(Number);
+    const first = new Date(Date.UTC(y, m - 1, 1)); const daysIn = new Date(Date.UTC(y, m, 0)).getUTCDate(); const startDow = first.getUTCDay();
+    cfg.title.textContent = new Intl.DateTimeFormat("es-ES", { timeZone: "UTC", month: "long", year: "numeric" }).format(first);
+    let mp = 0, mn = 0, md = 0, mg = 0;
+    const cells = []; const heads = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"].map(h => `<div class="dh">${h}</div>`).join("") + `<div class="dh wk">sem</div>`;
+    const brokeDays = new Set(state.history.filter(d => d.broke).map(d => d.date)); if (state.day.broke) brokeDays.add(state.day.date);
+    let wk = { pnl: 0, n: 0 }; let day = 1 - startDow;
+    for (let row = 0; row < 6; row++) {
+      let rowHtml = ""; let any = false;
+      for (let col = 0; col < 7; col++, day++) {
+        if (day < 1 || day > daysIn) { rowHtml += `<div class="d out"></div>`; continue; }
+        any = true; const iso = `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`; const d = dm[iso];
+        let cls = "d"; if (d && d.closed) { cls += d.pnl > 0 ? " win" : d.pnl < 0 ? " loss" : " flat"; mp += d.pnl; md++; if (d.pnl > 0) mg++; wk.pnl += d.pnl; } else if (d) cls += " flat";
+        if (d) { mn += d.n; wk.n += d.n; }
+        if (iso === state.today) cls += " today"; if (cfg.sel && iso === cfg.sel) cls += " sel"; if (brokeDays.has(iso)) cls += " broke";
+        rowHtml += `<button type="button" class="${cls}" data-date="${iso}"><span class="n">${day}</span>${d && d.closed ? `<span class="p">${money(d.pnl)}</span>` : d ? `<span class="p" style="color:var(--muted)">abierta</span>` : `<span class="p"></span>`}<span class="c">${d ? d.n + (d.n === 1 ? " op" : " ops") : ""}</span></button>`;
+      }
+      if (!any) break;
+      rowHtml += `<div class="w">${wk.n ? `<b class="${wk.pnl > 0 ? "pos" : wk.pnl < 0 ? "neg" : ""}">${money(wk.pnl)}</b><span>${wk.n} ops</span>` : `<span>—</span>`}</div>`;
+      cells.push(rowHtml); wk = { pnl: 0, n: 0 };
+    }
+    cfg.grid.innerHTML = heads + cells.join("");
+    cfg.meta.innerHTML = md ? `<span class="${mp > 0 ? "pos" : mp < 0 ? "neg" : ""}">${money(mp)}</span> · ${plu(md, "día", "días")} · ${plu(mg, "verde", "verdes")} · ${plu(mn, "op", "ops")}` : (mn ? plu(mn, "op abierta", "ops abiertas") : "sin operaciones");
+  }
+  function renderCalendar() {
+    const list = tradesOf("futuros").filter(t => !ft.setup || t.setupId === ft.setup).filter(t => !ft.instr || t.instrument === ft.instr).filter(acctMatch);
+    paintCalendar({ month: ft.month, dm: dayMap(list), title: $("calTitle"), grid: $("cal"), meta: $("calMeta"), sel: ft.day });
+  }
+  $("cal").addEventListener("click", e => { const b = e.target.closest("button.d[data-date]"); if (!b) return; ft.day = b.dataset.date; renderCalendar(); renderDay(); });
+
+  /* ---------- el mismo calendario, visto desde la Cabina ----------
+     Aquí manda la sesión: si el resultado está escrito a mano, ese es el que cuenta;
+     si no, sale de las operaciones de futuros de ese día. */
+  const cabCal = { month: state.today.slice(0, 7) };
+  function sessionDayMap() {
+    const m = {};
+    coll("trades").items.filter(x => x.type === "futuros").forEach(x => {
+      const c = tradeCalc(Object.assign({}, x));
+      if (!c.date) return;
+      const d = m[c.date] || (m[c.date] = { pnl: 0, n: 0, closed: 0, r: 0 });
+      d.n++; if (c.pnlEff != null) { d.pnl += c.pnlEff; d.closed++; }
+    });
+    const apply = doc => {
+      if (!doc || !doc.date || doc.result == null) return;
+      const d = m[doc.date] || (m[doc.date] = { pnl: 0, n: 0, closed: 0, r: 0 });
+      if (doc.resultManual || !d.closed) { d.pnl = Number(doc.result) || 0; d.closed = Math.max(d.closed, 1); }
+      if (!d.n) d.n = Number(doc.trades) || 0;
+    };
+    (state.demo ? state.history : state.dias).forEach(apply);
+    apply(state.day);
+    return m;
+  }
+  function renderCabCalendar() {
+    if (!$("calCab")) return;
+    paintCalendar({ month: cabCal.month, dm: sessionDayMap(), title: $("calCabTitle"), grid: $("calCab"), meta: $("calCabMeta"), sel: null });
+  }
+  $("calCabPrev").addEventListener("click", () => { cabCal.month = shiftMonth(cabCal.month, -1); renderCabCalendar(); });
+  $("calCabNext").addEventListener("click", () => { cabCal.month = shiftMonth(cabCal.month, 1); renderCabCalendar(); });
+  $("calCab").addEventListener("click", e => {
+    const b = e.target.closest("button.d[data-date]"); if (!b) return;
+    ft.day = b.dataset.date; ft.month = b.dataset.date.slice(0, 7);
+    showTab("futuros"); setFtView("diario"); renderCalendar(); renderDay();
+  });
+
+  /* ---------- panel de día ---------- */
+  let dayNoteTimer = null;
+  async function saveDayNote(date, patch) {
+    if (state.demo) return;
+    try { const ref = state.db.doc("days/" + date); const snap = await ref.get(); const cur = snap.exists ? snap.data() : newDay(date); const next = Object.assign({}, cur, patch, { updatedAt: Date.now() }); await ref.set(next); siSeGuardo("days/" + date); if (date === state.today) { state.day = migrateDay(Object.assign(newDay(date), next)); renderJournalDay(); } } catch (e) { noSeGuardo("days/" + date, motivoDb(e), "el dia " + date); }
+  }
+  function dayDoc(date) { if (date === state.today) return state.day; const h = state.history.find(d => d.date === date); if (h) return migrateDay(h); const l = lsRead().days; return l && l[date] ? migrateDay(l[date]) : null; }
+  function renderDay() {
+    const all = tradesOf("futuros"); let date = ft.day;
+    if (!date) { const withTrades = all.map(t => t.date).sort(); date = withTrades.length ? withTrades[withTrades.length - 1] : state.today; ft.day = date; }
+    const list = all.filter(t => t.date === date); const s = futStats(list); const dd = dayDoc(date);
+    $("dayTitle").textContent = `${dowOf(date)} ${dmy(date)}`;
+    $("dayMeta").innerHTML = s.closed ? `<span class="${s.pnl > 0 ? "pos" : s.pnl < 0 ? "neg" : ""}">${money(s.pnl)}</span> · ${s.n} ops · ${s.wins}W ${s.losses}L${s.avgR != null ? " · " + (s.avgR >= 0 ? "+" : "") + (s.avgR * s.closed).toFixed(2) + "R" : ""}` : list.length ? `${list.length} ops abiertas` : "sin operaciones";
+    const pbName = id => { const p = coll("playbooks").get(id); return p ? p.name : ""; };
+    /* Las filas van agrupadas por sesión, cada grupo con su resultado: así se ve
+       de un vistazo en qué franja se ganó y en cuál se devolvió. */
+    const porSes = {}; list.forEach(t => { const k = tradeSes(t) || "__sin"; (porSes[k] || (porSes[k] = [])).push(t); });
+    const ordenSes = SESSIONS.map(x => x.id).concat(["__sin"]).filter(k => porSes[k]);
+    const filaOp = t => `<tr data-id="${t.id}"><td>${esc(t.time ? h12(t.time) : "—")}</td><td>${esc(t.instrument)}</td><td class="ui">${esc(pbName(t.setupId)) || '<span class="dim">—</span>'}</td><td class="${t.direction === "short" ? "neg" : "pos"}">${t.direction === "short" ? "S" : "L"}</td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.entry ?? "—"}</td><td class="r">${t.exit ?? `<button type="button" class="hitstop" data-act="hitstop" title="Marcar que tocó el stop"${t.stop == null ? " disabled" : ""}>abierta${t.stop != null ? " · tocó el stop" : ""}</button>`}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="r ${t.pnlEff > 0 ? "pos" : t.pnlEff < 0 ? "neg" : ""}">${t.pnlEff == null ? (t.multUnknown ? `<span class="chip warn" title="No hay valor de punto para ${esc(String(t.instrument || ""))}. Escribe el resultado a mano en «Resultado $» o usa un instrumento conocido.">falta $/punto</span>` : "—") : money(t.pnlEff)}</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.tags || "")}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button></td></tr>`;
+    const grupo = k => {
+      const ops = porSes[k].slice().sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+      const cerradas = ops.filter(t => t.pnlEff != null);
+      const pnl = cerradas.reduce((a, t) => a + t.pnlEff, 0);
+      const x = k === "__sin" ? null : sesById(k);
+      const dd2 = presOf(dayDoc(date) || {})[k];
+      const preTxt = dd2 ? `pre ${dd2.done}/${dd2.total}` : (x && x.pre ? "sin pre-sesión" : "");
+      return `<tr class="sesrow"><td colspan="12"><span class="sestag ${x ? x.cls : ""}">${esc(x ? x.short : "sin hora")}</span><span class="sesn">${plu(ops.length, "operación", "operaciones")}${cerradas.length ? ` · <b class="${pnl > 0 ? "pos" : pnl < 0 ? "neg" : ""}">${money(pnl)}</b>` : " · abiertas"}</span>${preTxt ? `<span class="sesp">${esc(preTxt)}</span>` : ""}</td></tr>` + ops.map(filaOp).join("");
+    };
+    const rows = list.length ? `<div class="twrap"><table class="t"><thead><tr><th>Hora</th><th>Instr.</th><th>Setup</th><th>Dir</th><th class="r">Ctos</th><th class="r">Entrada</th><th class="r">Salida</th><th class="r">R</th><th class="r">P&amp;L</th><th>Img</th><th>Etiquetas</th><th></th></tr></thead><tbody>${ordenSes.map(grupo).join("")}</tbody></table></div>` : `<p class="empty">Sin operaciones este día.</p>`;
+    const cab = dd && (dd.result != null || dd.broke || dd.closed) ? `<div class="kv" style="display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px;margin-bottom:12px"><b class="lab" style="margin:0">Cabina</b><span>${dd.result != null ? `resultado ${money(dd.result)}` : "sin resultado"}${dd.trades != null ? ` · ${dd.trades} ops` : ""}${dd.broke ? ' · <span class="neg">regla rota ⚑</span>' : ""}${dd.closed ? " · sesión cerrada" : ""}</span></div>` : "";
+    const withShots = list.filter(t => (t.images || []).length);
+    const nShots = withShots.reduce((n, t) => n + t.images.length, 0);
+    const lessons = list.filter(t => t.lesson);
+    const review = `<section class="panel" style="margin-top:16px"><header><h2>Revisión del día</h2><span class="meta">${nShots ? nShots + (nShots === 1 ? " captura" : " capturas") : "sin capturas"}${lessons.length ? ` · ${lessons.length} ${lessons.length === 1 ? "lección" : "lecciones"}` : ""}</span></header><div class="body">
+      ${nShots ? `<div class="pbimgs">${withShots.map(t => (t.images || []).map((im, i) => `<figure class="pbimg big"><img ${imgAttrs(im)} alt="${esc((t.time ? h12(t.time) : "") + " " + (t.instrument || ""))}" loading="lazy"><figcaption>${esc((t.time ? h12(t.time) : "—") + " · " + (t.instrument || ""))}${im.caption ? " · " + esc(im.caption) : ""}</figcaption></figure>`).join("")).join("")}</div>` : `<p class="empty" style="padding:0">Ninguna operación de este día tiene captura. Adjunta el gráfico al registrar cada una: revisar diez capturas con su lección enseña más que mirar la curva de equity.</p>`}
+      ${lessons.length ? `<div class="twrap" style="margin-top:16px"><table class="t"><thead><tr><th>Hora</th><th class="r">R</th><th>Lección</th></tr></thead><tbody>${lessons.slice().reverse().map(t => `<tr><td>${esc(t.time ? h12(t.time) : "—")}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="ui">${esc(t.lesson)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    </div></section>`;
+    $("dayBody").innerHTML = `<div class="daygrid"><div>${rows}<button type="button" class="add" id="dayAdd">+ Añadir operación en ${date}</button></div>
+      <div class="daynote">${cab}<label class="lab" for="dayNote">Nota del día · qué pasó, qué cambia</label><textarea id="dayNote" placeholder="Contexto del día, estado mental, qué haría distinto.">${esc(dd && dd.note ? dd.note : "")}</textarea><div class="jactions" style="margin-top:8px"><label style="display:flex;gap:8px;align-items:center;font-family:var(--font-mono);font-size:12px;color:var(--muted)"><input type="checkbox" id="dayBroke" ${dd && dd.broke ? "checked" : ""} style="margin:0"> regla rota este día</label></div></div></div>` + review;
+    $("dayAdd").addEventListener("click", () => openTrade(null, "futuros"));
+    $("dayNote").addEventListener("input", e => { clearTimeout(dayNoteTimer); const v = e.target.value.slice(0, 2000); dayNoteTimer = setTimeout(() => saveDayNote(date, { note: v }), 600); });
+    $("dayBroke").addEventListener("change", e => { saveDayNote(date, { broke: e.target.checked }).then(() => renderCalendar()); });
+    $("dayBody").querySelectorAll("button[data-act='edit']").forEach(b => b.addEventListener("click", () => { const t = coll("trades").get(b.closest("tr").dataset.id); if (t) openTrade(t); }));
+    $("dayBody").querySelectorAll("button[data-act='hitstop']").forEach(b => b.addEventListener("click", () => hitStop(b.closest("tr").dataset.id)));
+    $("dayBody").addEventListener("click", e => { if (e.target.tagName === "IMG" && (e.target.classList.contains("thumb") || e.target.closest("figure.pbimg"))) openLightbox(e.target.src, e.target.alt); });
+    if (!dd) { state.db.doc("days/" + date).get().then(snap => { if (!snap.exists || ft.day !== date) return; const d = snap.data(); const ta = $("dayNote"), cb = $("dayBroke"); if (ta && document.activeElement !== ta) ta.value = d.note || ""; if (cb) cb.checked = !!d.broke; }).catch(() => {}); }
+  }
+
+  // El viewBox se dibuja al ancho real del contenedor: así el texto del gráfico
+  // sale al tamaño que dice el CSS y no encogido a 6 px en un panel estrecho.
+  function chartW(el) {
+    const w = el && el.clientWidth ? el.clientWidth : 0;
+    return Math.round(Math.max(300, Math.min(920, w || 700)));
+  }
+  function niceTicks(min, max, n) {
+    if (min === max) max = min + 1;
+    const span = max - min; const step0 = span / n; const p = Math.pow(10, Math.floor(Math.log10(step0))); const f = step0 / p;
+    const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+    const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step; const out = [];
+    for (let v = lo; v <= hi + step / 2; v += step) out.push(Number(v.toFixed(10)));
+    return out;
+  }
+  /* ---------- curva de equity ($) + drawdown ---------- */
+  function renderEquity(list) {
+    const wrap = $("eqWrap"); const closed = list.filter(t => t.pnlEff != null).slice().reverse();
+    if (closed.length < 2) { wrap.innerHTML = `<p class="empty">La curva aparece con 2 operaciones cerradas.</p>`; $("eqMeta").textContent = ""; return; }
+    let cum = 0, peak = 0, maxDD = 0; const pts = [{ i: 0, v: 0, dd: 0 }];
+    closed.forEach((t, i) => { cum += t.pnlEff; peak = Math.max(peak, cum); const dd = cum - peak; maxDD = Math.min(maxDD, dd); pts.push({ i: i + 1, v: cum, dd, t }); });
+    const W = chartW(wrap), H = 180, pl = 56, pr = 16, pt = 14, pb = 24;
+    const min = Math.min(0, ...pts.map(p => p.v)), max = Math.max(0, ...pts.map(p => p.v));
+    const ticks = niceTicks(min, max, 4); const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+    const x = i => pl + i / (pts.length - 1) * (W - pl - pr), y = v => pt + (1 - (v - y0) / (y1 - y0 || 1)) * (H - pt - pb);
+    const path = pts.map((p, k) => (k ? "L" : "M") + x(p.i).toFixed(1) + " " + y(p.v).toFixed(1)).join(" ");
+    const area = path + ` L${x(pts.length - 1).toFixed(1)} ${y(0).toFixed(1)} L${x(0).toFixed(1)} ${y(0).toFixed(1)} Z`;
+    const ddPath = pts.map((p, k) => (k ? "L" : "M") + x(p.i).toFixed(1) + " " + y(p.v).toFixed(1)).join(" ") + pts.slice().reverse().map(p => ` L${x(p.i).toFixed(1)} ${y(p.v - p.dd).toFixed(1)}`).join("") + " Z";
+    const last = pts[pts.length - 1]; const fmtK = v => Math.abs(v) >= 1e3 ? "$" + (v / 1e3).toFixed(1) + "k" : "$" + v;
+    $("eqMeta").innerHTML = `máx. drawdown <span class="neg">${money(maxDD)}</span>`;
+    wrap.innerHTML = `<svg class="chart" id="eqChart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Curva de equity">
+      <g class="grid">${ticks.map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line><text x="${pl - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${fmtK(v)}</text>`).join("")}</g>
+      <path class="dd" d="${ddPath}"></path><path class="a1" d="${area}"></path><path class="s1" d="${path}"></path>
+      <circle class="end" cx="${x(last.i).toFixed(1)}" cy="${y(last.v).toFixed(1)}" r="4"></circle>
+      <text x="${(x(last.i) - 8).toFixed(1)}" y="${(y(last.v) - 8).toFixed(1)}" text-anchor="end" style="fill:var(--text);font-weight:600">${money(last.v)}</text>
+      <text x="${pl}" y="${H - 6}">1</text><text x="${W - pr}" y="${H - 6}" text-anchor="end">op. ${closed.length}</text>
+      <g id="eqHover" style="display:none"><line class="xh" y1="${pt}" y2="${H - pb}"></line><circle class="hp" r="4"></circle></g>
+      <rect id="eqHit" x="${pl}" y="${pt}" width="${W - pl - pr}" height="${H - pt - pb}" fill="transparent"></rect></svg>`;
+    hoverLine($("eqChart"), $("eqHit"), $("eqHover"), wrap, W, pl, pr, pts.length - 1, i => { const p = pts[i]; return { x: x(i), y: y(p.v), html: `<div style="color:var(--muted)">${p.t ? p.t.date + (p.t.time ? " " + p.t.time : "") : "inicio"}</div><div>acumulado <strong>${money(p.v)}</strong></div>${p.t ? `<div>${esc(p.t.instrument)} ${p.t.direction === "short" ? "S" : "L"} · ${money(p.t.pnlEff)}</div>` : ""}${p.dd < 0 ? `<div class="neg">drawdown ${money(p.dd)}</div>` : ""}` }; });
+  }
+  function hoverLine(svg, hit, hov, wrap, W, pl, pr, n, at) {
+    const tip = $("tip");
+    hit.addEventListener("mousemove", e => {
+      const r = svg.getBoundingClientRect(); const px = (e.clientX - r.left) / r.width * W; const i = Math.round(Math.min(n, Math.max(0, (px - pl) / (W - pl - pr) * n)));
+      const p = at(i); if (!p) return;
+      hov.style.display = ""; const ln = hov.querySelector("line"); ln.setAttribute("x1", p.x); ln.setAttribute("x2", p.x); const c = hov.querySelector("circle"); c.setAttribute("cx", p.x); c.setAttribute("cy", p.y);
+      tip.style.display = "block"; tip.innerHTML = p.html; const wr = wrap.getBoundingClientRect(); tip.style.left = Math.min(e.clientX - wr.left + 14, wr.width - 170) + "px"; tip.style.top = (e.clientY - wr.top - 10) + "px"; wrap.appendChild(tip);
+    });
+    hit.addEventListener("mouseleave", () => { hov.style.display = "none"; tip.style.display = "none"; });
+  }
+  /* ---------- barras diarias ---------- */
+  function renderDaily(list) {
+    const wrap = $("dailyWrap"); const dm = dayMap(list.filter(t => t.pnlEff != null)); const days = Object.keys(dm).sort().slice(-30);
+    if (!days.length) { wrap.innerHTML = `<p class="empty">Sin días cerrados.</p>`; $("dailyMeta").textContent = ""; return; }
+    const W = chartW(wrap), H = 150, pl = 56, pr = 12, pt = 10, pb = 24; const vals = days.map(d => dm[d].pnl);
+    const ticks = niceTicks(Math.min(0, ...vals), Math.max(0, ...vals), 3); const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+    const y = v => pt + (1 - (v - y0) / (y1 - y0 || 1)) * (H - pt - pb); const bw = (W - pl - pr) / days.length; const fmtK = v => Math.abs(v) >= 1e3 ? "$" + (v / 1e3).toFixed(1) + "k" : "$" + v;
+    const best = Math.max(...vals), worst = Math.min(...vals);
+    $("dailyMeta").innerHTML = `mejor <span class="pos">${money(best)}</span> · peor <span class="neg">${money(worst)}</span> · últimos ${plu(days.length, "día", "días")}`;
+    wrap.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="P&L diario">
+      <g class="grid">${ticks.map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line><text x="${pl - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${fmtK(v)}</text>`).join("")}</g>
+      ${days.map((d, i) => { const v = dm[d].pnl; const top = Math.min(y(v), y(0)), h = Math.max(1, Math.abs(y(v) - y(0))); return `<rect class="bar ${v >= 0 ? "pos" : "neg"}" x="${(pl + i * bw + bw * 0.15).toFixed(1)}" y="${top.toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${d}: ${money(v)} · ${plu(dm[d].n, "op", "ops")}</title></rect>`; }).join("")}
+      <text x="${pl}" y="${H - 6}">${days[0].slice(5)}</text><text x="${W - pr}" y="${H - 6}" text-anchor="end">${days[days.length - 1].slice(5)}</text></svg>`;
+  }
+  /* ---------- desglose ---------- */
+  function renderBreakdown(list) {
+    const closed = list.filter(t => t.pnlEff != null); const el = $("ftBreak");
+    if (!closed.length) { el.innerHTML = `<p class="empty">El desglose aparece con operaciones cerradas.</p>`; return; }
+    const pbName = id => { const p = coll("playbooks").get(id); return p ? p.name : "sin setup"; };
+    const groups = [
+      ["Por setup", t => pbName(t.setupId)],
+      ["Por día de la semana", t => dowOf(t.date)],
+      ["Por hora de entrada", t => t.time ? hourLabel12(t.time.slice(0, 2)) : "sin hora"],
+      ["Por instrumento", t => t.instrument || "—"],
+      ["Por dirección", t => t.direction === "short" ? "short" : "long"],
+      ["Por etiqueta", t => (t.tags || "").split(",").map(x => x.trim()).filter(Boolean), true],
+    ];
+    el.innerHTML = groups.map(([title, fn, multi]) => {
+      const g = {}; closed.forEach(t => { const keys = multi ? fn(t) : [fn(t)]; keys.forEach(k => { const o = g[k] || (g[k] = { n: 0, w: 0, pnl: 0, r: 0, rn: 0 }); o.n++; if (t.pnlEff > 0) o.w++; o.pnl += t.pnlEff; if (t.rReal != null) { o.r += t.rReal; o.rn++; } }); });
+      const rows = Object.entries(g).sort((a, b) => b[1].pnl - a[1].pnl); if (!rows.length) return "";
+      const mx = Math.max(...rows.map(r => Math.abs(r[1].pnl)), 1);
+      return `<div><h4>${title}</h4><table class="t"><thead><tr><th></th><th class="r">ops</th><th class="r">WR</th><th class="r">R prom.</th><th class="r">P&amp;L</th></tr></thead><tbody>${rows.map(([k, o]) => `<tr><td class="ui">${esc(k)}<div class="hb"><i style="${o.pnl >= 0 ? "left:50%" : "right:50%"};width:${Math.abs(o.pnl) / mx * 50}%;background:${o.pnl >= 0 ? "var(--good)" : "var(--bad)"}"></i></div></td><td class="r">${o.n}</td><td class="r">${pct(o.w / o.n)}</td><td class="r">${o.rn ? (o.r / o.rn >= 0 ? "+" : "") + (o.r / o.rn).toFixed(2) : "—"}</td><td class="r ${o.pnl > 0 ? "pos" : o.pnl < 0 ? "neg" : ""}">${money(o.pnl)}</td></tr>`).join("")}</tbody></table></div>`;
+    }).join("");
+  }
+  /* ---------- tabla de operaciones (futuros) ---------- */
+  // La etiqueta de sesión se pinta con el color del tramo: verde la ventana operativa.
+  function sesTag(t) {
+    const id = tradeSes(t); if (!id) return '<span class="dim">—</span>';
+    const x = sesById(id);
+    return `<span class="sestag ${x.cls}" title="${esc(x.label)}">${esc(x.short)}</span>`;
+  }
+  /* La tabla pintaba TODAS las filas. Con 3.000 operaciones son ~42.000 nodos en
+     el DOM, y era el segundo coste más grande al guardar un trade (313 ms). Nadie
+     lee la fila 1.800 desplazándose: se pinta un tramo y se amplía a petición.
+     El click está delegado en #jrTable, así que las filas nuevas funcionan solas. */
+  const JR_TRAMO = 250;
+  let jrTope = JR_TRAMO;
+  /* El orden vive AQUÍ, no en futFiltered(): la curva de equity, el drawdown,
+     las rachas y el calendario leen esa misma lista y dependen de que venga en
+     orden cronológico. Ordenar en el filtro los habría corrompido en silencio.
+     Clave → cómo se lee el valor de la fila. */
+  const JR_ORDEN = {
+    date: t => (t.date || "") + " " + (t.time || ""),
+    time: t => t.time || "",
+    ses: t => tradeSes(t) || "",
+    acct: t => normQ(acctLabel(t.accountId) || ""),
+    instrument: t => normQ(t.instrument),
+    setup: t => { const p = coll("playbooks").get(t.setupId); return normQ(p ? p.name : ""); },
+    qty: t => t.qty,
+    rPlanned: t => t.rPlanned,
+    rReal: t => t.rReal,
+    pnlEff: t => t.pnlEff,
+    quality: t => normQ(t.quality),
+    proto: t => [t.cStruct, t.cPull, t.cWindow, t.cSize].filter(Boolean).length
+  };
+  function jrOrdena(list) {
+    const leer = JR_ORDEN[ft.sortKey] || JR_ORDEN.date;
+    const dir = ft.sortDir === "asc" ? 1 : -1;
+    return list.slice().sort((a, b) => {
+      const va = leer(a), vb = leer(b);
+      // Una operación abierta no tiene R ni P&L. Va al final en los DOS
+      // sentidos: arriba sólo sería ruido, y en «peores primero» mentiría.
+      const na = va == null || va === "", nb = vb == null || vb === "";
+      if (na && nb) return 0;
+      if (na) return 1;
+      if (nb) return -1;
+      if (va < vb) return -dir;
+      if (va > vb) return dir;
+      // Desempate estable, o el mismo filtro daría dos órdenes distintos.
+      return (b.date || "").localeCompare(a.date || "") || String(b.id).localeCompare(String(a.id));
+    });
+  }
+  function jrSetOrden(key) {
+    // El mismo encabezado invierte; uno nuevo empieza descendente, que es lo
+    // útil de entrada: lo más reciente, la mayor pérdida, la mejor calificación.
+    if (ft.sortKey === key) ft.sortDir = ft.sortDir === "asc" ? "desc" : "asc";
+    else { ft.sortKey = key; ft.sortDir = "desc"; }
+    jrTope = JR_TRAMO;
+    renderFutures();
+  }
+  /* ══════ LA COLA DE LO IMPORTADO INCOMPLETO · fase 5 de IMPORTAR.md ══════
+
+     Un export de bróker da fecha, hora, instrumento, lado, contratos, entrada,
+     salida y comisión. NO da el stop, y sin stop no hay R: `rPlanApp` y
+     `rRealApp` devuelven null, y Edge ya dice cuántas se quedan fuera. Un diario
+     importado y no completado da P&L y nada más —exactamente lo que ya da la
+     plataforma del bróker—, así que el importador no es el producto: es el que
+     llena esta cola.
+
+     SOLO LO IMPORTADO ENTRA. Una operación escrita a mano sin stop ya es un
+     error de EJECUCIÓN (`sin_stop`, categoría 2: sabías qué hacer y no lo
+     hiciste), y `senalesDe` exime a la importada justamente porque el campo le
+     falta POR CONSTRUCCIÓN. Meter aquí también las manuales contaría dos veces
+     lo mismo y borraría esa distinción, que es la que impide que cien filas de
+     un CSV se conviertan en cien errores que nadie cometió.
+
+     Y SE PUEDE VACIAR, que es lo que la separa de un aviso permanente. De una
+     operación de hace tres meses no siempre se recuerda el stop, y una cola que
+     nunca llega a cero se aprende a ignorar —y el día que importa, también—.
+     `stopUnknown` es la salida honesta: dice «existió y no lo reconstruyo», no
+     inventa un número, y saca la operación de la cola sin sacarla del recuento
+     de Edge, que sigue diciendo que no puede medirla en R.
+
+     LAS ABIERTAS SÍ ENTRAN, al revés que en la cola de revisiones de Estudio.
+     Allí una abierta no tiene nada que revisar todavía; aquí una posición
+     importada y abierta sin stop escrito es lo más urgente que hay en la app. */
+  const jrImportada = t => /^import:/.test(String((t && t.source) || ""));
+  const jrIncompleta = t => jrImportada(t) && enBlanco(t.stop) && t.stopUnknown !== true;
+  let jrSoloIncompletas = false;
+
+  /* El orden de la cola es CRONOLÓGICO y no el de la tabla: se completa
+     recordando la sesión, y saltar de un mes a otro porque la tabla está
+     ordenada por P&L hace imposible acordarse de nada. */
+  const jrColaOrden = ts => ts.slice().sort((a, b) =>
+    String(a.date || "").localeCompare(String(b.date || "")) ||
+    String(a.time || "").localeCompare(String(b.time || "")) ||
+    String(a.id || "").localeCompare(String(b.id || "")));
+
+  function jrPintaCola(list, pendientes) {
+    const cola = $("jrCola"), btn = $("jrSoloIncompletas"), sig = $("jrCompletarSig"), nota = $("jrColaNota");
+    if (!cola || !btn || !sig || !nota) return;
+    const importadas = list.filter(jrImportada).length;
+    /* Sin nada importado en el rango la cola NO existe en pantalla: un control
+       permanente para algo que no ha pasado nunca es ruido. Si el interruptor
+       está puesto se mantiene visible aunque no queden: apagar el control
+       dejando el filtro activo es cómo se queda uno mirando una lista vacía sin
+       ver por qué. */
+    cola.hidden = !importadas && !jrSoloIncompletas;
+    nota.hidden = cola.hidden || !pendientes.length;
+    btn.textContent = pendientes.length ? `Sólo sin completar (${pendientes.length})`
+      : importadas ? "Todas completadas" : "Sólo sin completar";
+    btn.setAttribute("aria-pressed", String(jrSoloIncompletas));
+    btn.disabled = !pendientes.length && !jrSoloIncompletas;
+    sig.disabled = !pendientes.length;
+    sig.textContent = pendientes.length ? "Completar la siguiente" : "Nada que completar";
+    if (!nota.hidden) nota.innerHTML = `<span class="dotg"></span><span>${plu(pendientes.length, "operación importada", "operaciones importadas")} sin stop escrito: cuentan en $, pero no en R ni en la simulación. Si no lo recuerdas, márcalo en el editor y sale de la cola sin inventar un número.</span>`;
+  }
+
+  /* Abre la más antigua sin completar y, al guardar, encadena con la siguiente:
+     la cola se recorre sin volver a la tabla entre una y otra. Se recalcula
+     DESPUÉS de guardar —no se congela una lista al empezar— porque la que
+     acaba de completarse tiene que salir, y porque guardar puede haber cambiado
+     el rango visible. */
+  let jrPendientes = [];
+  function jrCompletarSiguiente() {
+    const cola = jrColaOrden(jrPendientes.map(t => coll("trades").get(t.id)).filter(jrIncompleta));
+    if (!cola.length) return;
+    openTrade(cola[0], undefined, undefined, () => setTimeout(() => { renderFutures(); jrCompletarSiguiente(); }, 60));
+  }
+
+  function renderJournalTable(list) {
+    list = jrOrdena(list);
+    /* EL CONTADOR SE CUENTA SOBRE LOS DEMÁS FILTROS, no sobre lo que el propio
+       interruptor deja ver: contarlo después haría que al activarlo el número
+       pasara a ser el de la lista y dejara de decir «cuántas de las que estás
+       mirando te faltan». Mismo razonamiento que `studyTradeSinRevisar`. */
+    const pendientes = list.filter(jrIncompleta);
+    jrPendientes = pendientes;
+    jrPintaCola(list, pendientes);
+    if (jrSoloIncompletas) list = pendientes;
+    const total = list.length;
+    if (jrTope > JR_TRAMO && jrTope > total) jrTope = Math.max(JR_TRAMO, total);
+    const visibles = total > jrTope ? list.slice(0, jrTope) : list;
+    $("jrMeta").textContent = total
+      ? (total > visibles.length ? `${plu(visibles.length, "registro", "registros")} de ${total}` : `${plu(total, "registro", "registros")}`)
+      : "";
+    const wrap = $("jrTable");
+    list = visibles;
+    /* QUEDARSE SIN COLA ES EL ÉXITO, no un filtro que no encuentra nada.
+       Completar la última con el interruptor puesto vacía la lista, y poner ahí
+       «sin operaciones en este rango» convertiría ese momento en un error. */
+    if (!list.length) { wrap.innerHTML = jrSoloIncompletas
+      ? `<p class="empty">No queda ninguna importada sin completar en este rango. Suelta el filtro para ver todas.</p>`
+      : `<p class="empty">Sin operaciones de futuros en este rango. La primera fila es una entrada real con entrada, stop y salida — no una idea.</p>`; return; }
+    const pbName = id => { const p = coll("playbooks").get(id); return p ? p.name : ""; };
+    // [etiqueta, clave de orden o null si no se ordena, alineada a la derecha]
+    const cols = [["Fecha", "date", 0], ["Hora", "time", 0], ["Sesión", "ses", 0], ["Cuenta", "acct", 0],
+      ["Instr.", "instrument", 0], ["Setup", "setup", 0], ["Dir", null, 0], ["Ctos", "qty", 1],
+      ["Entrada", null, 1], ["Stop", null, 1], ["Salida", null, 1], ["R plan", "rPlanned", 1],
+      ["R", "rReal", 1], ["P&amp;L", "pnlEff", 1], ["Cal.", "quality", 0], ["Prot.", "proto", 0],
+      ["Img", null, 0], ["Etiquetas", null, 0], ["Lección", null, 0], ["Ejecuciones", null, 0]];
+    const th = cols.map(([lb, key, right]) => {
+      const cls = right ? ' class="r"' : "";
+      if (!key) return `<th${cls}>${lb}</th>`;
+      const on = ft.sortKey === key;
+      const flecha = on ? (ft.sortDir === "asc" ? " ▲" : " ▼") : "";
+      return `<th${cls}><button type="button" class="sortth${on ? " on" : ""}" data-sort="${key}"`
+        + ` title="Ordenar por ${lb}" aria-label="Ordenar por ${lb}">${lb}${flecha}</button></th>`;
+    }).join("");
+    wrap.innerHTML = `<table class="t"><thead><tr>${th}<th></th></tr></thead><tbody>${list.map(t => {
+      const proto = [t.cStruct, t.cPull, t.cWindow, t.cSize].filter(Boolean).length;
+      return `<tr data-id="${t.id}"><td><span class="dim">${dowOf(t.date)}</span> ${(t.date || "").slice(5)}</td><td>${esc(t.time ? h12(t.time) : "—")}</td><td>${sesTag(t)}</td><td class="ui">${esc(acctLabel(t.accountId)) || '<span class="dim">—</span>'}</td><td>${esc(t.instrument)}</td><td class="ui">${esc(pbName(t.setupId)) || '<span class="dim">—</span>'}</td><td class="${t.direction === "short" ? "neg" : "pos"}">${t.direction === "short" ? "S" : "L"}</td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.entry ?? "—"}</td><td class="r">${t.stop ?? "—"}</td><td class="r">${t.exit ?? `<button type="button" class="hitstop" data-act="hitstop" title="Marcar que tocó el stop"${t.stop == null ? " disabled" : ""}>abierta${t.stop != null ? " · tocó el stop" : ""}</button>`}</td><td class="r dim">${t.rPlanned == null ? "—" : t.rPlanned.toFixed(1)}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="r ${t.pnlEff > 0 ? "pos" : t.pnlEff < 0 ? "neg" : ""}">${t.pnlEff == null ? (t.multUnknown ? `<span class="chip warn" title="No hay valor de punto para ${esc(String(t.instrument || ""))}. Escribe el resultado a mano en «Resultado $» o usa un instrumento conocido.">falta $/punto</span>` : "—") : money(t.pnlEff)}</td><td>${esc(t.quality || "")}</td><td class="${proto === 4 ? "pos" : proto <= 2 ? "neg" : ""}">${proto}/4</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.tags || "")}</td><td class="notes">${esc(t.lesson || "")}</td><td class="execs">${Array.isArray(t.executionLedger) && t.executionLedger.length ? `<details><summary>${plu(t.executionLedger.length, "fill", "fills")}</summary><div style="min-width:230px;max-width:330px;max-height:220px;overflow:auto;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)"><ol style="margin:0;padding-left:20px">${t.executionLedger.map(x => `<li style="margin:5px 0"><strong>${x.role === "entry" ? "Entrada" : "Salida"}</strong> · ${esc(x.date || t.date || "")} ${esc(x.time || "")}<br><span class="mono">${esc(String(x.qty ?? "—"))} × ${esc(String(x.price ?? "—"))}</span> · ${x.side === "buy" ? "buy" : x.side === "sell" ? "sell" : esc(String(x.side || "—"))}<br><span class="dim">Comisión ${money(Number(x.fees) || 0)} · ID ${esc(String(x.executionId || x.fingerprint || "sin ID").slice(0, 48))}</span></li>`).join("")}</ol></div></details>` : '<span class="dim">—</span>'}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button></td></tr>`;
+    }).join("")}</tbody></table>${total > visibles.length
+      ? `<div style="padding:12px 0;text-align:center"><button type="button" class="btn ghost" id="jrMas">Mostrar ${Math.min(JR_TRAMO, total - visibles.length)} más · quedan ${total - visibles.length}</button></div>`
+      : ""}`;
+  }
+  /* Una operación con stop pero sin salida sigue ABIERTA: el stop es un plan, no
+     un hecho. Cuando de verdad lo toca, esto rellena la salida con el stop y el
+     resto (balance, P&L del día, calendario, reglas) se mueve solo. */
+  function hitStop(id) {
+    const t = coll("trades").get(id); if (!t) return;
+    if (t.stop == null) { flash("esta operación no tiene stop escrito"); return; }
+    if (t.exit != null) return;
+    const rec = Object.assign({}, t, { exit: Number(t.stop) });
+    delete rec.pnlEff; delete rec.rReal; delete rec.rPlanned; delete rec.riskUsd;
+    coll("trades").set(rec.id, rec);
+    const c = tradeCalc(Object.assign({}, rec));
+    flash(c.pnlEff == null ? "cerrada en el stop" : `cerrada en el stop: ${money(c.pnlEff)}`);
+  }
+  $("jrSoloIncompletas").addEventListener("click", () => { jrSoloIncompletas = !jrSoloIncompletas; jrTope = JR_TRAMO; renderFutures(); });
+  $("jrCompletarSig").addEventListener("click", jrCompletarSiguiente);
+  $("jrTable").addEventListener("click", e => {
+    if (e.target.closest("#jrMas")) { jrTope += JR_TRAMO; renderFutures(); return; }
+    const so = e.target.closest("button[data-sort]");
+    if (so) { jrSetOrden(so.dataset.sort); return; }
+    if (e.target.classList.contains("thumb")) { openLightbox(e.target.src, e.target.alt); return; }
+    const hs = e.target.closest("button[data-act='hitstop']");
+    if (hs) { hitStop(hs.closest("tr").dataset.id); return; }
+    const btn = e.target.closest("button[data-act='edit']"); if (!btn) return; const t = coll("trades").get(btn.closest("tr").dataset.id); if (t) openTrade(t);
+  });
+
+  /* =============================== GRÁFICOS DE APOYO =============================== */
+  function chartBars(items, opts) {
+    opts = opts || {};
+    if (!items.length) return `<p class="empty">${esc(opts.empty || "Sin datos suficientes.")}</p>`;
+    const W = opts.W || 700, H = opts.H || 160, pl = opts.pl || 54, pr = 12, pt = 12, pb = 26;
+    const vals = items.map(i => i.value);
+    const ticks = niceTicks(Math.min(0, ...vals), Math.max(0, ...vals), 3);
+    const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+    const y = v => pt + (1 - (v - y0) / (y1 - y0 || 1)) * (H - pt - pb);
+    const bw = (W - pl - pr) / items.length;
+    const bwUse = Math.min(bw * 0.68, opts.maxBar || 72);
+    const fmt = opts.fmt || (v => Math.abs(v) >= 1e3 ? "$" + (v / 1e3).toFixed(1) + "k" : "$" + Math.round(v));
+    const every = Math.max(1, Math.ceil(items.length / (opts.maxLabels || 16)));
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.aria || "gráfico")}">
+      <g class="grid">${ticks.map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line><text style="font-size:12px;font-weight:500" x="${pl - 8}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${fmt(v)}</text>`).join("")}</g>
+      <line class="zero" x1="${pl}" x2="${W - pr}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}"></line>
+      ${items.map((it, i) => { const top = Math.min(y(it.value), y(0)), h = Math.max(1, Math.abs(y(it.value) - y(0)));
+        return `<rect class="bar ${it.cls || (it.value >= 0 ? "pos" : "neg")}" ${it.color ? `style="fill:${it.color}"` : ""} x="${(pl + i * bw + (bw - bwUse) / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${bwUse.toFixed(1)}" height="${h.toFixed(1)}" rx="3"><title>${esc(it.title || (it.label + ": " + fmt(it.value)))}</title></rect>${i % every === 0 ? `<text style="font-size:12px;font-weight:500" x="${(pl + i * bw + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${esc(it.label)}</text>` : ""}`; }).join("")}
+    </svg>`;
+  }
+  const fmtK$ = v => Math.abs(v) >= 1e3 ? "$" + (v / 1e3).toFixed(1) + "k" : "$" + Math.round(v);
+
+  function renderUnderwater(list) {
+    const wrap = $("uwWrap"); if (!wrap) return;
+    const closed = list.filter(t => t.pnlEff != null).slice().reverse();
+    if (closed.length < 2) { wrap.innerHTML = `<p class="empty">Aparece con 2 operaciones cerradas.</p>`; $("uwMeta").textContent = ""; return; }
+    let cum = 0, peak = 0; const pts = [0];
+    closed.forEach(t => { cum += t.pnlEff; if (cum > peak) peak = cum; pts.push(cum - peak); });
+    const W = chartW(wrap), H = 180, pl = 56, pr = 16, pt = 14, pb = 24;
+    const ticks = niceTicks(Math.min(...pts), 0, 3); const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+    const x = i => pl + i / (pts.length - 1) * (W - pl - pr), y = v => pt + (1 - (v - y0) / (y1 - y0 || 1)) * (H - pt - pb);
+    const line = pts.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+    const area = line + ` L${x(pts.length - 1).toFixed(1)} ${y(0).toFixed(1)} L${x(0).toFixed(1)} ${y(0).toFixed(1)} Z`;
+    let under = 0, longest = 0, run = 0;
+    pts.forEach(v => { if (v < 0) { under++; run++; if (run > longest) longest = run; } else run = 0; });
+    $("uwMeta").innerHTML = `${pct(under / pts.length)} del tiempo bajo máximos · racha más larga ${longest} ops`;
+    wrap.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Drawdown bajo el agua">
+      <g class="grid">${ticks.map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line><text x="${pl - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${fmtK$(v)}</text>`).join("")}</g>
+      <path class="uw" d="${area}"></path><path class="uwl" d="${line}"></path>
+      <line class="zero" x1="${pl}" x2="${W - pr}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}"></line>
+      <text x="${pl}" y="${H - 6}">1</text><text x="${W - pr}" y="${H - 6}" text-anchor="end">op. ${closed.length}</text></svg>`;
+  }
+
+  function renderRolling(list) {
+    const wrap = $("rollWrap"); if (!wrap) return;
+    const closed = list.filter(t => t.rReal != null).slice().reverse();
+    const N = 20;
+    if (closed.length < N) { wrap.innerHTML = `<p class="empty">Hacen falta ${N} operaciones con stop y salida. Llevas ${closed.length}.</p>`; $("rollMeta").textContent = ""; return; }
+    const pts = [];
+    for (let i = N - 1; i < closed.length; i++) { let sum = 0; for (let k = i - N + 1; k <= i; k++) sum += closed[k].rReal; pts.push(sum / N); }
+    const W = chartW(wrap), H = 160, pl = 54, pr = 14, pt = 12, pb = 24;
+    const ticks = niceTicks(Math.min(0, ...pts), Math.max(0, ...pts), 3); const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+    const x = k => pl + (pts.length === 1 ? 0.5 : k / (pts.length - 1)) * (W - pl - pr), y = v => pt + (1 - (v - y0) / (y1 - y0 || 1)) * (H - pt - pb);
+    const line = pts.map((v, k) => (k ? "L" : "M") + x(k).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+    const last = pts[pts.length - 1];
+    $("rollMeta").innerHTML = `actual <strong class="${last > 0 ? "pos" : "neg"}">${(last >= 0 ? "+" : "") + last.toFixed(2)}R</strong> · ventana de ${N}`;
+    wrap.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Expectativa móvil en R">
+      <g class="grid">${ticks.map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line><text x="${pl - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${v.toFixed(2)}R</text>`).join("")}</g>
+      <line class="zero" x1="${pl}" x2="${W - pr}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}"></line>
+      <path class="s1" d="${line}"></path>
+      <circle class="end" cx="${x(pts.length - 1).toFixed(1)}" cy="${y(last).toFixed(1)}" r="4"></circle>
+      <text x="${pl}" y="${H - 6}">op. ${N}</text><text x="${W - pr}" y="${H - 6}" text-anchor="end">op. ${closed.length}</text></svg>`;
+  }
+
+  function renderStreakTiles(s) {
+    const el = $("ftStreaks"); if (!el) return;
+    const hist = historyMerged(); const broke = hist.filter(d => d.broke).length;
+    const clean = hist.length ? (hist.length - broke) / hist.length : null;
+    el.innerHTML = `
+      <div class="tile"><span class="lab">Racha actual</span><div class="v ${s.curStreak > 0 ? "good" : s.curStreak < 0 ? "bad" : ""}">${!s.closed || !s.curStreak ? "—" : s.curStreak > 0 ? s.curStreak + " ganadas" : (-s.curStreak) + " perdidas"}</div><div class="s">operaciones seguidas</div></div>
+      <div class="tile"><span class="lab">Peor racha perdedora</span><div class="v ${s.maxLossStreak >= 5 ? "bad" : s.maxLossStreak >= 3 ? "warn" : ""}">${s.closed ? s.maxLossStreak : "—"}</div><div class="s">mejor racha ganadora: ${s.closed ? s.maxWinStreak : "—"}</div></div>
+      <div class="tile"><span class="lab">Sesiones sin regla rota</span><div class="v ${clean == null ? "" : clean >= .9 ? "good" : clean >= .7 ? "warn" : "bad"}">${clean == null ? "—" : pct(clean)}</div><div class="s">${broke} de ${plu(hist.length, "sesión", "sesiones")} con regla rota</div></div>`;
+    $("strMeta").textContent = s.closed ? `${plu(s.closed, "operación cerrada", "operaciones cerradas")}` : "";
+  }
+
+  // Tramos centrados en múltiplos de 0.5: un stop respetado (-1.00R) cae en la barra "-1R",
+  // no en un tramo que insinúe que el stop se saltó.
+  const R_BUCKETS = [[-Infinity, -2.25, "≤-2"], [-2.25, -1.75, "-2"], [-1.75, -1.25, "-1.5"], [-1.25, -0.75, "-1R"], [-0.75, -0.25, "-0.5"], [-0.25, 0.25, "0"], [0.25, 0.75, "+0.5"], [0.75, 1.25, "+1R"], [1.25, 1.75, "+1.5"], [1.75, 2.25, "+2"], [2.25, Infinity, "≥+2.5"]];
+  function renderRDist(list) {
+    const wrap = $("rdWrap"); if (!wrap) return;
+    const rs = list.filter(t => t.rReal != null).map(t => t.rReal);
+    if (!rs.length) { wrap.innerHTML = `<p class="empty">Necesita operaciones con entrada, stop y salida registrados.</p>`; $("rdMeta").textContent = ""; return; }
+    const items = R_BUCKETS.map(([lo, hi, label]) => { const n = rs.filter(v => v > lo && v <= hi).length; return { label, value: n, cls: hi <= 0 ? "neg" : "pos", title: `${label} · ${plu(n, "operación", "operaciones")}` }; });
+    const blown = list.filter(t => { const rp = rPrecioDe(t); return rp != null && rp < PASO_STOP_R; }).length;
+    $("rdMeta").innerHTML = `peor ${Math.min(...rs).toFixed(2)}R · mejor ${Math.max(...rs).toFixed(2)}R${blown ? ` · <span class="neg">${blown} pasaron del stop</span>` : ""}`;
+    wrap.innerHTML = chartBars(items, { W: chartW(wrap), H: 170, pl: 32, fmt: v => String(Math.round(v)), aria: "Distribución de R", maxLabels: 11 });
+  }
+
+  const CAT_FILAS = [
+    [3, "Psicológico", "bad", "La emoción o el ego rompieron la disciplina. Se arregla con reglas que no dependan de ti en caliente."],
+    [2, "Ejecución", "warn", "Sabías qué hacer y no lo hiciste. Se arregla con proceso: órdenes puestas antes, checklist."],
+    [1, "Análisis", "warn", "Bien ejecutada, en un setup sin ventaja en limpio. Se estudia el setup o se retira."],
+    [4, "Sistema", "good", "Hiciste todo bien en un setup con ventaja. Nada que arreglar en la operación."],
+    ["1o4", "Análisis o sistema", "", `Limpia, pero su setup no llega a ${MUESTRA_MIN} operaciones limpias: todavía no se puede decidir.`],
+    ["sin_datos", "Sin datos", "", "Registrada con «+ Rápido», importada de un CSV o sin entrada: su plan no quedó escrito antes del resultado, así que no hay con qué juzgarla."],
+  ];
+  function renderErrores(list) {
+    const wrap = $("erWrap"); if (!wrap) return;
+    const r = clasificaErrores(list);
+    if (!r.porTrade.length) { wrap.innerHTML = `<p class="empty">Sin pérdidas cerradas en este filtro.</p>`; $("erMeta").textContent = ""; return; }
+    $("erMeta").textContent = plu(r.porTrade.length, "pérdida clasificada", "pérdidas clasificadas");
+    const dinero = c => r.porTrade.filter(x => x.cat === c).reduce((s, x) => s + x.pnl, 0);
+    /* Bloques y no una tabla: la explicación es una frase entera, y en una columna
+       de tabla a 430px quedaba en ~80px y cortada por la derecha. */
+    const filas = CAT_FILAS.filter(([c]) => r.resumen[c]).map(([c, nom, cls, que]) =>
+      `<div class="errcat"><div class="eh"><span class="chip ${cls}">${c === "1o4" ? "1 o 4" : c === "sin_datos" ? "—" : c}</span><b>${nom}</b><span class="mono">${plu(r.resumen[c], "pérdida", "pérdidas")}</span><span class="mono neg eimp">${money(dinero(c))}</span></div><p>${que}</p></div>`).join("");
+    const cuenta = {};
+    r.porTrade.forEach(x => x.senales.forEach(s => { cuenta[s.clave] = (cuenta[s.clave] || 0) + 1; }));
+    const top = Object.keys(cuenta).sort((a, b) => cuenta[b] - cuenta[a] || SENAL[b].cat - SENAL[a].cat).slice(0, 6);
+    const motivos = top.length ? `<p class="note-p" style="margin-top:12px"><b>Lo que más se repite:</b> ${top.map(k => `${esc(SENAL[k].t)} <span class="mono">×${cuenta[k]}</span>`).join(" · ")}</p>` : "";
+    /* Todas del sistema es la conclusión más cómoda, y la que menos se debe creer. */
+    const cuatro = r.resumen[4] && !r.resumen[1] && !r.resumen[2] && !r.resumen[3]
+      ? `<p class="note-p">Todas tus pérdidas salen del sistema. Antes de creerlo, relee la nota de las que marcaste <b>A</b>: si alguna no la merecía, el problema no era el sistema.</p>` : "";
+    wrap.innerHTML = `<div class="errcats">${filas}</div>${motivos}${cuatro}`;
+  }
+
+  /* ═══════════════ PESTAÑA DE CUENTAS ═══════════════
+     Pinta lo que calculan `economiaCuentas`, `cicloDe`, `autopsiaDe` y
+     `patronQuemadas`. Aquí no se calcula NADA: si una cifra no está en esos
+     motores, no se pinta. Es la misma regla que mantiene a `acctAgg` como la
+     única fuente de los números de una cuenta. */
+  const cuf = { ver: "todas" };
+  const CU_SIN = `<span class="dim">sin dato</span>`;
+  function renderCuentas() {
+    const todas = (state.settings.accounts || []);
+    const n = $("nCuentas"); if (n) n.textContent = todas.length ? String(todas.length) : "";
+    if (!$("cuTabla")) return;
+    renderCuCaja();
+    renderCuTabla(todas);
+    renderCuPatron();
+    renderCuAutopsias();
+  }
+  /* LA CAJA. El número que decide si esto es un negocio o un hobby caro, y el
+     único sitio de la app donde el coste de las cuentas quemadas se resta de lo
+     cobrado. Si no hay un solo movimiento de coste apuntado, lo pagado no es
+     $0: es desconocido, y el neto no se puede calcular. Se dice. */
+  function renderCuCaja() {
+    const e = FUT.economia();
+    $("cuCajaMeta").textContent = e.cuentas ? plu(e.cuentas, "cuenta", "cuentas") + ` · ${e.quemadas} quemadas · ${e.vivas} vivas` : "";
+    if (!e.cuentas) {
+      $("cuCaja").innerHTML = "";
+      $("cuCajaNota").innerHTML = `<p class="empty">Sin cuentas registradas. Añade una en Cabina y aquí verás lo que te cuesta y lo que te deja.</p>`;
+      $("cuFirmas").innerHTML = "";
+      return;
+    }
+    const cajaCls = e.caja > 0 ? "good" : e.caja < 0 ? "bad" : "";
+    $("cuCaja").innerHTML =
+      kpi("Pagado en cuentas", e.costeDesconocido ? "—" : money(e.fees), e.costeDesconocido ? "dim" : "bad", e.costeDesconocido ? "sin apuntar" : "evaluaciones y resets") +
+      kpi("Cobrado", money(e.payouts), e.payouts > 0 ? "good" : "dim", e.sinCobros ? "ningún retiro" : "retiros") +
+      kpi("Neto en tu bolsillo", e.costeDesconocido ? "—" : money(e.caja), e.costeDesconocido ? "dim" : cajaCls, e.costeDesconocido ? "falta el coste" : "cobrado menos pagado") +
+      kpi("Quemadas", String(e.quemadas), e.quemadas ? "bad" : "good", plu(e.cuentas, "cuenta en total", "cuentas en total"));
+    /* El hueco se nombra, no se rellena con un cero que además sale a favor. */
+    $("cuCajaNota").innerHTML = e.costeDesconocido
+      ? `<p class="note-p">No hay ni un movimiento de tipo <b>costo</b> apuntado, así que lo que llevas pagado en evaluaciones y resets <b>no se sabe</b> — y sin eso el neto no es calculable. No es cero: cero sería afirmar que las cuentas fueron gratis. Se apunta en la tarjeta de cada cuenta, en Movimientos.</p>`
+      : e.caja < 0
+        ? `<p class="note-p">Llevas <b>${money(-e.caja)}</b> de tu bolsillo. Eso no significa que el sistema no funcione; significa que todavía no ha pagado las cuentas que costó probarlo.</p>`
+        : e.payouts > 0 ? `<p class="note-p">Neto positivo: lo cobrado ya cubre lo que costaron todas las cuentas, incluidas las quemadas.</p>` : "";
+    const f = e.firmas.filter(x => x.n);
+    $("cuFirmas").innerHTML = f.length < 2 ? "" : `<table class="t"><thead><tr><th>Firma</th><th class="r">cuentas</th><th class="r">quemadas</th><th class="r">pagado</th><th class="r">cobrado</th><th class="r">neto</th></tr></thead><tbody>${f.map(x => `<tr>
+      <td class="ui">${x.firma ? esc(x.firma) : CU_SIN}</td>
+      <td class="r">${x.n}</td><td class="r ${x.quemadas ? "neg" : ""}">${x.quemadas || "—"}</td>
+      <td class="r">${x.fees ? money(x.fees) : "—"}</td><td class="r ${x.payouts ? "pos" : ""}">${x.payouts ? money(x.payouts) : "—"}</td>
+      <td class="r ${x.payouts - x.fees > 0 ? "pos" : x.payouts - x.fees < 0 ? "neg" : ""}">${money(x.payouts - x.fees)}</td></tr>`).join("")}</tbody></table>`;
+  }
+  /* LA TABLA. Una fila por cuenta: qué costó, cuánto duró, cómo acabó y qué
+     dejó. «Duró» se mide del primer al último día OPERADO, no de la compra a la
+     quema: es lo que se puede medir con lo que hay, y se dice así en la
+     cabecera para que no se lea como otra cosa. */
+  function renderCuTabla(todas) {
+    const ciclos = FUT.ciclos().filter(c => cuf.ver === "todas" || (cuf.ver === "quemadas" ? c.quemada : c.viva));
+    $("cuN").textContent = `${ciclos.length} de ${todas.length}`;
+    $("cuTablaMeta").textContent = ciclos.length ? plu(ciclos.length, "cuenta", "cuentas") : "";
+    if (!ciclos.length) {
+      $("cuTabla").innerHTML = `<p class="empty">${todas.length ? "Ninguna cuenta con ese filtro." : "Sin cuentas registradas."}</p>`;
+      $("cuTablaNota").innerHTML = "";
+      return;
+    }
+    /* Orden: las quemadas primero y las más recientes arriba. Es la pestaña de
+       aprender de los errores; la cuenta sana no es la noticia. */
+    ciclos.sort((a, b) => (b.quemada ? 1 : 0) - (a.quemada ? 1 : 0) ||
+      (b.quema.fecha || b.ultimoDia || "").localeCompare(a.quema.fecha || a.ultimoDia || ""));
+    const fila = c => {
+      const dur = c.diasOperados ? plu(c.diasOperados, "día", "días") : CU_SIN;
+      return `<tr data-cu="${esc(c.id)}">
+        <td class="ui"><b>${esc(c.nombre)}</b>${c.firma ? `<span class="dim"> · ${esc(c.firma)}</span>` : ""}</td>
+        <td><span class="chip ${c.cls}">${esc(c.label)}</span></td>
+        <td class="mono">${c.comprada ? esc(c.comprada) : CU_SIN}</td>
+        <td class="mono">${c.quemada ? (c.quema.apuntada ? esc(c.quema.fecha) : CU_SIN) : ""}</td>
+        <td class="r">${dur}</td>
+        <td class="r">${c.ops || "—"}</td>
+        <td class="r">${c.fees ? money(c.fees) : CU_SIN}</td>
+        <td class="r ${c.payouts ? "pos" : ""}">${c.payouts ? money(c.payouts) : "—"}</td>
+        <td class="r ${c.caja > 0 ? "pos" : c.caja < 0 ? "neg" : ""}">${c.fees || c.payouts ? money(c.caja) : CU_SIN}</td></tr>`;
+    };
+    $("cuTabla").innerHTML = `<table class="t"><thead><tr>
+      <th>Cuenta</th><th>Estado</th><th>Comprada</th><th>Quemada</th>
+      <th class="r">operados</th><th class="r">ops</th><th class="r">costó</th><th class="r">cobrado</th><th class="r">neto</th>
+      </tr></thead><tbody>${ciclos.map(fila).join("")}</tbody></table>`;
+    const sinFecha = ciclos.filter(c => c.quemada && !c.quema.apuntada).length;
+    const sinCompra = ciclos.filter(c => !c.comprada).length;
+    const avisos = [];
+    if (sinCompra) avisos.push(`${plu(sinCompra, "cuenta no tiene", "cuentas no tienen")} un movimiento de costo apuntado, así que no se sabe cuándo se compró ni qué costó`);
+    if (sinFecha) avisos.push(`${plu(sinFecha, "quemada no tiene", "quemadas no tienen")} fecha de quema: se apunta en ⚙ Ajustes de la cuenta`);
+    $("cuTablaNota").innerHTML = `<p class="note-p" style="margin-top:12px"><b>«Operados»</b> son los días con operaciones registradas en esa cuenta, del primero al último — no de la compra a la quema, que es otra cosa y casi nunca está entera.${avisos.length ? ` ${avisos.join(". ")}.` : ""}</p>`;
+  }
+  /* EL PATRÓN. Lo único de esta pestaña que enseña algo de verdad, porque es lo
+     único que mira varias cuentas a la vez. Cuenta en CUÁNTAS cuentas aparece
+     cada señal, no cuántas veces: ver `patronQuemadas`. */
+  function renderCuPatron() {
+    const p = FUT.patronQuemadas(), z = $("cuPatron");
+    $("cuPatronMeta").textContent = p.quemadas ? plu(p.quemadas, "cuenta quemada", "cuentas quemadas") : "";
+    if (!p.quemadas) { z.innerHTML = `<p class="empty">Ninguna cuenta marcada como quemada. Cuando marques una, aquí sale lo que se repitió en todas.</p>`; return; }
+    if (!p.senales.length) { z.innerHTML = `<p class="empty">Tus cuentas quemadas no tienen ni una pérdida con señal de error registrada. O no hay operaciones en ellas, o todas sus pérdidas salieron limpias — y entonces lo que hay que mirar es la esperanza de tus setups en Métricas, no tu disciplina.</p>`; return; }
+    /* Una señal en UNA sola cuenta es una anécdota y se dice que lo es: lo que
+       se señala como patrón es lo que aparece en más de una. */
+    const repetidas = p.senales.filter(x => x.cuentas > 1);
+    const unicas = p.senales.filter(x => x.cuentas === 1);
+    const linea = x => `<div class="errcat"><div class="eh"><span class="chip ${x.cat === 3 ? "bad" : "warn"}">${x.cat}</span><b>${esc(x.texto)}</b><span class="mono">en ${plu(x.cuentas, "cuenta", "cuentas")} de ${p.quemadas}</span></div></div>`;
+    z.innerHTML = (repetidas.length
+        ? `<div class="errcats">${repetidas.map(linea).join("")}</div><p class="note-p" style="margin-top:12px">Esto no es lo que pasó en una cuenta: es lo que pasó en <b>varias</b>. ${repetidas[0].cat === 3 ? "La primera es psicológica, y un checklist no la cura: hace falta una regla que no dependa de ti en caliente." : "La primera es de ejecución: se arregla con proceso —órdenes puestas antes de entrar—, no estudiando más gráficos."}</p>`
+        : `<p class="note-p">Ninguna señal se repite en más de una cuenta todavía. Con ${plu(p.quemadas, "cuenta quemada", "cuentas quemadas")} no hay patrón que mirar: hay ${p.quemadas === 1 ? "un caso" : "casos sueltos"}.</p>`)
+      + (unicas.length ? `<p class="note-p"><b>Sólo en una cuenta:</b> ${unicas.slice(0, 8).map(x => esc(x.texto)).join(" · ")}</p>` : "");
+  }
+  /* LA AUTOPSIA, cuenta por cuenta. Lo derivado primero y la lección escrita a
+     mano DESPUÉS, etiquetada como tu versión: si las dos no dicen lo mismo, eso
+     se ve, y ver eso es justamente para lo que sirve esta pestaña. */
+  function renderCuAutopsias() {
+    const q = (state.settings.accounts || []).filter(a => estadoDe(a) === "quemada");
+    const z = $("cuAutopsias");
+    $("cuAutoMeta").textContent = q.length ? plu(q.length, "autopsia", "autopsias") : "";
+    if (!q.length) { z.innerHTML = `<p class="empty">Nada que examinar: ninguna cuenta está marcada como quemada.</p>`; return; }
+    z.innerHTML = q.map(a => {
+      const c = FUT.ciclo(a.id), au = FUT.autopsia(a.id);
+      const cab = `<div class="eh"><b>${esc(c.nombre)}</b>${c.firma ? `<span class="chip">${esc(c.firma)}</span>` : ""}<span class="mono">${c.quema.apuntada ? "quemada el " + esc(c.quema.fecha) : "sin fecha de quema"}</span><span class="mono">${c.ops ? plu(c.ops, "operación cerrada", "operaciones cerradas") : "sin operaciones"}</span></div>`;
+      if (!au.perdidas)
+        return `<div class="errcat">${cab}<p>${c.ops ? "Esta cuenta no tiene ni una pérdida cerrada registrada, así que no hay nada que clasificar. Si se quemó, lo que la quemó no está en el journal." : "No hay operaciones registradas en esta cuenta. Sin ellas la autopsia no puede decir nada, y un campo de texto diciendo por qué se quemó tampoco: sería tu recuerdo, no el registro."}</p>${pintaLeccion(c)}</div>`;
+      const cats = CAT_FILAS.filter(([k]) => au.resumen[k]).map(([k, nom, cls]) =>
+        `<span class="chip ${cls}">${k === "1o4" ? "1 o 4" : k === "sin_datos" ? "—" : k}</span> ${esc(nom)} <span class="mono">×${au.resumen[k]}</span>`).join(" · ");
+      /* LA CIFRA QUE DECIDE QUÉ CAMBIAR. `evitable` y `limpio` son negativos
+         (son pérdidas), así que se imprimen en magnitud y el signo lo dice la
+         palabra, no el número — protocolo 22. */
+      const total = au.evitable + au.limpio;
+      const share = total < 0 ? au.evitable / total : null;
+      const veredicto = share == null ? "" : share >= 0.6
+        ? `<p class="note-p"><b>${pctFine(share)} del agujero lo cavaron operaciones con error tuyo.</b> Esta cuenta no la quemó el mercado: la quemó lo que hiciste fuera del plan. Comprar otra sin cambiar eso compra el mismo resultado.</p>`
+        : share <= 0.25
+          ? `<p class="note-p"><b>Sólo ${pctFine(share)} del agujero viene de operaciones con error.</b> El resto fueron pérdidas limpias: el plan se cumplió y perdió igual. Eso no se arregla con disciplina — se mira la esperanza de estos setups en Métricas, y si es negativa el setup es el problema.</p>`
+          : `<p class="note-p"><b>${pctFine(share)} del agujero viene de operaciones con error</b> y el resto de pérdidas limpias. Las dos cosas a la vez: hay disciplina que arreglar y encima el sistema no iba sobrado.</p>`;
+      const top = au.senales.slice(0, 6);
+      /* `kpis` y no `kv`: la rejilla de `.kv` está acotada a otro padre y aquí
+         resolvía a `display:block`, así que cada cifra salía pegada a su etiqueta
+         —«costó$147»— en una sola línea corrida. Medido con getComputedStyle, no
+         leído. `kpis` es la misma rejilla de recuadros que usa La caja, y estas
+         tres cifras son exactamente eso. */
+      return `<div class="errcat">${cab}
+        <p>${cats}</p>
+        <div class="kpis" style="margin:10px 0">
+          ${kpi("Con error tuyo", money(au.evitable), au.evitable < 0 ? "bad" : "", "categorías 2 y 3")}
+          ${kpi("Pérdidas limpias", money(au.limpio), au.limpio < 0 ? "warn" : "", "plan cumplido")}
+          ${kpi("Costó", c.fees ? money(c.fees) : "—", c.fees ? "" : "dim", c.fees ? "evaluación y resets" : "sin apuntar")}
+        </div>
+        ${top.length ? `<p class="note-p"><b>Lo que más se repitió:</b> ${top.map(x => `${esc(x.texto)} <span class="mono">×${x.veces}</span>`).join(" · ")}</p>` : ""}
+        ${veredicto}${pintaLeccion(c)}</div>`;
+    }).join("");
+  }
+  /* La lección va SIEMPRE al final y SIEMPRE etiquetada. No es un dato más: es
+     lo que recuerdas de un día que acabó mal, escrito después, y la autopsia de
+     arriba se deriva de lo que quedó registrado mientras pasaba. Cuando las dos
+     no coinciden, la de arriba es la que tiene pruebas. */
+  function pintaLeccion(c) {
+    return c.leccion
+      ? `<p class="note-p" style="border-left:2px solid var(--line);padding-left:10px"><span class="dim">tu versión, escrita a mano:</span> ${esc(c.leccion)}</p>`
+      : "";
+  }
+  $("cuFiltro").addEventListener("change", e => { cuf.ver = e.target.value; renderCuentas(); });
+  /* Clic en una fila: lleva al journal filtrado por esa cuenta. Es la pregunta
+     siguiente, siempre: «¿y qué operé ahí?». */
+  $("cuTabla").addEventListener("click", e => {
+    const tr = e.target.closest("tr[data-cu]"); if (!tr) return;
+    FUT.setSelectedAccount(tr.dataset.cu); showTab("futuros");
+  });
+
+  function renderProto(s) {
+    const wrap = $("prWrap"), out = $("prOut"); if (!wrap) return;
+    const A = s.protoA || { n: 0 }, B = s.protoB || { n: 0 };
+    if (!A.n && !B.n) { wrap.innerHTML = `<p class="empty">Marca las cuatro condiciones al registrar cada operación y aquí verás si respetarlas paga.</p>`; out.innerHTML = ""; $("prMeta").textContent = ""; return; }
+    $("prMeta").textContent = `${A.n} con protocolo · ${B.n} con desviación`;
+    wrap.innerHTML = chartBars([
+      { label: "4/4", value: A.pnl || 0, cls: (A.pnl || 0) >= 0 ? "pos" : "neg", title: `Con protocolo: ${money(A.pnl || 0)} en ${A.n} ops` },
+      { label: "resto", value: B.pnl || 0, cls: (B.pnl || 0) >= 0 ? "pos" : "neg", title: `Con desviación: ${money(B.pnl || 0)} en ${B.n} ops` },
+    ], { W: chartW(wrap), H: 150, aria: "Protocolo frente a desviación", maxLabels: 2, maxBar: 120 });
+    const d = A.avgR != null && B.avgR != null && A.n >= 5 && B.n >= 5 ? A.avgR - B.avgR : null;
+    const row = (t, o) => `<tr><td class="ui">${t}</td><td class="r">${o.n}</td><td class="r">${o.wr == null ? "—" : pct(o.wr)}</td><td class="r">${o.avgR == null ? "—" : (o.avgR >= 0 ? "+" : "") + o.avgR.toFixed(2)}</td><td class="r ${o.pnl > 0 ? "pos" : o.pnl < 0 ? "neg" : ""}">${money(o.pnl || 0)}</td></tr>`;
+    out.innerHTML = `<div class="twrap" style="margin-top:12px"><table class="t"><thead><tr><th></th><th class="r">ops</th><th class="r">WR</th><th class="r">R media</th><th class="r">P&amp;L</th></tr></thead><tbody>${row("Con las 4 condiciones", A)}${row("Con alguna desviación", B)}</tbody></table></div>
+      ${d == null ? `<p class="note-p" style="margin-top:12px">Con menos de 5 operaciones en cada grupo no se puede comparar nada.</p>` : `<p class="note-p" style="margin-top:12px">${d > 0.15 ? `Seguir el protocolo vale ${d.toFixed(2)}R más por operación. El problema no es el sistema, es saltárselo.` : d < -0.15 ? `Las operaciones fuera del protocolo van ${(-d).toFixed(2)}R mejor. O el protocolo está mal escrito, o la muestra es demasiado corta para creérselo.` : "Casi no hay diferencia entre seguir el protocolo y no seguirlo. Con esta muestra, las condiciones todavía no demuestran nada."}</p>`}`;
+  }
+
+  function groupPnl(closed, keyFn) {
+    const g = {}; closed.forEach(t => { const k = keyFn(t); const o = g[k] || (g[k] = { pnl: 0, n: 0, w: 0 }); o.pnl += t.pnlEff; o.n++; if (t.pnlEff > 0) o.w++; }); return g;
+  }
+  /* Reparto por sesión: barras en orden cronológico de la jornada y una tabla
+     con lo que de verdad decide si una franja merece la pena. */
+  function renderSesChart(list) {
+    const wrap = $("seWrap"), out = $("seOut"); if (!wrap) return;
+    const closed = list.filter(t => t.pnlEff != null);
+    if (!closed.length) { wrap.innerHTML = `<p class="empty">Sin operaciones cerradas.</p>`; out.innerHTML = ""; $("seMeta").textContent = ""; return; }
+    const g = {};
+    closed.forEach(t => {
+      const k = tradeSes(t) || "__sin";
+      const o = g[k] || (g[k] = { pnl: 0, n: 0, w: 0, l: 0, rs: [] });
+      o.pnl += t.pnlEff; o.n++; if (t.pnlEff > 0) o.w++; else if (t.pnlEff < 0) o.l++;
+      if (t.rReal != null) o.rs.push(t.rReal);
+    });
+    const orden = SESSIONS.map(x => x.id).concat(["__sin"]).filter(k => g[k]);
+    const items = orden.map(k => {
+      const o = g[k], name = k === "__sin" ? "sin hora" : sesShort(k);
+      return { label: name, value: o.pnl, cls: k === "nyam" ? (o.pnl >= 0 ? "pos" : "neg") : undefined, title: `${name} · ${money(o.pnl)} · ${plu(o.n, "op", "ops")} · WR ${pct(o.w / o.n)}` };
+    });
+    const mejor = items.slice().sort((a, b) => b.value - a.value)[0];
+    const kz = g.nyam, fuera = orden.filter(k => k !== "nyam").reduce((a, k) => ({ pnl: a.pnl + g[k].pnl, n: a.n + g[k].n }), { pnl: 0, n: 0 });
+    $("seMeta").innerHTML = `mejor sesión <strong>${esc(mejor.label)}</strong> ${money(mejor.value)}`;
+    wrap.innerHTML = chartBars(items, { W: chartW(wrap), H: 170, aria: "P&L por sesión de mercado", maxLabels: 10 });
+    const fila = k => {
+      const o = g[k], name = k === "__sin" ? "sin hora" : sesShort(k);
+      const avgR = o.rs.length ? o.rs.reduce((a, b) => a + b, 0) / o.rs.length : null;
+      const x = sesById(k);
+      return `<tr><td class="ui">${esc(name)}${k === "nyam" ? ' <span class="chip">ventana</span>' : ""}</td><td class="r">${o.n}</td><td class="r">${pct(o.w / o.n)}</td><td class="r">${avgR == null ? "—" : (avgR >= 0 ? "+" : "") + avgR.toFixed(2)}</td><td class="r ${o.pnl > 0 ? "pos" : o.pnl < 0 ? "neg" : ""}">${money(o.pnl)}</td><td class="r dim">${pct(o.n / closed.length)}</td></tr>`;
+    };
+    let veredicto;
+    if (!kz) veredicto = `Ninguna operación cerrada dentro de NY AM. Todo el resultado sale de ${plu(fuera.n, "operación", "operaciones")} en otras sesiones: o la ventana del protocolo ya no es la que operas, o hay que reescribirla.`;
+    else if (!fuera.n) veredicto = "Todo dentro de NY AM. Sin operaciones fuera de la ventana no hay con qué comparar.";
+    else if (kz.pnl > 0 && fuera.pnl <= 0) veredicto = `La ventana de NY AM aporta ${money(kz.pnl)} y el resto de sesiones resta ${money(fuera.pnl)}. La regla de operar solo en la ventana se sostiene con estos datos.`;
+    else if (fuera.pnl > kz.pnl) veredicto = `Fuera de NY AM llevas ${money(fuera.pnl)} en ${plu(fuera.n, "operación", "operaciones")}, más que los ${money(kz.pnl)} de la ventana. Con esta muestra el protocolo está mirando a la franja equivocada.`;
+    else veredicto = `NY AM aporta ${money(kz.pnl)} y el resto ${money(fuera.pnl)}. Las dos suman, así que operar fuera de la ventana no te está costando dinero — te está costando foco, que es otra discusión.`;
+    out.innerHTML = `<div class="twrap" style="margin-top:12px"><table class="t"><thead><tr><th>Sesión</th><th class="r">ops</th><th class="r">WR</th><th class="r">R media</th><th class="r">P&amp;L</th><th class="r">peso</th></tr></thead><tbody>${orden.map(fila).join("")}</tbody></table></div><p class="note-p" style="margin-top:12px">${esc(veredicto)}</p>`;
+  }
+  function renderHourChart(list) {
+    const wrap = $("hrWrap"); if (!wrap) return;
+    const g = groupPnl(list.filter(t => t.pnlEff != null), t => t.time ? t.time.slice(0, 2) : "--");
+    const keys = Object.keys(g).sort();
+    if (!keys.length) { wrap.innerHTML = `<p class="empty">Sin operaciones cerradas.</p>`; $("hrMeta").textContent = ""; return; }
+    const items = keys.map(k => { const l = k === "--" ? "sin hora" : hourLabel12(k); return { label: l, value: g[k].pnl, title: `${l} · ${money(g[k].pnl)} · ${plu(g[k].n, "op", "ops")} · WR ${pct(g[k].w / g[k].n)}` }; });
+    const best = items.slice().sort((a, b) => b.value - a.value)[0];
+    $("hrMeta").innerHTML = `mejor franja <strong>${esc(best.label)}</strong> ${money(best.value)}`;
+    wrap.innerHTML = chartBars(items, { W: chartW(wrap), H: 160, aria: "P&L por hora de entrada", maxLabels: 12 });
+  }
+  function renderDowChart(list) {
+    const wrap = $("dwWrap"); if (!wrap) return;
+    const g = groupPnl(list.filter(t => t.pnlEff != null), t => dowOf(t.date));
+    const keys = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"].filter(k => g[k]);
+    if (!keys.length) { wrap.innerHTML = `<p class="empty">Sin operaciones cerradas.</p>`; $("dwMeta").textContent = ""; return; }
+    const items = keys.map(k => ({ label: k, value: g[k].pnl, title: `${k} · ${money(g[k].pnl)} · ${plu(g[k].n, "op", "ops")} · WR ${pct(g[k].w / g[k].n)}` }));
+    const worst = items.slice().sort((a, b) => a.value - b.value)[0];
+    $("dwMeta").innerHTML = worst.value < 0 ? `peor día <strong class="neg">${esc(worst.label)}</strong> ${money(worst.value)}` : "ningún día en rojo";
+    wrap.innerHTML = chartBars(items, { W: chartW(wrap), H: 160, aria: "P&L por día de la semana", maxLabels: 7 });
+  }
+
+  function renderConsistency(list, s) {
+    const wrap = $("cnWrap"), out = $("cnOut"); if (!wrap) return;
+    const entries = Object.keys(s.byDay || {}).sort().map(d => ({ date: d, pnl: s.byDay[d] }));
+    const profit = s.pnl;
+    const ac = ft.acct ? acctById(ft.acct) : null;
+    const L = ac ? Math.min(Math.max(Number(ac.limit) || 0, 1), 99) / 100 : 0.4;
+    if (!entries.length || profit <= 0) { wrap.innerHTML = `<p class="empty">La consistencia se mide sobre la ganancia acumulada. Con el neto en cero o negativo todavía no hay nada que repartir.</p>`; out.innerHTML = ""; $("cnMeta").textContent = ""; return; }
+    const items = entries.map(e => ({ label: e.date.slice(5), value: e.pnl / profit, cls: e.pnl <= 0 ? "neg" : (e.pnl / profit > L ? "warn" : "pos"), title: `${e.date} · ${money(e.pnl)} · ${pct(e.pnl / profit)} de la ganancia` }));
+    const over = items.filter(i => i.value > L).length;
+    $("cnMeta").innerHTML = `${ac ? esc(acctLabel(ac.id)) + " · límite " + pct(L) : "sin cuenta filtrada · referencia " + pct(L)} · ${over} ${over === 1 ? "día lo supera" : "días lo superan"}`;
+    wrap.innerHTML = chartBars(items, { W: chartW(wrap), H: 170, pl: 42, fmt: v => (v * 100).toFixed(0) + "%", aria: "Peso de cada día en la ganancia", maxLabels: 14 });
+    const accts = (state.settings.accounts || []).filter(vivaLa);
+    out.innerHTML = accts.length ? `<div class="twrap" style="margin-top:16px"><table class="t"><thead><tr><th>Cuenta</th><th class="r">Ganancia</th><th class="r">Mejor día</th><th class="r">Ratio</th><th class="r">Límite</th><th>Estado</th></tr></thead><tbody>${accts.map(a => { const c = consistency(a); return `<tr><td class="ui">${esc(a.name || a.firm || "sin nombre")}</td><td class="r">${money(c.total)}</td><td class="r">${money(c.best)}</td><td class="r ${c.noProfit ? "dim" : c.over ? "neg" : "pos"}">${c.noProfit ? "—" : pct(c.ratio)}</td><td class="r">${pct(c.L)}</td><td class="ui">${c.noProfit ? `<span class="dim">sin ganancia${c.total < 0 ? ` · ${money(c.total)}` : ""}</span>` : c.over ? `<span class="chip bad">falta ${money(c.needed)}</span>` : `<span class="chip good">cumple · tope hoy ${money(c.capToday)}</span>`}</td></tr>`; }).join("")}</tbody></table></div>` : "";
+  }
+
+  /* ---------- ¿funciona el sistema? ---------- */
+  function scoreRow(st, title, sub, val) { return { st, title, sub, val }; }
+  function renderScorecard(list, s) {
+    const el = $("ftScore"), vd = $("ftVerdict"); if (!el) return;
+    const hist = historyMerged(); const broke = hist.filter(d => d.broke).length;
+    const clean = hist.length ? (hist.length - broke) / hist.length : null;
+    const ac = ft.acct ? acctById(ft.acct) : (state.settings.accounts || []).find(a => a.status === "activa") || null;
+    const cons = ac ? consistency(ac) : null;
+    const ddRatio = ac && Number(ac.dd) > 0 && s.maxDD < 0 ? Math.abs(s.maxDD) / Number(ac.dd) : null;
+    const risks = list.filter(t => t.riskUsd != null && t.riskUsd > 0).map(t => t.riskUsd);
+    let cv = null;
+    if (risks.length >= 5) { const m = risks.reduce((a, b) => a + b, 0) / risks.length; const sd = Math.sqrt(risks.reduce((a, b) => a + (b - m) * (b - m), 0) / risks.length); cv = m ? sd / m : null; }
+    const rows = [
+      scoreRow(s.closed >= 30 ? "ok" : s.closed >= 20 ? "wa" : s.closed ? "no" : "na", "Muestra suficiente", "Por debajo de 30 operaciones cerradas, cualquier conclusión es ruido.", `${s.closed} ops`),
+      scoreRow(s.closed ? (s.expect > 0 ? "ok" : "no") : "na", "Expectativa positiva", "Lo que deja de media cada operación, comisiones incluidas.", s.expect == null ? "—" : money(s.expect)),
+      scoreRow(s.pf == null ? "na" : s.pf >= 1.5 ? "ok" : s.pf >= 1.1 ? "wa" : "no", "Profit factor", "Ganado dividido entre perdido. Por debajo de 1 la cuenta se vacía.", s.pf == null ? "—" : s.pf.toFixed(2)),
+      scoreRow(s.avgR == null ? "na" : s.avgR >= 0.15 ? "ok" : s.avgR > 0 ? "wa" : "no", "R media por operación", "El resultado medido en múltiplos del riesgo, no en dólares sueltos.", s.avgR == null ? "—" : (s.avgR >= 0 ? "+" : "") + s.avgR.toFixed(2) + "R"),
+      scoreRow(s.dayWr == null ? "na" : s.dayWr >= 0.5 ? "ok" : s.dayWr >= 0.4 ? "wa" : "no", "Días verdes", "Las prop firms se pasan con días verdes repetidos, no con un día heroico.", s.dayWr == null ? "—" : `${pct(s.dayWr)} · ${s.greenDays}/${s.days}`),
+      scoreRow(s.proto == null ? "na" : s.proto >= 0.8 ? "ok" : s.proto >= 0.6 ? "wa" : "no", "Adherencia al protocolo", "Operaciones con las cuatro condiciones marcadas.", s.proto == null ? "—" : pct(s.proto)),
+      scoreRow(s.protoA && s.protoB && s.protoA.n >= 5 && s.protoB.n >= 5 && s.protoA.avgR != null && s.protoB.avgR != null ? (s.protoA.avgR > s.protoB.avgR ? "ok" : "no") : "na", "El protocolo paga", "Las operaciones limpias tienen que rendir más que las sucias.", s.protoA && s.protoB && s.protoA.avgR != null && s.protoB.avgR != null && s.protoA.n >= 5 && s.protoB.n >= 5 ? `${(s.protoA.avgR - s.protoB.avgR >= 0 ? "+" : "") + (s.protoA.avgR - s.protoB.avgR).toFixed(2)}R` : "—"),
+      scoreRow(cv == null ? "na" : cv <= 0.25 ? "ok" : cv <= 0.5 ? "wa" : "no", "Tamaño estable", "Si el riesgo por operación varía mucho, estás subiendo tamaño para recuperar.", cv == null ? "—" : "±" + pct(cv)),
+      scoreRow(clean == null ? "na" : clean >= 0.9 ? "ok" : clean >= 0.75 ? "wa" : "no", "Disciplina", "Sesiones sin ninguna regla dura rota.", clean == null ? "—" : pct(clean)),
+      scoreRow(!cons || cons.total <= 0 ? "na" : cons.over ? "no" : cons.near ? "wa" : "ok", "Consistencia de la cuenta", ac ? `Mejor día ÷ ganancia, frente al límite de ${ac.name || ac.firm}.` : "Registra una cuenta para medirla.", !cons || cons.total <= 0 ? "—" : `${pct(cons.ratio)} / ${pct(cons.L)}`),
+      scoreRow(ddRatio == null ? "na" : ddRatio <= 0.4 ? "ok" : ddRatio <= 0.7 ? "wa" : "no", "Drawdown bajo control", "La peor caída frente al drawdown que permite la cuenta.", ddRatio == null ? "—" : `${money(s.maxDD)} · ${pct(ddRatio)} del DD`),
+    ];
+    const MARK = { ok: "✓", wa: "!", no: "×", na: "–" };
+    el.innerHTML = rows.map(r => `<div class="r ${r.st}"><span class="m">${MARK[r.st]}</span><span class="t">${esc(r.title)}<small>${esc(r.sub)}</small></span><span class="v">${esc(r.val)}</span></div>`).join("");
+    const graded = rows.filter(r => r.st !== "na");
+    const ok = graded.filter(r => r.st === "ok").length, no = graded.filter(r => r.st === "no").length;
+    $("scMeta").textContent = graded.length ? `${ok} de ${plu(graded.length, "criterio", "criterios")} en verde` : "sin datos";
+    let cls, head, body;
+    if (!s.closed) { cls = ""; head = "Todavía no hay nada que juzgar."; body = "Registra operaciones con entrada, stop y salida. Con menos de veinte no se puede distinguir un sistema de una racha."; }
+    else if (s.closed < 20) { cls = "mid"; head = "Muestra demasiado corta para un veredicto."; body = `Llevas ${plu(s.closed, "operación cerrada", "operaciones cerradas")}. Sigue registrando con la misma disciplina: hasta 30 los números de arriba describen suerte, no edge.`; }
+    else if (no === 0 && ok >= graded.length * 0.7) { cls = "ready"; head = "El sistema aguanta el examen."; body = "Expectativa positiva, riesgo estable y reglas respetadas. Lo que queda no es cambiar el sistema, es repetirlo sin tocarlo."; }
+    else if (no >= 3) { cls = "blocked"; head = "El sistema no funciona tal y como lo estás operando."; body = `${no} criterios en rojo. Antes de buscar otro setup, mira si los rojos son de método (expectativa, profit factor) o de ejecución (disciplina, tamaño, consistencia): se arreglan de forma distinta.`; }
+    else { cls = "mid"; head = "Funciona a medias: hay edge y hay fugas."; body = `${ok} criterios en verde y ${no} en rojo. Arregla primero los rojos de ejecución — disciplina, tamaño y consistencia — porque son gratis y no dependen del mercado.`; }
+    vd.innerHTML = `<div class="verdict ${cls}"><div class="h">Veredicto</div><div class="b">${esc(head)}</div><p>${esc(body)}</p></div>`;
+  }
+
+  /* =============================== REGISTRO DE CUENTAS (FUTUROS) =============================== */
+  function sparkCum(days, base) {
+    if (!days.length) return "";
+    let cum = Number(base) || 0; const pts = [cum];
+    days.forEach(d => { cum += d.pnl; pts.push(cum); });
+    if (pts.length < 2) return "";
+    const W = 360, H = 56; const min = Math.min(...pts, 0), max = Math.max(...pts, 0);
+    const x = i => i / (pts.length - 1) * W, y = v => H - 3 - ((v - min) / ((max - min) || 1)) * (H - 6);
+    const path = pts.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:56px" role="img" aria-label="Evolución de la cuenta"><line class="zero" x1="0" x2="${W}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}"></line><path class="s1" d="${path}"></path></svg>`;
+  }
+  const ACCT_FIELDS = [
+    /* Tres bloques, y el orden importa: quién es la cuenta, cuánto aguanta, y qué
+       firmaste. El contrato de la firma iba mezclado con el tamaño y el estado, y
+       son cosas distintas: lo de arriba lo decides tú, lo de abajo te lo imponen. */
+    { type: "seccion", n: "01", label: "La cuenta", help: "quién la lleva y en qué estado está" },
+    { key: "firm", label: "Firma", w: 2, ph: "Nombre de tu firma" },
+    { key: "name", label: "Nombre de la cuenta", w: 2, ph: "Evaluación 50K" },
+    { key: "kind", label: "Tipo", w: 2, ph: "Evaluación / Fondeada" },
+    { type: "seccion", n: "02", label: "Cuánto aguanta", help: "tamaño, drawdown y consistencia" },
+    { key: "size", label: "Tamaño de la cuenta ($)", type: "number", step: "1000" },
+    { key: "dd", label: "Drawdown máximo ($)", type: "number", step: "100" },
+    { key: "ddKind", label: "Tipo de drawdown", type: "select", options: [], help: "bloqueado: sigue al pico y se congela · puro: sigue siempre · estático: fijo" },
+    { key: "trailBase", label: "El pico se marca...", type: "select",
+      options: [["intradia", "operación a operación (intradía)"], ["cierre", "al cerrar el día"]],
+      help: "decide si un máximo que tocaste a media sesión cuenta. La mayoría de las props miden intradía; si la tuya mide al cierre, cámbialo. Intradía es lo conservador: nunca te infla el colchón." },
+    { key: "limit", label: "Límite de consistencia (%)", type: "number", step: "1" },
+    { key: "target", label: "Objetivo de la evaluación ($)", type: "number", step: "100", help: "0 si ya está fondeada" },
+    { key: "status", label: "Estado de la cuenta", type: "select", options: ESTADOS.map(x => [x[0], x[1]]) },
+    { key: "total", label: "Ganancia previa ($)", type: "number", step: "10", w: 3, help: "lo que ya llevaba la cuenta antes de empezar a registrar aquí · en rojo se escribe con signo: -450" },
+    { key: "best", label: "Mejor día previo ($)", type: "number", step: "10", w: 3, help: "el día verde más grande antes de registrar aquí · 0 si nunca hubo uno" },
+    /* ─── SI LA QUEMASTE ───
+       Dos campos, y los dos para una sola cuenta ya muerta. Van al final porque
+       en una cuenta viva no se tocan, y sólo hay dos porque es lo único que la
+       app no puede derivar: la fecha es un hecho que no está en ningún sitio
+       —una cuenta puede quemarse un día sin operaciones registradas— y la
+       lección es tu versión de los hechos.
+       NO HAY «¿por qué se quemó?» con opciones. El por qué sale de las
+       operaciones, en la pestaña de Cuentas, y preguntarlo aquí sería dejarte
+       elegir tu propio veredicto después de la condena. Ver docs/ERRORES.md. */
+    { type: "seccion", n: "04", label: "Si la quemaste", help: "sólo esto se pregunta: el resto se deriva de tus operaciones" },
+    { key: "burnedOn", label: "Día en que se quemó", type: "date", w: 3,
+      help: "vacío = no apuntado · la autopsia funciona igual, pero sin él no se puede medir cuánto duró" },
+    { key: "lesson", label: "Qué aprendiste", type: "text", w: 6,
+      ph: "subí tamaño para recuperar el día anterior",
+      help: "tu versión · se pinta al lado de lo que dicen tus operaciones, y no entra en ningún cálculo" },
+    /* ─── EL CONTRATO DE ESTA FIRMA ───
+       Vacío significa «heredo el protocolo», no «cero». Por eso ninguno lleva
+       valor por defecto: un 0 puesto por la app diría «no puedes perder nada»,
+       que es una regla que ninguna firma escribe y que bloquearía la cuenta. */
+    { type: "seccion", n: "03", label: "El contrato de la firma", help: "lo que te imponen, no lo que eliges" },
+    { key: "r_maxLoss", label: "Pérdida máx. del día ($)", type: "number", step: "10", w: 2,
+      help: "el de ESTA firma · vacío = hereda el del protocolo" },
+    { key: "r_maxGain", label: "Tope de ganancia ($)", type: "number", step: "10", w: 2,
+      help: "vacío = hereda el del protocolo" },
+    { key: "r_maxContracts", label: "Contratos máximos", type: "number", step: "1", w: 2,
+      help: "vacío = hereda el del protocolo" },
+    { key: "r_maxLosses", label: "Pérdidas seguidas → cierre", type: "number", step: "1", w: 2,
+      help: "vacío = hereda el del protocolo" },
+    { key: "r_minDays", label: "Días mínimos de trading", type: "number", step: "1", w: 2,
+      help: "los que exige la firma para poder cobrar" },
+    { key: "r_payoutBuffer", label: "Colchón para cobrar ($)", type: "number", step: "10", w: 2,
+      help: "lo que la firma exige dejar por encima del inicio al retirar" },
+    { key: "r_instruments", label: "Instrumentos permitidos", w: 3,
+      help: "MNQ, MES… · vacío = hereda los del protocolo" },
+    { key: "r_verifiedAt", label: "Reglas verificadas el", type: "date", w: 3,
+      help: "el día que leíste el contrato en la web de la firma" },
+    { key: "r_url", label: "Enlace a las reglas", w: 3, ph: "https://…" },
+    { key: "r_version", label: "Versión del contrato", w: 3, ph: "v2 · sept 2026" },
+    { key: "r_notes", label: "Notas del contrato", type: "textarea", w: 6,
+      help: "lo que no cabe en un número: noticias, fin de semana, escalado" },
+  ];
+  /* El contrato viaja aplanado por el editor (r_maxLoss) y plegado en el modelo
+     (a.rules.maxLoss). Estas dos funciones son la única frontera entre ambos. */
+  const RULE_CAMPOS = ["maxLoss", "maxGain", "maxContracts", "maxLosses", "minDays",
+                       "payoutBuffer", "instruments", "verifiedAt", "url", "version", "notes"];
+  function aplanaRules(r) {
+    const out = {};
+    RULE_CAMPOS.forEach(k => { if (r && r[k] != null) out["r_" + k] = r[k]; });
+    return out;
+  }
+  function pliegaRules(v) {
+    const crudo = {};
+    RULE_CAMPOS.forEach(k => { crudo[k] = v["r_" + k]; });
+    return normRules(crudo);
+  }
+  function openAccountEditor(a) {
+    const isNew = !a;
+    const fields = ACCT_FIELDS.map(f => f.key === "ddKind" ? Object.assign({}, f, { options: DD_KINDS }) : f);
+    openEditor({
+      title: isNew ? "Registrar cuenta" : "Editar cuenta",
+      /* Los campos del contrato viven aplanados como r_* mientras el editor está
+         abierto y se vuelven a plegar en a.rules{} al guardar: el editor genérico
+         no sabe de objetos anidados, y no merece la pena enseñárselo por esto. */
+      fields, values: Object.assign(
+        { limit: 50, size: 50000, dd: 2000, ddKind: "trailing_lock", trailBase: "intradia", status: "activa", target: 3000, total: 0, best: 0 },
+        a || {},
+        /* SE EDITA EL CONTRATO QUE RIGE, no el que está escrito más abajo. Si la
+           cuenta tiene versiones, `a.rules` ya no gobierna nada: enseñar aquí sus
+           números dejaría al usuario cambiando cifras que no tienen efecto. */
+        aplanaRules(reglasDe(a).rules)),
+      validate: v => {
+        if (!(v.name || v.firm)) return "Ponle al menos un nombre o una firma";
+        /* La ganancia previa SÍ puede ir en rojo: es un resultado, no un tamaño.
+           El tamaño, el drawdown y el objetivo no: un drawdown negativo no
+           significa nada y envenena el suelo, el colchón y toda la simulación. */
+        if (v.size != null && v.size < 0) return "El tamaño de la cuenta no puede ser negativo";
+        if (v.dd != null && v.dd < 0) return "El drawdown máximo no puede ser negativo: es una distancia, no un resultado";
+        if (v.target != null && v.target < 0) return "El objetivo no puede ser negativo";
+        if (v.best != null && v.best < 0) return "El mejor día previo no puede ser negativo: si nunca hubo un día verde, escribe 0";
+        return null;
+      },
+      onSave: v => {
+        const arr = state.settings.accounts;
+        const contrato = pliegaRules(v);
+        const rec = Object.assign({}, a || { id: uid("a"), ledger: [] }, v,
+          { limit: Math.min(99, Math.max(1, Number(v.limit) || 50)) });
+        /* Y SE GUARDA DONDE SE LEYÓ. Con versiones, lo editado vuelve a la versión
+           que rige esta cuenta; sin versiones, a `a.rules`, como siempre. Guardar
+           siempre en `a.rules` habría hecho que la edición no cambiara nada. */
+        const rige = reglasDe(a).version;
+        if (rige) {
+          rec.rulesets = (rec.rulesets || []).map(x => x && x.id === rige.id ? Object.assign({}, x, { rules: contrato }) : x);
+        } else rec.rules = contrato;
+        RULE_CAMPOS.forEach(k => { delete rec["r_" + k]; });
+        /* ABRIR NO ES TOCAR (protocolo 17). El editor genérico escribe `""` en
+           todo campo de texto vacío, así que entrar a una cuenta quemada de
+           antes de estos campos para corregirle una errata al nombre le
+           inventaba «fecha de quema en blanco» y «lección en blanco». Son
+           datos distintos de la ausencia —la pestaña de Cuentas los cuenta
+           aparte— así que si la cuenta no los traía y siguen vacíos, se quitan.
+           Es la misma guarda que ya protege a `invalida` en el editor de
+           operaciones, y allí la encontró la prueba del editor real. */
+        for (const k of ["burnedOn", "lesson"])
+          if (!(a && Object.prototype.hasOwnProperty.call(a, k)) && !String(rec[k] || "").trim()) delete rec[k];
+        const i = arr.findIndex(x => x.id === rec.id);
+        if (i >= 0) arr[i] = rec; else arr.push(rec);
+        persistSettings(); renderAccounts(); renderFutAccounts(); renderFutures(); renderCuentas();
+      },
+      /* Tercera implementación que había del mismo borrado. Ídem. */
+      onDelete: isNew ? null : () => avisaHuerfanas(FUT.deleteAccount(a.id)),
+    });
+  }
+  function openLedgerEntry(a, entry) {
+    const isNew = !entry;
+    openEditor({
+      title: isNew ? "Movimiento de la cuenta" : "Editar movimiento",
+      fields: [
+        { key: "date", label: "Fecha", type: "date" },
+        { key: "kind", label: "Tipo", type: "select", options: LEDGER_KINDS },
+        { key: "amount", label: "Importe ($)", type: "number", step: "1", help: "siempre en positivo: el tipo decide si suma o resta" },
+        { key: "note", label: "Nota", w: 6, ph: "payout de septiembre · reset tras quemarla" },
+      ],
+      values: entry || { date: todayISO(), kind: "payout", amount: 0 },
+      validate: v => v.amount == null || v.amount <= 0 ? "El importe tiene que ser mayor que cero" : null,
+      onSave: v => {
+        a.ledger = a.ledger || [];
+        const rec = Object.assign({}, entry || { id: uid("le") }, v, { amount: Math.abs(Number(v.amount) || 0) });
+        const i = a.ledger.findIndex(x => x.id === rec.id);
+        if (i >= 0) a.ledger[i] = rec; else a.ledger.push(rec);
+        persistSettings(); renderFutAccounts(); renderAccounts(); renderCuentas();
+      },
+      onDelete: isNew ? null : () => { a.ledger = (a.ledger || []).filter(x => x.id !== entry.id); persistSettings(); renderFutAccounts(); renderAccounts(); renderCuentas(); },
+    });
+  }
+  function renderFutAccounts() {
+    const el = $("ftAccts"); if (!el) return;
+    const accts = state.settings.accounts || [];
+    if (!accts.length) { el.innerHTML = `<p class="empty">Ninguna cuenta registrada. Pulsa <code>+ Registrar cuenta</code>: con la firma, el tamaño y el drawdown ya se calculan el colchón y la consistencia con tus operaciones reales.</p>`; return; }
+    el.innerHTML = accts.map(a => {
+      /* El estado operativo sale del MISMO motor que lo pinta en la Cabina. Sin
+         esto, Futuros enseñaba los números de la cuenta pero no si se puede
+         operar con ella: dos pantallas de la misma cuenta diciendo cosas
+         distintas sobre si el día está cerrado.
+
+         Y se reaprovecha lo que el motor ya calculó: la consistencia y el
+         agregado vienen dentro. Volver a pedirlos duplicaría acctAgg por cuenta
+         y por repintado, que es la parte cara con miles de operaciones. */
+      const ev = FUT.evaluateRules(a.id);
+      const c = ev.c; const g = ev.agg;
+      const st = futStats(tradesDe(a.id));
+      const led = (a.ledger || []).slice().sort((x, y) => String(y.date).localeCompare(String(x.date)));
+      const kindOf = k => (LEDGER_KINDS.find(x => x[0] === k) || ["", k])[1];
+      const target = Number(a.target) || 0;
+      const prog = target > 0 ? Math.max(0, Math.min(1, g.total / target)) : null;
+      return `<section class="facct ${a.status === "activa" ? "" : "off"}" data-id="${a.id}">
+        <header>
+          <span class="firm">${esc(a.firm || "sin firma")}</span><span class="name">${esc(a.name || "sin nombre")}</span>
+          ${a.kind ? `<span class="chip">${esc(a.kind)}</span>` : ""}<span class="chip ${EST_CLS[estadoDe(a)]}">${esc(EST_LABEL[estadoDe(a)])}</span><span class="chip ${ST_CLS[ev.status]}" title="${esc(ev.reason)}">${ST_ICON[ev.status]} ${ST_LABEL[ev.status]}</span>
+          <div class="tools"><button type="button" class="btn sm ghost" data-act="trade">+ Op.</button><button type="button" class="btn sm ghost" data-act="mov">+ Movimiento</button><button type="button" class="btn sm" data-act="edit">Editar</button></div>
+        </header>
+        <div class="body">
+          ${acctAggHtml(c)}
+          ${target > 0 ? `<div class="meter"><div class="bar"><i style="width:${(prog * 100).toFixed(1)}%;background:${prog >= 1 ? "var(--good)" : "var(--accent)"}"></i></div><div class="row"><span>objetivo de la evaluación</span><span><strong>${money(g.total)}</strong> de ${money(target)} · ${pct(prog)}</span></div></div>` : ""}
+          <div class="meter ${c.over ? "over" : c.near ? "near" : ""}">
+            <div class="bar"><i style="width:${Math.min(100, c.ratio * 100)}%"></i><b style="left:${c.L * 100}%" title="límite ${pct(c.L)}"></b></div>
+            <div class="row"><span>consistencia · mejor día ÷ total = <strong>${c.total > 0 ? pct(c.ratio) : "—"}</strong></span><span>límite <strong>${pct(c.L)}</strong></span></div>
+            <div class="row"><span>${verdictOf(c)}</span></div>
+          </div>
+          <div class="twocol">
+            <div>${g.days.length > 1 ? `<div class="lab">Evolución de la cuenta</div>${sparkCum(g.days, g.base)}` : `<p class="empty" style="padding:0">Sin suficientes días para dibujar la curva.</p>`}</div>
+            <div><div class="lab">Rendimiento en esta cuenta</div><div class="twrap"><table class="t"><tbody>
+              <tr><td class="ui">Operaciones cerradas</td><td class="r"><strong>${st.closed}</strong></td></tr>
+              <tr><td class="ui">Win rate</td><td class="r"><strong>${st.wr == null ? "—" : pct(st.wr)}</strong></td></tr>
+              <tr><td class="ui">Profit factor</td><td class="r"><strong>${st.pf == null ? "—" : st.pf.toFixed(2)}</strong></td></tr>
+              <tr><td class="ui">Máx. drawdown</td><td class="r ${st.maxDD < 0 ? "neg" : ""}"><strong>${st.closed ? money(st.maxDD) : "—"}</strong></td></tr>
+            </tbody></table></div></div>
+          </div>
+          <div>
+            <div class="lab">Movimientos · retiros, costos y depósitos</div>
+            ${led.length ? `<div class="twrap"><table class="t"><thead><tr><th>Fecha</th><th>Tipo</th><th class="r">Importe</th><th>Nota</th><th></th></tr></thead><tbody>${led.map(e => `<tr data-le="${e.id}"><td>${esc(e.date || "")}</td><td class="ui">${esc(kindOf(e.kind))}</td><td class="r ${e.kind === "fee" ? "neg" : e.kind === "payout" ? "pos" : ""}">${e.kind === "deposit" ? "+" : e.kind === "fee" ? "-" : ""}${money(Math.abs(e.amount))}</td><td class="notes">${esc(e.note || "")}</td><td class="act"><button type="button" class="icon" data-act="ledit" title="Editar">✎</button></td></tr>`).join("")}</tbody></table></div>` : `<p class="empty" style="padding:4px 0">Sin movimientos. Apunta aquí lo que pagaste por la evaluación y cada retiro: es la diferencia entre ganar en pantalla y ganar de verdad.</p>`}
+            <div class="srcrow" style="margin-top:8px"><span>neto real <b class="${g.net > 0 ? "ok" : g.net < 0 ? "no" : ""}">${money(g.net)}</b></span><span class="stale">ganancia + depósitos − retiros − costos</span></div>
+          </div>
+        </div>
+      </section>`;
+    }).join("");
+  }
+  $("ftAccts").addEventListener("click", e => {
+    const btn = e.target.closest("button[data-act]"); if (!btn) return;
+    const sec = btn.closest(".facct"); const a = acctById(sec.dataset.id); if (!a) return;
+    const act = btn.dataset.act;
+    if (act === "edit") openAccountEditor(a);
+    else if (act === "mov") openLedgerEntry(a, null);
+    else if (act === "trade") openTrade(null, "futuros", { accountId: a.id });
+    else if (act === "ledit") { const id = btn.closest("tr").dataset.le; const en = (a.ledger || []).find(x => x.id === id); if (en) openLedgerEntry(a, en); }
+  });
+  $("ftAcctAdd").addEventListener("click", () => openAccountEditor(null));
+
+  /* ---------- gestión de cuentas de inversión ---------- */
+  function investmentAccounts() {
+    const meta = state.settings.meta || {};
+    if (!Array.isArray(meta.investAccounts)) meta.investAccounts = [];
+    return meta.investAccounts.filter(a => a && a.id && a.name).map(a => ({
+      id: String(a.id), name: String(a.name), type: String(a.type || "brokerage"),
+      broker: String(a.broker || ""), currency: String(a.currency || "USD"),
+      createdAt: Number(a.createdAt) || 0
+    }));
+  }
+  function defaultInvestmentAccountId() {
+    return ivj.account && ivj.account !== "__all" && ivj.account !== "__none" &&
+      investmentAccounts().some(a => a.id === ivj.account) ? ivj.account : "";
+  }
+  function investmentAccountName(id) {
+    if (!id) return "Sin asignar";
+    const a = investmentAccounts().find(x => x.id === String(id));
+    return a ? a.name : "Cuenta desconocida";
+  }
+  function investmentInScope(item) {
+    if (ivj.account === "__all") return true;
+    if (ivj.account === "__none") return !item.accountId;
+    return String(item.accountId || "") === ivj.account;
+  }
+  function investmentAccountsChanged() {
+    renderInvestmentAccountControls();
+    renderInvestMetrics(); renderInvestOps();
+    renderMarketList(); renderMarketDetail();
+  }
+  function renderInvestmentAccountControls() {
+    const sel = $("ivAccountFilter"), panel = $("ivAccountsPanel"), list = $("ivAccountsList"), btn = $("ivAcctManage");
+    if (!sel || !panel || !list) return;
+    const accts = investmentAccounts();
+    sel.innerHTML = `<option value="__all">Todas las cuentas</option><option value="__none">Sin asignar</option>` +
+      accts.map(a => `<option value="${esc(a.id)}">${esc(a.name)} · ${esc(a.type)}</option>`).join("");
+    if (ivj.account !== "__all" && ivj.account !== "__none" && !accts.some(a => a.id === ivj.account)) ivj.account = "__all";
+    sel.value = ivj.account;
+    if (btn) btn.setAttribute("aria-expanded", String(!!ivj.manageAccounts));
+    panel.hidden = !ivj.manageAccounts;
+    const scope = $("ivPortfolioScope");
+    if (scope) scope.textContent = ivj.account === "__all" ? "Todas las cuentas · cartera consolidada · precios los escribes tú" :
+      ivj.account === "__none" ? "Activos y operaciones sin cuenta asignada" : (accts.find(a => a.id === ivj.account)?.name || "Cuenta") + " · cartera individual";
+    list.innerHTML = accts.length ? accts.map(a => {
+      const nPos = coll("positions").items.filter(p => p.accountId === a.id).length;
+      const nOps = coll("trades").items.filter(t => t.type === "inversion" && t.accountId === a.id).length;
+      return `<div class="row" data-invest-account="${esc(a.id)}" style="display:flex;align-items:center;gap:10px;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)">
+        <div><strong>${esc(a.name)}</strong><div class="meta">${esc(a.type)} · ${esc(a.broker || "broker no indicado")} · ${esc(a.currency)} · ${nPos} posiciones · ${nOps} operaciones</div></div>
+        <div class="tools"><button type="button" class="btn sm ghost" data-invest-act="edit">Editar</button><button type="button" class="btn sm ghost" data-invest-act="delete">Eliminar</button></div>
+      </div>`;
+    }).join("") : `<p class="empty">Todavía no tienes cuentas. Crea una por broker, exchange o cuenta de inversión.</p>`;
+  }
+  function openInvestmentAccountEditor(account) {
+    const old = account || null;
+    openEditor({
+      title: old ? "Editar cuenta de inversión" : "Nueva cuenta de inversión",
+      fields: [
+        { key: "name", label: "Nombre de la cuenta", w: 3, ph: "Ej. IBKR · Long-term" },
+        { key: "type", label: "Tipo", type: "select", options: [["brokerage","Brokerage"],["crypto","Crypto / exchange"],["options","Options"],["futures","Futures / trading"],["retirement","Retirement"],["other","Otro"]] },
+        { key: "broker", label: "Broker / exchange", ph: "Ej. Interactive Brokers", help: "La cartera consolidada trabaja en USD; registra los importes en dólares." }
+      ],
+      values: old || { type: "brokerage", currency: "USD" },
+      validate: v => !String(v.name || "").trim() ? "Escribe el nombre de la cuenta" : null,
+      onSave: v => {
+        const accounts = investmentAccounts();
+        const id = old ? old.id : uid("invacct");
+        const next = { id, name: String(v.name).trim(), type: v.type || "brokerage",
           broker: String(v.broker || "").trim(), currency: "USD",
           createdAt: old ? old.createdAt : Date.now() };
         state.settings.meta.investAccounts = old ? accounts.map(a => a.id === id ? next : a) : accounts.concat(next);
