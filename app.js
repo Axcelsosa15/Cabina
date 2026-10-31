@@ -7365,7 +7365,7 @@
               return;
             }
             st.imgs.push(im); draw();
-          } catch (err) { if (box.isConnected && ov.classList.contains("open")) flashEd(uploadErrMsg(err)); }
+          } catch (err) { if (box.isConnected && ov.classList.contains("open")) { b.disabled = false; b.textContent = label; flashEd(uploadErrMsg(err)); } }
           finally {
             st.pending--;
             if (!st.pending && box.isConnected && ov.classList.contains("open")) $("edSave").disabled = false;
