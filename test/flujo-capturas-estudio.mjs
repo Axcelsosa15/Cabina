@@ -137,6 +137,44 @@ ok(await segunda.p.locator(slot('htf:1D')).count() === 2,
   'ambas capturas aparecen en la misma fase sin duplicación');
 ok(D.e.objetos.size === 5, 'dos capturas visibles, dos IDs diferentes');
 
+console.log('\n\u2550\u2550\u2550 7 \u00b7 abandonar el editor con la subida EN VUELO \u2550\u2550\u2550');
+/* El caso que ninguna de las dos pruebas anteriores alcanza. test/capturas.mjs
+   cubre cancelar con la imagen YA subida; aquí el editor se cierra mientras el
+   objeto viaja, así que llega al bucket cuando ningún trade puede referenciarlo.
+   La ruta lenta da una ventana medible: 1,2 s antes de delegar en la nube. */
+const antes7 = D.e.objetos.size;
+await ana.p.click('.tabbtn[data-tab="futuros"]');
+await ana.p.click('#ftNew');
+await ana.p.waitForSelector('#edShots');
+await ana.ctx.route(D.NUBE + '/storage/v1/object/**', async route => {
+  await new Promise(r => setTimeout(r, 1200));
+  await route.fallback();
+});
+const [lenta] = await Promise.all([
+  ana.p.waitForEvent('filechooser'),
+  ana.p.click('#edShots button[data-act="add"][data-source="gallery"]')
+]);
+await lenta.setFiles({ name: 'lenta.png', mimeType: 'image/png', buffer: PNG });
+const bloqueado = await ana.p.waitForFunction(() => document.getElementById('edSave').disabled === true,
+  null, { timeout: 5000 }).then(() => true).catch(() => false);
+ok(bloqueado, 'Guardar se desactiva mientras la captura sube');
+await ana.p.click('#edCancel');
+/* Se espera el final REAL de la limpieza: la ruta lenta retrasa también el
+   DELETE del objeto huérfano, así que un tiempo fijo mediría otra cosa. */
+let vivos = D.e.objetos.size;
+for (let i = 0; i < 48 && vivos !== antes7; i++) { await ana.p.waitForTimeout(250); vivos = D.e.objetos.size; }
+ok(vivos === antes7, 'la captura abandonada no deja un objeto hu\u00e9rfano en el bucket',
+  'antes=' + antes7 + ' ahora=' + vivos);
+ok(await ana.p.evaluate(() => FUT.trades().length) === 1, 'cancelar a mitad de la subida no crea un trade');
+/* Y el editor siguiente no hereda el bloqueo: si Guardar se quedara apagado,
+   la operaci\u00f3n siguiente ser\u00eda imposible de registrar. */
+await ana.p.click('#ftNew');
+await ana.p.waitForSelector('#edShots');
+ok(await ana.p.evaluate(() => document.getElementById('edSave').disabled === false),
+  'el editor siguiente abre con Guardar disponible');
+await ana.p.click('#edCancel');
+await ana.ctx.unroute(D.NUBE + '/storage/v1/object/**');
+
 ok(csp.length === 0, 'sin violaciones CSP', csp.join(' | '));
 ok(errores.length === 0, 'sin errores de JavaScript', errores.join(' | '));
 
