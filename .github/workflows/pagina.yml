@@ -75,6 +75,7 @@ jobs:
           # abajo, igual que el HTML.
           cp app.js sitio/app.js
           cp appearance.js sitio/appearance.js
+          cp updates.js sitio/updates.js
           cp .nojekyll sitio/.nojekyll
           cp og.png sitio/og.png
           # EL CASCO SIN CONEXION. index.html dejo de ser autosuficiente el dia
