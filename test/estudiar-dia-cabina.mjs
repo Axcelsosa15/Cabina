@@ -46,8 +46,8 @@ try {
   ok(nowIds.length===3 && nowIds.includes('uno') && nowIds.includes('dos') && nowIds.includes('abierta') && !nowIds.includes('anterior'),
     'abre los 3 trades del día, de las dos cuentas, sin incluir el día anterior',nowIds.join(','));
   const dayText=await context().innerText();
-  ok(dayText.includes('Cuentas') && /Cuentas\\s*2/.test(dayText.replace(/\\s+/g,' ')),
-    'contexto cuenta las dos cuentas distintas',dayText.replace(/\\s+/g,' ').slice(0,200));
+  ok(dayText.includes('Cuentas') && /Cuentas\s*2/.test(dayText.replace(/\s+/g,' ')),
+    'contexto cuenta las dos cuentas distintas',dayText.replace(/\s+/g,' ').slice(0,300));
   ok(dayText.includes('Cerradas') && dayText.includes('1 / 1 / 0'),
     'separa dos trades cerrados de uno abierto');
   ok(await page.textContent('#studyTradeMetricCount').then(x=>x.trim())==='3',
