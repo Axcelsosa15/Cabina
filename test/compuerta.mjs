@@ -412,6 +412,15 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      respuesta de Supabase seria servir el journal de una sesion a la
      siguiente. */
   dice('pwa', 'suite', 'La página se instala, abre sin conexión y la nube nunca se cachea', 'instalación');
+
+  /* FILA PROPIA, y por el motivo que este fichero ya tuvo que escribir dos
+     veces: una suite que ninguna fila mira corre y no se lee. Aquí hay además
+     una razón concreta: el botón de buscar actualizaciones puede fallar de la
+     peor manera posible, que es diciendo «estás al día» sin haber comparado
+     nada. Esa mentira no la ve la fila global —la suite saldría verde— pero sí
+     la ve su §4, que publica un payload distinto a mitad de prueba y exige que
+     lo detecte. */
+  dice('actualizacion', 'suite', 'El botón de actualizaciones compara de verdad, y sin conexión no finge', 'instalación');
 }
 
 /* ── LO QUE LA PLATAFORMA NO PERMITE COMPROBAR ───────────────────────────────

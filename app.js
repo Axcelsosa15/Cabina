@@ -1139,6 +1139,13 @@
   /* El idioma EFECTIVO: lo elegido, y si no hay nada, español. */
   function idioma() { return idiomaLee() || "es"; }
   const I18N_EN = {
+    "Versión y actualizaciones": "Version and updates",
+    "Esta copia": "This copy",
+    "Buscar una versión nueva": "Check for a new version",
+    "Buscar actualizaciones": "Check for updates",
+    "Actualizar y recargar": "Update and reload",
+    "Abrir Vista": "Open View",
+    "Abrir modo edición": "Open edit mode",
     "Entiende tus números": "Understand your numbers",
     "Ayuda contextual": "Contextual help",
     "Preferencias sólo de este navegador.": "Preferences for this browser only.",
@@ -2660,7 +2667,14 @@
      para eso es cromo que hay que recordar desenganchar. */
   document.addEventListener("click", e => {
     const b = e.target.closest("[data-ajuste-ir]");
-    if (b) showTab(b.dataset.ajusteIr);
+    if (b) { showTab(b.dataset.ajusteIr); return; }
+    /* Dos tarjetas del inventario describían un control de la barra superior y
+       no llevaban a él: el usuario leía dónde estaba y tenía que ir a buscarlo.
+       Van por el MISMO oyente delegado, por el mismo motivo escrito arriba. */
+    const a = e.target.closest("[data-ajuste-accion]");
+    if (!a) return;
+    if (a.dataset.ajusteAccion === "vista") openViewPrefs();
+    else if (a.dataset.ajusteAccion === "editar") { showTab("cabina"); setEditing(true); }
   });
   document.getElementById("viewPrefsOpen").addEventListener("click", openViewPrefs);
   document.getElementById("viewPrefsClose").addEventListener("click", closeViewPrefs);
@@ -4305,6 +4319,16 @@
   function renderJournalDay() {
     const d = state.day;
     $("todayLabel").textContent = fmtDay.format(new Date());
+    let estudiarHoy = $("studyDayNow");
+    if (!estudiarHoy) {
+      estudiarHoy = document.createElement("button");
+      estudiarHoy.id = "studyDayNow"; estudiarHoy.type = "button";
+      estudiarHoy.className = "btn ghost sm"; estudiarHoy.textContent = "Estudiar día ↗";
+      estudiarHoy.setAttribute("aria-label", "Abrir todos los trades de este día en ESTUDIO");
+      estudiarHoy.addEventListener("click", () => estudioAbrirDia(state.day && state.day.date));
+      $("todayLabel").insertAdjacentElement("afterend", estudiarHoy);
+    }
+    estudiarHoy.dataset.studyDay = d.date;
     if (document.activeElement !== jResult) jResult.value = d.result == null ? "" : d.result;
     if (document.activeElement !== jTrades) jTrades.value = d.trades == null ? "" : d.trades;
     if (document.activeElement !== jNote) jNote.value = d.note || "";
@@ -4528,9 +4552,11 @@
     $("histMeta").textContent = h.length ? `${h[h.length - 1].date} → ${h[0].date}` : "";
     const wrap = $("histWrap");
     if (!h.length) { wrap.innerHTML = `<p class="empty">Todavía no hay sesiones cerradas. La primera fila aparece cuando pulses <code>Cerrar sesión de hoy</code>. Una cabina vacía durante una semana dice más que cualquier backtest.</p>`; return; }
-    wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th class="r">Resultado</th><th class="r">Ops</th><th class="r">Pre</th><th>Regla</th><th>Nota</th><th></th></tr></thead><tbody>${h.map(d => { const r = d.result == null ? null : Number(d.result); return `<tr data-date="${d.date}"><td><span class="dim">${dowOf(d.date)}</span> ${d.date.slice(5)}</td><td class="r ${r > 0 ? "pos" : r < 0 ? "neg" : ""}">${r == null ? "—" : money(r)}</td><td class="r">${d.trades == null ? "—" : d.trades}</td>${preCell(d)}<td>${d.broke ? '<span class="neg">rota</span>' : '<span class="dim">ok</span>'}</td><td class="notes">${d.synthetic ? '<span class="dim">del journal de futuros</span>' : esc(d.note || "")}</td><td class="act">${d.synthetic ? "" : '<button type="button" class="icon del" data-act="del" title="Borrar esta sesión">×</button>'}</td></tr>`; }).join("")}</tbody></table>`;
+    wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th class="r">Resultado</th><th class="r">Ops</th><th class="r">Pre</th><th>Regla</th><th>Nota</th><th></th></tr></thead><tbody>${h.map(d => { const r = d.result == null ? null : Number(d.result); return `<tr data-date="${d.date}"><td><span class="dim">${dowOf(d.date)}</span> ${d.date.slice(5)}</td><td class="r ${r > 0 ? "pos" : r < 0 ? "neg" : ""}">${r == null ? "—" : money(r)}</td><td class="r">${d.trades == null ? "—" : d.trades}</td>${preCell(d)}<td>${d.broke ? '<span class="neg">rota</span>' : '<span class="dim">ok</span>'}</td><td class="notes">${d.synthetic ? '<span class="dim">del journal de futuros</span>' : esc(d.note || "")}</td><td class="act"><button type="button" class="btn ghost sm" data-study-day="${esc(d.date)}" aria-label="Estudiar todos los trades del ${esc(d.date)}">Estudiar</button>${d.synthetic ? "" : '<button type="button" class="icon del" data-act="del" title="Borrar esta sesión">×</button>'}</td></tr>`; }).join("")}</tbody></table>`;
   }
   $("histWrap").addEventListener("click", async e => {
+    const estudiar = e.target.closest("button[data-study-day]");
+    if (estudiar) { estudioAbrirDia(estudiar.dataset.studyDay); return; }
     const btn = e.target.closest("button[data-act='del']"); if (!btn || !armed(btn)) return;
     const date = btn.closest("tr").dataset.date;
     try { await state.db.doc("days/" + date).delete(); siSeGuardo("days/" + date); } catch (err) { noSeGuardo("days/" + date, motivoDb(err), "el borrado del dia"); }
@@ -16555,6 +16581,70 @@
   const estudioSinRevisar = t => t && t.pnlEff != null && !estudioRevisada(t.id);
   let estudioSoloSinRevisar = false;
 
+  let estudioDiaEnfoque = "";
+  function estudioAbrirDia(date){
+    const dia = String(date || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia) || !Number.isFinite(Date.parse(dia + "T12:00:00Z"))) return;
+    estudioDiaEnfoque = dia;
+    ["studyTradeAccount","studyTradeInstrument","studyTradeDirection","studyTradeSearch"].forEach(id => {
+      const el = $(id); if (el) el.value = "";
+    });
+    $("studyTradeFrom").value = dia;
+    $("studyTradeTo").value = dia;
+    estudioSoloSinRevisar = false;
+    const tab = document.querySelector('.tabbtn[data-tab="estudio"]');
+    if (tab) tab.click(); else showTab("estudio");
+    /* Navegar no dispara por si solo un cambio de datos. Renderizar ahora
+       evita que un dia sin trades deje el contexto anterior u oculto. */
+    renderEstudioTrades();
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  }
+  function estudioRenderDiaContexto(){
+    const lista = $("studyTradeList");
+    if (!lista) return;
+    let root = $("studyDayContext");
+    if (!root) {
+      root = document.createElement("section");
+      root.id = "studyDayContext";
+      root.className = "study-panel";
+      root.style.cssText = "margin-top:12px;border-color:var(--line-strong);";
+      lista.parentElement.insertBefore(root, lista);
+    }
+    if (!estudioDiaEnfoque) { root.hidden = true; root.replaceChildren(); return; }
+    const ops = coll("trades").items
+      .filter(t => t.type === "futuros" && String(t.date || "").slice(0, 10) === estudioDiaEnfoque)
+      .map(t => tradeCalc(Object.assign({}, t)));
+    const cerradas = ops.filter(t => t.pnlEff != null);
+    const pnl = cerradas.reduce((sum, t) => sum + Number(t.pnlEff || 0), 0);
+    const ganadas = cerradas.filter(t => t.pnlEff > 0).length;
+    const perdidas = cerradas.filter(t => t.pnlEff < 0).length;
+    const neutras = cerradas.length - ganadas - perdidas;
+    const cuentas = new Set(ops.map(t => String(t.accountId || "")).filter(Boolean)).size;
+    const dia = state.day && state.day.date === estudioDiaEnfoque
+      ? state.day : historyMerged().find(d => d.date === estudioDiaEnfoque);
+    const nota = dia && String(dia.note || "").trim();
+    const pre = dia ? Object.values(presOf(dia)).map(p => sesShort(p.ses) + " " + p.done + "/" + p.total).join(" · ") : "";
+    const stat = (label, value) => '<div style="min-width:110px;flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)"><span class="study-note" style="display:block;margin:0">' + label + '</span><b style="display:block;margin-top:4px">' + value + '</b></div>';
+    root.hidden = false;
+    root.innerHTML = '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+      '<div><div class="study-kind">DÍA DE CABINA</div><h3 style="margin:5px 0 3px">' + estudioEsc(estudioDiaEnfoque) + '</h3>' +
+      '<p class="study-note" style="margin:0">Trades, métricas y capturas de esta fecha. Selecciona un trade abajo para abrir su revisión completa.</p></div>' +
+      '<button type="button" class="btn ghost sm" data-study-day-clear>Ver todo</button></div>' +
+      '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px">' +
+      stat("P&L trades", cerradas.length ? estudioDinero(pnl) : "—") + stat("P&L Cabina", dia && dia.result != null ? money(Number(dia.result)) : "—") +
+      stat("Trades", String(ops.length)) +
+      stat("Cerradas · W/L/BE", cerradas.length ? ganadas + " / " + perdidas + " / " + neutras : "—") +
+      stat("Cuentas", String(cuentas)) + '</div>' +
+      (pre ? '<p class="study-note" style="margin:10px 0 0">Pre-sesiones · ' + estudioEsc(pre) + '</p>' : '') +
+      (dia && dia.broke ? '<p class="study-note" style="color:var(--negative,var(--bad,#b42318));margin-bottom:0">Cabina marcó una regla rota.</p>' : '') +
+      (nota ? '<p style="white-space:pre-wrap;margin:10px 0 0;color:var(--muted)"><b>Nota de Cabina:</b> ' + estudioEsc(nota) + '</p>' : '');
+    root.querySelector("[data-study-day-clear]").addEventListener("click", () => {
+      estudioDiaEnfoque = "";
+      $("studyTradeFrom").value = ""; $("studyTradeTo").value = "";
+      renderEstudioTrades();
+    });
+  }
+
   function renderEstudioTrades(){
     const list=$("studyTradeList"),account=$("studyTradeAccount");if(!list||!account)return;
     const trades=estudioTrades().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
@@ -16588,6 +16678,7 @@
       btnSR.disabled = !pendientes.length && !estudioSoloSinRevisar;
     }
     const visibles = estudioSoloSinRevisar ? pendientes : filtered;
+    estudioRenderDiaContexto();
     renderEstudioTradeMetrics(visibles);
     renderEstudioTradeBreakdown(visibles);
     /* QUEDARSE SIN COLA ES EL ÉXITO, no un filtro que no encuentra nada, y
@@ -16614,13 +16705,15 @@
   $("studyTradeAccount").addEventListener("change",renderEstudioTrades);
   $("studyTradeInstrument").addEventListener("change",renderEstudioTrades);
   $("studyTradeDirection").addEventListener("change",renderEstudioTrades);
-  $("studyTradeFrom").addEventListener("change",renderEstudioTrades);
-  $("studyTradeTo").addEventListener("change",renderEstudioTrades);
+  /* Un cambio manual de fechas abandona el enfoque de Cabina: el contexto y la lista nunca muestran días distintos. */
+  const estudioFechaManual = () => { estudioDiaEnfoque = ""; renderEstudioTrades(); };
+  $("studyTradeFrom").addEventListener("change",estudioFechaManual);
+  $("studyTradeTo").addEventListener("change",estudioFechaManual);
   $("studyTradeSinRevisar").addEventListener("click",()=>{estudioSoloSinRevisar=!estudioSoloSinRevisar;renderEstudioTrades();});
   /* EL INTERRUPTOR ENTRA EN «LIMPIAR FILTROS». Es un filtro, y un filtro que no
      entra en el reinicio deja la lista recortada con todos los controles a cero:
      exactamente el fallo que la revisión cazó en el modo demo con `ft.q`. */
-  $("studyTradeClear").addEventListener("click",()=>{estudioSoloSinRevisar=false;$("studyTradeAccount").value="";$("studyTradeSearch").value="";$("studyTradeInstrument").value="";$("studyTradeDirection").value="";$("studyTradeFrom").value="";$("studyTradeTo").value="";renderEstudioTrades();});
+  $("studyTradeClear").addEventListener("click",()=>{estudioDiaEnfoque="";estudioSoloSinRevisar=false;$("studyTradeAccount").value="";$("studyTradeSearch").value="";$("studyTradeInstrument").value="";$("studyTradeDirection").value="";$("studyTradeFrom").value="";$("studyTradeTo").value="";renderEstudioTrades();});
   $("studyTradeSearch").addEventListener("input",renderEstudioTrades);
   $("studyTradeReviewForm").addEventListener("submit",async e=>{
     e.preventDefault();
@@ -17016,3 +17109,298 @@
       navigator.serviceWorker.register('./sw.js').catch(function () {});
     });
   }
+
+  /* ── VERSION Y ACTUALIZACIONES ───────────────────────────────────────────
+     QUE COMPRUEBA ESTE BOTON, DICHO SIN ADORNOS. No existe un numero de
+     version: no hay paso de compilacion que lo escriba, asi que inventarlo
+     seria un numero que nadie incrementa. Lo que SI es comprobable es si el
+     payload que el servidor publica AHORA difiere del que esta copia tiene
+     cargado, y eso se mide archivo por archivo.
+
+     EL ORDEN IMPORTA Y NO ES NEGOCIABLE: primero se lee la copia LOCAL y
+     despues la de la red. El trabajador de servicio sirve el codigo de la red
+     primero y reescribe su cache con lo que recibe, asi que pedir la red antes
+     de leer la cache destruye el termino de comparacion y el resultado seria
+     siempre «estas al dia» — un verde que no mide nada, que es peor que no
+     tener boton.
+
+     LO QUE NO HACE: no toca datos. Ni operaciones, ni cuentas, ni capturas, ni
+     la sesion. Solo lee ficheros del propio origen y, si pulsas aplicar,
+     recarga. Y no promete nada sobre Supabase: la nube no se cachea, asi que
+     nunca esta «desactualizada».
+
+     QUIEN COMPARA ES EL TRABAJADOR DE SERVICIO, no esta pagina, y no es un
+     capricho de diseño: la CSP no lleva 'self' en connect-src —seguridad.mjs
+     lo exige— asi que un fetch al propio origen desde aqui falla siempre. El
+     trabajador no esta sujeto a esa politica y ademas es el dueño de la cache
+     que hay que comparar. Aqui solo se pregunta, por un MessageChannel.
+
+     SIN TRABAJADOR no se puede comprobar, y eso se DICE. Pasa al abrir la
+     pagina como fichero local —el caso de media suite— y en la primerisima
+     visita, antes de que se registre. Fingir un verde ahi seria mentir en la
+     unica pantalla que existe para no mentir sobre la version. */
+  (function versionYActualizaciones() {
+    var $u = function (id) { return document.getElementById(id); };
+    var en = function () { return (document.documentElement.lang || 'es').slice(0, 2) === 'en'; };
+    var pintado = false;
+    /* Una version detectada sigue pendiente hasta recargar, aunque se vuelva
+       a pulsar Comprobar: la pagina no ha cambiado su codigo en memoria. */
+    var actualizacionPendiente = false, archivosPendientes = [];
+
+    function nota(txt) { var n = $u('updNote'); if (n) n.textContent = txt; }
+    function meta(txt) { var m = $u('updMeta'); if (m) m.textContent = txt; }
+    function hora() {
+      var d = new Date();
+      return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    }
+
+    /* Identidad, no seguridad: basta con que dos payloads distintos den
+       huellas distintas. Si no hay WebCrypto —contexto no seguro— se usa
+       FNV-1a, que para esto sirve igual. */
+    function huella(txt) {
+      try {
+        if (window.crypto && crypto.subtle && crypto.subtle.digest && window.TextEncoder) {
+          return crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt)).then(function (b) {
+            var u = new Uint8Array(b), out = '';
+            for (var i = 0; i < 5; i++) out += ('0' + u[i].toString(16)).slice(-2);
+            return out;
+          }).catch(function () { return fnv(txt); });
+        }
+      } catch (e) {}
+      return Promise.resolve(fnv(txt));
+    }
+    function fnv(txt) {
+      var h = 0x811c9dc5;
+      for (var i = 0; i < txt.length; i++) { h ^= txt.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+      return ('0000000' + h.toString(16)).slice(-8);
+    }
+
+    /* Lo que ESTA copia tiene, leido de la cache del trabajador: es
+       exactamente lo que se serviria sin red. NO hay reserva por `fetch`: la
+       CSP no lleva 'self' en connect-src, asi que un fetch al propio origen
+       desde la pagina falla siempre. Una reserva que no puede funcionar no es
+       una reserva, es una rama muerta que disfraza el caso de «todavia no hay
+       copia» como un error cualquiera. */
+    function copiaLocal(f) {
+      if (!window.caches) return Promise.resolve(null);
+      return caches.match(f).then(function (r) { return r ? r.text() : null; }).catch(function () { return null; });
+    }
+    /* La pagina NO pide la red: `connect-src` de la CSP es solo el proyecto
+       Supabase —test/seguridad.mjs lo exige— asi que un fetch al propio
+       origen falla con «Failed to fetch». Quien compara es el trabajador de
+       servicio, que no esta sujeto a esa politica y ademas es el dueño de la
+       cache. Aqui solo se pregunta y se espera. */
+    function preguntaAlTrabajador() {
+      return new Promise(function (resolve, reject) {
+        if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+          reject(new Error('sin-trabajador')); return;
+        }
+        var ch = new MessageChannel();
+        var t = setTimeout(function () { reject(new Error('sin-respuesta')); }, 20000);
+        ch.port1.onmessage = function (ev) { clearTimeout(t); resolve(ev.data || {}); };
+        try { navigator.serviceWorker.controller.postMessage({ tipo: 'cabina-version' }, [ch.port2]); }
+        catch (err) { clearTimeout(t); reject(err); }
+      });
+    }
+
+    var reintentos = 0;
+    function pintaEstado() {
+      copiaLocal('./app.js').then(function (t) {
+        return t == null ? null : huella(t);
+      }).then(function (h) {
+        var el = $u('updHuella'); if (!el) return;
+        if (h) {
+          el.innerHTML = (en() ? 'Fingerprint of the loaded code: <b>' : 'Huella del código cargado: <b>') + h + '</b>';
+          return;
+        }
+        /* Sin copia guardada todavia. Pasa en la primerisima visita: el
+           trabajador se registra al terminar de cargar y la cache llega unos
+           cientos de ms despues. Se dice lo que ocurre y se vuelve a mirar
+           cuando el trabajador este listo, un numero acotado de veces. */
+        el.innerHTML = (en() ? 'Fingerprint of the loaded code: <b>pending — the offline copy is still being saved</b>'
+                             : 'Huella del código cargado: <b>pendiente — la copia sin conexión aún se está guardando</b>');
+        if (reintentos++ > 10 || !('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.ready.then(function () { setTimeout(pintaEstado, 400); }).catch(function () {});
+      }).catch(function () {});
+
+      var sw = $u('updSW');
+      if (sw) {
+        if (!('serviceWorker' in navigator)) {
+          sw.innerHTML = (en() ? 'Service worker: <b>not supported by this browser</b>' : 'Trabajador de servicio: <b>no soportado por este navegador</b>');
+        } else {
+          navigator.serviceWorker.getRegistration().then(function (reg) {
+            var ctrl = !!navigator.serviceWorker.controller;
+            var txt = !reg ? (en() ? 'not registered (the page works, it just will not open offline)' : 'sin registrar (la página funciona, pero no abrirá sin conexión)')
+              : ctrl ? (en() ? 'active and serving this page' : 'activo y sirviendo esta página')
+              : (en() ? 'registered; it will take over on the next load' : 'registrado; tomará el control en la próxima carga');
+            sw.innerHTML = (en() ? 'Service worker: <b>' : 'Trabajador de servicio: <b>') + txt + '</b>';
+          }).catch(function () {});
+        }
+      }
+
+      var alm = $u('updAlmacen');
+      if (alm) {
+        if (navigator.storage && navigator.storage.estimate) {
+          navigator.storage.estimate().then(function (e) {
+            var mb = (e && e.usage != null) ? (e.usage / 1048576).toFixed(1) + ' MB' : '—';
+            alm.innerHTML = (en() ? 'Space used by the app: <b>' : 'Espacio usado por la app: <b>') + mb + '</b>';
+          }).catch(function () {});
+        } else {
+          alm.innerHTML = (en() ? 'Space used by the app: <b>not reported by this browser</b>' : 'Espacio usado por la app: <b>este navegador no lo informa</b>');
+        }
+      }
+    }
+
+    function comprobar() {
+      var btn = $u('updCheck'), aplicarBtn = $u('updApply');
+      if (!btn) return Promise.resolve();
+      btn.disabled = true;
+      if (aplicarBtn) aplicarBtn.hidden = !actualizacionPendiente;
+      meta(en() ? 'checking' : 'comprobando');
+      nota(en() ? 'Checking the published payload…' : 'Comprobando el payload publicado…');
+      var suelta = function () { btn.disabled = false; };
+
+      if (navigator.onLine === false) {
+        suelta();
+        meta(en() ? 'offline' : 'sin conexión');
+        nota(en() ? 'No connection. What you have loaded keeps working; try again when you are back online.'
+                  : 'Sin conexión. Lo que tienes cargado sigue funcionando; vuelve a intentarlo con red.');
+        return Promise.resolve();
+      }
+
+      var previo = ('serviceWorker' in navigator)
+        ? navigator.serviceWorker.getRegistration()
+            .then(function (reg) { return reg ? reg.update().catch(function () {}) : null; })
+            .catch(function () {})
+        : Promise.resolve();
+
+      return previo.then(preguntaAlTrabajador).then(function (r) {
+        suelta();
+        if (r.error) {
+          meta(en() ? 'could not check' : 'no se pudo comprobar');
+          nota((en() ? 'The check failed inside the service worker: ' : 'La comprobación falló dentro del trabajador de servicio: ') + r.error);
+          return;
+        }
+        /* Un solo fichero omitido impide decir "al dia". En particular, si
+           falla app.js pero index.html coincide, NO hay veredicto verde. */
+        if (!r.comprobados || r.comprobados !== r.requeridos ||
+            (r.fallidos || []).length || (r.sinCache || []).length) {
+          meta(en() ? 'could not check' : 'no se pudo comprobar');
+          var faltan = (r.fallidos || []).concat(r.sinCache || []).join(', ');
+          nota((en() ? 'Incomplete check. Files not verified: ' : 'Comprobación incompleta. Archivos sin verificar: ')
+            + (faltan || '—') + '.');
+          return;
+        }
+        if (!r.distintos.length && !actualizacionPendiente) {
+          meta((en() ? 'up to date · ' : 'al día · ') + hora());
+          nota((en() ? 'You are on the published version. Checked at ' : 'Estás en la versión publicada. Comprobado a las ')
+            + hora() + ' · ' + r.comprobados + (en() ? ' files compared.' : ' archivos comparados.'));
+          pintado = false; pintaEstado();
+          return;
+        }
+        if (r.distintos.length) {
+          actualizacionPendiente = true;
+          archivosPendientes = [...new Set(archivosPendientes.concat(r.distintos))];
+        }
+        meta(en() ? 'update available' : 'hay versión nueva');
+        nota((en() ? 'A new version was detected and this page has not reloaded. Changed: '
+                   : 'Se detectó una versión nueva y esta página aún no se ha recargado. Cambian: ')
+          + archivosPendientes.join(', ')
+          + (en() ? '. Your data is not affected by checking.' : '. Comprobar no modifica tus datos.'));
+        if (aplicarBtn) { aplicarBtn.hidden = false; aplicarBtn.disabled = false; }
+      }).catch(function (err) {
+        suelta();
+        var m = String((err && err.message) || err);
+        meta(en() ? 'could not check' : 'no se pudo comprobar');
+        if (m === 'sin-trabajador') {
+          nota(en() ? 'There is no service worker in this copy, and it is the only part allowed to ask the server. This happens when the page is opened as a local file, or on the very first visit before it registers: reload once and try again.'
+                    : 'Esta copia no tiene trabajador de servicio, y es la única pieza con permiso para preguntarle al servidor. Pasa al abrir la página como fichero local, o en la primerísima visita antes de que se registre: recarga una vez y vuelve a intentarlo.');
+        } else if (m === 'sin-respuesta') {
+          nota(en() ? 'The service worker did not answer in 20 s. Reload the page and try again.'
+                    : 'El trabajador de servicio no contestó en 20 s. Recarga la página y vuelve a intentarlo.');
+        } else {
+          nota((en() ? 'The check failed: ' : 'La comprobación falló: ') + m);
+        }
+      });
+    }
+
+    /* RECARGAR PUEDE PERDER DATOS, y la app ya lo sabe decir. Cuando una
+       escritura falla sin entrar en la cola, la barra pinta «SIN GUARDAR · N»
+       y su propio texto avisa: «están en la pantalla y en ningún sitio más. Si
+       recargas, se pierden». Un botón de actualizar que recargue a ciegas en
+       ese estado destruye exactamente eso.
+
+       Se lee el veredicto YA RENDERIZADO en vez de recalcularlo: duplicar aquí
+       la lógica de sincronización daría dos verdades sobre lo mismo, y la de
+       aquí envejecería sola. Si la barra lo dice, se avisa; si no, se recarga.
+
+       El aviso usa el armado de dos pulsaciones que el resto de la cabina ya
+       usa para lo irreversible, no un confirm(): el confirm se lee igual tanto
+       si hay un cambio en peligro como si no hay ninguno, y acostumbra a
+       pulsar «sí». */
+    function cambiosEnPeligro() {
+      var n = 0, rutas = new Set();
+      /* El rótulo no alcanza: PENDIENTES puede vivir solo en RAM si IndexedDB
+         falló. Se lee el mismo estado de la cola, sin mutarlo. */
+      var uid = state.nube && nube.ses ? nube.ses.uid : null;
+      var pendientes = uid ? cola.lista(uid) : [];
+      var enCola = new Set(pendientes.map(function (r) { return r.ruta; }));
+      if (!cola.durable) pendientes.forEach(function (r) { rutas.add(r.ruta); });
+      sinGuardar.forEach(function (_motivo, ruta) {
+        if (!enCola.has(ruta) || !cola.durable) rutas.add(ruta);
+      });
+      conflictos.forEach(function (_info, ruta) { rutas.add(ruta); });
+      n = Math.max(rutas.size, enVuelo);
+      /* Respaldo para estados renderizados y para pruebas de seguridad UI. */
+      var nodos = document.querySelectorAll('.save-state.nosave');
+      for (var i = 0; i < nodos.length; i++) {
+        var m = /SIN GUARDAR\s*·\s*(\d+)/.exec(nodos[i].textContent || '');
+        if (m) n = Math.max(n, Number(m[1]) || 0);
+      }
+      return n;
+    }
+    var armado = 0, armadoRiesgo = 0;
+    function aplicar() {
+      var b = $u('updApply');
+      var peligro = cambiosEnPeligro();
+      if (peligro && (Date.now() > armado || peligro !== armadoRiesgo)) {
+        armado = Date.now() + 8000;
+        armadoRiesgo = peligro;
+        if (b) b.textContent = en() ? 'Reload anyway and lose ' + peligro : 'Recargar igual y perder ' + peligro;
+        nota(en()
+          ? 'Careful: ' + peligro + ' change(s) did not save and are only on this screen. Reloading loses them — export a backup first, or press again within 8 s to reload anyway.'
+          : 'Cuidado: ' + peligro + ' cambio(s) no se guardaron y sólo están en esta pantalla. Recargar los pierde — exporta un respaldo primero, o pulsa otra vez en 8 s para recargar igualmente.');
+        return;
+      }
+      if (b) b.disabled = true;
+      nota(en() ? 'Applying and reloading…' : 'Aplicando y recargando…');
+      var fin = function () { location.reload(); };
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration()
+          .then(function (reg) { return reg ? reg.update().catch(function () {}) : null; })
+          .then(fin, fin);
+      } else fin();
+    }
+
+    function engancha() {
+      var c = $u('updCheck'); if (!c) return false;
+      c.addEventListener('click', function () { comprobar(); });
+      var a = $u('updApply'); if (a) a.addEventListener('click', aplicar);
+      /* El estado se pinta la primera vez que se abre Ajustes, no al cargar:
+         leer app.js para su huella cuesta, y la mayoría de las sesiones no
+         pasan nunca por esta pestaña. */
+      var tab = document.querySelector('.tab[data-tab="ajustes"]');
+      if (tab) {
+        var mira = function () {
+          if (pintado || !tab.classList.contains('active')) return;
+          pintado = true; pintaEstado();
+        };
+        new MutationObserver(mira).observe(tab, { attributes: true, attributeFilter: ['class'] });
+        mira();
+      }
+      return true;
+    }
+
+    if (!engancha()) document.addEventListener('DOMContentLoaded', engancha);
+    window.CABINA_ACTUALIZACION = { comprobar: comprobar, pintaEstado: pintaEstado, huella: huella };
+  })();
