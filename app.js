@@ -7348,14 +7348,15 @@
       const ref = existing ? { ...existing } : { id: String(im.id), name: String(im.name || "").slice(0, 180), caption: String(im.caption || "").slice(0, 120) };
       (after[dest] ||= []).push(ref);
     }
-    if (JSON.stringify(before) === JSON.stringify(after)) return;
+    if (JSON.stringify(before) === JSON.stringify(after) && !(old && sinGuardar.has("research/" + old.id))) return;
     const id = old ? old.id : uid("trade-review"), now = Date.now();
     const d = { ...(old || {}), id, type: "trade-review", tradeId: String(trade.id),
       title: "Revisión: " + (trade.instrument || "trade") + " · " + (trade.date || "Sin fecha"),
       status: (old && old.status) || "todo", question: (old && old.question) || "",
       evidence: (old && old.evidence) || "", conclusion: (old && old.conclusion) || "",
       tags: (old && old.tags) || ["trade-review", String(trade.instrument || "").toUpperCase()].filter(Boolean),
-      scenes: after, createdAt: (old && old.createdAt) || now, updatedAt: now };
+      scenes: after, scenesOnly: old ? old.scenesOnly === true : true,
+      createdAt: (old && old.createdAt) || now, updatedAt: now };
     try {
       await coll("research").set(id, d);
       if (sinGuardar.has("research/" + id)) flash("Captura en FUTUROS; no se confirmó su vínculo con ESTUDIO.");
@@ -16378,7 +16379,8 @@
      Las ABIERTAS no entran en la cola: todavía no hay nada que revisar, y
      meterlas convertiría el contador en ruido permanente. */
   const estudioRevisada = id => coll("research").items
-    .some(d => d && d.type === "trade-review" && String(d.tradeId) === String(id));
+    .some(d => d && d.type === "trade-review" && d.scenesOnly !== true &&
+      String(d.tradeId) === String(id));
   const estudioSinRevisar = t => t && t.pnlEff != null && !estudioRevisada(t.id);
   let estudioSoloSinRevisar = false;
 
@@ -16455,7 +16457,7 @@
     const tradeId=$("studyTradeId").value,t=estudioTrades().find(x=>String(x.id)===String(tradeId));
     if(!t){status.textContent="No se pudo guardar: selecciona una operación primero.";return;}
     const id=$("studyTradeReviewId").value||uid("trade-review"),clave="research/"+id,old=coll("research").get(id),now=Date.now();
-    const d={...(old||{}),id,type:"trade-review",tradeId:String(t.id),title:"Revisión: "+(t.instrument||"trade")+" · "+estudioTradeFecha(t),status:$("studyTradeReviewStatus").value,question:$("studyTradePlan").value.trim(),evidence:$("studyTradeExecution").value.trim(),conclusion:$("studyTradeLesson").value.trim(),scenes:estudioEscenasLimpias(),tags:["trade-review",String(t.instrument||"").toUpperCase()].filter(Boolean),createdAt:old&&old.createdAt||now,updatedAt:now};
+    const d={...(old||{}),id,type:"trade-review",tradeId:String(t.id),title:"Revisión: "+(t.instrument||"trade")+" · "+estudioTradeFecha(t),status:$("studyTradeReviewStatus").value,question:$("studyTradePlan").value.trim(),evidence:$("studyTradeExecution").value.trim(),conclusion:$("studyTradeLesson").value.trim(),scenesOnly:false,scenes:estudioEscenasLimpias(),tags:["trade-review",String(t.instrument||"").toUpperCase()].filter(Boolean),createdAt:old&&old.createdAt||now,updatedAt:now};
     if(button)button.disabled=true;
     status.textContent="Guardando revisión…";
     try{
@@ -16555,7 +16557,7 @@
       title: "Revisión: " + (t.instrument || "trade") + " · " + estudioTradeFecha(t),
       status: $("studyTradeReviewStatus").value || (old && old.status) || "todo",
       question: $("studyTradePlan").value.trim(), evidence: $("studyTradeExecution").value.trim(), conclusion: $("studyTradeLesson").value.trim(),
-      scenes: estudioEscenasLimpias(),
+      scenes: estudioEscenasLimpias(), scenesOnly: old ? old.scenesOnly === true : true,
       tags: ["trade-review", String(t.instrument || "").toUpperCase()].filter(Boolean),
       createdAt: (old && old.createdAt) || now, updatedAt: now };
     estudioEscenaEstado("Guardando escenarios…");
