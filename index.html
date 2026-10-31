@@ -3511,6 +3511,21 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
   .tab .qec .qv { font-size: 23px; }
 }
 
+
+/* Textos compartidos fuera de las pestañas: navegación, barra global y editores. */
+:root { --t-body: 14px; --t-section: 12.5px; --t-meta: 12px; }
+.topbar .brand h1 { font-family: var(--font-ui); font-size: clamp(22px,2vw,28px); line-height: 1.2; letter-spacing: -.035em; }
+.topbar .brand .sub { font: 450 13px/1.45 var(--font-ui); }
+.topbar .clock .tz, .topbar .save-state { font-family: var(--font-ui); font-size: 12px; line-height: 1.4; }
+@media (min-width: 701px) {
+  #tabnav > .tabbtn { font-family: var(--font-ui); font-size: 12px; letter-spacing: .01em; text-transform: none; }
+}
+#mobileMoreOv .mobile-more-head h2 { font: 700 16px/1.35 var(--font-ui); letter-spacing: 0; }
+#mobileMoreOv [data-mobile-more-tab] { font: 600 13.5px/1.45 var(--font-ui); }
+.ed .fld > label, .ed .fld > .lab { font-family: var(--font-ui); font-size: 13px; line-height: 1.4; letter-spacing: 0; text-transform: none; }
+.ed .fld .help, .ed .edsec-h { font-family: var(--font-ui); font-size: 12.5px; line-height: 1.5; }
+.ed .edsec h3 { font-family: var(--font-ui); font-size: 15px; line-height: 1.4; letter-spacing: -.01em; text-transform: none; }
+
 /* Una lectura guiada, vinculada directamente al mismo resultado de mxCalc.
    Color sólo indica beneficio/pérdida medidos, nunca juicio sin muestra. */
 #mxLearnPanel { min-width: 0; }
