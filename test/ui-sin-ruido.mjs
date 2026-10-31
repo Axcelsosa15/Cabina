@@ -56,8 +56,8 @@ try {
       await page.locator('#mobileMoreOv [data-mobile-more-tab="edge"]').click();
     }
     // An explanatory paragraph should be collapsed, recoverable and keyboard accessible.
-    await page.locator('#tabnav .tabbtn[data-tab="cabina"]').click();
-    const why=page.locator('.tab.active details.cab-why').first();
+    await page.locator('#tabnav .tabbtn[data-tab="futuros"]').click();
+    const why=page.locator('.tab[data-tab="futuros"] details.cab-why:visible').first();
     check(await why.count()===1&&await why.getAttribute('open')===null,
       width+'px · help text collapsed by default');
     await why.locator('summary').click();
