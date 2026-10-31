@@ -4305,6 +4305,16 @@
   function renderJournalDay() {
     const d = state.day;
     $("todayLabel").textContent = fmtDay.format(new Date());
+    let estudiarHoy = $("studyDayNow");
+    if (!estudiarHoy) {
+      estudiarHoy = document.createElement("button");
+      estudiarHoy.id = "studyDayNow"; estudiarHoy.type = "button";
+      estudiarHoy.className = "btn ghost sm"; estudiarHoy.textContent = "Estudiar día ↗";
+      estudiarHoy.setAttribute("aria-label", "Abrir todos los trades de este día en ESTUDIO");
+      estudiarHoy.addEventListener("click", () => estudioAbrirDia(state.day && state.day.date));
+      $("todayLabel").insertAdjacentElement("afterend", estudiarHoy);
+    }
+    estudiarHoy.dataset.studyDay = d.date;
     if (document.activeElement !== jResult) jResult.value = d.result == null ? "" : d.result;
     if (document.activeElement !== jTrades) jTrades.value = d.trades == null ? "" : d.trades;
     if (document.activeElement !== jNote) jNote.value = d.note || "";
@@ -4528,9 +4538,11 @@
     $("histMeta").textContent = h.length ? `${h[h.length - 1].date} → ${h[0].date}` : "";
     const wrap = $("histWrap");
     if (!h.length) { wrap.innerHTML = `<p class="empty">Todavía no hay sesiones cerradas. La primera fila aparece cuando pulses <code>Cerrar sesión de hoy</code>. Una cabina vacía durante una semana dice más que cualquier backtest.</p>`; return; }
-    wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th class="r">Resultado</th><th class="r">Ops</th><th class="r">Pre</th><th>Regla</th><th>Nota</th><th></th></tr></thead><tbody>${h.map(d => { const r = d.result == null ? null : Number(d.result); return `<tr data-date="${d.date}"><td><span class="dim">${dowOf(d.date)}</span> ${d.date.slice(5)}</td><td class="r ${r > 0 ? "pos" : r < 0 ? "neg" : ""}">${r == null ? "—" : money(r)}</td><td class="r">${d.trades == null ? "—" : d.trades}</td>${preCell(d)}<td>${d.broke ? '<span class="neg">rota</span>' : '<span class="dim">ok</span>'}</td><td class="notes">${d.synthetic ? '<span class="dim">del journal de futuros</span>' : esc(d.note || "")}</td><td class="act">${d.synthetic ? "" : '<button type="button" class="icon del" data-act="del" title="Borrar esta sesión">×</button>'}</td></tr>`; }).join("")}</tbody></table>`;
+    wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th class="r">Resultado</th><th class="r">Ops</th><th class="r">Pre</th><th>Regla</th><th>Nota</th><th></th></tr></thead><tbody>${h.map(d => { const r = d.result == null ? null : Number(d.result); return `<tr data-date="${d.date}"><td><span class="dim">${dowOf(d.date)}</span> ${d.date.slice(5)}</td><td class="r ${r > 0 ? "pos" : r < 0 ? "neg" : ""}">${r == null ? "—" : money(r)}</td><td class="r">${d.trades == null ? "—" : d.trades}</td>${preCell(d)}<td>${d.broke ? '<span class="neg">rota</span>' : '<span class="dim">ok</span>'}</td><td class="notes">${d.synthetic ? '<span class="dim">del journal de futuros</span>' : esc(d.note || "")}</td><td class="act"><button type="button" class="btn ghost sm" data-study-day="${esc(d.date)}" aria-label="Estudiar todos los trades del ${esc(d.date)}">Estudiar</button>${d.synthetic ? "" : '<button type="button" class="icon del" data-act="del" title="Borrar esta sesión">×</button>'}</td></tr>`; }).join("")}</tbody></table>`;
   }
   $("histWrap").addEventListener("click", async e => {
+    const estudiar = e.target.closest("button[data-study-day]");
+    if (estudiar) { estudioAbrirDia(estudiar.dataset.studyDay); return; }
     const btn = e.target.closest("button[data-act='del']"); if (!btn || !armed(btn)) return;
     const date = btn.closest("tr").dataset.date;
     try { await state.db.doc("days/" + date).delete(); siSeGuardo("days/" + date); } catch (err) { noSeGuardo("days/" + date, motivoDb(err), "el borrado del dia"); }
@@ -16555,6 +16567,70 @@
   const estudioSinRevisar = t => t && t.pnlEff != null && !estudioRevisada(t.id);
   let estudioSoloSinRevisar = false;
 
+  let estudioDiaEnfoque = "";
+  function estudioAbrirDia(date){
+    const dia = String(date || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia) || !Number.isFinite(Date.parse(dia + "T12:00:00Z"))) return;
+    estudioDiaEnfoque = dia;
+    ["studyTradeAccount","studyTradeInstrument","studyTradeDirection","studyTradeSearch"].forEach(id => {
+      const el = $(id); if (el) el.value = "";
+    });
+    $("studyTradeFrom").value = dia;
+    $("studyTradeTo").value = dia;
+    estudioSoloSinRevisar = false;
+    const tab = document.querySelector('.tabbtn[data-tab="estudio"]');
+    if (tab) tab.click(); else showTab("estudio");
+    /* Navegar no dispara por si solo un cambio de datos. Renderizar ahora
+       evita que un dia sin trades deje el contexto anterior u oculto. */
+    renderEstudioTrades();
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  }
+  function estudioRenderDiaContexto(){
+    const lista = $("studyTradeList");
+    if (!lista) return;
+    let root = $("studyDayContext");
+    if (!root) {
+      root = document.createElement("section");
+      root.id = "studyDayContext";
+      root.className = "study-panel";
+      root.style.cssText = "margin-top:12px;border-color:var(--line-strong);";
+      lista.parentElement.insertBefore(root, lista);
+    }
+    if (!estudioDiaEnfoque) { root.hidden = true; root.replaceChildren(); return; }
+    const ops = coll("trades").items
+      .filter(t => t.type === "futuros" && String(t.date || "").slice(0, 10) === estudioDiaEnfoque)
+      .map(t => tradeCalc(Object.assign({}, t)));
+    const cerradas = ops.filter(t => t.pnlEff != null);
+    const pnl = cerradas.reduce((sum, t) => sum + Number(t.pnlEff || 0), 0);
+    const ganadas = cerradas.filter(t => t.pnlEff > 0).length;
+    const perdidas = cerradas.filter(t => t.pnlEff < 0).length;
+    const neutras = cerradas.length - ganadas - perdidas;
+    const cuentas = new Set(ops.map(t => String(t.accountId || "")).filter(Boolean)).size;
+    const dia = state.day && state.day.date === estudioDiaEnfoque
+      ? state.day : historyMerged().find(d => d.date === estudioDiaEnfoque);
+    const nota = dia && String(dia.note || "").trim();
+    const pre = dia ? Object.values(presOf(dia)).map(p => sesShort(p.ses) + " " + p.done + "/" + p.total).join(" · ") : "";
+    const stat = (label, value) => '<div style="min-width:110px;flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)"><span class="study-note" style="display:block;margin:0">' + label + '</span><b style="display:block;margin-top:4px">' + value + '</b></div>';
+    root.hidden = false;
+    root.innerHTML = '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+      '<div><div class="study-kind">DÍA DE CABINA</div><h3 style="margin:5px 0 3px">' + estudioEsc(estudioDiaEnfoque) + '</h3>' +
+      '<p class="study-note" style="margin:0">Trades, métricas y capturas de esta fecha. Selecciona un trade abajo para abrir su revisión completa.</p></div>' +
+      '<button type="button" class="btn ghost sm" data-study-day-clear>Ver todo</button></div>' +
+      '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px">' +
+      stat("P&L trades", cerradas.length ? estudioDinero(pnl) : "—") + stat("P&L Cabina", dia && dia.result != null ? money(Number(dia.result)) : "—") +
+      stat("Trades", String(ops.length)) +
+      stat("Cerradas · W/L/BE", cerradas.length ? ganadas + " / " + perdidas + " / " + neutras : "—") +
+      stat("Cuentas", String(cuentas)) + '</div>' +
+      (pre ? '<p class="study-note" style="margin:10px 0 0">Pre-sesiones · ' + estudioEsc(pre) + '</p>' : '') +
+      (dia && dia.broke ? '<p class="study-note" style="color:var(--negative,var(--bad,#b42318));margin-bottom:0">Cabina marcó una regla rota.</p>' : '') +
+      (nota ? '<p style="white-space:pre-wrap;margin:10px 0 0;color:var(--muted)"><b>Nota de Cabina:</b> ' + estudioEsc(nota) + '</p>' : '');
+    root.querySelector("[data-study-day-clear]").addEventListener("click", () => {
+      estudioDiaEnfoque = "";
+      $("studyTradeFrom").value = ""; $("studyTradeTo").value = "";
+      renderEstudioTrades();
+    });
+  }
+
   function renderEstudioTrades(){
     const list=$("studyTradeList"),account=$("studyTradeAccount");if(!list||!account)return;
     const trades=estudioTrades().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
@@ -16588,6 +16664,7 @@
       btnSR.disabled = !pendientes.length && !estudioSoloSinRevisar;
     }
     const visibles = estudioSoloSinRevisar ? pendientes : filtered;
+    estudioRenderDiaContexto();
     renderEstudioTradeMetrics(visibles);
     renderEstudioTradeBreakdown(visibles);
     /* QUEDARSE SIN COLA ES EL ÉXITO, no un filtro que no encuentra nada, y
@@ -16614,13 +16691,15 @@
   $("studyTradeAccount").addEventListener("change",renderEstudioTrades);
   $("studyTradeInstrument").addEventListener("change",renderEstudioTrades);
   $("studyTradeDirection").addEventListener("change",renderEstudioTrades);
-  $("studyTradeFrom").addEventListener("change",renderEstudioTrades);
-  $("studyTradeTo").addEventListener("change",renderEstudioTrades);
+  /* Un cambio manual de fechas abandona el enfoque de Cabina: el contexto y la lista nunca muestran días distintos. */
+  const estudioFechaManual = () => { estudioDiaEnfoque = ""; renderEstudioTrades(); };
+  $("studyTradeFrom").addEventListener("change",estudioFechaManual);
+  $("studyTradeTo").addEventListener("change",estudioFechaManual);
   $("studyTradeSinRevisar").addEventListener("click",()=>{estudioSoloSinRevisar=!estudioSoloSinRevisar;renderEstudioTrades();});
   /* EL INTERRUPTOR ENTRA EN «LIMPIAR FILTROS». Es un filtro, y un filtro que no
      entra en el reinicio deja la lista recortada con todos los controles a cero:
      exactamente el fallo que la revisión cazó en el modo demo con `ft.q`. */
-  $("studyTradeClear").addEventListener("click",()=>{estudioSoloSinRevisar=false;$("studyTradeAccount").value="";$("studyTradeSearch").value="";$("studyTradeInstrument").value="";$("studyTradeDirection").value="";$("studyTradeFrom").value="";$("studyTradeTo").value="";renderEstudioTrades();});
+  $("studyTradeClear").addEventListener("click",()=>{estudioDiaEnfoque="";estudioSoloSinRevisar=false;$("studyTradeAccount").value="";$("studyTradeSearch").value="";$("studyTradeInstrument").value="";$("studyTradeDirection").value="";$("studyTradeFrom").value="";$("studyTradeTo").value="";renderEstudioTrades();});
   $("studyTradeSearch").addEventListener("input",renderEstudioTrades);
   $("studyTradeReviewForm").addEventListener("submit",async e=>{
     e.preventDefault();
