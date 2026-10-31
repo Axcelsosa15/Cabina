@@ -33,6 +33,7 @@ const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
   '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml' };
 
 let sufijoAppJs = '';                     // lo que «se publica» de más
+let falloAppJs = false;                  // simula un fallo parcial del servidor
 const disco = new Map();
 for (const f of PUBLICADO) disco.set('/' + f, [TIPOS[f.slice(f.lastIndexOf('.'))] || 'application/octet-stream', readFileSync(join(raiz, f))]);
 const srv = createServer((q, r) => {
@@ -40,6 +41,7 @@ const srv = createServer((q, r) => {
   if (ruta === '/') ruta = '/index.html';
   const e = disco.get(ruta);
   if (!e) { r.writeHead(404); return r.end('no'); }
+  if (ruta === '/app.js' && falloAppJs) { r.writeHead(503); return r.end('fallo simulado'); }
   let cuerpo = e[1];
   if (ruta === '/app.js' && sufijoAppJs) cuerpo = Buffer.concat([cuerpo, Buffer.from(sufijoAppJs)]);
   r.writeHead(200, { 'content-type': e[0], 'cache-control': 'no-store' });
@@ -98,6 +100,15 @@ const nota4 = await p.locator('#updNote').textContent();
 ok(/app\.js/.test(nota4), 'nombra el archivo que cambió', nota4.trim().slice(0, 90));
 ok(await p.locator('#updApply').isVisible(), 'ofrece «Actualizar y recargar»');
 ok(await p.evaluate(() => FUT.trades().length) === opsAntes, 'comprobar no tocó ni una operación', 'ops=' + opsAntes);
+await p.click('#updCheck');
+await p.waitForFunction(() => /versión nueva|update available/.test(document.getElementById('updMeta').textContent), null, { timeout: 20000 });
+ok(await p.locator('#updApply').isVisible(), 'segunda comprobación conserva la actualización pendiente hasta recargar');
+falloAppJs = true;
+await p.click('#updCheck');
+await p.waitForFunction(() => /no se pudo comprobar|could not check/.test(document.getElementById('updMeta').textContent), null, { timeout: 20000 });
+ok(!/al día/.test(await p.locator('#updMeta').textContent()), 'un 503 de app.js nunca se informa como al día');
+ok(await p.locator('#updApply').isVisible(), 'un fallo parcial no oculta la actualización ya detectada');
+falloAppJs = false;
 
 console.log('\n═══ 5 · recargar no se lleva por delante un cambio sin guardar ═══');
 /* La barra pinta «SIN GUARDAR · N» cuando una escritura falla sin entrar en la
