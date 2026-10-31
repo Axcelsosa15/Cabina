@@ -67,6 +67,7 @@ await quieto(page, 90, 3500);
 ok(review() && review().data.scenes['entrada:15m']?.[0]?.id === trade.images[0].id,
   'el documento research enlaza entrada:15m al mismo objeto');
 ok(review() && review().data.tradeId === String(trade.id), 'vínculo por ID del trade, no por fecha o instrumento');
+ok(review() && review().data.scenesOnly === true, 'adjuntar una foto no equivale a completar la revisión');
 
 await openStudio();
 ok(await page.locator('#studyScenes figure[data-escena-fig="entrada:15m"] img').count() === 1,
