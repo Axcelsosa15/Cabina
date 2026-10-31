@@ -1140,6 +1140,8 @@
   function idioma() { return idiomaLee() || "es"; }
   const I18N_EN = {
     "Entiende tus números": "Understand your numbers",
+    "Ayuda contextual": "Contextual help",
+    "Preferencias sólo de este navegador.": "Preferences for this browser only.",
     "Expectativa": "Expectancy",
     "Lee qué mide cada cifra y qué conclusiones permite sacar.": "Understand what each metric measures and what it cannot prove.",
     "Qué significa": "What it means",
@@ -2462,8 +2464,8 @@
   function readViewPrefs() {
     try {
       const raw = JSON.parse(localStorage.getItem(VIEW_PREF_KEY) || "{}");
-      return { density: raw.density === "compact" ? "compact" : "comfortable", hidden: raw.hidden && typeof raw.hidden === "object" ? raw.hidden : {}, columns: raw.columns && typeof raw.columns === "object" ? raw.columns : {} };
-    } catch { return { density: "comfortable", hidden: {}, columns: {} }; }
+      return { density: raw.density === "compact" ? "compact" : "comfortable", help: raw.help === true, hidden: raw.hidden && typeof raw.hidden === "object" ? raw.hidden : {}, columns: raw.columns && typeof raw.columns === "object" ? raw.columns : {} };
+    } catch { return { density: "comfortable", help: false, hidden: {}, columns: {} }; }
   }
   function writeViewPrefs(prefs) {
     try { localStorage.setItem(VIEW_PREF_KEY, JSON.stringify(prefs)); return true; }
@@ -2525,6 +2527,17 @@
   function applyViewPrefs() {
     const prefs = readViewPrefs();
     document.body.dataset.density = prefs.density;
+    document.body.dataset.help = prefs.help ? "on" : "off";
+    const toggle = document.getElementById("mxLearnToggle");
+    if (toggle) {
+      const label = idioma() === "en"
+        ? (prefs.help ? "Hide contextual help" : "Show contextual help")
+        : (prefs.help ? "Ocultar ayuda contextual" : "Mostrar ayuda contextual");
+      toggle.setAttribute("aria-expanded", String(prefs.help));
+      toggle.setAttribute("aria-pressed", String(prefs.help));
+      toggle.setAttribute("aria-label", label);
+      toggle.title = label;
+    }
     for (const tab of document.querySelectorAll(".tab")) {
       const name = tab.dataset.tab || "cabina";
       const hidden = new Set(Array.isArray(prefs.hidden[name]) ? prefs.hidden[name] : []);
@@ -2540,6 +2553,8 @@
     const tabName = state.tab || "cabina";
     const prefs = readViewPrefs();
     document.querySelectorAll('input[name="viewDensity"]').forEach(r => { r.checked = r.value === prefs.density; });
+    const helpControl = document.getElementById("viewPrefsHelp");
+    if (helpControl) helpControl.checked = prefs.help;
     viewPrefsList.replaceChildren();
     const candidates = viewCandidates(tabName);
     const hidden = new Set(Array.isArray(prefs.hidden[tabName]) ? prefs.hidden[tabName] : []);
@@ -2645,6 +2660,18 @@
   document.querySelectorAll('input[name="viewDensity"]').forEach(r => r.addEventListener("change", () => {
     if (!r.checked) return; const prefs = readViewPrefs(); prefs.density = r.value; writeViewPrefs(prefs); applyViewPrefs();
   }));
+  document.getElementById("viewPrefsHelp").addEventListener("change", e => {
+    const prefs = readViewPrefs();
+    prefs.help = e.target.checked;
+    if (!writeViewPrefs(prefs)) return;
+    applyViewPrefs();
+  });
+  document.getElementById("mxLearnToggle").addEventListener("click", () => {
+    const prefs = readViewPrefs();
+    prefs.help = !prefs.help;
+    if (!writeViewPrefs(prefs)) return;
+    applyViewPrefs();
+  });
   document.getElementById("viewPrefsReset").addEventListener("click", () => {
     const prefs = readViewPrefs(); const tabName = state.tab || "cabina"; delete prefs.hidden[tabName]; delete prefs.columns[tabName]; writeViewPrefs(prefs); applyViewPrefs(); renderViewPrefs();
   });
