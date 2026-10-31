@@ -22,6 +22,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PUBLICADO } from './publicado.mjs';
+import { nubeDoble } from './nube-doble.mjs';
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SEM = readFileSync(join(raiz, 'test/semilla.json'), 'utf8');
@@ -154,6 +155,44 @@ await p.waitForTimeout(500);
 ok(await p.evaluate(() => document.querySelector('.tab[data-tab="cabina"]').classList.contains('active')),
   '«Abrir modo edición» lleva a la Cabina, que es donde vive');
 ok(await p.evaluate(() => document.body.classList.contains('editing')), 'y deja el modo edición activado');
+
+
+console.log('\n═══ 8 · cola sólo en memoria → recargar exige aviso ═══');
+const doble = nubeDoble();
+const ctxMem = await browser.newContext({ viewport: { width: 1280, height: 950 } });
+await ctxMem.addInitScript(() => {
+  Object.defineProperty(window, 'indexedDB', { configurable: true, value: {
+    open() { throw new Error('IndexedDB bloqueado por prueba'); }
+  } });
+});
+const uidMem = await doble.conSesion(ctxMem, 'actualizaciones-memoria@ejemplo.com');
+doble.siembra(uidMem, 'trades/t1', {
+  id:'t1',type:'futuros',instrument:'MNQ',direction:'long',
+  entry:21000,stop:20980,exit:21050,qty:1,date:'2026-09-17',time:'10:00',notes:'original'
+});
+const pMem = await ctxMem.newPage();
+pMem.on('pageerror', e => errores.push(e.message));
+await pMem.goto(base, { waitUntil:'load' });
+await pMem.waitForFunction(() => window.FUT && FUT.trades().some(t => t.id === 't1'), null, { timeout:20000 });
+await pMem.waitForFunction(() => navigator.serviceWorker.controller, null, { timeout:20000 });
+await pMem.click('.tabbtn[data-tab="ajustes"]');
+sufijoAppJs = '\n/* actualización posterior para prueba de cola volátil */\n';
+await pMem.click('#updCheck');
+await pMem.waitForFunction(() => /versión nueva|update available/.test(document.getElementById('updMeta').textContent), null, {timeout:20000});
+doble.e.caida = true;
+await pMem.evaluate(() => FUT.updateTrade('t1', {notes:'edición no durable'}));
+await pMem.waitForFunction(() => FUT.cola().length === 1, null, {timeout:15000});
+const pieMem = await pMem.locator('#footerStore').textContent();
+ok(/sólo en memoria/.test(pieMem), 'cola de prueba realmente no es durable',pieMem.slice(0,120));
+await pMem.evaluate(() => { window.__sinRecargar = true; });
+await pMem.click('#updApply');
+await pMem.waitForTimeout(500);
+ok(await pMem.evaluate(() => window.__sinRecargar === true), 'primer clic no recarga la cola en memoria');
+ok(/perder 1/.test(await pMem.locator('#updApply').textContent()),
+  'el botón advierte la pérdida de la cola volátil', (await pMem.locator('#updApply').textContent()).trim());
+sufijoAppJs = '';
+doble.e.caida = false;
+await ctxMem.close();
 
 ok(errores.length === 0, 'sin errores de JavaScript', errores.join(' | ') || 'ninguno');
 await browser.close();
