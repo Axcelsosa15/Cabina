@@ -4078,7 +4078,8 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
   --ledger-inset: 20px;
   --figure: 600 clamp(22px, 2.1vw, 28px)/1.15 var(--font-mono);
   --figure-sm: 600 18px/1.2 var(--font-mono);
-  --label-caps: 600 11px/1.35 var(--font-ui);
+  /* 12px: piso de legibilidad (metricas-lectura); 11px bajaba del contrato. */
+  --label-caps: 600 12px/1.35 var(--font-ui);
 }
 body {
   font-feature-settings: "ss01" 0, "tnum" 0;
@@ -4152,6 +4153,15 @@ body {
   font: 450 11.5px/1.35 var(--font-ui);
   letter-spacing: .02em;
   color: var(--dim);
+}
+/* Misma especificidad que `.topbar .save-state` pero DESPUÉS: el aviso de
+   fallo de guardado tiene que seguir siendo el rojo de error (--negative),
+   no el gris ambiental del chrome. Sin esto, SIN GUARDAR parece un rótulo
+   normal y se confunde con «guardado local». */
+.topbar .save-state.nosave {
+  color: var(--negative);
+  font-weight: 800;
+  letter-spacing: .06em;
 }
 .topbar .clock #sessionPill.pill {
   /* Estado de sesión, no pastilla promocional: radio de control, tipografía UI. */
@@ -4420,6 +4430,13 @@ body {
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: "tnum" 1, "lnum" 1;
   letter-spacing: -.03em;
+}
+/* `font: var(--figure)` arriba gana a `.tile.sin-dato .v` (misma (0,3,0) y
+   posterior). El guión vacío tiene que seguir ligero: no es una cifra. */
+.tab .tile.sin-dato .v {
+  font-weight: 400;
+  color: var(--dim);
+  letter-spacing: 0;
 }
 .tab .tile .s,
 .tab .qec .qk,
