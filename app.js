@@ -7233,11 +7233,12 @@
   function setFtView(v) {
     ft.view = ["resumen", "cuentas", "analisis", "diario", "presesion"].includes(v) ? v : "resumen";
     document.querySelectorAll(".ftview").forEach(x => x.classList.toggle("active", x.dataset.v === ft.view));
-    $("ftSeg").querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.v === ft.view));
+    $("ftSeg").querySelectorAll("button").forEach(b => { b.classList.toggle("active", b.dataset.v === ft.view); b.setAttribute("aria-pressed", String(b.dataset.v === ft.view)); });
     // los gráficos se dibujan al ancho real del panel: hay que rehacerlos al mostrarse
     try { renderFutures(); } catch (e) { }
     if (ft.view === "presesion") { if (prf.loaded) renderPre(); else loadPreRows(); }
   }
+  if (matchMedia("(max-width: 700px)").matches) $("ftMoreFilters").open = false;
   $("ftSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; setFtView(b.dataset.v); });
   $("ftRange").addEventListener("change", e => { ft.range = e.target.value; renderFutures(); });
   $("ftSetup").addEventListener("change", e => { ft.setup = e.target.value; renderFutures(); });
@@ -8718,6 +8719,9 @@
   function renderFtFilters() {
     const el = $("ftFilters"); if (!el) return;
     const act = activeFilters();
+    const extra = act.filter(f => !["acct", "range"].includes(f.k)).length;
+    const count = $("ftMoreCount");
+    if (count) { count.hidden = !extra; count.textContent = extra ? `${extra} activo${extra === 1 ? "" : "s"}` : ""; }
     el.hidden = !act.length;
     if (!act.length) { el.innerHTML = ""; return; }
     el.innerHTML = `<span class="lb">Filtrando</span>` + act.map(f => `<span class="fchip"><b>${esc(f.lb)}</b>${esc(String(f.txt(ft[f.k])))}<button type="button" data-clr="${f.k}" title="Quitar este filtro" aria-label="Quitar filtro de ${esc(f.lb)}">×</button></span>`).join("")
