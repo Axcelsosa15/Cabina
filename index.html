@@ -4470,6 +4470,18 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
     <details class="settings-details"><summary>Opciones de respaldo</summary><div class="settings-inline-actions"><button type="button" class="btn ghost" id="bkShow">Ver el texto</button><button type="button" class="btn ghost" id="bkPaste">Pegar el texto</button></div></details>
     <input type="file" id="bkFile" accept="application/json,.json,text/csv,.csv,.txt" hidden aria-hidden="true">
   </section>
+  <section id="panelActualizacion" style="margin-top:32px">
+    <h2>Versión y actualizaciones</h2>
+    <p class="settings-meta" id="updMeta">sin comprobar</p>
+    <p class="settings-meta">Cabina se sirve de la red primero, así que al abrirla ya traes el código publicado. Este panel existe para los casos en que eso no basta: cuando la abriste sin conexión, cuando la tienes instalada y lleva días abierta, o cuando quieres comprobarlo antes de operar.</p>
+    <div class="setting-row"><span>Esta copia</span><span class="settings-meta" id="updHuella" style="margin:0;text-align:right">Huella del código cargado: <b>—</b></span></div>
+    <div class="setting-row"><span>Trabajador</span><span class="settings-meta" id="updSW" style="margin:0;text-align:right">Trabajador de servicio: <b>—</b></span></div>
+    <div class="setting-row"><span>Almacenamiento</span><span class="settings-meta" id="updAlmacen" style="margin:0;text-align:right">Espacio usado por la app: <b>—</b></span></div>
+    <div class="setting-row"><span>Buscar una versión nueva</span><div class="settings-inline-actions"><button type="button" class="btn primary" id="updCheck">Buscar actualizaciones</button><button type="button" class="btn" id="updApply" hidden>Actualizar y recargar</button></div></div>
+    <p class="settings-status" id="updNote" role="status" aria-live="polite"></p>
+    <div class="setting-row"><span>Vista: módulos y densidad</span><button type="button" class="btn ghost" data-ajuste-accion="vista">Abrir Vista</button></div>
+    <div class="setting-row"><span>Modo edición</span><button type="button" class="btn ghost" data-ajuste-accion="editar">Abrir modo edición</button></div>
+  </section>
   <dialog class="settings-dialog" id="settingsHelp"><div class="dialog-heading"><h2>Ayuda y atajos</h2><button type="button" class="btn ghost" data-settings-close>Cerrar</button></div>
     <label for="settingsHelpSearch">Buscar una función</label><input type="search" id="settingsHelpSearch" placeholder="Reglas, cuentas, importar…">
     <div id="settingsHelpResults">
