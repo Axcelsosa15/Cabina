@@ -2204,8 +2204,71 @@
       async vaciar() { guarda({}); },
     });
   }
+  /* DOS PESTAÑAS EN MODO LOCAL.
+     Con cuenta, `refresca()` trae lo de la base al volver. En local el disco ya
+     es compartido (mismo origen), pero la memoria de cada pestaña no: la otra
+     pestaña escribe `cabina-mnq:v1` y ésta sigue enseñando la copia vieja hasta
+     recargar. El evento `storage` (otras pestañas) y `visibilitychange` (esta)
+     releen el disco con la misma regla de sello que la nube: no se pisa un
+     cambio local más nuevo ni lo pendiente en `sinGuardar`. */
+  function refrescaLocalDesdeDisco() {
+    if (state.demo || state.nube || state.store === "memory" || !state.listo) return false;
+    const raw = lsRead();
+    let cambio = false;
+    if (raw.settings) {
+      const incoming = normalize(raw.settings);
+      if (!(sello(incoming) && sello(incoming) < sello(state.settings))) {
+        if (JSON.stringify(sinSello(incoming)) !== JSON.stringify(sinSello(state.settings))) {
+          state.settings = incoming; cambio = true;
+        } else if (sello(incoming) > sello(state.settings)) {
+          state.settings.updatedAt = sello(incoming);
+        }
+      }
+    }
+    COLLS.forEach(name => {
+      const c = coll(name);
+      const mapa = raw[name] || {};
+      const pend = new Map(c.items.filter(x => sinGuardar.has(name + "/" + x.id)).map(x => [x.id, x]));
+      const enMemoria = new Map(c.items.filter(x => x && x.id).map(x => [x.id, x]));
+      const llegan = Object.keys(mapa).map(id => {
+        const x = Object.assign({ id }, mapa[id]);
+        if (pend.has(id)) return pend.get(id);
+        const mio = enMemoria.get(id);
+        return mio && sello(mio) > sello(x) ? mio : x;
+      });
+      const ids = new Set(llegan.map(x => x.id));
+      pend.forEach((x, id) => { if (!ids.has(id)) llegan.push(x); });
+      const antes = JSON.stringify(c.items.map(x => [x.id, sello(x)]).sort());
+      const despues = JSON.stringify(llegan.map(x => [x.id, sello(x)]).sort());
+      if (antes !== despues) { c.items = llegan; c.emit(); cambio = true; }
+    });
+    if (raw.days) {
+      state.dias = Object.keys(raw.days).map(k => raw.days[k]).filter(d => d && d.date);
+      state.daysKnown = true;
+      const todayDoc = raw.days[state.today];
+      if (todayDoc) {
+        const remote = migrateDay(Object.assign(newDay(state.today), todayDoc));
+        if ((remote.updatedAt || 0) >= (state.day.updatedAt || 0)
+          && JSON.stringify(sinSello(remote)) !== JSON.stringify(sinSello(state.day))) {
+          state.day = remote; cambio = true;
+        }
+      }
+      derivaHistoria();
+    }
+    if (cambio) {
+      try { renderAll(); } catch (e) { }
+      try { if (typeof FANOUT_SEL !== "undefined") fanout(FANOUT_SEL); } catch (e) { }
+      try { if (typeof counts === "function") counts(); } catch (e) { }
+    }
+    return cambio;
+  }
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && state.nube && state.db && state.db.refresca) state.db.refresca();
+    if (document.visibilityState !== "visible") return;
+    if (state.nube && state.db && state.db.refresca) state.db.refresca();
+    else refrescaLocalDesdeDisco();
+  });
+  addEventListener("storage", event => {
+    if (event.key === LS_KEY || event.key === null) refrescaLocalDesdeDisco();
   });
   /* VOLVER A LA PESTAÑA NO BASTA.
      `refresca()` sólo se disparaba al volver a la pestaña, al recuperar la red y
@@ -3118,7 +3181,36 @@
   $("edCancel").addEventListener("click", closeEditor);
   ov.addEventListener("click", e => { if (e.target === ov) closeEditor(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && ov.classList.contains("open")) closeEditor(); });
-  $("edSave").addEventListener("click", () => { if (!edCfg) return; const v = readEditor(); if (edCfg.validate) { const err = edCfg.validate(v); if (err) { flashEd(err); return; } } edCfg.onSave(v); closeEditor(); });
+  /* Guardar cierra el editor salvo que onSave diga lo contrario con `false`.
+     Eso permite abortar sin perder el borrador (p. ej. cambio de cuenta de
+     posición bloqueado) y, si onSave es async (import CSV / respaldo), esperar
+     a que termine antes de cerrar: cerrar al instante fingía éxito, dejaba el
+     botón libre para un segundo clic y ocultaba el error si la escritura
+     fallaba después. El botón se deshabilita mientras corre el manejador. */
+  $("edSave").addEventListener("click", () => {
+    if (!edCfg) return;
+    const btn = $("edSave");
+    if (btn.disabled) return;
+    const v = readEditor();
+    if (edCfg.validate) { const err = edCfg.validate(v); if (err) { flashEd(err); return; } }
+    const cfg = edCfg;
+    btn.disabled = true;
+    const finish = keepOpen => {
+      if (keepOpen && edCfg === cfg && ov.classList.contains("open")) btn.disabled = false;
+      else if (!keepOpen) closeEditor();
+    };
+    let result;
+    try { result = cfg.onSave(v); }
+    catch (e) { flashEd((e && e.message) || "No se pudo guardar"); finish(true); return; }
+    if (result && typeof result.then === "function") {
+      Promise.resolve(result).then(
+        resolved => finish(resolved === false),
+        e => { flashEd((e && e.message) || "No se pudo guardar"); finish(true); }
+      );
+      return;
+    }
+    finish(result === false);
+  });
   $("edDelete").addEventListener("click", function () { if (!edCfg || !edCfg.onDelete) return; if (!armed(this)) return; edCfg.onDelete(); closeEditor(); });
   /* The editor title is a stable dialog label. Validation belongs in a persistent
      summary and, when the validator knows the field, beside its control. */
@@ -12767,7 +12859,7 @@
             x.market === p.market && String(x.accountId || "") === String(p.accountId || ""));
           if (sameBucket.length > 1) {
             alert("No se cambió la cuenta: hay varias posiciones del mismo activo en la cuenta de origen. Asigna sus operaciones manualmente para evitar mezclar lotes.");
-            return;
+            return false;
           }
           const linked = coll("trades").items.filter(t => t.type === "inversion" &&
             String(t.asset || "").trim().toUpperCase() === String(p.asset || "").trim().toUpperCase() &&
@@ -17155,7 +17247,7 @@
   $("studyLinkAdd").addEventListener("click",e=>{e.preventDefault();const type=$("studyLinkType").value,id=$("studyLinkTarget").value;if(!id)return;if(estudioLinksDraft.some(x=>x.type===type&&x.id===id))return;estudioLinksDraft.push({type,id});estudioRenderLinkList();});
   $("studyLinksList").addEventListener("click",e=>{const b=e.target.closest("button[data-study-link-remove]");if(!b)return;estudioLinksDraft.splice(Number(b.dataset.studyLinkRemove),1);estudioRenderLinkList();});
   $("studyNew").addEventListener("click",()=>estudioEditor());$("studyClose").addEventListener("click",estudioCerrar);$("studyCancel").addEventListener("click",estudioCerrar);$("studyModal").addEventListener("click",e=>{if(e.target===$("studyModal"))estudioCerrar();});
-  $("studyForm").addEventListener("submit",async e=>{e.preventDefault();const title=$("studyTitle").value.trim();if(!title)return;const id=$("studyId").value||uid("research"),old=coll("research").get(id),rawUrl=$("studyUrl").value.trim();let url="";if(rawUrl){try{const u=new URL(rawUrl);if(!["http:","https:"].includes(u.protocol))throw new Error();url=u.href;}catch{$("studyUrl").setCustomValidity("Introduce una URL http o https válida.");$("studyUrl").reportValidity();$("studyUrl").setCustomValidity("");return;}}
+  $("studyForm").addEventListener("submit",async e=>{e.preventDefault();const title=$("studyTitle").value.trim();if(!title){const el=$("studyTitle");el.setCustomValidity("El título no puede quedar vacío.");el.reportValidity();el.addEventListener("input",()=>el.setCustomValidity(""),{once:true});return;}const id=$("studyId").value||uid("research"),old=coll("research").get(id),rawUrl=$("studyUrl").value.trim();let url="";if(rawUrl){try{const u=new URL(rawUrl);if(!["http:","https:"].includes(u.protocol))throw new Error();url=u.href;}catch{$("studyUrl").setCustomValidity("Introduce una URL http o https válida.");$("studyUrl").reportValidity();$("studyUrl").setCustomValidity("");return;}}
     const d={id,type:$("studyType").value,status:$("studyStatus").value,title,question:$("studyQuestion").value.trim(),tags:$("studyTags").value.split(",").map(x=>x.trim()).filter(Boolean).slice(0,20),url,author:$("studyAuthor").value.trim(),publishedAt:$("studyPublishedAt").value||"",consultedAt:$("studyConsultedAt").value||"",nextReview:$("studyNextReview").value||"",links:estudioLinksDraft.map(x=>({type:x.type,id:x.id})),evidence:$("studyEvidence").value.trim(),catalysts:$("studyCatalysts").value.trim(),counter:$("studyCounter").value.trim(),conclusion:$("studyConclusion").value.trim(),prompt:$("studyPrompt").value.trim(),answer:$("studyAnswer").value.trim(),createdAt:old?.createdAt||Date.now(),updatedAt:Date.now()};await coll("research").set(id,d);estudioCerrar();renderEstudio();});
   $("studyDelete").addEventListener("click",async()=>{const id=$("studyId").value,d=coll("research").get(id);if(!id||!d)return;if(!confirm("¿Eliminar «"+d.title+"»? Esta acción no se puede deshacer."))return;await coll("research").remove(id);estudioCerrar();renderEstudio();});
   $("studySearch").addEventListener("input",renderEstudio);$("studyFrom").addEventListener("change",renderEstudio);$("studyTo").addEventListener("change",renderEstudio);$("studyFilters").querySelectorAll("[data-study-filter]").forEach(b=>b.addEventListener("click",()=>{estudioFiltro=b.dataset.studyFilter;$("studyFilters").querySelectorAll("[data-study-filter]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderEstudio();}));
