@@ -43,9 +43,22 @@ try {
  await page.waitForFunction(()=>!JSON.parse(localStorage.getItem('cabina-view-prefs:v1')).pages.calc.folded.includes('calc:panel:ano-a-ano'));
  ok(await year.evaluate(e=>e.open),'el teclado abre el panel y actualiza el plegado guardado');
  await page.keyboard.press('Enter');
- await page.waitForFunction(()=>JSON.parse(localStorage.getItem('cabina-view-prefs:v1')).pages.calc.folded.includes('calc:panel:ano-a-ano'));
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('cabina-view-prefs:v1')).pages.calc?.folded?.includes('calc:panel:ano-a-ano'));
  await page.click('#viewPrefsOpen');await page.click('#viewPrefsReset');await page.click('#viewPrefsDone');
  ok(await year.evaluate(e=>e.open),'restaurar la vista permite volver a leer el panel');
+ await year.locator(':scope > summary').click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('cabina-view-prefs:v1')).pages.calc?.folded?.includes('calc:panel:ano-a-ano'));
+ await year.locator(':scope > summary').click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('cabina-view-prefs:v1')).pages.calc?.expanded?.includes('calc:panel:ano-a-ano'));
+ await page.click('#viewPrefsOpen');await page.fill('#viewName','Desplegable abierto');await page.click('#viewSave');await page.click('#viewPrefsDone');
+ await page.reload();await arrancada(page,null);
+ ok(await year.evaluate(e=>e.open),'un desplegable abierto se conserva al recargar');
+ await year.locator(':scope > summary').click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('cabina-view-prefs:v1')).pages.calc?.folded?.includes('calc:panel:ano-a-ano'));
+ await page.click('#viewPrefsOpen');await page.selectOption('#viewSaved',{label:'Desplegable abierto'});await page.click('#viewLoad');await page.click('#viewPrefsDone');
+ ok(await year.evaluate(e=>e.open),'aplicar la vista guardada restaura su desplegable abierto');
+ await page.reload();await arrancada(page,null);
+ ok(await year.evaluate(e=>e.open),'la vista aplicada mantiene el desplegable abierto tras otra recarga');
  await page.click('#tabnav .tabbtn[data-tab="estudio"]');await quieto(page);
  for(const key of prefs.hidden.estudio){
   ok(await page.locator('[data-view-key="'+key+'"]').evaluate(e=>e.classList.contains('user-view-hidden')),'Estudio conserva el módulo '+key.split(':').at(-1));

@@ -52,6 +52,15 @@ try{
  await other.locator('#cabAppearanceMode').selectOption('dark');await other.locator('#cabAppearanceApply').click();
  await page.waitForFunction(()=>document.getElementById('cabAppearanceStatus').textContent.includes('otra pestaña'));
  check(await page.locator('#cabAppearanceApply').isDisabled(),'un conflicto entre pestañas impide sobrescribir la preferencia');
+ const remoteAppearance=await other.evaluate(k=>localStorage.getItem(k),K);
+ await page.locator('#viewPrefsOpen').click();
+ await page.locator('[name="viewDensity"][value="compact"]').click();
+ check(await page.evaluate(k=>localStorage.getItem(k),K)===remoteAppearance,'Vista no sobrescribe el tema remoto al cambiar densidad durante un conflicto');
+ check(await page.locator('[name="viewDensity"][value="balanced"]').isChecked(),'la densidad rechazada conserva el control en su valor vigente');
+ await page.locator('#viewName').fill('Vista de conflicto');await page.locator('#viewSave').click();
+ await page.locator('#viewSaved').selectOption({label:'Vista de conflicto'});await page.locator('#viewLoad').click();
+ check(await page.evaluate(k=>localStorage.getItem(k),K)===remoteAppearance&&await page.locator('#cabAppearanceApply').isDisabled(),'aplicar una vista tampoco evita la protección del conflicto');
+ await page.locator('#viewPrefsDone').click();
  await page.locator('#cabAppearanceCancel').click();
  check(await page.locator('#cabAppearanceMode').inputValue()==='dark','Cancelar carga la preferencia de la otra pestaña');
  await other.close();await page.locator('#cabAppearanceReset').click();await page.locator('#cabAppearanceApply').click();
@@ -59,6 +68,13 @@ try{
  check(await page.locator('html').getAttribute('lang')==='en','el selector de idioma conserva la traducción existente');
  await page.locator('#idiomaBtn').selectOption('es');
  await page.locator('#settingsTabData').click();
+ for(const [trigger,dialog] of [['settingsHelpOpen','settingsHelp'],['bkExportOpen','settingsExport'],['bkImportOpen','settingsImport']]){
+  await page.locator('#'+trigger).click();await page.locator('#'+dialog+' [data-settings-close]').focus();
+  await page.keyboard.press('Control+k');await page.keyboard.press('n');await page.keyboard.press('f');await page.keyboard.press('r');
+  check(await page.locator('#'+dialog).isVisible()&&await page.locator('#cmdOv').isHidden()&&await page.locator('#ov').isHidden()&&new URL(page.url()).hash==='#ajustes',dialog+': los atajos no abren controles ni navegan detrás del diálogo');
+  await page.keyboard.press('Escape');
+  check(await page.locator('#'+dialog).isHidden()&&await page.locator('#'+trigger).evaluate(el=>el===document.activeElement),dialog+': Escape cierra y devuelve el foco');
+ }
  await page.locator('#bkExportOpen').click();check(await page.locator('#settingsExport').isVisible(),'Exportar muestra opciones en su diálogo');
  await page.evaluate(()=>{window.realObjectURL=URL.createObjectURL;URL.createObjectURL=()=>{throw new Error('download unavailable');};});
  await page.locator('#bkExport').click();await page.locator('#bkRetry').waitFor({state:'visible'});
@@ -112,6 +128,8 @@ try{
  await demo.locator('#settingsTabPrefs').click();const journal=await demo.evaluate(()=>localStorage.getItem('cabina-mnq:v1'));
  await demo.locator('#demoToggle').click();
  check(await demo.locator('#settingsDemo').isVisible()&&!await demo.locator('body').evaluate(e=>e.classList.contains('demo')),'la demo explica el cambio antes de entrar');
+ await demo.locator('#settingsDemo [data-settings-close]').focus();await demo.keyboard.press('Control+k');await demo.keyboard.press('n');await demo.keyboard.press('f');
+ check(await demo.locator('#settingsDemo').isVisible()&&await demo.locator('#cmdOv').isHidden()&&await demo.locator('#ov').isHidden()&&new URL(demo.url()).hash==='#ajustes','el diálogo de demo también suspende los atajos globales');
  await demo.locator('#settingsDemoEnter').click();await demo.locator('#demoBar').waitFor();
  check(await demo.locator('#demoExit').isVisible(),'Demo y Salir de demo permanecen disponibles');
  await demo.locator('#settingsTabData').click();

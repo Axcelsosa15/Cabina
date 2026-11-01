@@ -129,7 +129,7 @@
     prefs={...draft};apply();render('Guardado en este dispositivo');
   }
   function setDensity(density) {
-    if(!DENSITIES.has(density))return false;
+    if(conflict||!DENSITIES.has(density))return false;
     const next=parse({...prefs,density});
     if(!persist(next))return false;
     const wasDirty=dirty();prefs=next;draft={...draft,density};apply();render(wasDirty?undefined:'Guardado en este dispositivo');return true;

@@ -2603,22 +2603,23 @@
     }
   }
   const disclosureViewPrefs = new WeakMap();
-  function applyDisclosureView(el, name, index, folded) {
+  function applyDisclosureView(el, name, index, folded, expanded) {
     const prior = disclosureViewPrefs.get(el);
-    if (!prior || prior.folded !== folded) {
+    if (!prior || prior.folded !== folded || prior.expanded !== expanded) {
       if (folded) el.open = false;
-      else if (prior?.folded) el.open = true;
+      else if (expanded || prior?.folded) el.open = true;
+      disclosureViewPrefs.set(el, { folded, expanded, open: el.open });
     }
-    disclosureViewPrefs.set(el, { folded });
     if (prior) return;
     el.addEventListener("toggle", () => {
+      if (disclosureViewPrefs.get(el)?.open === el.open) return;
       const current = readViewPrefs(), config = current.pages[name] ||= {};
-      const set = new Set(config.folded || []), keys = viewKeys(el, name, index);
-      const before = [...set].join("\n");
-      keys.forEach(key => set.delete(key));
-      if (!el.open) set.add(keys[0]);
-      disclosureViewPrefs.set(el, { folded: !el.open });
-      if (before !== [...set].join("\n")) { config.folded = [...set]; writeViewPrefs(current); }
+      const folded = new Set(config.folded || []), expanded = new Set(config.expanded || []), keys = viewKeys(el, name, index);
+      keys.forEach(key => { folded.delete(key); expanded.delete(key); });
+      (el.open ? expanded : folded).add(keys[0]);
+      config.folded = [...folded]; config.expanded = [...expanded];
+      disclosureViewPrefs.set(el, { folded: !el.open, expanded: el.open, open: el.open });
+      writeViewPrefs(current);
     });
   }
   function applyViewPrefs() {
@@ -2642,6 +2643,7 @@
       tab.dataset.viewCharts = ["small", "large"].includes(page.charts) ? page.charts : "original";
       tab.dataset.viewText = page.text === "large" ? "large" : "normal";
       const folded = new Set(Array.isArray(page.folded) ? page.folded : []);
+      const expanded = new Set(Array.isArray(page.expanded) ? page.expanded : []);
       const hidden = new Set(Array.isArray(prefs.hidden[name]) ? prefs.hidden[name] : []);
       viewCandidates(name).forEach((el, i) => {
         const key = viewKey(el, name, i), keys = viewKeys(el, name, i);
@@ -2649,7 +2651,7 @@
         el.classList.toggle("user-view-hidden", keys.some(k => hidden.has(k)));
         const native = el.tagName === "DETAILS";
         el.classList.toggle("user-view-folded", !native && isFolded);
-        if (native) { applyDisclosureView(el, name, i, isFolded); return; }
+        if (native) { applyDisclosureView(el, name, i, isFolded, keys.some(k => expanded.has(k))); return; }
         const header = el.querySelector(":scope > header");
         if (header && el.classList.contains("panel")) {
           let button = header.querySelector(".view-fold-toggle");
@@ -2844,7 +2846,7 @@
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !viewPrefsRoot.hidden) closeViewPrefs(); });
   document.querySelectorAll('input[name="viewDensity"]').forEach(r => r.addEventListener("change", () => {
     if (!r.checked) return;
-    if (!window.CabinaAppearance.setDensity(r.value)) { document.getElementById("viewPrefsNote").textContent = "No se pudo guardar la densidad. Reintenta la selección."; applyViewPrefs(); return; }
+    if (!window.CabinaAppearance.setDensity(r.value)) { renderViewPrefs(); document.getElementById("viewPrefsNote").textContent = "No se pudo guardar la densidad. Revisa los cambios de Apariencia y reintenta."; applyViewPrefs(); return; }
     const prefs = readViewPrefs(); prefs.density = r.value; writeViewPrefs(prefs); applyViewPrefs();
   }));
   document.getElementById("viewPrefsHelp").addEventListener("change", e => {
@@ -15315,6 +15317,10 @@
     r: () => showTab("calc"),
   };
   document.addEventListener("keydown", e => {
+    if (document.querySelector('.settings-dialog[open]')) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") e.preventDefault();
+      return;
+    }
     if ($("disciplineShareOv").classList.contains("open") || (window.CabinaExperience && window.CabinaExperience.isGuideOpen())) {
       if (e.key === "Escape") { e.preventDefault(); if (window.CabinaExperience && window.CabinaExperience.isGuideOpen()) window.CabinaExperience.closeGuide(); else closeDisciplineDialog(); }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") e.preventDefault();
