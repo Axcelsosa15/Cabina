@@ -21,24 +21,26 @@ try {
       const decks=[...document.querySelectorAll('.tab .deck')];
       const details=[...document.querySelectorAll('details.cab-why')];
       return {
-        num:decks.length, numbers:decks.filter(d=>d.querySelector('.deck-n')).length,
+        num:document.querySelectorAll('.tab h1').length, numbers:decks.filter(d=>d.querySelector('.deck-n')).length,
         stages:decks.filter(d=>d.querySelector('.deck-stage')).length,
         captions:decks.filter(d=>d.closest('.tab')?.dataset.tab!=='estudio' && d.querySelector('.deck-parts')).length,
         study:document.getElementById('studyTotal')!==null,
-        descriptions:details.length,closed:details.every(d=>!d.open),
+        guidance: ['nueva york','máximo anterior','últimas 20 operaciones','saldo previo','stops','ganancia acumulada','con el mismo p&l neto','sin precio'].every(fragment => details.some(d => d.textContent.toLowerCase().includes(fragment))),
+        settingsHelp: !!document.getElementById('settingsHelpOpen') && !!document.querySelector('#appearanceAdvanced:not([open])'),
+        closed:details.every(d=>!d.open),
         styleCount:document.querySelectorAll('style').length
       };
     });
     check(init.num===11&&init.numbers===0&&init.stages===0&&init.captions===0&&init.study,
       width+'px · eleven clean page headings and real Study counters',JSON.stringify(init));
-    check(init.descriptions===10&&init.closed&&init.styleCount===5,
-      width+'px · ten optional explanations, no extra CSS layer');
+    check(init.guidance&&init.settingsHelp&&init.closed&&init.styleCount===5,
+      width+'px · original calculation guidance and Settings help remain available, no extra CSS layer');
     if(width===1440){
       for(const tab of tabs){
         await page.locator('#tabnav > .tabbtn[data-tab="'+tab+'"]').click();
         const value=await page.evaluate(tab=>{
           const area=document.querySelector('.tab[data-tab="'+tab+'"]');
-          const head=area?.querySelector('.deck .deck-t');
+          const head=area?.querySelector('h1');
           return {active:area?.classList.contains('active'),
             title:head?.textContent.trim(),visible:head?getComputedStyle(head).display!=='none':false};
         },tab);
@@ -63,7 +65,9 @@ try {
     check(await page.evaluate(() => document.body.dataset.help === 'on'),
       width+'px · one-click education is available');
     await page.locator('#tabnav .tabbtn[data-tab="futuros"]').click();
-    const why=page.locator('.tab[data-tab="futuros"] details.cab-why:visible').first();
+    const why=page.locator('.tab[data-tab="futuros"] details.cab-why').first();
+    const ancestors=why.locator('xpath=ancestor::details');
+    for(let i=0;i<await ancestors.count();i++){const detail=ancestors.nth(i);if(!(await detail.evaluate(el=>el.open)))await detail.locator(':scope > summary').click();}
     check(await why.count()===1&&await why.getAttribute('open')===null,
       width+'px · help text collapsed by default');
     await why.locator('summary').click();

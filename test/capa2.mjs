@@ -283,7 +283,8 @@ console.log('\n═══ 8 · ningún var(--x) que no exista ═══');
 
    Un fallo que no deja hueco es el más caro de todos, así que aquí se mira el
    CSS entero y no sólo lo que acabo de tocar. */
-const css = (html.match(/<style>([\s\S]*?)<\/style>/g) || []).join('\n');
+// Include named style blocks too: shared tokens can cross an existing block boundary.
+const css = (html.match(/<style\b[^>]*>([\s\S]*?)<\/style>/g) || []).join('\n');
 const definidos = new Set([...css.matchAll(/(--[a-z0-9-]+)\s*:/gi)].map(m => m[1]));
 /* Los que llegan de fuera del CSS: el navegador, o una variable puesta por JS. */
 const DEL_NAVEGADOR = new Set(['--safe-b', '--safe-t']);

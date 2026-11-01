@@ -1165,10 +1165,18 @@
   /* null = no elegido. Nunca se devuelve "es" por defecto: eso lo decide quien
      pregunta, y así la ausencia sigue siendo visible. */
   function idiomaLee() { try { const v = localStorage.getItem(IDIOMA_KEY); return v === "en" || v === "es" ? v : null; } catch (e) { return null; } }
-  function idiomaGuarda(v) { try { localStorage.setItem(IDIOMA_KEY, v); } catch (e) { } }
+  function idiomaGuarda(v) { try { localStorage.setItem(IDIOMA_KEY, v); return true; } catch (e) { return false; } }
   /* El idioma EFECTIVO: lo elegido, y si no hay nada, español. */
   function idioma() { return idiomaLee() || "es"; }
   const I18N_EN = {
+    "Apariencia": "Appearance", "Preferencias": "Preferences", "Datos": "Data",
+    "Ayuda y atajos": "Help and shortcuts", "Tu espacio de trabajo": "Your workspace",
+    "Fuente": "Font", "Texto": "Text", "Pequeño": "Small", "Normal": "Normal", "Grande": "Large",
+    "Equilibrada": "Balanced", "Aplicar": "Apply", "Datos y respaldos": "Data and backups",
+    "Exportar copia": "Export backup", "Incluir capturas": "Include screenshots",
+    "Restaurar una copia": "Restore backup", "Abrir demo": "Open demo", "Salir de demo": "Exit demo",
+    "Explorar la demo": "Explore demo", "Entrar en demo": "Enter demo", "Opciones avanzadas": "Advanced options",
+    "Opciones de respaldo": "Backup options", "Qué se traduce": "What gets translated",
     "Entiende tus números": "Understand your numbers",
     "Ayuda contextual": "Contextual help",
     "Preferencias sólo de este navegador.": "Preferences for this browser only.",
@@ -1525,11 +1533,7 @@
          es proteger el reloj del resto. */
       if (document.documentElement.getAttribute("lang") !== lang) document.documentElement.setAttribute("lang", lang);
       const b = document.getElementById("idiomaBtn");
-      if (b) {
-        const et = lang === "en" ? "ES" : "EN", ap = lang === "en" ? "true" : "false";
-        if (b.textContent !== et) b.textContent = et;
-        if (b.getAttribute("aria-pressed") !== ap) b.setAttribute("aria-pressed", ap);
-      }
+      if (b && b.value !== lang) b.value = lang;
     } finally { i18nEscribiendo = false; }
   }
   /* NO HAY OBSERVADOR, Y ES A PROPÓSITO.
@@ -1552,8 +1556,12 @@
   function i18nArranca() {
     traduce(idioma());
     const b = document.getElementById("idiomaBtn");
-    if (b) b.addEventListener("click", () => {
-      const v = idioma() === "en" ? "es" : "en"; idiomaGuarda(v); traduce(v);
+    if (b) b.addEventListener("change", () => {
+      const v = b.value;
+      const status = document.getElementById("languageStatus");
+      if (!idiomaGuarda(v)) { b.value = idioma(); status.textContent = "No se pudo guardar el idioma. Reintenta la selección."; status.classList.add("bad"); return; }
+      status.textContent = v === "en" ? "Saved on this device" : "Guardado en este dispositivo";
+      status.classList.remove("bad"); traduce(v);
       repintaEstadisticas(); renderDiscipline();
       if (window.CabinaExperience) window.CabinaExperience.refresh();
       if (state.tab === "futuros") renderFutures();
@@ -2504,19 +2512,22 @@
   const viewPrefsList = document.getElementById("viewPrefsList");
   let viewPrefsReturnFocus = null;
   function readViewPrefs() {
+    if (volatileViewPrefs) return structuredClone(volatileViewPrefs);
     try {
       const raw = JSON.parse(localStorage.getItem(VIEW_PREF_KEY) || "{}");
-      return { density: raw.density === "compact" ? "compact" : "comfortable", help: raw.help === true, hidden: raw.hidden && typeof raw.hidden === "object" ? raw.hidden : {}, columns: raw.columns && typeof raw.columns === "object" ? raw.columns : {} };
-    } catch { return { density: "comfortable", help: false, hidden: {}, columns: {} }; }
+      return { density: raw.density === "compact" ? "compact" : "comfortable", help: raw.help === true, hidden: raw.hidden && typeof raw.hidden === "object" ? raw.hidden : {}, columns: raw.columns && typeof raw.columns === "object" ? raw.columns : {}, pages: raw.pages && typeof raw.pages === "object" ? raw.pages : {}, saved: Array.isArray(raw.saved) ? raw.saved.filter(v => v && typeof v.name === "string" && typeof v.tab === "string" && v.prefs).slice(0,20) : [] };
+    } catch { return { density: "comfortable", help: false, hidden: {}, columns: {}, pages: {}, saved: [] }; }
   }
+  let volatileViewPrefs = null;
   function writeViewPrefs(prefs) {
+    volatileViewPrefs = prefs;
     try { localStorage.setItem(VIEW_PREF_KEY, JSON.stringify(prefs)); return true; }
     catch { const note = document.getElementById("viewPrefsNote"); if (note) note.textContent = "No se pudieron guardar las preferencias en este navegador. La vista actual sigue funcionando hasta recargar."; return false; }
   }
   function viewCandidates(tabName) {
     const tab = Array.from(document.querySelectorAll(".tab")).find(el => el.dataset.tab === tabName);
     if (!tab) return [];
-    const selectors = ".panel, .study-panel, .deck, .study-toolbar, #studyGrid";
+    const selectors = ".panel, .study-panel, .deck, .study-toolbar, #studyGrid, [data-view-key]";
     return Array.from(tab.querySelectorAll(selectors)).filter(el => {
       if (el.id === "mxLearnPanel") return false; // lo controla Ayuda, no dos preferencias incompatibles
       if (el.classList.contains("panel") && el.closest(".panel") !== el) return false;
@@ -2527,6 +2538,7 @@
     });
   }
   function viewKey(el, tabName, index) {
+    if (el.dataset.viewKey) return el.dataset.viewKey;
     if (el.id) return el.id;
     const cls = Array.from(el.classList).filter(c => ["panel","study-panel","deck","study-toolbar"].includes(c)).join("-") || el.tagName.toLowerCase();
     if (cls === "deck" || cls === "study-toolbar") return tabName + ":" + cls;
@@ -2534,13 +2546,36 @@
     return tabName + ":" + cls + ":" + (label || index);
   }
   function viewLabel(el, index) {
-    const h = el.querySelector(":scope > header h1, :scope > header h2, :scope > header h3, :scope > h1, :scope > h2, :scope > h3, .deck-t, h3, .study-note");
+    if (el.dataset.viewLabel) return el.dataset.viewLabel;
+    const h = el.querySelector(":scope > header h1, :scope > header h2, :scope > header h3, :scope > h1, :scope > h2, :scope > h3, :scope > summary, .deck-t, h3, .study-note");
     const label = (h?.textContent || el.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim();
     return label || ("Módulo " + (index + 1));
   }
 
+  // Old headings could include the selected trade or flashcard position.
+  // Read those aliases without rewriting the user's stored or saved views.
+  function viewKeys(el, tabName, index) {
+    const keys = [viewKey(el, tabName, index)];
+    const heading = el.dataset.viewLegacyHeading && el.querySelector(el.dataset.viewLegacyHeading);
+    if (heading) keys.push(tabName + ":study-panel:" + heading.textContent.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
+    return keys;
+  }
+
   function viewTableKey(table, tabName, index) {
     if (table.id) return table.id;
+    if (tabName === "invest") {
+      const accounts = table.closest("#ivAccountsPanel");
+      if (accounts) return "ivAccountsPanel:table:" + Array.from(accounts.querySelectorAll("table")).indexOf(table);
+      // Keep the original DOM order used by v1 preferences: the overview and
+      // analysis preceded the journal and market details. Sort existing tables,
+      // including optional position histories, without migrating an index to a
+      // different table when the layout changes.
+      const roots = ["ivAccountsPanel", "ivTocar", "ivAllocTable", "ivPerfWrap", "ivFlowWrap", "ivIncWrap", "ivVerdict", "ivScore", "ivOps", "mDetail"];
+      const tables = Array.from(table.closest(".tab").querySelectorAll("table"));
+      const order = t => { const n = roots.findIndex(id => t.closest("#" + id)); return n < 0 ? roots.length : n; };
+      const original = tables.map((t, i) => ({ t, i, order: order(t) })).sort((a, b) => a.order - b.order || a.i - b.i);
+      return "invest:table:" + original.findIndex(item => item.t === table);
+    }
     const panel = table.closest(".panel, .study-panel");
     if (panel?.id) return panel.id + ":table:" + Array.from(panel.querySelectorAll("table")).indexOf(table);
     return tabName + ":table:" + index;
@@ -2567,9 +2602,28 @@
       });
     }
   }
+  const disclosureViewPrefs = new WeakMap();
+  function applyDisclosureView(el, name, index, folded) {
+    const prior = disclosureViewPrefs.get(el);
+    if (!prior || prior.folded !== folded) {
+      if (folded) el.open = false;
+      else if (prior?.folded) el.open = true;
+    }
+    disclosureViewPrefs.set(el, { folded });
+    if (prior) return;
+    el.addEventListener("toggle", () => {
+      const current = readViewPrefs(), config = current.pages[name] ||= {};
+      const set = new Set(config.folded || []), keys = viewKeys(el, name, index);
+      const before = [...set].join("\n");
+      keys.forEach(key => set.delete(key));
+      if (!el.open) set.add(keys[0]);
+      disclosureViewPrefs.set(el, { folded: !el.open });
+      if (before !== [...set].join("\n")) { config.folded = [...set]; writeViewPrefs(current); }
+    });
+  }
   function applyViewPrefs() {
     const prefs = readViewPrefs();
-    document.body.dataset.density = prefs.density;
+    document.body.dataset.density = window.CabinaAppearance.get().density;
     document.body.dataset.help = prefs.help ? "on" : "off";
     const toggle = document.getElementById("mxLearnToggle");
     if (toggle) {
@@ -2583,10 +2637,40 @@
     }
     for (const tab of document.querySelectorAll(".tab")) {
       const name = tab.dataset.tab || "cabina";
+      const page = prefs.pages[name] || {};
+      tab.dataset.viewLayout = ["single", "balanced"].includes(page.layout) ? page.layout : "original";
+      tab.dataset.viewCharts = ["small", "large"].includes(page.charts) ? page.charts : "original";
+      tab.dataset.viewText = page.text === "large" ? "large" : "normal";
+      const folded = new Set(Array.isArray(page.folded) ? page.folded : []);
       const hidden = new Set(Array.isArray(prefs.hidden[name]) ? prefs.hidden[name] : []);
       viewCandidates(name).forEach((el, i) => {
-        const key = viewKey(el, name, i);
-        el.classList.toggle("user-view-hidden", hidden.has(key));
+        const key = viewKey(el, name, i), keys = viewKeys(el, name, i);
+        const isFolded = keys.some(k => folded.has(k));
+        el.classList.toggle("user-view-hidden", keys.some(k => hidden.has(k)));
+        const native = el.tagName === "DETAILS";
+        el.classList.toggle("user-view-folded", !native && isFolded);
+        if (native) { applyDisclosureView(el, name, i, isFolded); return; }
+        const header = el.querySelector(":scope > header");
+        if (header && el.classList.contains("panel")) {
+          let button = header.querySelector(".view-fold-toggle");
+          if (!button) {
+            button = document.createElement("button"); button.type = "button";
+            button.className = "editbtn view-fold-toggle";
+            button.addEventListener("click", () => {
+              const current = readViewPrefs();
+              const config = current.pages[name] ||= {};
+              const set = new Set(config.folded || []);
+              const currentKeys = viewKeys(el, name, i);
+              if (currentKeys.some(k => set.has(k))) currentKeys.forEach(k => set.delete(k)); else set.add(key);
+              config.folded = [...set]; writeViewPrefs(current); applyViewPrefs();
+            });
+            header.append(button);
+          }
+          const foldLabel = isFolded ? "Expandir" : "Plegar";
+          if (button.textContent !== foldLabel) button.textContent = foldLabel;
+          button.setAttribute("aria-expanded", String(!isFolded));
+          button.setAttribute("aria-label", (isFolded ? "Expandir " : "Plegar ") + viewLabel(el, i));
+        }
       });
     }
     applyColumnPrefs();
@@ -2595,9 +2679,16 @@
     if (!viewPrefsRoot || !viewPrefsList) return;
     const tabName = state.tab || "cabina";
     const prefs = readViewPrefs();
-    document.querySelectorAll('input[name="viewDensity"]').forEach(r => { r.checked = r.value === prefs.density; });
+    document.querySelectorAll('input[name="viewDensity"]').forEach(r => { r.checked = r.value === window.CabinaAppearance.get().density; });
     const helpControl = document.getElementById("viewPrefsHelp");
     if (helpControl) helpControl.checked = prefs.help;
+    const page = prefs.pages[tabName] || {};
+    for (const [id, key] of [["viewLayout", "layout"], ["viewCharts", "charts"], ["viewText", "text"]]) {
+      document.getElementById(id).value = page[key] || (key === "text" ? "normal" : "original");
+    }
+    const saved = document.getElementById("viewSaved"); saved.replaceChildren();
+    const placeholder = new Option("Elegir vista guardada", ""); saved.add(placeholder);
+    prefs.saved.forEach((v, i) => { if (v.tab === tabName) saved.add(new Option(v.name, String(i))); });
     viewPrefsList.replaceChildren();
     const candidates = viewCandidates(tabName);
     const hidden = new Set(Array.isArray(prefs.hidden[tabName]) ? prefs.hidden[tabName] : []);
@@ -2605,14 +2696,14 @@
       const p = document.createElement("p"); p.className = "view-prefs-note"; p.textContent = "Esta pestaña no tiene módulos configurables."; viewPrefsList.append(p);
     }
     candidates.forEach((el, i) => {
-      const key = viewKey(el, tabName, i);
+      const key = viewKey(el, tabName, i), keys = viewKeys(el, tabName, i);
       const label = document.createElement("label"); label.className = "view-prefs-item";
-      const input = document.createElement("input"); input.type = "checkbox"; input.checked = !hidden.has(key); input.dataset.viewPrefKey = key; input.setAttribute("aria-label", "Mostrar " + viewLabel(el, i));
+      const input = document.createElement("input"); input.type = "checkbox"; input.checked = !keys.some(k => hidden.has(k)); input.dataset.viewPrefKey = key; input.setAttribute("aria-label", "Mostrar " + viewLabel(el, i));
       const text = document.createElement("span"); text.textContent = viewLabel(el, i);
       const stateLabel = document.createElement("small"); stateLabel.textContent = input.checked ? "Visible" : "Oculto"; stateLabel.style.color = "var(--muted,#a5adbb)";
       input.addEventListener("change", () => {
         const current = readViewPrefs(); const list = new Set(Array.isArray(current.hidden[tabName]) ? current.hidden[tabName] : []);
-        if (input.checked) list.delete(key); else list.add(key);
+        if (input.checked) keys.forEach(k => list.delete(k)); else list.add(key);
         current.hidden[tabName] = Array.from(list); writeViewPrefs(current); applyViewPrefs(); stateLabel.textContent = input.checked ? "Visible" : "Oculto";
       });
       label.append(input, text, stateLabel); viewPrefsList.append(label);
@@ -2688,20 +2779,73 @@
     viewPrefsRoot.hidden = true; document.body.style.overflow = "";
     if (viewPrefsReturnFocus && typeof viewPrefsReturnFocus.focus === "function") viewPrefsReturnFocus.focus();
   }
-  /* Los enlaces del inventario de Ajustes, con UN solo oyente delegado en el
-     documento: son siete botones que sólo llaman a showTab, y siete oyentes
-     para eso es cromo que hay que recordar desenganchar. */
-  document.addEventListener("click", e => {
-    const b = e.target.closest("[data-ajuste-ir]");
-    if (b) showTab(b.dataset.ajusteIr);
+  /* Local navigation and native dialogs share focus, Escape and keyboard behavior. */
+  const settingsTabs = [...document.querySelectorAll('.settings-tabs [role="tab"]')];
+  function selectSettingsTab(button, focus = false) {
+    settingsTabs.forEach(tab => {
+      const active = tab === button;
+      tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1;
+      document.getElementById(tab.getAttribute('aria-controls')).hidden = !active;
+    });
+    if (focus) button.focus();
+  }
+  settingsTabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => selectSettingsTab(tab));
+    tab.addEventListener('keydown', event => {
+      let next;
+      if (event.key === 'ArrowRight') next = (index + 1) % settingsTabs.length;
+      else if (event.key === 'ArrowLeft') next = (index + settingsTabs.length - 1) % settingsTabs.length;
+      else if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = settingsTabs.length - 1;
+      else return;
+      event.preventDefault(); selectSettingsTab(settingsTabs[next], true);
+    });
   });
+  function openSettingsDialog(id) {
+    const dialog = document.getElementById(id);
+    if (!dialog || dialog.open) return;
+    dialog.showModal();
+    if (id === 'settingsHelp') document.getElementById('settingsHelpSearch').focus();
+  }
+  document.querySelectorAll('.settings-dialog').forEach(dialog => {
+    dialog.setAttribute('aria-labelledby', dialog.id + 'Title');
+    const heading = dialog.querySelector('h2'); if (heading) heading.id = dialog.id + 'Title';
+    dialog.querySelectorAll('[data-settings-close]').forEach(button => button.addEventListener('click', () => dialog.close()));
+  });
+  document.getElementById('settingsHelpOpen').addEventListener('click', () => openSettingsDialog('settingsHelp'));
+  document.getElementById('bkExportOpen').addEventListener('click', () => { renderBackup(); openSettingsDialog('settingsExport'); });
+  document.getElementById('bkImportOpen').addEventListener('click', () => { renderBackup(); openSettingsDialog('settingsImport'); });
+  document.getElementById('settingsHelpSearch').addEventListener('input', event => {
+    const normalize = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const term = normalize(event.target.value); let count = 0;
+    document.querySelectorAll('.settings-help-entry').forEach(entry => {
+      entry.hidden = !normalize(entry.textContent).includes(term); if (!entry.hidden) count++;
+    });
+    document.getElementById('settingsHelpEmpty').hidden = count > 0;
+  });
+  document.getElementById('settingsViewOpen').addEventListener('click', () => {
+    document.getElementById('settingsHelp').close(); openViewPrefs();
+  });
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-ajuste-ir]'); if (!b) return;
+    document.getElementById('settingsHelp').close(); showTab(b.dataset.ajusteIr);
+    if (b.dataset.ajusteView) setFtView(b.dataset.ajusteView);
+    requestAnimationFrame(() => {
+      const target = document.getElementById(b.dataset.ajusteFocus) || document.querySelector('.tab.active h1');
+      if (target) { target.setAttribute('tabindex', '-1'); target.focus({ preventScroll: true }); target.scrollIntoView({ block: 'start' }); }
+    });
+  });
+  document.addEventListener('cabina:appearance', () => applyViewPrefs());
+
   document.getElementById("viewPrefsOpen").addEventListener("click", openViewPrefs);
   document.getElementById("viewPrefsClose").addEventListener("click", closeViewPrefs);
   document.getElementById("viewPrefsDone").addEventListener("click", closeViewPrefs);
   viewPrefsRoot.querySelectorAll("[data-view-close]").forEach(el => el.addEventListener("click", closeViewPrefs));
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !viewPrefsRoot.hidden) closeViewPrefs(); });
   document.querySelectorAll('input[name="viewDensity"]').forEach(r => r.addEventListener("change", () => {
-    if (!r.checked) return; const prefs = readViewPrefs(); prefs.density = r.value; writeViewPrefs(prefs); applyViewPrefs();
+    if (!r.checked) return;
+    if (!window.CabinaAppearance.setDensity(r.value)) { document.getElementById("viewPrefsNote").textContent = "No se pudo guardar la densidad. Reintenta la selección."; applyViewPrefs(); return; }
+    const prefs = readViewPrefs(); prefs.density = r.value; writeViewPrefs(prefs); applyViewPrefs();
   }));
   document.getElementById("viewPrefsHelp").addEventListener("change", e => {
     const prefs = readViewPrefs();
@@ -2716,10 +2860,60 @@
     applyViewPrefs();
   });
   document.getElementById("viewPrefsReset").addEventListener("click", () => {
-    const prefs = readViewPrefs(); const tabName = state.tab || "cabina"; delete prefs.hidden[tabName]; delete prefs.columns[tabName]; writeViewPrefs(prefs); applyViewPrefs(); renderViewPrefs();
+    const prefs = readViewPrefs(); const tabName = state.tab || "cabina"; delete prefs.pages[tabName]; delete prefs.hidden[tabName]; delete prefs.columns[tabName]; writeViewPrefs(prefs); applyViewPrefs(); renderViewPrefs();
+  });
+  for (const [id, key] of [["viewLayout", "layout"], ["viewCharts", "charts"], ["viewText", "text"]]) {
+    document.getElementById(id).addEventListener("change", event => {
+      const prefs = readViewPrefs(); const config = prefs.pages[state.tab || "cabina"] ||= {};
+      config[key] = event.target.value; writeViewPrefs(prefs); applyViewPrefs();
+    });
+  }
+  const viewStatus = message => { document.getElementById("viewSavedStatus").textContent = message; };
+  document.getElementById("viewSave").addEventListener("click", () => {
+    const input = document.getElementById("viewName"); const name = input.value.trim().slice(0,60);
+    if (!name) { viewStatus("Escribe un nombre para esta vista."); input.focus(); return; }
+    const prefs = readViewPrefs(); const tab = state.tab || "cabina";
+    const snapshot = { name, tab, prefs: { page: prefs.pages[tab] || {}, hidden: prefs.hidden[tab] || [], columns: prefs.columns[tab] || {}, density: window.CabinaAppearance.get().density, help: prefs.help } };
+    const index = prefs.saved.findIndex(v => v.tab === tab && v.name === name);
+    if (index >= 0) { viewStatus("Ese nombre ya existe. Usa otro nombre para conservar ambas vistas."); return; }
+    if (prefs.saved.length >= 20) { viewStatus("Puedes guardar hasta 20 vistas. Elimina una antes de continuar."); return; }
+    prefs.saved.push(structuredClone(snapshot));
+    const stored = writeViewPrefs(prefs); input.value = ""; renderViewPrefs();
+    viewStatus(stored ? "Vista guardada en este navegador." : "No se pudo guardar. La vista está disponible sólo hasta recargar.");
+  });
+  document.getElementById("viewLoad").addEventListener("click", () => {
+    const prefs = readViewPrefs(); const value = document.getElementById("viewSaved").value;
+    const snapshot = value === "" ? null : prefs.saved[Number(value)];
+    if (!snapshot || snapshot.tab !== (state.tab || "cabina")) { viewStatus("Elige una vista de esta página."); return; }
+    const tab = snapshot.tab, data = structuredClone(snapshot.prefs);
+    prefs.pages[tab] = data.page || {}; prefs.hidden[tab] = data.hidden || []; prefs.columns[tab] = data.columns || {};
+    prefs.density = ["compact", "balanced", "comfortable"].includes(data.density) ? data.density : "comfortable";
+    if (!window.CabinaAppearance.setDensity(prefs.density)) { document.getElementById("viewPrefsNote").textContent = "No se pudo guardar la densidad de esta vista."; return; }
+    prefs.help = data.help === true;
+    const stored = writeViewPrefs(prefs); applyViewPrefs(); renderViewPrefs();
+    viewStatus(stored ? "Vista aplicada y guardada." : "Vista aplicada sólo hasta recargar.");
+  });
+  document.getElementById("viewDelete").addEventListener("click", () => {
+    const prefs = readViewPrefs(); const value = document.getElementById("viewSaved").value;
+    if (value === "") { viewStatus("Elige una vista para eliminar."); return; }
+    prefs.saved.splice(Number(value), 1); const stored = writeViewPrefs(prefs); renderViewPrefs();
+    viewStatus(stored ? "Vista eliminada. La distribución actual se conserva." : "No se pudo guardar la eliminación.");
+  });
+  viewPrefsRoot.addEventListener("keydown", event => {
+    if (event.key !== "Tab") return;
+    const controls = [...viewPrefsRoot.querySelectorAll("button, input, select, [tabindex]")].filter(el => !el.disabled && el.getClientRects().length);
+    const first = controls[0], last = controls.at(-1);
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === viewPrefsRoot.querySelector(".view-prefs-dialog"))) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  });
+  addEventListener("storage", event => {
+    if (event.key === VIEW_PREF_KEY || event.key === null) { volatileViewPrefs = null; applyViewPrefs(); if (!viewPrefsRoot.hidden) renderViewPrefs(); }
   });
   applyViewPrefs();
-  const viewColumnObserver = new MutationObserver(() => applyColumnPrefs());
+  // Dynamic market and review modules must receive the same stored visibility
+  // as static panels. Child-list changes settle after fold buttons are added;
+  // presentation attributes are deliberately not observed.
+  const viewColumnObserver = new MutationObserver(() => applyViewPrefs());
   document.querySelectorAll(".tab").forEach(tab => viewColumnObserver.observe(tab, { childList: true, subtree: true }));
 
 
@@ -3093,6 +3287,7 @@
     const nombre = sesShort(sesSel());
     sv.textContent = `Guardar pre-sesión de ${nombre}`;
     b.hidden = !pre; sv.hidden = !!pre; ro.hidden = !pre;
+    syncPreparationDisclosure(pre);
     if (!pre) return;
     const miss = pre.total - pre.done;
     const hora = fmtHM.format(new Date(pre.at));
@@ -3180,6 +3375,36 @@
     preFlash(`${sesShort(id)}: reabierta, la lista vuelve a ser editable`);
   });
 
+  function syncPreparationDisclosure(pre) {
+    const detail = $("rulesDetails"); if (!detail) return;
+    const danger = !!$("rules").querySelector(".rulec.bad, .rulec.warn, .rulec.unset");
+    const complete = !!pre && pre.done === pre.total;
+    const key = state.today + ":" + sesSel() + ":" + complete + ":" + !!state.editing + ":" + danger;
+    if (detail.dataset.presentationKey !== key) {
+      detail.open = !complete || !!state.editing || danger;
+      detail.dataset.presentationKey = key;
+    }
+  }
+
+  document.addEventListener("toggle", e => {
+    if (e.target.open && e.target.matches(".cab-analytics-fold, .cab-more-charts, #ivAnalysis")) requestAnimationFrame(() => redrawCharts());
+  }, true);
+
+  // Shared metric composition: unchanged values, primary figures then optional detail.
+  function groupMetrics(id, primary, selector, label) {
+    const root = $(id); if (!root) return;
+    const items = [...root.children].filter(el => el.matches(selector));
+    if (!items.length) return;
+    const overview = document.createElement("div"); overview.className = "metric-overview";
+    const details = document.createElement("details"); details.className = "ui-disclosure";
+    details.open = root.dataset.detailsOpen === "true";
+    const summary = document.createElement("summary"); summary.textContent = label;
+    const secondary = document.createElement("div"); secondary.className = "metric-grid";
+    items.forEach((item, i) => (primary.includes(i) ? overview : secondary).append(item));
+    details.addEventListener("toggle", () => { root.dataset.detailsOpen = String(details.open); });
+    details.append(summary, secondary); root.replaceChildren(overview, details);
+  }
+
   /* ---------- rules ---------- */
   const rulesEl = $("rules");
   function renderRules() {
@@ -3239,6 +3464,7 @@
     const hint = $("rulesHint");
     if (hint) { const sinRol = rules.filter(r => !r.role).length;
       hint.textContent = sinRol ? `${plu(sinRol, "regla no tiene rol", "reglas no tienen rol")} asignado, así que la cabina no puede vigilarla${sinRol === 1 ? "" : "s"} sola${sinRol === 1 ? "" : "s"}.` : "Todas las reglas están conectadas al motor: la cabina las vigila sola con las operaciones del día."; }
+    syncPreparationDisclosure(curPre());
   }
   function fmtNum(v) { const n = Number(v) || 0; return n.toLocaleString("en-US"); }
   function rvinW(v) { return Math.max(2, String(v == null ? "" : v).length) + 0.8 + "ch"; }
@@ -3278,6 +3504,7 @@
       const t = el.querySelector(".rvt"); if (t && r.role === "instrument") t.textContent = k.allow.length ? k.allow.join(" · ") : "—";
     });
     pintaCabeceraReglas(k);
+    syncPreparationDisclosure(curPre());
   }
 
   rulesEl.addEventListener("input", e => {
@@ -3962,6 +4189,11 @@
     const viejo = dias > DIAS_CONTRATO_VIEJO;
     return `<span class="kind cttr ${viejo ? "warn" : ""}" title="Reglas verificadas el ${esc(r.verifiedAt)}${nombre ? " · " + esc(nombre) : ""}${res.origen === "anclada" ? " · esta cuenta está anclada a esta versión: una versión nueva de la firma no la cambia" : ""}">${url} ${dias <= 0 ? "verificado hoy" : `hace ${plu(dias, "día", "días")}`}${sufijo}</span>`;
   }
+  const accountAnalysisOpen = new Set();
+  document.addEventListener("toggle", e => {
+    const id = e.target.dataset?.accountAnalysis;
+    if (id) { if (e.target.open) accountAnalysisOpen.add(id); else accountAnalysisOpen.delete(id); }
+  }, true);
   function acctCard(a, i, n) {
     const c = consistency(a), ev = evaluateAccountRules(a);
     const g = ev.agg, t = ev.today, r = ev.risk, d = ev.dd, ce = ev.cons, cap = gainCap(c);
@@ -4114,7 +4346,7 @@
     </div>`;
 
     const acciones = `<div class="acc-acts">
-      <button type="button" class="btn primary sm" data-act="newtrade">+ Operación</button>
+      <button type="button" class="btn primary sm" data-act="newtrade">Registrar operación</button>
       <button type="button" class="btn sm ghost" data-act="journal">Journal</button>
       <button type="button" class="btn sm ghost" data-act="playbook">Playbook</button>
       <button type="button" class="btn sm ghost" data-act="risk">Calculadora de riesgo</button>
@@ -4129,7 +4361,9 @@
     </div>`;
 
     return `<article class="acct ${vivaLa(a) ? "" : estadoDe(a) === "quemada" ? "burned" : "paused"}" data-id="${a.id}">
-      ${head}${veredicto}${figs}${metrics}${abajo}${acciones}${orden}
+      ${head}${veredicto}${figs}${metrics}${acciones}
+      <details class="ui-disclosure" data-account-analysis="${esc(a.id)}" ${accountAnalysisOpen.has(a.id) ? "open" : ""}><summary>Gráficos y últimas operaciones</summary>${abajo}</details>
+      ${orden}
     </article>`;
   }
   function ddNote(a) {
@@ -4155,9 +4389,7 @@
         acctOptions().map(([v, l]) => `<option value="${esc(v)}"${FUT.selectedAccountId() === v ? " selected" : ""}>${esc(l)}</option>`).join("");
     }
     if (!accts.length) {
-      acctsEl.innerHTML = vacio("Sin cuentas registradas",
-        "Con la firma, el tamaño y el drawdown ya salen el colchón, la consistencia y el riesgo de hoy.",
-        "+ Añadir cuenta", "addacct");
+      acctsEl.innerHTML = vacio("Sin cuentas registradas", "Añade una cuenta para ver sus límites y el riesgo de hoy.");
       return;
     }
     /* La cuenta seleccionada se marca y sube arriba. No se ocultan las demás: la
@@ -4560,7 +4792,7 @@
       <div class="tile"><span class="lab">Neto</span><div class="v ${net > 0 ? "good" : net < 0 ? "bad" : ""}">${logged.length ? money(net) : "—"}</div><div class="s">suma de resultados</div></div>`;
     $("histMeta").textContent = h.length ? `${h[h.length - 1].date} → ${h[0].date}` : "";
     const wrap = $("histWrap");
-    if (!h.length) { wrap.innerHTML = `<p class="empty">Todavía no hay sesiones cerradas. La primera fila aparece cuando pulses <code>Cerrar sesión de hoy</code>. Una cabina vacía durante una semana dice más que cualquier backtest.</p>`; return; }
+    if (!h.length) { wrap.innerHTML = `<p class="empty">Sin sesiones cerradas. Aparecerán al cerrar tu sesión.</p>`; return; }
     wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th class="r">Resultado</th><th class="r">Ops</th><th class="r">Pre</th><th>Regla</th><th>Nota</th><th></th></tr></thead><tbody>${h.map(d => { const r = d.result == null ? null : Number(d.result); return `<tr data-date="${d.date}"><td><span class="dim">${dowOf(d.date)}</span> ${d.date.slice(5)}</td><td class="r ${r > 0 ? "pos" : r < 0 ? "neg" : ""}">${r == null ? "—" : money(r)}</td><td class="r">${d.trades == null ? "—" : d.trades}</td>${preCell(d)}<td>${d.broke ? '<span class="neg">rota</span>' : '<span class="dim">ok</span>'}</td><td class="notes">${d.synthetic ? '<span class="dim">del journal de futuros</span>' : esc(d.note || "")}</td><td class="act">${d.synthetic ? "" : '<button type="button" class="icon del" data-act="del" title="Borrar esta sesión">×</button>'}</td></tr>`; }).join("")}</tbody></table>`;
   }
   $("histWrap").addEventListener("click", async e => {
@@ -7641,7 +7873,7 @@
   function paintGateButtons() {
     const g = tradeGate();
     const tit = g.blocked ? "Fuera de protocolo: " + g.razones.map(r => r.t).join(" · ") : "";
-    [["ftNew", "+ Nueva operación"], ["qtGo", "+ Registrar"]].forEach(([id, txt]) => {
+    [["ftNew", "Registrar operación"], ["qtGo", "Registrar operación"]].forEach(([id, txt]) => {
       const b = $(id); if (!b) return;
       b.classList.toggle("gated", g.blocked);
       b.title = tit;
@@ -9242,10 +9474,12 @@
       <div class="tile"><span class="lab">R acumulada</span><div class="v ${s.totalR > 0 ? "good" : s.totalR < 0 ? "bad" : ""}">${s.closed ? (s.totalR >= 0 ? "+" : "") + s.totalR.toFixed(1) + "R" : "—"}</div><div class="s">${s.avgR == null ? "sin stops registrados" : "media " + (s.avgR >= 0 ? "+" : "") + s.avgR.toFixed(2) + "R"}</div></div>
       <div class="tile"><span class="lab">Mejor / peor día</span><div class="v dual"><span class="pos">${s.bestDay != null ? money(s.bestDay) : "—"}</span> <span style="color:var(--dim)">/</span> <span class="neg">${s.worstDay != null ? money(s.worstDay) : "—"}</span></div><div class="s">${plu(s.days, "día operado", "días operados")}</div></div>
       <div class="tile"><span class="lab">Concentración</span><div class="v ${s.bestShare != null && cons && s.bestShare > cons.L ? "bad" : ""}">${s.bestShare == null ? "—" : pct(s.bestShare)}</div><div class="s">${cons ? `mejor día ÷ ganancia · límite ${pct(cons.L)}` : "mejor día ÷ ganancia total"}</div></div>`;
+    groupMetrics("ftTiles", [0, 4, 6], ".tile", "Más métricas");
+    $("ftSampleNote").textContent = s.closed < 20 ? `Muestra insuficiente: ${plu(s.closed, "operación cerrada", "operaciones cerradas")}. Aún no permite evaluar una ventaja.` : `${plu(s.closed, "operación cerrada", "operaciones cerradas")} · P&L neto`;
     const sf2 = $("ftAcct"); sf2.innerHTML = `<option value="">todas las cuentas</option>` + acctOptions().map(([v, l]) => `<option value="${esc(v)}" ${ft.acct === v ? "selected" : ""}>${esc(l)}</option>`).join("") + `<option value="__none" ${ft.acct === "__none" ? "selected" : ""}>sin cuenta asignada</option>`;
     const noAcct = all.filter(t => !t.accountId || !acctById(t.accountId)).length;
     $("ftSync").className = "synced" + (noAcct ? " manual" : "");
-    $("ftSync").innerHTML = `<span class="dotg"></span><span>${all.length ? `${plu(all.length, "operación de futuros", "operaciones de futuros")} · ${plu(brokeN, "día", "días")} con regla rota en las últimas ${plu(hist.length, "sesión", "sesiones")} · la Cabina, el calendario y las cuentas leen todos de aquí.` : "Sin operaciones todavía. Lo que registres aquí alimenta la Cabina, el calendario y la consistencia de cada cuenta."}</span>${noAcct ? `<span style="color:var(--warn)">${noAcct} sin cuenta asignada</span><button type="button" id="ftFixAcct">asignar en bloque</button>` : ""}`;
+    $("ftSync").innerHTML = `<span class="dotg"></span><span>${all.length ? `${plu(all.length, "operación de futuros", "operaciones de futuros")} · ${plu(brokeN, "día", "días")} con regla rota en las últimas ${plu(hist.length, "sesión", "sesiones")}` : "Añade tu primera operación."}</span>${noAcct ? `<span style="color:var(--warn)">${noAcct} sin cuenta asignada</span><button type="button" id="ftFixAcct">asignar en bloque</button>` : ""}`;
     const fx = $("ftFixAcct"); if (fx) fx.addEventListener("click", bulkAssignAccount);
     renderQE();
     try { paintGateButtons(); } catch (e) { }
@@ -10022,6 +10256,8 @@
     renderCuTabla(todas);
     renderCuPatron();
     renderCuAutopsias();
+    $("cuTablePanel").hidden = todas.length === 0;
+    $("cuAnalysis").hidden = !todas.some(a => estadoDe(a) === "quemada");
   }
   /* LA CAJA. El número que decide si esto es un negocio o un hobby caro, y el
      único sitio de la app donde el coste de las cuentas quemadas se resta de lo
@@ -10032,7 +10268,7 @@
     $("cuCajaMeta").textContent = e.cuentas ? plu(e.cuentas, "cuenta", "cuentas") + ` · ${e.quemadas} quemadas · ${e.vivas} vivas` : "";
     if (!e.cuentas) {
       $("cuCaja").innerHTML = "";
-      $("cuCajaNota").innerHTML = `<p class="empty">Sin cuentas registradas. Añade una en Cabina y aquí verás lo que te cuesta y lo que te deja.</p>`;
+      $("cuCajaNota").innerHTML = `<div class="ui-empty"><p>Sin cuentas registradas.</p><button type="button" class="btn primary" data-open-account>Añadir cuenta</button></div>`;
       $("cuFirmas").innerHTML = "";
       return;
     }
@@ -10044,7 +10280,7 @@
       kpi("Quemadas", String(e.quemadas), e.quemadas ? "bad" : "good", plu(e.cuentas, "cuenta en total", "cuentas en total"));
     /* El hueco se nombra, no se rellena con un cero que además sale a favor. */
     $("cuCajaNota").innerHTML = e.costeDesconocido
-      ? `<p class="note-p">No hay ni un movimiento de tipo <b>costo</b> apuntado, así que lo que llevas pagado en evaluaciones y resets <b>no se sabe</b> — y sin eso el neto no es calculable. No es cero: cero sería afirmar que las cuentas fueron gratis. Se apunta en la tarjeta de cada cuenta, en Movimientos.</p>`
+      ? `<p class="ui-status warn">Costes sin registrar: el neto no se puede calcular. Añádelos en Movimientos de cada cuenta.</p>`
       : e.caja < 0
         ? `<p class="note-p">Llevas <b>${money(-e.caja)}</b> de tu bolsillo. Eso no significa que el sistema no funcione; significa que todavía no ha pagado las cuentas que costó probarlo.</p>`
         : e.payouts > 0 ? `<p class="note-p">Neto positivo: lo cobrado ya cubre lo que costaron todas las cuentas, incluidas las quemadas.</p>` : "";
@@ -10094,7 +10330,7 @@
     const avisos = [];
     if (sinCompra) avisos.push(`${plu(sinCompra, "cuenta no tiene", "cuentas no tienen")} un movimiento de costo apuntado, así que no se sabe cuándo se compró ni qué costó`);
     if (sinFecha) avisos.push(`${plu(sinFecha, "quemada no tiene", "quemadas no tienen")} fecha de quema: se apunta en ⚙ Ajustes de la cuenta`);
-    $("cuTablaNota").innerHTML = `<p class="note-p" style="margin-top:12px"><b>«Operados»</b> son los días con operaciones registradas en esa cuenta, del primero al último — no de la compra a la quema, que es otra cosa y casi nunca está entera.${avisos.length ? ` ${avisos.join(". ")}.` : ""}</p>`;
+    $("cuTablaNota").innerHTML = (avisos.length ? `<p class="ui-status warn">${avisos.join(". ")}.</p>` : "") + `<details class="ui-disclosure"><summary>Qué cuenta como día operado</summary><p>«Operados» son los días con operaciones registradas, del primero al último; no el tiempo entre compra y quema.</p></details>`;
   }
   /* EL PATRÓN. Lo único de esta pestaña que enseña algo de verdad, porque es lo
      único que mira varias cuentas a la vez. Cuenta en CUÁNTAS cuentas aparece
@@ -10656,7 +10892,7 @@
         + (ventasSinAnotar ? ` · ${plu(ventasSinAnotar, "venta", "ventas")} sin anotar: su ganancia sale del coste medio, arriba` : "")
       : "";
     const wrap = $("ivOps");
-    if (!list.length) { wrap.innerHTML = `<p class="empty">Sin operaciones de inversión. Cada compra, venta, aporte o dividendo va aquí, separado de los futuros.</p>`; return; }
+    if (!list.length) { wrap.innerHTML = `<p class="empty">${ivj.setup ? "Sin operaciones con esta estrategia." : "Sin operaciones en esta cuenta. Registra una compra, venta, aporte o cobro."}</p>`; return; }
     wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Cuenta</th><th>Mercado</th><th>Activo</th><th>Op.</th><th class="r">Cant.</th><th class="r">Precio</th><th class="r">Total</th><th class="r">Resultado</th><th>Horiz.</th><th>Img</th><th>Tesis</th><th></th></tr></thead><tbody>${list.map(t => { const total = (t.qty || 0) * (t.price || 0); return `<tr data-id="${t.id}"><td>${esc(dmy(t.date))}</td><td class="ui">${esc(investmentAccountName(t.accountId))}</td><td class="ui">${esc(marketName(t.market))}</td><td>${esc(t.asset)}</td><td><span class="chip ${t.op === "compra" || t.op === "aporte" ? "inv" : t.op === "venta" ? "warn" : "good"}">${esc(t.op)}</span></td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.price != null ? money(t.price, 2) : "—"}</td><td class="r">${total ? money(total, 2) : "—"}</td><td class="r ${t.pnl > 0 ? "pos" : t.pnl < 0 ? "neg" : ""}">${t.pnl == null ? "—" : money(t.pnl, 2)}</td><td>${esc(t.horizon || "")}</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.note || "")}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button></td></tr>`; }).join("")}</tbody></table>`;
   }
   $("ivOps").addEventListener("click", e => {
@@ -10743,7 +10979,7 @@
         + ` · ${nFut} de futuros · ${total - nFut} de inversión`
       : "";
     if (!total) {
-      wrap.innerHTML = `<p class="empty">Sin operaciones que coincidan con estos filtros. Las de futuros se registran en Futuros y las de inversión en Inversiones; aquí se ven juntas.</p>`;
+      wrap.innerHTML = `<p class="empty">Sin operaciones en este filtro.</p>`;
       return;
     }
     const filas = visibles.map(t => {
@@ -11603,7 +11839,7 @@
     if (pb.q) items = items.filter(t => JSON.stringify([t.name, t.asset, t.tesis, t.hipotesis, t.leccion]).toLowerCase().includes(pb.q));
     const el = $("pbCards");
     if (!items.length) {
-      el.innerHTML = `<p class="empty">${coll("tesis").items.length ? "Nada con ese filtro." : "Sin tesis todavía. Pulsa <code>+ Nueva tesis</code>: se empieza por la ficha y el resumen en cinco líneas, y si no te salen claras la idea no está lista."}</p>`;
+      el.innerHTML = `<p class="empty">${coll("tesis").items.length ? "Nada con ese filtro." : "Sin tesis todavía. Crea una para preparar una operación concreta."}</p>`;
       return;
     }
     el.innerHTML = items.map(t => {
@@ -11727,12 +11963,12 @@
     const kind = pb.view, def = kindDef(kind), fam = def.family, inv = fam === "inversion";
     pintaPbNav();
     $("pbKindNote").textContent = def.note;
-    $("pbNew").textContent = "+ Nuevo en " + def.label;
+    $("pbNew").textContent = "+ Nueva estrategia";
     let items = pbSorted(kind);
     if (pb.status) items = items.filter(p => p.status === pb.status);
     if (pb.q) items = items.filter(p => JSON.stringify([p.name, p.market, p.tags, p.context, p.entry, p.notes]).toLowerCase().includes(pb.q));
     const el = $("pbCards");
-    if (!items.length) { el.innerHTML = `<p class="empty">${pbSorted(kind).length ? "Nada con ese filtro." : `Sin nada en ${def.label}. Pulsa <code>Desde plantilla</code> para empezar con una escrita, o <code>+ Nuevo en ${esc(def.label)}</code> para escribirla tú.`}</p>`; return; }
+    if (!items.length) { el.innerHTML = `<p class="empty">${pbSorted(kind).length ? "Nada con ese filtro." : `Sin estrategias de ${esc(def.label)}. Crea una o empieza desde una plantilla.`}</p>`; return; }
     const all = pbSorted(kind);
     el.innerHTML = items.map(p => {
       const idx = all.findIndex(x => x.id === p.id);
@@ -11740,20 +11976,22 @@
       const conds = pbConditions(p);
       if (fam === "futuros") { const st = futStats(trades); const full = conds.length ? trades.filter(t => t.setupChecks && conds.every((c, i) => t.setupChecks[i])).length : null; stats = `<span>ops <strong>${st.n}</strong></span><span>WR <strong>${st.wr == null ? "—" : pct(st.wr)}</strong></span><span>R prom. <strong>${st.avgR == null ? "—" : (st.avgR >= 0 ? "+" : "") + st.avgR.toFixed(2)}</strong></span><span>PF <strong>${st.pf == null ? "—" : st.pf.toFixed(2)}</strong></span><span>P&amp;L <strong class="${st.pnl > 0 ? "pos" : st.pnl < 0 ? "neg" : ""}">${st.closed ? money(st.pnl) : "—"}</strong></span>${full != null && st.n ? `<span>condiciones completas <strong class="${full / st.n >= .9 ? "pos" : full / st.n < .6 ? "neg" : ""}">${pct(full / st.n)}</strong></span>` : ""}`; }
       else { const invested = trades.filter(t => t.op === "compra" || t.op === "aporte").reduce((a, t) => a + (t.qty || 0) * (t.price || 0), 0); const real = trades.reduce((a, t) => a + (t.pnl || 0), 0); const income = trades.filter(t => t.op === "dividendo").reduce((a, t) => a + (t.pnl || 0), 0); stats = `<span>ops <strong>${trades.length}</strong></span><span>desplegado <strong>${invested ? money(invested) : "—"}</strong></span><span>cobrado <strong class="${income > 0 ? "pos" : ""}">${income ? money(income) : "—"}</strong></span><span>realizado <strong class="${real > 0 ? "pos" : real < 0 ? "neg" : ""}">${real ? money(real) : "—"}</strong></span>${invested && real ? `<span>sobre lo desplegado <strong class="${real > 0 ? "pos" : "neg"}">${(real / invested * 100).toFixed(1)}%</strong></span>` : ""}`; }
-      const kv = [["contexto", p.context], ["entrada", p.entry], [inv ? "salida" : "stop", p.stop], ["objetivo", p.target], ["gestión", p.management], ["invalida", p.invalidation], ["costes", p.costs], ["impuestos", p.taxes], ["edge", p.edge], ["A", p.gradeA], ["C", p.gradeC]].filter(x => x[1]);
+      const kv = [["entrada", p.entry], [inv ? "salida" : "stop", p.stop], ["objetivo", p.target], ["invalida", p.invalidation], ["costes", p.costs], ["impuestos", p.taxes]].filter(x => x[1]);
+      const rationale = [["contexto", p.context], ["gestión", p.management], ["edge", p.edge], ["ejecución A", p.gradeA], ["ejecución C", p.gradeC], ["notas", p.notes]].filter(x => x[1]);
       const imgs = (p.images || []).map((im, i) => `<figure class="pbimg" data-i="${i}"><img ${imgAttrs(im)} alt="${esc(im.caption || p.name)}" loading="lazy"><figcaption>${esc(im.caption || "sin nota")}</figcaption>${pb.assets ? `<button type="button" class="icon" data-act="imgcap" data-i="${i}" title="Escribir qué se ve" style="left:2px;right:auto">✎</button><button type="button" class="icon del" data-act="imgdel" data-i="${i}" title="Quitar captura">×</button>` : ""}</figure>`).join("");
       return `<div class="card ${p.status === "retirado" ? "retired" : ""}" data-id="${p.id}">
         <div class="ch"><h3>${esc(p.name)}${p.version > 1 ? ` <span class="chip">v${p.version}</span>` : ""}</h3><select class="pbst" data-act="status" aria-label="Estado" style="font-size:11px;padding:2px 22px 2px 6px">${PB_STATUS.map(([v, l]) => `<option value="${v}" ${p.status === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
         <div class="chips"><span class="chip ${inv ? "inv" : "fut"}">${esc(def.label)}</span>${p.market ? `<span class="chip">${esc(p.market)}</span>` : ""}${p.timeframe ? `<span class="chip">${esc(p.timeframe)}</span>` : ""}${p.window ? `<span class="chip">${esc(p.window)}</span>` : ""}${(p.tags || "").split(",").map(t => t.trim()).filter(Boolean).map(t => `<span class="chip">#${esc(t)}</span>`).join("")}</div>
         ${pbMetricsHtml(p, kind)}
         <div class="kv">${kv.map(([k, v]) => `<b>${k}</b><span>${esc(v)}</span>`).join("")}</div>
+        ${rationale.length ? `<details class="ui-disclosure"><summary>Contexto, gestión y notas</summary><div class="kv">${rationale.map(([k, v]) => `<b>${k}</b><span>${esc(v)}</span>`).join("")}</div></details>` : ""}
         ${conds.length ? `<div><b class="lab" style="margin:0 0 3px">Condiciones (${conds.length})</b><ol class="conds">${conds.map(c => `<li>${esc(c)}</li>`).join("")}</ol></div>` : ""}
         ${imgs ? `<div class="pbimgs">${imgs}</div>` : ""}
         ${p.changelog ? `<div class="stale">cambio: ${esc(p.changelog)}</div>` : ""}
         <div class="stats">${stats}</div>
         <div class="cf" style="justify-content:space-between;flex-wrap:wrap;gap:4px">
           <div class="tools"><button type="button" class="icon" data-act="up" title="Subir" ${idx <= 0 ? "disabled" : ""}>▲</button><button type="button" class="icon" data-act="down" title="Bajar" ${idx >= all.length - 1 ? "disabled" : ""}>▼</button><button type="button" class="icon del" data-act="del" title="Borrar">×</button></div>
-          <div class="tools">${pb.assets ? `<button type="button" class="btn sm ghost" data-act="img" title="Adjuntar una captura de ejemplo">+ Captura</button>` : ""}<button type="button" class="btn sm ghost" data-act="trade">+ Op.</button><button type="button" class="btn sm ghost" data-act="dup">Duplicar</button><button type="button" class="btn sm ghost" data-act="ver" title="Crea v${(p.version || 1) + 1} y archiva esta">Nueva versión</button><button type="button" class="btn sm" data-act="edit">Editar</button></div>
+          <div class="tools">${pb.assets ? `<button type="button" class="btn sm ghost" data-act="img" title="Adjuntar una captura de ejemplo">+ Captura</button>` : ""}<button type="button" class="btn sm ghost" data-act="trade">Registrar operación</button><button type="button" class="btn sm ghost" data-act="dup">Duplicar</button><button type="button" class="btn sm ghost" data-act="ver" title="Crea v${(p.version || 1) + 1} y archiva esta">Nueva versión</button><button type="button" class="btn sm" data-act="edit">Editar</button></div>
         </div>
       </div>`;
     }).join("");
@@ -11828,7 +12066,7 @@
   ];
   function openIdea(it) {
     const isNew = !it;
-    openEditor({ title: isNew ? "Nueva forma de hacer dinero" : "Editar", fields: IDEA_FIELDS, values: it || { status: "idea", category: IDEA_CATS[0], risk: "medio" },
+    openEditor({ title: isNew ? "Añadir oportunidad" : "Editar oportunidad", fields: IDEA_FIELDS, values: it || { status: "idea", category: IDEA_CATS[0], risk: "medio" },
       validate: v => v.name ? null : "Falta el nombre",
       onSave: v => { const rec = Object.assign({}, it || {}, v, { id: isNew ? uid("i") : it.id, createdAt: it ? it.createdAt : Date.now() }); coll("ideas").set(rec.id, rec); },
       onDelete: isNew ? null : () => coll("ideas").remove(it.id) });
@@ -11840,7 +12078,7 @@
     const order = { activa: 0, probando: 1, investigando: 2, idea: 3, descartada: 4 };
     items.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || (b.createdAt || 0) - (a.createdAt || 0));
     const el = $("idCards");
-    if (!items.length) { el.innerHTML = `<p class="empty">${coll("ideas").items.length ? "Nada con ese filtro." : "Vacío. Cada forma de hacer dinero que anotes tiene que traer capital, tiempo, riesgo y un próximo paso concreto."}</p>`; return; }
+    if (!items.length) { el.innerHTML = `<p class="empty">${coll("ideas").items.length ? "Nada con ese filtro." : "Sin oportunidades. Añade una idea que quieras evaluar."}</p>`; return; }
     el.innerHTML = items.map(i => `<div class="card ${i.status === "descartada" ? "retired" : ""}" data-id="${i.id}">
       <div class="ch"><h3>${esc(i.name)}</h3><span class="chip ${i.status === "activa" ? "good" : i.status === "probando" ? "warn" : i.status === "descartada" ? "bad" : ""}">${esc(i.status)}</span></div>
       <div class="chips"><span class="chip">${esc(i.category || "")}</span>${i.market ? `<span class="chip inv">${esc(i.market)}</span>` : ""}<span class="chip ${i.risk === "alto" || i.risk === "extremo" ? "bad" : i.risk === "medio" ? "warn" : "good"}">riesgo ${esc(i.risk || "")}</span></div>
@@ -11848,13 +12086,11 @@
         ${i.capital != null ? `<b>capital</b><span class="mono">${money(i.capital)}</span>` : ""}
         ${i.time != null ? `<b>tiempo</b><span class="mono">${i.time} h/sem</span>` : ""}
         ${i.returnExp ? `<b>retorno</b><span>${esc(i.returnExp)}</span>` : ""}
-        ${i.how ? `<b>cómo</b><span>${esc(i.how)}</span>` : ""}
-        ${i.why ? `<b>edge</b><span>${esc(i.why)}</span>` : ""}
         ${i.requirements ? `<b>requiere</b><span>${esc(i.requirements)}</span>` : ""}
         ${i.killCriteria ? `<b>descarte</b><span>${esc(i.killCriteria)}</span>` : ""}
-        ${i.source ? `<b>fuente</b><span>${esc(i.source)}</span>` : ""}
       </div>
-      <div class="stats">${i.next ? `<span>siguiente: <strong>${esc(i.next)}</strong></span>` : `<span class="neg">sin próximo paso — no es una idea, es un deseo</span>`}</div>
+      ${i.how || i.why || i.source || i.notes ? `<details class="ui-disclosure"><summary>Fundamento y notas</summary><div class="kv">${i.how ? `<b>cómo</b><span>${esc(i.how)}</span>` : ""}${i.why ? `<b>edge</b><span>${esc(i.why)}</span>` : ""}${i.source ? `<b>fuente</b><span>${esc(i.source)}</span>` : ""}${i.notes ? `<b>notas</b><span>${esc(i.notes)}</span>` : ""}</div></details>` : ""}
+      <div class="stats">${i.next ? `<span>siguiente: <strong>${esc(i.next)}</strong></span>` : `<span class="neg">Falta definir el próximo paso</span>`}</div>
       <div class="cf"><button type="button" class="btn sm ghost" data-act="edit">Editar</button></div>
     </div>`).join("");
   }
@@ -11889,8 +12125,7 @@
     const c = costeDeTocar();
     el.hidden = false;
     if (!c) {
-      el.innerHTML = `<div class="tocar"><div class="th"><h4>¿Cuánto te ha costado tocar?</h4></div>
-        <p>Cuando registres una venta, marca si fue <b>según tu plan</b> o una desviación. Aquí aparecerá lo que esas desviaciones han costado: qué valdrían hoy las unidades que vendiste frente a lo que te dieron. Sin desviaciones marcadas no hay nada que medir — y eso es la mejor noticia posible.</p></div>`;
+      el.innerHTML = `<details class="ui-disclosure"><summary>Coste de salir del plan</summary><p>Marca si cada venta siguió tu plan. Aquí se compara lo que recibiste con el valor actual de las unidades vendidas. Sin desviaciones registradas no hay nada que medir.</p></details>`;
       return;
     }
     const cls = c.coste > 0 ? "bad" : c.coste < 0 ? "good" : "dim";
@@ -12313,12 +12548,12 @@
   function renderInvestTiles() {
     const s = investStats(); const ps = s.ps;
     $("ivTiles").innerHTML = `
-      <div class="tile"><span class="lab">Posiciones</span><div class="v">${ps.length}</div><div class="s">en ${s.markets.length} ${s.markets.length === 1 ? "mercado" : "mercados"}</div></div>
-      <div class="tile"><span class="lab">Invertido</span><div class="v">${ps.length ? money(s.cost) : "—"}</div><div class="s">${s.comisiones ? `coste · ${money(s.comisiones, 2)} en comisiones aparte` : "coste de lo que sigue abierto"}</div></div>
       <div class="tile"><span class="lab">Valor actual</span><div class="v ${ps.length && s.priced ? (s.cur > s.cost ? "good" : s.cur < s.cost ? "bad" : "") : ""}">${ps.length ? money(s.cur) : "—"}</div><div class="s">${s.noPrice ? `${s.noPrice} sin precio actual` : "según tus precios"}</div></div>
       <div class="tile"><span class="lab">P&amp;L no realizado</span><div class="v ${s.unreal > 0 ? "good" : s.unreal < 0 ? "bad" : ""}">${ps.length && s.priced ? money(s.unreal) : "—"}</div><div class="s">${ps.length && s.cost && s.priced ? (s.unreal >= 0 ? "+" : "") + (s.unreal / s.cost * 100).toFixed(1) + "%" : "faltan precios"}</div></div>
-      ${ivRetornoTile(s)}
-      
+      ${ivRetornoTile(s)}`;
+    $("ivSecondaryTiles").innerHTML = `
+      <div class="tile"><span class="lab">Posiciones</span><div class="v">${ps.length}</div><div class="s">en ${s.markets.length} ${s.markets.length === 1 ? "mercado" : "mercados"}</div></div>
+      <div class="tile"><span class="lab">Invertido</span><div class="v">${ps.length ? money(s.cost) : "—"}</div><div class="s">${s.comisiones ? `coste · ${money(s.comisiones, 2)} en comisiones aparte` : "coste de lo que sigue abierto"}</div></div>
       <div class="tile"><span class="lab">Realizado</span><div class="v ${s.realized > 0 ? "good" : s.realized < 0 ? "bad" : ""}">${s.ops.length ? money(s.realized) : "—"}</div><div class="s">${s.ops.length ? `${sig2(s.ventas)} vendiendo · ${sig2(s.income)} cobrado` : "ventas y cobros cerrados"}</div></div>
       <div class="tile"><span class="lab">Ingresos cobrados</span><div class="v ${s.income > 0 ? "good" : ""}">${s.income ? money(s.income) : "—"}</div><div class="s">${s.yieldPct ? (s.yieldPct * 100).toFixed(2) + "% sobre lo invertido" : "dividendos, cupones, primas"}</div></div>
       <div class="tile"><span class="lab">Aportado</span><div class="v">${s.contributed ? money(s.contributed) : "—"}</div><div class="s">${s.monthsWithIn} de los últimos 6 meses</div></div>
@@ -12329,7 +12564,7 @@
     const wrap = $("ivAllocWrap"), tbl = $("ivAllocTable"); if (!wrap) return;
     const mm = marketsMerged();
     const entries = Object.keys(s.byMarket).map(id => { const m = mm.find(x => x.id === id); return { id, name: marketName(id), short: (m && m.short) || marketName(id).slice(0, 4).toUpperCase(), val: s.byMarket[id].val, n: s.byMarket[id].n }; }).sort((a, b) => b.val - a.val);
-    if (!entries.length || s.cur <= 0) { wrap.innerHTML = `<p class="empty">Sin posiciones. Añade una en el mercado que corresponda, más abajo.</p>`; tbl.innerHTML = ""; $("ivAllocMeta").textContent = ""; return; }
+    if (!entries.length || s.cur <= 0) { wrap.innerHTML = `<p class="empty">Sin posiciones en esta cuenta.</p>`; tbl.innerHTML = ""; $("ivAllocMeta").textContent = ""; return; }
     $("ivAllocMeta").innerHTML = `${money(s.cur)} en ${entries.length} ${entries.length === 1 ? "mercado" : "mercados"}`;
     const marketColors = ["#70e0cf", "#78a9ff", "#b39bff", "#e4b86a", "#91c9a7", "#e58eaa", "#91a4b3", "#c8d5df"];
     wrap.innerHTML = chartBars(entries.map((e, i) => ({ label: e.short, value: e.val, cls: "pos", color: marketColors[i % marketColors.length], title: `${e.name} · ${money(e.val)} · ${pct(e.val / s.cur)} · ${plu(e.n, "posición", "posiciones")}` })), { W: chartW(wrap), H: 205, pl: 58, aria: "Asignación por mercado", maxLabels: 8 });
@@ -12344,7 +12579,7 @@
     const items = s.rows.map(r => ({ p: r.p, c: r.c, f: posPerf(r.p, r.c) }))
       .filter(r => r.f.pct != null && (!r.f.parcial || r.c.cerrada))
       .sort((a, b) => b.f.pct - a.f.pct);
-    if (!items.length) { wrap.innerHTML = `<p class="empty">Ninguna posición tiene precio actual. Escríbelo en la posición y aquí verás cuál tira y cuál pesa.</p>`; $("ivPerfMeta").textContent = ""; return; }
+    if (!items.length) { wrap.innerHTML = `<p class="empty">Sin posiciones valoradas. Actualiza sus precios para comparar el rendimiento neto.</p>`; $("ivPerfMeta").textContent = ""; return; }
     const best = items[0], worst = items[items.length - 1];
     $("ivPerfMeta").innerHTML = `mejor <span class="pos">${esc(best.p.asset)} ${(best.f.pct * 100).toFixed(1)}%</span> · peor <span class="neg">${esc(worst.p.asset)} ${(worst.f.pct * 100).toFixed(1)}%</span>`;
     wrap.innerHTML = chartBars(items.map(r => ({ label: String(r.p.asset || "").slice(0, 8), value: r.f.pct, title: `${r.p.asset} · ${(r.f.pct >= 0 ? "+" : "") + (r.f.pct * 100).toFixed(1)}% neto · ${sig2(r.f.neto)} sobre ${money(r.f.base, 2)} invertidos` })), { W: chartW(wrap), H: 205, pl: 52, fmt: v => (v * 100).toFixed(0) + "%", aria: "Rendimiento por posición", maxLabels: 12 });
@@ -12357,8 +12592,8 @@
     const totIn = ins.reduce((a, b) => a + b.value, 0), totInc = inc.reduce((a, b) => a + b.value, 0);
     $("ivFlowMeta").innerHTML = totIn ? `${money(totIn)} en 12 meses · media ${money(totIn / 12)}/mes` : "sin aportes registrados";
     $("ivIncMeta").innerHTML = totInc ? `${money(totInc)} en 12 meses` : "sin cobros registrados";
-    fw.innerHTML = totIn ? chartBars(ins, { W: chartW(fw), H: 195, pl: 58, aria: "Aportes por mes", maxLabels: 12 }) : `<p class="empty">Registra cada compra o aporte y aquí se ve si el plan se cumple o solo se cuenta.</p>`;
-    iw.innerHTML = totInc ? chartBars(inc, { W: chartW(iw), H: 195, pl: 58, aria: "Ingresos por mes", maxLabels: 12 }) : `<p class="empty">Sin cobros. Registra dividendos, cupones, primas y alquileres como operación de tipo cobro.</p>`;
+    fw.innerHTML = totIn ? chartBars(ins, { W: chartW(fw), H: 195, pl: 58, aria: "Aportes por mes", maxLabels: 12 }) : `<p class="empty">Sin compras ni aportes en estos 12 meses.</p>`;
+    iw.innerHTML = totInc ? chartBars(inc, { W: chartW(iw), H: 195, pl: 58, aria: "Ingresos por mes", maxLabels: 12 }) : `<p class="empty">Sin cobros en estos 12 meses.</p>`;
   }
   function renderIvHealth(s) {
     const el = $("ivScore"), vd = $("ivVerdict"); if (!el) return;
@@ -12393,9 +12628,25 @@
   function renderInvestMetrics() {
     if (!$("ivTiles")) return;
     renderInvestTiles();
-    const s = investStats();
+    const s = investStats(), hasData = !!(s.ps.length || s.ops.length);
+    $("ivOverview").hidden = !hasData;
+    $("ivAnalysis").hidden = !hasData;
+    const warnings = [];
+    if (s.noPrice) warnings.push(`${plu(s.noPrice, "posición sin precio actual", "posiciones sin precio actual")}; su valor usa el coste`);
+    if (s.viejos) warnings.push(`${plu(s.viejos, "precio pendiente de revisar", "precios pendientes de revisar")} (más de 30 días o sin fecha)`);
+    if (s.noPlan) warnings.push(`${plu(s.noPlan, "posición sin plan de salida", "posiciones sin plan de salida")}`);
+    if (s.concentration > .5) warnings.push(`Concentración: ${pct(s.concentration)} en ${s.top ? s.top.p.asset : "una posición"}`);
+    const status = $("ivDataStatus");
+    status.hidden = !warnings.length;
+    status.textContent = warnings.join(" · ");
     renderIvAlloc(s); renderIvPerf(s); renderIvFlows(s); renderIvHealth(s);
   }
+  // Charts redraw after disclosure so their width comes from the visible layout.
+  $("ivAnalysis").addEventListener("toggle", () => {
+    if (!$("ivAnalysis").open) return;
+    const s = investStats();
+    renderIvAlloc(s); renderIvPerf(s); renderIvFlows(s);
+  });
   function renderMarketList() {
     const ms = marketsMerged(); if (!ms.find(m => m.id === iv.market)) iv.market = ms[0] ? ms[0].id : null;
     $("mlist").innerHTML = ms.map(m => { const n = coll("positions").items.filter(p => p.market === m.id && investmentInScope(p)).length; return `<button type="button" class="${m.id === iv.market ? "active" : ""}" data-id="${m.id}"><span class="chip ${m.id === "futuros" ? "fut" : "inv"}">${esc(m.short || m.name.slice(0, 3).toUpperCase())}</span>${esc(m.name)}<span class="n">${n ? n + " pos" : ""}</span></button>`; }).join("");
@@ -12418,24 +12669,25 @@
     let tot = 0, cur = 0, priced = 0; ps.forEach(p => { const c = posCalc(p); tot += c.cost; cur += c.cur ?? c.cost; if (c.cur != null) priced++; });
     el.innerHTML = `
       <section class="panel">
-        <header><h2>${esc(m.name)}</h2><div class="tools"><button type="button" class="btn sm ghost" id="gEdit">${iv.editGuide ? "Editando…" : "Editar guía"}</button><button type="button" class="btn sm ghost" id="gRename">Renombrar</button><button type="button" class="icon del" id="gDel" title="Borrar mercado">×</button></div></header>
-        <div class="body">${guide}</div>
-      </section>
-      <section class="panel">
         <header><h2>Posiciones</h2><span class="meta">${ps.length ? `${money(tot)} invertido · ${priced ? money(cur) + " actual" : "sin precios"}` : ""}</span></header>
         <div class="body">
-          ${isFut ? `<p class="note-p">Los futuros no se registran aquí. Van al Journal de futuros y a la Cabina: son trading, no inversión.</p>` : ""}
-          ${ps.length ? tablaPosiciones(ps) : vacio("Sin posiciones en " + m.name, "Una posición agrupa todas las compras, ventas y cobros de un activo. Las cifras salen de ahí, no de escribirlas.", "+ Añadir posición", "posadd")}
-          ${isFut ? "" : `<button type="button" class="add" id="posAdd">+ Añadir posición</button>`}
+          ${isFut ? `<p class="note-p">Registra los contratos de futuros en Futuros.</p>` : ""}
+          ${ps.length ? tablaPosiciones(ps) : `<p class="empty">Sin posiciones en ${esc(m.name)}.</p>`}
+          ${isFut ? "" : `<button type="button" class="btn ${ps.length ? "ghost" : "primary"}" id="posAdd">+ Añadir posición</button>`}
         </div>
       </section>
-      <section class="panel">
-        <header><h2>Watchlist e ideas</h2><span class="meta">${ws.length ? ws.length + " activos" : ""}</span></header>
+      <details class="ui-disclosure" id="marketGuide" data-view-key="invest:panel:${esc(m.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""))}" data-view-label="Guía de ${esc(m.name)}" ${iv.editGuide ? "open" : ""}>
+        <summary>Guía de ${esc(m.name)}</summary>
+        <header><h2>${esc(m.name)}</h2><div class="tools"><button type="button" class="btn sm ghost" id="gEdit">${iv.editGuide ? "Editando…" : "Editar guía"}</button><button type="button" class="btn sm ghost" id="gRename">Renombrar</button><button type="button" class="icon del" id="gDel" title="Borrar mercado">×</button></div></header>
+        <div class="body">${guide}</div>
+      </details>
+      <details class="ui-disclosure" data-view-key="invest:panel:watchlist-e-ideas" data-view-label="Watchlist e ideas">
+        <summary>Watchlist e ideas${ws.length ? " · " + ws.length + " activos" : ""}</summary>
         <div class="body">
           ${ws.length ? `<div class="twrap"><table class="t"><thead><tr><th>Pri.</th><th>Activo</th><th>Tesis</th><th>Catalizador</th><th class="r">Precio</th><th class="r">Objetivo</th><th>Añadido</th><th></th></tr></thead><tbody>${ws.map(w => { const lp = livePriceFor(m.id, w.asset); const hit = lp && w.target != null && lp.price <= w.target; return `<tr data-id="${w.id}"><td>${"★".repeat(4 - Math.min(3, Math.max(1, w.priority || 2)))}</td><td><strong>${esc(w.asset)}</strong></td><td class="notes">${esc(w.thesis || "")}</td><td class="notes">${esc(w.catalyst || "")}</td><td class="r ${hit ? "pos" : ""}">${lp ? money(lp.price, 2) + (hit ? " ✓" : "") : '<span class="dim">—</span>'}</td><td class="r">${w.target != null ? money(w.target, 2) : "—"}</td><td>${esc(dmy(w.date))}</td><td class="act"><button type="button" class="icon" data-act="watch" title="Editar">✎</button></td></tr>`; }).join("")}</tbody></table></div>` : `<p class="empty">Nada vigilado en ${esc(m.name)}.</p>`}
           <button type="button" class="add" id="watchAdd">+ Añadir a la watchlist</button>
         </div>
-      </section>`;
+      </details>`;
     $("gEdit").addEventListener("click", () => { iv.editGuide = !iv.editGuide; renderMarketDetail(); });
     const gs = $("gSave"); if (gs) gs.addEventListener("click", () => { const patch = Object.assign({}, coll("markets").get(m.id) || { id: m.id, name: m.name, short: m.short }); el.querySelectorAll("textarea[data-g]").forEach(t => { patch[t.dataset.g] = t.value; }); coll("markets").set(m.id, patch); iv.editGuide = false; renderMarketDetail(); });
     const gc = $("gCancel"); if (gc) gc.addEventListener("click", () => { iv.editGuide = false; renderMarketDetail(); });
@@ -12546,6 +12798,9 @@
       <div><span class="lab">Balance final</span><div class="v ${s.final < 0 ? "bad" : ""}">${money(s.final)}</div>${x.i ? `<div class="s" style="font-size:12px;color:var(--muted)">${money(s.realFinal)} en dinero de hoy</div>` : ""}</div>
       <div><span class="lab">Aportado</span><div class="v">${money(s.contributed)}</div></div>
       <div><span class="lab">${tr ? "Ganado (balance + retiros)" : "Interés generado"}</span><div class="v ${s.interest < 0 ? "bad" : ""}">${money(s.interest)}</div>${tr ? `<div class="s" style="font-size:12px;color:var(--muted)">retirado: ${money(s.withdrawn)}</div>` : ""}</div>`;
+    const caution = $("ccCaution");
+    caution.textContent = tr ? "Escenario, no plan: casi nadie sostiene ese rendimiento cada mes. Si el mes es rojo no hay retiro." : !s.contributed ? "Sin capital inicial ni aporte mensual no hay nada que componer. Escribe al menos uno de los dos." : s.interest <= 0 ? `Con ${x.r}% de rendimiento no se genera interés: el balance final es lo aportado.` : "";
+    caution.hidden = !caution.textContent;
     const mult = s.contributed ? s.final / s.contributed : 0;
     $("ccNote").textContent = tr
       ? `${x.rm}% mensual sostenido equivale a ${((Math.pow(1 + x.rm / 100, 12) - 1) * 100).toFixed(0)}% anual. Casi nadie lo sostiene 12 meses seguidos; úsalo como escenario, no como plan. Si el mes es rojo no hay retiro.`
@@ -12943,7 +13198,7 @@
   }
   function renderDemoBar() {
     const bar = $("demoBar"), btn = $("demoToggle");
-    if (btn) { btn.textContent = state.demo ? "Salir del demo" : "Ver demo"; btn.setAttribute("aria-pressed", String(!!state.demo)); }
+    if (btn) { btn.textContent = state.demo ? "Salir de demo" : "Abrir demo"; btn.setAttribute("aria-pressed", String(!!state.demo)); }
     if (bar) bar.hidden = !state.demo;
   }
 
@@ -13421,7 +13676,9 @@
       nManualNeto: filas.filter(f => f.como === "manual").length };
   }
   function mxCard(k, label, valor, cls, sub, raw, extra) {
-    return `<div class="qec${extra ? " " + extra : ""}" data-k="${k}" data-v="${raw == null ? "" : raw}"><span class="qk">${esc(label)}</span><div class="qv ${cls || ""}">${valor}</div>${sub ? `<div class="qs">${sub}</div>` : ""}</div>`;
+    const calculation = ["expectancy", "winrate", "contratos", "usado"].includes(k) && raw != null;
+    const detail = sub ? (calculation ? `<details class="ui-disclosure metric-calculation"><summary>Ver cálculo</summary><div class="qs">${sub}</div></details>` : `<div class="qs">${sub}</div>`) : "";
+    return `<div class="qec${extra ? " " + extra : ""}" data-k="${k}" data-v="${raw == null ? "" : raw}"><span class="qk">${esc(label)}</span><div class="qv ${cls || ""}">${valor}</div>${detail}</div>`;
   }
   const mxPct = x => x == null ? "—" : (x * 100).toFixed(1) + "%";
   const mxPmc = (x, se) => x === 0 ? `0% <span style="font-size:12px;color:var(--dim)">(ninguno de los 10.000 caminos)</span>` : qePmc(x, se);
@@ -14320,6 +14577,7 @@
     out.push(mxCard("mdd", "Max drawdown", c.capital > 0 ? mxPct(c.curva.mddPct) : "—", c.curva.mdd > 0 ? "bad" : "", c.capital > 0 ? `${qeM(-roundMD(c.curva.mdd))} · sobre capital ${money(c.capital)}, operación a operación` : `${qeM(-roundMD(c.curva.mdd))} · sin capital no hay %`, c.curva.mddPct));
     out.push(mxCard("kelly", "Kelly simplificado · sólo referencia", mxPct(c.kelly), "", `f* = p − (1−p)/b. <b>En prop el tamaño lo limita la cuenta, no Kelly.</b> No se usa para sugerir tamaño.`, c.kelly == null ? null : c.kelly, "ref"));
     $("mxEdge").innerHTML = out.join("");
+    groupMetrics("mxEdge", [0, 1, 9], ".qec", "Más indicadores");
     $("mxEdgeMeta").textContent = mx.setup || mx.acct || mx.desde || mx.hasta ? "con filtros" : "todo el historial de futuros";
     $("mxEdgeNotas").innerHTML = c.nR < N && N ? `<div class="qnote">${N - c.nR} de ${N} operaciones no tienen stop: cuentan en $, pero no en R ni en la simulación.</div>` : "";
 
@@ -14887,7 +15145,8 @@
   coll("scenarios").subscribe(() => fanout([Z.escenarios]));
   coll("risk").subscribe(() => fanout([Z.riesgosGuardados]));
 
-  $("demoToggle").addEventListener("click", async () => { if (state.demo) { location.reload(); return; } await enterDemo(); setStoreLabel(); });
+  $("demoToggle").addEventListener("click", () => { if (state.demo) { location.reload(); return; } openSettingsDialog("settingsDemo"); });
+  $("settingsDemoEnter").addEventListener("click", async () => { $("settingsDemo").close(); await enterDemo(); setStoreLabel(); });
   $("demoExit").addEventListener("click", () => location.reload());
 
   /* ═════════════════ PALETA DE COMANDOS Y ATAJOS ═════════════════
@@ -16113,6 +16372,7 @@
      va versionado: si algún día cambia la forma de los datos, quien importe sabrá
      de qué versión viene y podrá convertirla en vez de romperse en silencio. */
   const baseDe = () => (state.nube ? "tu cuenta" : "este navegador");
+  let bkExporting = false;
   const BK_FORMAT = "cabina-backup";
   const BK_VERSION = 1;
   /* ═══════════════ LA INTEGRIDAD DE UN RESPALDO ═══════════════
@@ -16293,8 +16553,9 @@
   function bkName() { return `cabina-${etNow().date}.json`; }
   function bkSay(msg, bad) {
     const el = $("bkNote"); if (!el) return;
-    el.className = "synced" + (bad ? " bad" : "");
-    el.innerHTML = `<span class="dotg"${bad ? "" : ""}></span><span>${esc(msg)}</span>`;
+    el.className = "settings-status" + (bad ? " bad" : "");
+    const status = $("bkExportStatus"); if (status) { status.textContent = msg; status.className = "settings-status" + (bad ? " bad" : ""); }
+    el.textContent = msg;
   }
   async function bkDownload(text, name) {
     /* La guarda del clic sintético y el plazo de revocación viven en
@@ -16319,18 +16580,26 @@
     return b;
   }
   $("bkExport").addEventListener("click", async function () {
+    if (bkExporting || state.demo) return;
+    bkExporting = true;
     const btn = this, withImgs = $("bkImgs").checked;
-    btn.disabled = true; btn.textContent = "preparando…";
+    btn.disabled = true; btn.textContent = "Exportando…";
+    $("bkRetry").hidden = true; bkSay("Exportando…");
     try {
       const b = await bkBuildWithProgress(withImgs);
       const txt = JSON.stringify(b);
       const st = bundleStats(b);
       const how = await bkDownload(txt, bkName());
       const perdidas = b.imagesInlined && b.imagesInlined.failed;
+      if (!perdidas) {
+        try { localStorage.setItem(bkLastKey(), new Date().toISOString()); } catch (_) { /* Download completed; the date is optional local metadata. */ }
+        renderBackup();
+      }
       bkSay(`Archivo ${how} · ${bkSize(txt)} · ${st.text}.` + (withImgs ? ` ${plu(st.inlined, "captura va dentro", "capturas van dentro")}${perdidas ? `, ${plu(perdidas, "no se pudo leer", "no se pudieron leer")}` : ""}.` : st.images ? ` ${plu(st.images, "captura se queda", "capturas se quedan")} en esta cabina.` : ""));
-    } catch (err) { bkSay(bkDownloadErr(err), true); }
-    btn.disabled = false; btn.textContent = "Descargar copia";
+    } catch (err) { bkSay("Error: " + bkDownloadErr(err), true); $("bkRetry").hidden = false; }
+    bkExporting = false; btn.disabled = false; btn.textContent = $("bkRetry").hidden ? "Descargar copia" : "Reintentar";
   });
+  $("bkRetry").addEventListener("click", () => { openSettingsDialog("settingsExport"); $("bkExport").click(); });
   $("bkShow").addEventListener("click", async function () {
     const btn = this; btn.disabled = true; btn.textContent = "preparando…";
     try {
@@ -16547,6 +16816,8 @@
       : modo === "replace"
         ? "REEMPLAZA todo lo que haya en esta cabina. Lo que no esté en la copia se pierde."
         : "Se añade encima de lo que ya hay. Lo que coincida por id se sobreescribe.";
+    let confirmed = false;
+    bkSay("Copia validada · pendiente de confirmación.");
     openEditor({
       title: "Importar copia de Cabina",
       fields: [
@@ -16558,7 +16829,7 @@
       values: { resumen: `Exportada el ${cuando} desde ${r.bundle.source || "una cabina"}.\n${r.stats.text}.\n${r.stats.images ? plu(r.stats.images, "captura", "capturas") + (r.stats.inlined ? `, ${r.stats.inlined} dentro del archivo` : ", ninguna dentro del archivo (se verán rotas)") + "." : "Sin capturas."}\n${sello}\n\n${aviso}` },
       validate: v => (String(v.ok || "").trim().toUpperCase() === "IMPORTAR" ? null : "Escribe IMPORTAR para confirmar"),
       onSave: async () => {
-        bkSay("Importando…");
+        confirmed = true; bkSay("Importando…");
         try {
           const res = await applyBundle(r.bundle, modo);
           bkSay(`Importado: ${plu(res.escritos, "registro escrito", "registros escritos")}${res.fallos ? `, ${res.fallos} con error` : ""}. Recargando…`);
@@ -16566,11 +16837,17 @@
         } catch (e) { bkSay("No se pudo importar: " + ((e && e.message) || "error desconocido") + ".", true); }
       },
     });
+    const summary = document.getElementById('ef_resumen');
+    if (summary) { summary.readOnly = true; summary.setAttribute("aria-label", "Contenido y advertencias de la copia"); }
+    const warning = document.createElement("p"); warning.className = "settings-alert";
+    warning.textContent = aviso + (inte.estado === "no_cuadra" ? " Atención: la copia está incompleta o alterada; revisa su integridad en el resumen." : ""); warning.id = "bkImportWarning";
+    $("edFields").prepend(warning);
     const sv = $("edSave"); sv.textContent = "Importar";
-    const obs = new MutationObserver(() => { if (!ov.classList.contains("open")) { sv.textContent = "Guardar"; obs.disconnect(); } });
+    const obs = new MutationObserver(() => { if (!ov.classList.contains("open")) { sv.textContent = "Guardar"; if (!confirmed) bkSay("Importación cancelada. No se modificaron datos."); obs.disconnect(); } });
     obs.observe(ov, { attributes: true, attributeFilter: ["class"] });
   }
-  $("bkImport").addEventListener("click", () => { if (blockDemoImport()) return; const f = $("bkFile"); f.value = ""; f.click(); });
+  $("bkImport").addEventListener("click", () => { if (blockDemoImport()) return; $("settingsImport").close(); const f = $("bkFile"); f.value = ""; f.click(); });
+  $("bkFile").addEventListener("cancel", () => bkSay("Importación cancelada. No se modificaron datos."));
   $("bkFile").addEventListener("change", async e => {
     if (blockDemoImport()) return;
     const f = e.target.files && e.target.files[0]; if (!f) return;
@@ -16704,19 +16981,25 @@
     if (res.afectadas.length) flash(`migración hecha · ${plu(res.afectadas.length, "operación sin valorar", "operaciones sin valorar")}`);
   }
 
+  function bkLastKey() { return "cabina:last-backup:v1:" + (state.nube && nube.ses ? nube.ses.uid : "local"); }
   function renderBackup() {
     const meta = $("bkMeta"); if (!meta) return;
     const parts = [];
     BK_PARTS.forEach(([k, one, many]) => { if (k === "days") return; const n = coll(k).items.length; if (n) parts.push(plu(n, one, many)); });
     let imgs = 0; ["trades", "playbooks"].forEach(n => coll(n).items.forEach(r => { imgs += imagesOf(r).length; }));
     meta.textContent = parts.length ? parts.join(" · ") + (imgs ? " · " + plu(imgs, "captura", "capturas") : "") : "sin datos todavía";
+    const last = $("bkLastBackup");
+    try { const date = localStorage.getItem(bkLastKey()); last.textContent = date && Number.isFinite(Date.parse(date)) ? "Último respaldo: " + new Date(date).toLocaleString(idioma() === "en" ? "en-US" : "es", { dateStyle: "medium", timeStyle: "short" }) + " · descarga iniciada" : "Último respaldo: Sin registrar"; }
+    catch (_) { last.textContent = "Último respaldo: Sin registrar"; }
+    ["bkExportOpen", "bkImportOpen", "bkShow", "bkPaste", "bkExport"].forEach(id => { $(id).disabled = !!state.demo || (id === "bkExport" && bkExporting); });
+    if (state.demo) bkSay("Sal de la demo para gestionar tus respaldos.");
     const nota = $("bkModeNote"), modos = $("bkModes");
     if (state.nube) {
       modos.hidden = true;
       nota.textContent = "Conectada a tu cuenta: la importación escribe encima por id y nunca borra lo que no venga en la copia.";
     } else {
       modos.hidden = false;
-      nota.textContent = "Guardado en este navegador: aquí sí se puede empezar de cero.";
+      nota.textContent = bkMode() === "replace" ? "Reemplaza los datos locales. Lo que no esté en la copia se perderá." : "Fusiona por identificador: actualiza coincidencias y conserva los demás registros.";
     }
     const inote = $("bkImgsNote");
     inote.textContent = !imgs
@@ -16728,6 +17011,7 @@
           : `Sin esto el archivo pesa poco, pero las ${imgs} capturas se quedan en esta cabina.`;
   }
   $("bkImgs").addEventListener("change", renderBackup);
+  document.querySelectorAll('input[name="bkmode"]').forEach(input => input.addEventListener("change", renderBackup));
   // renderAll() ya corrió más arriba, cuando las constantes de este bloque aún no existían.
   renderBackup();
 
@@ -16783,11 +17067,11 @@
   function renderEstudio(){
     if(!$("studyGrid"))return;
     const docs=estudioVisible(),all=estudioLista().filter(d=>d.type!=="trade-review"),done=all.length?Math.round(all.filter(d=>d.status==="mastered").length/all.length*100):0,hoy=todayISO();
+    $("studyLibraryStatus").hidden=!all.length;
     $("studyTotal").textContent=all.length;$("studyActive").textContent=all.filter(d=>d.status==="progressing").length+" en curso";$("studySources").textContent=all.filter(d=>d.url).length+" fuentes";$("studyCompletion").textContent=done+"% revisado";$("studyProgress").style.width=done+"%";$("studyResults").textContent=docs.length+" resultado"+(docs.length===1?"":"s");$("nResearch").textContent=all.length?String(all.length):"";
     const grid=$("studyGrid");
     if(!docs.length){
-      grid.innerHTML='<div class="study-empty"><b>'+(all.length?"No hay coincidencias":"Tu biblioteca empieza con una buena pregunta")+'</b>'+(all.length?"Cambia el filtro o prueba otros términos.":"Crea un concepto, registra una fuente o formula una tesis que quieras investigar.")+'<div style="margin-top:13px"><button type="button" class="btn primary sm" id="studyEmptyNew">＋ Crear primer documento</button></div></div>';
-      const b=$("studyEmptyNew");if(b)b.addEventListener("click",()=>estudioEditor());
+      grid.innerHTML='<div class="study-empty"><b>'+(all.length?"No hay coincidencias":"Aún no hay documentos")+'</b>'+(all.length?"Cambia el filtro o la búsqueda.":"Guarda una idea, una fuente o una pregunta con Nuevo documento.")+'</div>';
     } else {
       grid.innerHTML=docs.map(d=>{
         const links=Array.isArray(d.links)?d.links:[],backs=all.filter(x=>x.id!==d.id&&Array.isArray(x.links)&&x.links.some(l=>l&&l.type==="research"&&l.id===d.id));
@@ -16829,7 +17113,7 @@
   $("studySearch").addEventListener("input",renderEstudio);$("studyFrom").addEventListener("change",renderEstudio);$("studyTo").addEventListener("change",renderEstudio);$("studyFilters").querySelectorAll("[data-study-filter]").forEach(b=>b.addEventListener("click",()=>{estudioFiltro=b.dataset.studyFilter;$("studyFilters").querySelectorAll("[data-study-filter]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderEstudio();}));
   $("studyExport").addEventListener("click",()=>{const data={schema:"cabina-research",version:1,exportedAt:new Date().toISOString(),docs:estudioLista()};descarga("cabina-estudio-"+new Date().toISOString().slice(0,10)+".json",JSON.stringify(data,null,2),"application/json");});
   function estudioFlashcards(){return estudioLista().filter(d=>(d.type==="flashcard"||d.prompt)&&d.prompt&&d.answer);}
-  function renderEstudioFlash(){const fs=estudioFlashcards(),p=$("studyFlashPrompt"),a=$("studyFlashAnswer");if(!fs.length){$("studyFlashPos").textContent="";p.textContent="Crea una flashcard para practicar la recuperación activa.";a.hidden=true;a.textContent="";$("studyReveal").disabled=true;$("studyNext").disabled=true;return;}$("studyReveal").disabled=false;$("studyNext").disabled=fs.length<2;estudioFlashIdx%=fs.length;const d=fs[estudioFlashIdx];$("studyFlashPos").textContent=(estudioFlashIdx+1)+"/"+fs.length;p.textContent=d.prompt;a.textContent=d.answer;a.hidden=!estudioFlashRevelada;$("studyReveal").textContent=estudioFlashRevelada?"Ocultar respuesta":"Revelar respuesta";}
+  function renderEstudioFlash(){const fs=estudioFlashcards(),p=$("studyFlashPrompt"),a=$("studyFlashAnswer");$("studyFlashPanel").hidden=!fs.length;if(!fs.length){$("studyFlashPos").textContent="";p.textContent="Crea una flashcard para practicar la recuperación activa.";a.hidden=true;a.textContent="";$("studyReveal").disabled=true;$("studyNext").disabled=true;return;}$("studyReveal").disabled=false;$("studyNext").disabled=fs.length<2;estudioFlashIdx%=fs.length;const d=fs[estudioFlashIdx];$("studyFlashPos").textContent=(estudioFlashIdx+1)+"/"+fs.length;p.textContent=d.prompt;a.textContent=d.answer;a.hidden=!estudioFlashRevelada;$("studyReveal").textContent=estudioFlashRevelada?"Ocultar respuesta":"Revelar respuesta";}
   $("studyReveal").addEventListener("click",()=>{estudioFlashRevelada=!estudioFlashRevelada;renderEstudioFlash();});$("studyNext").addEventListener("click",()=>{const fs=estudioFlashcards();if(fs.length){estudioFlashIdx=(estudioFlashIdx+1)%fs.length;estudioFlashRevelada=false;renderEstudioFlash();}});
   function estudioAcciones(){return[{g:"Ir a",i:"⌕",t:"Estudio · biblioteca de investigación",s:"⌘K",f:()=>showTab("estudio")}];}
   /* ESTUDIO · revisión vinculada al journal existente. No copia ni altera el trade. */
@@ -16840,6 +17124,7 @@
     const pnl=trades.map(t=>t.pnlEff).filter(v=>v!==null&&v!==undefined&&v!==""&&Number.isFinite(Number(v))).map(Number);
     const rs=trades.map(t=>t.rReal).filter(v=>v!==null&&v!==undefined&&v!==""&&Number.isFinite(Number(v))).map(Number);
     const count=$("studyTradeMetricCount"),win=$("studyTradeMetricWin"),net=$("studyTradeMetricPnl"),avgR=$("studyTradeMetricR");
+    $("studyTradeDataNote").textContent=trades.length+" operaciones · "+pnl.length+" con P&L disponible · "+rs.length+" con R"+(pnl.length<trades.length||rs.length<trades.length?" · Hay datos faltantes.":".")+" No implica ventaja estadística.";
     if(!count||!win||!net||!avgR)return;
     count.textContent=String(trades.length);
     win.textContent=pnl.length?((pnl.filter(v=>v>0).length/pnl.length)*100).toFixed(1)+"%":"—";
@@ -16908,14 +17193,20 @@
          uno mirando una lista vacía sin ver por qué. */
       btnSR.disabled = !pendientes.length && !estudioSoloSinRevisar;
     }
+    const activeFilters = [account.value, instrument.value, direction.value, from, to].filter(Boolean).length;
+    $("studyTradeFiltersLabel").textContent = activeFilters ? "Filtros (" + activeFilters + " activos)" : "Filtros";
     const visibles = estudioSoloSinRevisar ? pendientes : filtered;
     renderEstudioTradeMetrics(visibles);
     renderEstudioTradeBreakdown(visibles);
+    $("studyTradeResults").textContent=visibles.length+" de "+trades.length+" operaciones";
+    $("studyTradeAnalysis").hidden=!visibles.length;
+    $("studyTradeReviewPanel").hidden=!visibles.length;
+    document.querySelector(".study-review-layout").classList.toggle("is-empty",!trades.length);
     /* QUEDARSE SIN COLA ES EL ÉXITO, no un filtro que no encuentra nada, y
        decirlo con «no hay operaciones con esos filtros» convierte el momento en
        el que acabas de revisar la última en un mensaje de error. */
-    if(!visibles.length){list.innerHTML='<div class="study-empty"><b>'+(estudioSoloSinRevisar&&filtered.length?"No queda ninguna sin revisar":trades.length?"No hay operaciones con esos filtros":"Todavía no hay trades en FUTUROS")+'</b><p class="study-note">'+(estudioSoloSinRevisar&&filtered.length?"Las "+filtered.filter(t=>t.pnlEff!=null).length+" cerradas de esta vista tienen su revisión. Suelta el filtro para verlas.":trades.length?"Cambia la cuenta o la búsqueda.":"Registra una operación en FUTUROS y vuelve a ESTUDIO.")+'</p></div>';$("studyTradeReviewForm").hidden=true;$("studyTradeTitle").textContent="Selecciona una operación";$("studyTradeMeta").textContent=trades.length?"No hay operaciones para mostrar con estos filtros.":"Registra un trade en FUTUROS para comenzar."; $("studyTradeStats").textContent="";return;}
-    list.innerHTML=visibles.map(t=>'<button type="button" class="study-card" style="width:100%;text-align:left;cursor:pointer;border-color:'+(String(t.id)===estudioTradeSeleccionado?'var(--accent)':'')+'" data-study-trade="'+estudioEsc(t.id)+'"><div class="study-card-head"><span class="study-kind">'+estudioEsc(t.instrument||"Instrumento sin indicar")+'</span><span class="study-state">'+estudioEsc(t.direction||"Dirección no indicada")+'</span>'+(estudioSinRevisar(t)?'<span class="study-state progressing">sin revisar</span>':'')+'</div><h3 style="font-size:14px;margin:8px 0">'+estudioEsc(estudioTradeFecha(t))+'</h3><div class="study-card-foot"><span>'+estudioEsc(String(t.qty==null?"—":t.qty)+" contratos")+'</span><b>'+estudioEsc(estudioDinero(t.pnlEff))+'</b></div></button>').join("");
+    if(!visibles.length){list.innerHTML='<div class="study-empty"><b>'+(estudioSoloSinRevisar&&filtered.length?"No queda ninguna sin revisar":trades.length?"No hay operaciones con esos filtros":"Aún no hay operaciones")+'</b><p class="study-note">'+(estudioSoloSinRevisar&&filtered.length?"Las "+filtered.filter(t=>t.pnlEff!=null).length+" cerradas de esta vista tienen su revisión.":trades.length?"Cambia los filtros para continuar.":"Registra una operación de Futuros para revisarla aquí.")+'</p>'+(!trades.length?'<button type="button" class="btn primary" id="studyTradeEmptyNew">Registrar operación</button>':'')+'</div>';const nueva=$("studyTradeEmptyNew");if(nueva)nueva.addEventListener("click",()=>openTrade(null,"futuros"));$("studyTradeReviewForm").hidden=true;$("studyTradeTitle").textContent="Selecciona una operación";$("studyTradeMeta").textContent="";$("studyTradeStats").textContent="";return;}
+    list.innerHTML=visibles.map(t=>'<button type="button" class="study-card" aria-pressed="'+String(String(t.id)===estudioTradeSeleccionado)+'" data-study-trade="'+estudioEsc(t.id)+'"><div class="study-card-head"><span class="study-kind">'+estudioEsc(t.instrument||"Instrumento sin indicar")+'</span><span class="study-state">'+estudioEsc(t.direction||"Dirección no indicada")+'</span>'+(estudioSinRevisar(t)?'<span class="study-state progressing">sin revisar</span>':'')+'</div><h3>'+estudioEsc(estudioTradeFecha(t))+'</h3><div class="study-card-foot"><span>'+estudioEsc(String(t.qty==null?"—":t.qty)+" contratos")+'</span><b>'+estudioEsc(estudioDinero(t.pnlEff))+'</b></div></button>').join("");
     list.querySelectorAll("[data-study-trade]").forEach(b=>b.addEventListener("click",()=>{estudioTradeSeleccionado=b.dataset.studyTrade;renderEstudioTrades();estudioCargarReview(estudioTradeSeleccionado);}));
     if(visibles.length&&!visibles.some(t=>String(t.id)===estudioTradeSeleccionado)){estudioTradeSeleccionado=String(visibles[0].id);renderEstudioTrades();estudioCargarReview(estudioTradeSeleccionado);}
     else if(estudioTradeSeleccionado&&visibles.some(t=>String(t.id)===estudioTradeSeleccionado))estudioCargarReview(estudioTradeSeleccionado);
@@ -17016,17 +17307,18 @@
     const root = $("studyScenes"); if (!root) return;
     const total = estudioEscenasTotal();
     const pendientes = estudioTradeImgs().filter(im => !TRADE_SHOT_KEYS.has(im.scene));
-    const extras = pendientes.length ? '<section style="margin-top:16px"><b>Sin clasificar · ' + pendientes.length + '</b>' +
-      '<div class="pbimgs" style="margin-top:8px">' + pendientes.map((im, i) =>
+    const extras = pendientes.length ? '<section class="study-scene-group"><b>Sin clasificar · ' + pendientes.length + '</b>' +
+      '<div class="pbimgs">' + pendientes.map((im, i) =>
         '<figure class="pbimg"><img ' + imgAttrs(im) + ' alt="' + estudioEsc("Captura sin clasificar " + (i + 1)) + '" loading="lazy">' +
         (im.caption ? '<figcaption class="study-note">' + estudioEsc(im.caption) + '</figcaption>' : '') + '</figure>'
       ).join("") + '</div></section>' : '';
     const editAction = '<button type="button" class="btn ghost sm" data-study-edit-shots>Editar capturas en FUTUROS</button>';
     const grupos = ESTUDIO_ESCENAS.map(g => {
+      if(!assetsReady()&&!g.slots.some(([sl])=>estudioEscenaImgs(estudioEscenaKey(g.key,sl)).length))return "";
       const slots = g.slots.map(([sl, etiqueta]) => {
         const k = estudioEscenaKey(g.key, sl), ims = estudioEscenaImgs(k);
         const figs = ims.length
-          ? '<div class="pbimgs" style="margin-top:6px">' + ims.map((im, i) =>
+          ? '<div class="pbimgs">' + ims.map((im, i) =>
               '<figure class="pbimg" data-escena-fig="' + estudioEsc(k) + '" data-i="' + i + '">' +
               '<img ' + imgAttrs(im) + ' alt="' + estudioEsc(etiqueta + " · captura " + (i + 1)) + '" loading="lazy">' +
               (im._fromTrade
@@ -17036,26 +17328,26 @@
               '</figure>').join("") + '</div>'
           : '';
         const accion = assetsReady()
-          ? '<button type="button" class="btn ghost sm" data-escena-add="' + estudioEsc(k) + '" title="' + estudioEsc(g.nota) + '" style="margin:0;min-height:34px;padding:6px 10px">＋ ' + estudioEsc(ims.length ? "Otra" : etiqueta) + '</button>'
+          ? '<button type="button" class="btn ghost sm study-scene-add" data-escena-add="' + estudioEsc(k) + '" title="' + estudioEsc(g.nota) + '">＋ ' + estudioEsc(ims.length ? "Otra" : etiqueta) + '</button>'
           : '';
-        if (!ims.length) return '<div class="study-scene-empty" style="display:flex;flex:0 1 auto;min-width:0">' + accion + '</div>';
-        return '<div class="study-scene-filled" style="flex:1 1 155px;min-width:0;border:1px solid var(--line);border-radius:var(--r-sm);padding:8px">' +
-          '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">' +
-          '<b style="font-size:12.5px">' + estudioEsc(etiqueta) + '</b>' + accion + '</div>' +
+        if (!ims.length) return '<div class="study-scene-empty">' + accion + '</div>';
+        return '<div class="study-scene-filled">' +
+          '<div class="study-scene-head">' +
+          '<b>' + estudioEsc(etiqueta) + '</b>' + accion + '</div>' +
           figs + '</div>';
       }).join("");
-      return '<section style="margin-top:10px">' +
-        '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline">' +
-        '<b style="font-size:13px;color:var(--text)">' + estudioEsc(g.titulo) + '</b>' +
+      return '<section class="study-scene-group">' +
+        '<div class="study-scene-head">' +
+        '<b>' + estudioEsc(g.titulo) + '</b>' +
         '</div>' +
-        '<div style="display:flex;flex-wrap:wrap;align-items:stretch;gap:7px;margin-top:7px">' + slots + '</div></section>';
+        '<div class="study-scene-slots">' + slots + '</div></section>';
     }).join("");
-    root.innerHTML = '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap">' +
-      '<h4 style="margin:0;font-size:13.5px">Capturas</h4>' +
+    root.innerHTML = '<div class="study-scene-head">' +
+      '<h4>Capturas</h4>' +
       '<span class="study-note" id="studyScenesCount">' + (total ? estudioEsc(plu(total, "captura", "capturas")) : "0 capturas") + '</span></div>' +
       (assetsReady() ? '' : '<p class="study-note">Entra con tu cuenta para adjuntar capturas.</p>') + grupos +
-      (estudioTradeImgs().length ? '<div style="margin-top:12px">' + editAction + '</div>' : '') + extras +
-      '<details class="study-scene-help" style="margin-top:12px"><summary class="study-note" style="cursor:pointer">¿Cómo funcionan las capturas?</summary>' +
+      (estudioTradeImgs().length ? '<div class="study-capture-actions">' + editAction + '</div>' : '') + extras +
+      '<details class="study-scene-help ui-disclosure"><summary class="study-note" style="cursor:pointer">¿Cómo funcionan las capturas?</summary>' +
       '<p class="study-note" style="margin:6px 0">Las imágenes de FUTUROS aparecen al guardar el trade; las de ESTUDIO quedan en la revisión, sin modificar la operación.</p></details>';
   }
   /* Guarda la revisión con los escenarios actuales. Se llama en cuanto cambia una
@@ -17189,7 +17481,11 @@
         ready: state.listo && state.cfgConocida,
         owner: state.nube && nube.ses ? nube.ses.uid : "local" }),
       enterDemo: async allowed => { const entered = await enterDemo(allowed); setStoreLabel(); return entered; },
-      toggleLanguage: () => $("idiomaBtn").click(), openChecklist,
+      toggleLanguage: () => {
+        const control = $("idiomaBtn");
+        control.value = idioma() === "en" ? "es" : "en";
+        control.dispatchEvent(new Event("change"));
+      }, openChecklist,
       exitDemoToChecklist: () => { location.hash = "cabina"; location.reload(); },
     });
   }

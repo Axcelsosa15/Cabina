@@ -45,13 +45,14 @@ try {
   const page = await ctx.newPage(); await ready(page);
   const before = await page.evaluate(([key, trashKey]) => [localStorage.getItem(key), localStorage.getItem(trashKey)], [KEY, TRASH]);
   await page.locator('#tabnav [data-tab="ajustes"]').click();
+  await page.locator('#settingsTabPrefs').click();
   await page.locator('#demoToggle').click();
+  await page.locator('#settingsDemoEnter').click();
   await page.locator('#demoBar').waitFor({ state: 'visible' });
-  await page.locator('#bkImport').click();
+  await page.locator('#settingsTabData').click();
   check('importar por archivo en demo muestra un aviso y no abre una confirmación destructiva',
-    /Sal de la demo/.test(await page.locator('#bkNote').innerText()) && await page.locator('#ov').isHidden());
-  await page.locator('#bkPaste').click();
-  check('pegar una copia también está bloqueado durante la demo', await page.locator('#ov').isHidden());
+    await page.locator('#bkImportOpen').isDisabled() && /Sal de la demo/.test(await page.locator('#bkNote').innerText()) && await page.locator('#ov').isHidden());
+  check('pegar una copia también está bloqueado durante la demo', await page.locator('#bkPaste').isDisabled() && await page.locator('#ov').isHidden());
   // Simula que un selector iniciado antes termina después de entrar en demo.
   await page.locator('#bkFile').setInputFiles({ name: 'real.json', mimeType: 'application/json', buffer: Buffer.from(backup) });
   await quieto(page);
@@ -87,11 +88,14 @@ try {
   try {
     const p = await cloud.newPage(); await ready(p);
     await p.locator('#tabnav [data-tab="ajustes"]').click();
+    await p.locator('#settingsTabData').click();
+    await p.locator('#panelDatos .settings-details > summary').click();
     await p.locator('#bkPaste').click();
     await p.locator('#ef_j').fill(backup); await p.locator('#edSave').click();
     await p.locator('#ef_ok').waitFor();
     await p.locator('#ef_ok').fill('IMPORTAR'); await p.locator('#edSave').click();
     await pending;
+    await p.locator('#settingsTabPrefs').click();
     await p.locator('#guideOpen').click(); await p.locator('#guideDemo').click();
     await p.waitForFunction(() => /guardado pendiente|pending save/i.test(document.getElementById('guideStatus').textContent));
     check('una importación real en vuelo impide entrar en demo sin cancelar su escritura', await p.locator('#demoBar').isHidden());

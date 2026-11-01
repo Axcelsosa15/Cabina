@@ -13,7 +13,7 @@ import { sirvePublicado } from './publicado.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { quieto } from './espera.mjs';
+import { quieto, despliegaAncestros } from './espera.mjs';
 
 const fallos = [];
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
@@ -92,6 +92,7 @@ console.log('\n═══ EJEMPLO EN ROJO ═══');
 {
   const pg = await pagina({ settings: {}, trades: {} });
   ok(/El motor no inventa una ventaja/.test(await panel(pg)), 'sin operaciones lo dice');
+  await despliegaAncestros(pg.locator('#qeDemoBtn'));
   await pg.click('#qeDemoBtn'); await quieto(pg);
   const t = await panel(pg);
   ok(/estos NO son tus datos/.test(t), 'el ejemplo se marca como ejemplo');

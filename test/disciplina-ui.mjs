@@ -63,10 +63,12 @@ async function ajustes(p) {
     await p.locator('#mobileMoreBtn').click();
     await p.locator('#mobileMoreOv [data-mobile-more-tab="ajustes"]').click();
   } else await p.locator('#tabnav [data-tab="ajustes"]').click();
+  await p.locator('#settingsTabPrefs').click();
 }
 async function idioma(p) {
   await ajustes(p);
-  await p.locator('#idiomaBtn').click();
+  const language = await p.locator('#idiomaBtn').inputValue();
+  await p.locator('#idiomaBtn').selectOption(language === 'en' ? 'es' : 'en');
   await p.locator('#tabnav [data-tab="cabina"]').click();
   await quieto(p);
 }
@@ -190,7 +192,7 @@ try {
     'la tarjeta y su diálogo excluyen cuenta, notas, instrumento, identificadores y P&L');
   ok(/P&L|resultado|profit|PnL/i.test(contenido.modal + contenido.dibujado),
     'se explica que los resultados económicos están ocultos');
-  const descargaPromesa = p.waitForEvent('download');
+  const descargaPromesa = p.waitForEvent('download', { predicate: d => /\.png$/i.test(d.suggestedFilename()) });
   await p.locator('#disciplineShareDownload').click();
   const descarga = await descargaPromesa;
   const bytes = await readFile(await descarga.path());
@@ -223,7 +225,10 @@ try {
 
   const antesDemo = await p.evaluate(k => localStorage.getItem(k), CLAVE);
   await ajustes(p);
+  await p.locator('#settingsTabPrefs').click();
   await p.locator('#demoToggle').click();
+  await p.locator('#settingsDemoEnter').click();
+  await p.locator('#demoBar').waitFor({ state: 'visible' });
   await p.locator('#tabnav [data-tab="cabina"]').click();
   await quieto(p);
   const despuesDemo = await p.evaluate(k => localStorage.getItem(k), CLAVE);

@@ -75,6 +75,7 @@ async function ajustes(p) {
     await p.locator('#mobileMoreBtn').click();
     await p.locator('#mobileMoreOv [data-mobile-more-tab="ajustes"]').click();
   } else await p.locator('#tabnav [data-tab="ajustes"]').click();
+  await p.locator('#settingsTabPrefs').click();
   await quieto(p);
 }
 async function registros(p) {
@@ -265,10 +266,10 @@ try {
   ok(await p.locator('#breakEnabled').isChecked() && await p.locator('#breakLimit').inputValue() === '30',
     'activar pausas y elegir su duración persiste al recargar');
   ok(await p.locator('#breakNotice').isHidden(), 'descartar conserva el silencio durante el mismo día tras recargar');
-  await p.locator('#idiomaBtn').click();
+  await p.locator('#idiomaBtn').selectOption('en');
   ok(/minute|session|pause|break|active/i.test(await p.locator('#breakStatus').innerText()),
     'el estado de pausas cambia al inglés inmediatamente');
-  await p.locator('#idiomaBtn').click();
+  await p.locator('#idiomaBtn').selectOption('es');
   ok(!/undefined|NaN|Infinity/.test(await p.locator('#breakStatus').innerText()),
     'el estado de pausas vuelve al español sin valores inválidos');
   // Desactivar elimina el agregado diario; una activación nueva comienza un

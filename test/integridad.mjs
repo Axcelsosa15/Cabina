@@ -72,6 +72,8 @@ async function exporta(p) {
      #impPaste, el del importador de CSV en Futuros—: el localizador por texto
      resolvía a dos elementos y acertaba sólo por el orden del DOM. */
   await p.click('[data-tab="ajustes"]'); await quieto(p, 60, 1200);
+  await p.click('#settingsTabData');
+  await p.locator('#panelDatos > .settings-details:not([open]) > summary').click();
   await p.click('#bkShow'); await p.waitForTimeout(1600);
   const txt = await p.evaluate(() => { const t = document.querySelector('#edFields textarea'); return t ? t.value : ''; });
   await p.keyboard.press('Escape'); await p.waitForTimeout(400);
@@ -83,6 +85,8 @@ async function exporta(p) {
 async function vistaPrevia(json) {
   const { ctx, p } = await pagina();
   await p.click('[data-tab="ajustes"]'); await quieto(p, 60, 1200);
+  await p.click('#settingsTabData');
+  await p.locator('#panelDatos > .settings-details:not([open]) > summary').click();
   await p.click('#bkPaste'); await p.waitForTimeout(600);
   await p.fill('#edFields textarea', json); await p.waitForTimeout(250);
   await p.click('#edSave'); await p.waitForTimeout(1100);

@@ -38,6 +38,7 @@ try {
   await page.locator('#pbFile').setInputFiles({ name: 'real-pendiente.png', mimeType: 'image/png', buffer: PNG });
   await started;
   await page.locator('#tabnav [data-tab="ajustes"]').click();
+  await page.locator('#settingsTabPrefs').click();
   await page.locator('#guideOpen').click();
   await page.locator('#guideDemo').click();
   await page.waitForFunction(() => /guardado pendiente|pending save/i.test(document.getElementById('guideStatus').textContent));

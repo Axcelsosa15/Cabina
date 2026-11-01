@@ -250,6 +250,13 @@ for (const [w, h, nombre] of ANCHOS) {
       await p.click(`[data-tab="${t}"]`);
     }
     await p.waitForTimeout(320);
+    if (t === 'playbook') {
+      await p.locator('#pbMoreActions > summary').click();
+      const fits = await p.locator('#pbMoreActions button').evaluateAll(nodes => nodes.every(el => {
+        const r = el.getBoundingClientRect(); return r.left >= -1 && r.right <= innerWidth + 1;
+      }));
+      ok(fits, t + ' acciones secundarias abiertas caben en pantalla');
+    }
     const m = await mide(p);
     ok(m.scrollX <= 2 && !m.peor, `${t.padEnd(9)} sin desborde horizontal`,
        m.peor ? `${m.peor.tag}${m.peor.id ? '#' + m.peor.id : ''}.${m.peor.cls} se sale ${m.peor.exceso}px` : `scrollX ${m.scrollX}`);

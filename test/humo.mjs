@@ -13,6 +13,7 @@
    NO sustituye a abrir la URL publicada: esto verifica el mismo payload en el
    mismo protocolo, no el CDN de GitHub ni su configuracion. */
 import { chromium } from 'playwright';
+import { despliegaAncestros } from './espera.mjs';
 import { sirvePublicado } from './publicado.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -107,6 +108,7 @@ paso('TRADE ENTRY', n6 === 6, `${n6} operaciones`);
 
 /* ESTUDIO · cada revisión referencia el trade original y nunca lo duplica. */
 await p.click('.tabbtn[data-tab="estudio"]'); await p.waitForTimeout(350);
+await despliegaAncestros(p.locator('#studyTradeAccount'));
 await p.selectOption('#studyTradeAccount', 'humo1'); await p.waitForTimeout(100);
 const studyInitial = await p.evaluate(() => ({
   panel: !!document.querySelector('#studyTradeList'),
@@ -123,6 +125,7 @@ const studyMetrics = await p.evaluate(() => ({
 paso('ESTUDIO METRICS', studyMetrics.count === '6' && studyMetrics.win === '66.7%' &&
   Math.abs(Number((studyMetrics.pnl || '').replace(/[^0-9.-]/g, '')) - 70) < 0.005,
   `count ${studyMetrics.count} · win ${studyMetrics.win} · net ${studyMetrics.pnl}`);
+await despliegaAncestros(p.locator('#studyTradeBreakdown'));
 const breakdown = await p.evaluate(() => ({
   rows: document.querySelectorAll('#studyTradeBreakdown tbody tr').length,
   text: document.querySelector('#studyTradeBreakdown')?.innerText || ''

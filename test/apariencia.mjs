@@ -1,6 +1,7 @@
 /* Apariencia persistente · tema antes de la primera pintura.
    Ejecuta la app real publicada con Chromium aislado; no usa cuenta Supabase. */
 import { chromium } from 'playwright';
+import { quieto } from './espera.mjs';
 import { sirvePublicado } from './publicado.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -54,12 +55,13 @@ try {
     'no aparece el tema claro al abrir en oscuro', JSON.stringify(state));
 
   await page.locator('.tabbtn[data-tab="ajustes"]').click();
-  await page.waitForTimeout(100);
+  await quieto(page);
   const mode = page.locator('#cabAppearanceMode');
   const accent = page.locator('#cabAppearanceAccent');
   check(await mode.inputValue() === 'dark', 'Ajustes refleja la preferencia guardada');
 
   await mode.selectOption('light');
+  await page.locator('#cabAppearanceApply').click();
   state = await page.evaluate(() => ({
     mode: document.documentElement.dataset.cabinaTheme,
     bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
@@ -68,7 +70,9 @@ try {
   check(state.mode === 'light' && state.bg.toLowerCase() === '#f7f9fc' && state.surface.toLowerCase() === '#ffffff',
     'cambiar a claro aplica el sistema A completo', JSON.stringify(state));
 
+  await page.locator('#appearanceAdvanced summary').click();
   await accent.selectOption('violet');
+  await page.locator('#cabAppearanceApply').click();
   const newAccent = await page.evaluate(() => getComputedStyle(document.documentElement)
     .getPropertyValue('--accent').trim());
   check(newAccent.toLowerCase() === '#6d28d9', 'color violeta efectivo', newAccent);
@@ -78,6 +82,7 @@ try {
   check(await page.locator('#cabAppearanceCustomField').isVisible(),
     'el color personalizado aparece sólo en modo custom');
   await page.locator('#cabAppearanceCustom').fill('#000000');
+  await page.locator('#cabAppearanceApply').click();
   const custom = await page.evaluate(() => ({
     color: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
     mode: document.documentElement.dataset.cabinaTheme
@@ -96,6 +101,7 @@ try {
 
   await page.locator('.tabbtn[data-tab="ajustes"]').click();
   await page.locator('#cabAppearanceReset').click();
+  await page.locator('#cabAppearanceApply').click();
   const reset = await page.evaluate(() => ({
     mode: document.documentElement.dataset.cabinaTheme,
     storage: JSON.parse(localStorage.getItem('cabina-appearance:v1') || '{}')
@@ -117,6 +123,20 @@ try {
   await mobile.waitForFunction(() => document.documentElement.dataset.cabinaTheme === 'light');
   check(await mobile.evaluate(() => document.documentElement.dataset.cabinaTheme) === 'light',
     'cambio del sistema se aplica sin recargar');
+  await mobile.goto(origin + '/#ajustes');
+  await mobile.waitForFunction(() => window.CabinaAppearance && window.FUT);
+  await mobile.locator('#appearanceAdvanced summary').click();
+  await mobile.locator('#cabAppearanceText').selectOption('large');
+  await mobile.locator('#cabAppearanceFont').selectOption('serif');
+  await mobile.locator('#cabAppearanceApply').click();
+  for (const width of [390,1280]) {
+    await mobile.setViewportSize({width,height:900});
+    const fonts = await mobile.evaluate(() => ({body:parseFloat(getComputedStyle(document.body).fontSize),
+      field:getComputedStyle(document.getElementById('qtSym')).fontFamily,
+      overflow:document.documentElement.scrollWidth > innerWidth + 1}));
+    check(fonts.body >= 16 && /Georgia/.test(fonts.field) && !fonts.overflow,
+      width + 'px: texto grande y fuente elegida se aplican al formulario compartido', JSON.stringify(fonts));
+  }
   await system.close();
 } finally {
   await browser.close();

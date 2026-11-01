@@ -250,3 +250,12 @@ export const asentado = (pg, sel = '.tile', tope = 1500) =>
       new Promise(res => setTimeout(res, t)),
     ]).then(() => null);
   }, [sel, tope]);
+
+/* Open native ancestors through their summaries, preserving the actual UI path. */
+export async function despliegaAncestros(locator) {
+  const details = locator.locator('xpath=ancestor::details');
+  for (let i = 0; i < await details.count(); i++) {
+    const detail = details.nth(i);
+    if (!(await detail.evaluate(el => el.open))) await detail.locator(':scope > summary').click();
+  }
+}
