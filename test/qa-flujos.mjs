@@ -1,6 +1,6 @@
 /* TAREA 6 · matriz de flujos.
    Lanza suites existentes (y qa-integracion) una por una y escribe
-   PASS/FAIL a stdout + /opt/cursor/artifacts/qa-matriz.json.
+   PASS/FAIL a stdout + test/artifacts-qa/qa-matriz.json.
    No modifica lógica de producto. */
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -8,7 +8,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const aqui = dirname(fileURLToPath(import.meta.url));
-const artifacts = '/opt/cursor/artifacts';
+/* Matriz local al repo: capa2 §13 prohíbe /opt|/tmp|/home absolutos en tests. */
+const artifacts = join(aqui, 'artifacts-qa');
 mkdirSync(artifacts, { recursive: true });
 
 const FLUJOS = [

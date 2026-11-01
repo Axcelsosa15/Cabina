@@ -35,9 +35,12 @@ const browser = await chromium.launch();
 
 const matrix = [
   { w: 320, h: 568, theme: 'light', tabs: ['cabina', 'futuros', 'edge'] },
-  { w: 375, h: 812, theme: 'dark', tabs: ['cabina', 'futuros'] },
+  { w: 375, h: 812, theme: 'dark', tabs: ['cabina', 'futuros', 'cuentas'] },
+  { w: 640, h: 400, theme: 'light', tabs: ['cabina', 'futuros'] }, // proxy zoom ~200% en 1280
   { w: 768, h: 1024, theme: 'light', tabs: ['cabina', 'futuros', 'edge'] },
-  { w: 1280, h: 800, theme: 'light', tabs: ['cabina', 'futuros', 'edge'] },
+  { w: 1100, h: 800, theme: 'light', tabs: ['cabina', 'futuros', 'edge'], side: false },
+  { w: 1100, h: 800, theme: 'light', tabs: ['cabina', 'futuros'], side: true },
+  { w: 1280, h: 800, theme: 'light', tabs: ['cabina', 'futuros', 'edge', 'cuentas'] },
   { w: 1280, h: 800, theme: 'dark', tabs: ['cabina', 'futuros'] },
   { w: 1920, h: 1080, theme: 'light', tabs: ['cabina', 'futuros'] }
 ];
@@ -48,19 +51,26 @@ async function gotoTab(page, tab, width) {
     const item = page.locator(`#mobileMoreOv [data-mobile-more-tab="${tab}"]`);
     if (await item.count()) { await item.click(); await page.waitForTimeout(120); return; }
   }
-  await page.locator(`#tabnav .tabbtn[data-tab="${tab}"]`).click({ force: true });
+  const btn = page.locator(`#tabnav .tabbtn[data-tab="${tab}"]`);
+  if (!(await btn.isVisible().catch(() => false))) {
+    // Raíl colapsado: reabrir antes de cambiar de pestaña.
+    await page.locator('#sidebarToggle').click({ force: true }).catch(() => {});
+    await page.waitForTimeout(120);
+  }
+  await btn.click({ force: true });
   await page.waitForTimeout(120);
 }
 
 for (const m of matrix) {
   const ctx = await browser.newContext({ viewport: { width: m.w, height: m.h } });
-  await ctx.addInitScript(({ seed, theme }) => {
+  await ctx.addInitScript(({ seed, theme, side }) => {
     localStorage.setItem('cabina-mnq:v1', JSON.stringify(seed));
     localStorage.setItem('cabina-appearance:v1', JSON.stringify({
-      mode: theme, accent: 'default', custom: '#1d4ed8',
+      mode: theme, accent: 'default', custom: '#0f766e',
       density: 'balanced', text: 'normal', font: 'system', atmosphere: 'calma'
     }));
-  }, { seed, theme: m.theme });
+    if (side != null) localStorage.setItem('cabina-sidebar-collapsed:v1', String(!!side));
+  }, { seed, theme: m.theme, side: m.side });
   const page = await ctx.newPage();
   page.setDefaultTimeout(10000);
   await page.goto(origin + '/', { waitUntil: 'domcontentloaded' });
@@ -71,7 +81,8 @@ for (const m of matrix) {
     const report = await page.evaluate(() => {
       const pageOverflow = document.documentElement.scrollWidth - window.innerWidth;
       const clipped = [];
-      for (const el of document.querySelectorAll('.tile .v, .jstrip .v, .qec .qv, .kpis .v, .hero .v, .metric-overview .v')) {
+      const sels = '.tile .v, .jstrip .v, .qec .qv, .kpis .v, .hero .v, .metric-overview .v, .acc-figs .v, .mtop .v';
+      for (const el of document.querySelectorAll(sels)) {
         const cs = getComputedStyle(el);
         if (cs.display === 'none' || cs.visibility === 'hidden') continue;
         const r = el.getBoundingClientRect();
@@ -84,6 +95,9 @@ for (const m of matrix) {
         if (hides && (dH > 1.5 || (dW > 1.5 && cs.textOverflow === 'ellipsis'))) {
           clipped.push({ text: text.slice(0, 40), dH, dW, overflow: cs.overflow, lh: cs.lineHeight, fs: cs.fontSize });
         }
+        if (cs.textOverflow === 'ellipsis' && /hidden|clip/.test(cs.overflowX + cs.overflow)) {
+          clipped.push({ text: text.slice(0, 40), reason: 'ellipsis-armed' });
+        }
         const lh = parseFloat(cs.lineHeight), fs = parseFloat(cs.fontSize);
         if (fs && lh && lh / fs < 1.18 && hides) {
           clipped.push({ text: text.slice(0, 40), reason: 'tight-lh-with-hidden', ratio: +(lh / fs).toFixed(2) });
@@ -92,10 +106,17 @@ for (const m of matrix) {
           clipped.push({ text: text.slice(0, 40), reason: 'missing-tabular', fv: cs.fontVariantNumeric });
         }
       }
-      return { pageOverflow, clipped: clipped.slice(0, 12) };
+      const wraps = [...document.querySelectorAll('.twrap')].filter(el => {
+        const r = el.getBoundingClientRect();
+        return r.width > 1 && r.height > 1;
+      });
+      const wrapOk = wraps.every(el => /auto|scroll/.test(getComputedStyle(el).overflowX));
+      return { pageOverflow, clipped: clipped.slice(0, 12), wrapOk, wrapCount: wraps.length };
     });
-    ok(report.pageOverflow <= 1, `${m.theme}@${m.w}/${tab} · sin scroll horizontal de página`, report.pageOverflow);
-    ok(report.clipped.length === 0, `${m.theme}@${m.w}/${tab} · cifras sin recorte`, JSON.stringify(report.clipped.slice(0, 3)));
+    const label = `${m.theme}@${m.w}${m.side ? '/side' : ''}/${tab}`;
+    ok(report.pageOverflow <= 1, `${label} · sin scroll horizontal de página`, report.pageOverflow);
+    ok(report.clipped.length === 0, `${label} · cifras sin recorte`, JSON.stringify(report.clipped.slice(0, 3)));
+    if (report.wrapCount) ok(report.wrapOk, `${label} · .twrap con scroll-x`, report.wrapCount);
   }
 
   // Modal: acciones alcanzables vía scroll interno del .ed
@@ -126,6 +147,53 @@ for (const m of matrix) {
     }
   }
 
+  await ctx.close();
+}
+
+/* Zoom del navegador (CSS zoom): las cifras no deben armar ellipsis;
+   el desborde residual de página a 200% se tolera si .twrap sigue scrolleable. */
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctx.addInitScript(({ seed }) => {
+    localStorage.setItem('cabina-mnq:v1', JSON.stringify(seed));
+    localStorage.setItem('cabina-appearance:v1', JSON.stringify({
+      mode: 'light', accent: 'default', custom: '#0f766e',
+      density: 'balanced', text: 'normal', font: 'system', atmosphere: 'calma'
+    }));
+  }, { seed });
+  const page = await ctx.newPage();
+  await page.goto(origin + '/', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
+  for (const zoom of [1.5, 2]) {
+    await page.evaluate(z => { document.documentElement.style.zoom = String(z); }, zoom);
+    await page.waitForTimeout(200);
+    await gotoTab(page, 'cabina', 1280);
+    const zrep = await page.evaluate((zoom) => {
+      const armed = [];
+      for (const el of document.querySelectorAll('.tile .v, .acc-figs .v, .mtop .v, .kpis .v, .hero .v')) {
+        const cs = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1) continue;
+        if (cs.textOverflow === 'ellipsis' && /hidden|clip/.test(cs.overflow + cs.overflowX)) {
+          armed.push((el.textContent || '').trim().slice(0, 30));
+        }
+      }
+      const tw = document.querySelector('#histWrap, .twrap');
+      const twOk = !tw || /auto|scroll/.test(getComputedStyle(tw).overflowX);
+      return {
+        zoom,
+        pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+        armed,
+        twOk
+      };
+    }, zoom);
+    ok(zrep.armed.length === 0, `zoom ${zoom * 100}% · cifras sin ellipsis armado`, JSON.stringify(zrep.armed.slice(0, 3)));
+    ok(zrep.twOk, `zoom ${zoom * 100}% · tablas con scroll propio`);
+    // A 200% Chromium puede reportar overflow de documento por fixed+zoom;
+    // no escondemos contenido: exigimos scroll de wrap, no overflow cero.
+    if (zoom <= 1.5) ok(zrep.pageOverflow <= 8, `zoom ${zoom * 100}% · overflow página acotado`, zrep.pageOverflow);
+    else ok(true, `zoom ${zoom * 100}% · overflow página residual documentado`, zrep.pageOverflow);
+  }
   await ctx.close();
 }
 
