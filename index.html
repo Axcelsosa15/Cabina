@@ -4153,6 +4153,15 @@ body {
   letter-spacing: .02em;
   color: var(--dim);
 }
+/* Misma especificidad que `.topbar .save-state` pero DESPUÉS: el aviso de
+   fallo de guardado tiene que seguir siendo el rojo de error (--negative),
+   no el gris ambiental del chrome. Sin esto, SIN GUARDAR parece un rótulo
+   normal y se confunde con «guardado local». */
+.topbar .save-state.nosave {
+  color: var(--negative);
+  font-weight: 800;
+  letter-spacing: .06em;
+}
 .topbar .clock #sessionPill.pill {
   /* Estado de sesión, no pastilla promocional: radio de control, tipografía UI. */
   border-radius: var(--r-sm);
