@@ -15284,7 +15284,16 @@
       { g: "Acciones", i: "＋", t: "Nueva operación de futuros", s: "N", f: () => { showTab("futuros"); openTrade(null, "futuros"); } },
       { g: "Acciones", i: "＋", t: "Nueva operación de inversión", s: "", f: () => { showTab("invest"); openTrade(null, "inversion"); } },
       { g: "Acciones", i: "＋", t: "Añadir cuenta", s: "", f: () => { showTab("cabina"); openAccountEditor(null); } },
-      { g: "Acciones", i: "⤓", t: "Descargar copia de seguridad", s: "", f: () => { showTab("cabina"); const b = $("bkExport"); if (b) b.click(); } },
+      /* Misma puerta que Exportar en Ajustes → Datos: abre el diálogo con la
+         opción de capturas. Un click() silencioso sobre #bkExport saltaba esa
+         elección y dejaba al usuario en Resumen. */
+      { g: "Acciones", i: "⤓", t: "Descargar copia de seguridad", s: "", f: () => {
+        showTab("ajustes");
+        const datos = document.getElementById("settingsTabData");
+        if (datos) selectSettingsTab(datos);
+        renderBackup();
+        openSettingsDialog("settingsExport");
+      } },
 
       { g: "Ir a", i: "▣", t: "Resumen", s: "C", f: ir("cabina") },
       { g: "Ir a", i: "▤", t: "Futuros · resumen", s: "F", f: ir("futuros", "resumen") },
@@ -15292,11 +15301,14 @@
       { g: "Ir a", i: "▤", t: "Futuros · análisis", s: "", f: ir("futuros", "analisis") },
       { g: "Ir a", i: "▤", t: "Futuros · diario", s: "J", f: ir("futuros", "diario") },
       { g: "Ir a", i: "▤", t: "Futuros · pre-sesión", s: "P", f: ir("futuros", "presesion") },
+      { g: "Ir a", i: "◷", t: "Historial", s: "", f: ir("historial") },
       { g: "Ir a", i: "▥", t: "Rendimiento", s: "", f: ir("edge") },
       { g: "Ir a", i: "◫", t: "Inversiones", s: "", f: ir("invest") },
       { g: "Ir a", i: "◱", t: "Estrategias", s: "", f: ir("playbook") },
       { g: "Ir a", i: "◰", t: "Oportunidades", s: "", f: ir("ideas") },
       { g: "Ir a", i: "▦", t: "Calculadora de riesgo", s: "R", f: ir("calc") },
+      { g: "Ir a", i: "☰", t: "Cuentas", s: "", f: ir("cuentas") },
+      { g: "Ir a", i: "⚙", t: "Ajustes", s: "", f: ir("ajustes") },
     ];
     /* Las cuentas se listan solas: son el filtro que más se cambia, y con tres
        o cuatro cuentas abrir la paleta y escribir dos letras gana a buscar el
@@ -15372,6 +15384,13 @@
     const acciones = cmdAcciones();
     const entidades = cmdResultados(q);
     cmdVis = q ? acciones.filter(a => sinTildes(a.t + " " + a.g + " " + (a.s || "")).includes(q)).concat(entidades) : acciones;
+    /* Una coincidencia exacta del título gana a una parcial: «Cuentas» no debe
+       ejecutar «Futuros · cuentas» sólo porque aparece antes en la lista. */
+    if (q) {
+      const exactas = [], resto = [];
+      for (const a of cmdVis) (sinTildes(a.t) === q ? exactas : resto).push(a);
+      cmdVis = exactas.concat(resto);
+    }
     if (cmdSel >= cmdVis.length) cmdSel = Math.max(0, cmdVis.length - 1);
     if (!cmdVis.length) { cmdList.innerHTML = `<p class="cmd-none">Nada que coincida con «${esc(cmdQ.value.trim())}».</p>`; return; }
     let html = "", grupo = null;
