@@ -96,7 +96,7 @@ try {
       check(stats.chartWidthsOK && stats.heading === 'Radiografía cuantitativa',
         width + 'px · cuatro gráficas y radiografía presentes');
       const futuresOrder = await page.evaluate(() => {
-        const ids=['ftTiles','eqWrap','dailyWrap','uwWrap','rollWrap','ftStreaks','qeSec'];
+        const ids=['ftTiles','eqWrap','dailyWrap','disciplineFutures','ftStreaks','uwWrap','rollWrap','qeSec'];
         return ids.every((id,i) => i===0 || !!(document.getElementById(ids[i-1]).compareDocumentPosition(document.getElementById(id)) & Node.DOCUMENT_POSITION_FOLLOWING));
       });
       check(futuresOrder, width + 'px · la curva y el resultado diario anteceden al análisis profundo');
