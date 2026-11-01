@@ -34,6 +34,15 @@
     syncSidebar();
   }, true);
   document.addEventListener('DOMContentLoaded', syncSidebar, { once: true });
+  function syncNavTooltips() {
+    document.querySelectorAll('#tabnav .tabbtn[data-tab]').forEach(btn => {
+      const label = (btn.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!label) return;
+      if (!btn.title) btn.title = label;
+    });
+  }
+  document.addEventListener('DOMContentLoaded', syncNavTooltips, { once: true });
+
   addEventListener('storage', event => {
     if (event.key !== 'cabina-sidebar-collapsed:v1' && event.key !== null) return;
     root.dataset.sidebarCollapsed = String(event.newValue === 'true');
