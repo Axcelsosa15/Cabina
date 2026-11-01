@@ -258,7 +258,7 @@ body{letter-spacing:-.006em}
 .tabbtn:hover{background:rgba(255,255,255,.035)}
 .tabbtn.active{color:#eafffb;background:linear-gradient(180deg,rgba(79,179,160,.12),rgba(79,179,160,.025))}
 .tabbtn.active::after{content:"";position:absolute;height:2px;left:13px;right:13px;bottom:-1px;background:#70e0cf;border-radius:3px 3px 0 0;box-shadow:0 0 12px rgba(112,224,207,.24)}
-section.panel{border-color:#25303b;border-radius:var(--cab-card-radius);background:linear-gradient(155deg,rgba(23,29,38,.98),rgba(16,21,29,.98));box-shadow:var(--cab-shadow-card);overflow:clip;transition:border-color var(--mo),box-shadow var(--mo),transform var(--mo)}
+section.panel{border-color:#25303b;border-radius:var(--cab-card-radius);background:linear-gradient(155deg,rgba(23,29,38,.98),rgba(16,21,29,.98));box-shadow:var(--cab-shadow-card);overflow:visible;transition:border-color var(--mo),box-shadow var(--mo),transform var(--mo)}
 section.panel:hover{border-color:#344453}
 .panel>header{padding:15px 18px;border-bottom-color:#27323e}
 .panel>header h2{font-size:11px;letter-spacing:.085em;line-height:1.4}
@@ -660,9 +660,11 @@ tbody tr:last-child td{border-bottom:0}
   .qhead h3 { font: 700 13px/1 var(--font-ui), sans-serif; letter-spacing: .07em; text-transform: uppercase; color: var(--text); margin: 0; }
   .qhead .qsub { font-size: 12.5px; color: var(--dim); }
   @media (max-width: 560px) { .qeg { grid-template-columns: 1fr 1fr; } .qec .qv { font-size: 18px; } }
-  .tile .v { font-family: var(--font-mono); font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top:2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Cifras de tile: nunca ellipsis. overflow:hidden + line-height corto
+     recortaba ~5 px de tinta (ascenders/descenders) en P&L, % y R. */
+  .tile .v { font-family: var(--font-mono); font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; font-feature-settings: "tnum" 1, "lnum" 1; margin-top:2px; line-height: 1.28; white-space: nowrap; overflow: visible; text-overflow: clip; }
   .tile .v.good { color: var(--good); } .tile .v.bad { color: var(--bad); } .tile .v.warn { color: var(--warn); }
-  .tile .s { font-size: 12.5px; color: var(--muted); }
+  .tile .s { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
   @media (max-width: 640px) { .tiles, .tiles.five { grid-template-columns: 1fr 1fr; } }
 
   /* ---------- tables ---------- */
@@ -713,8 +715,13 @@ tbody tr:last-child td{border-bottom:0}
                  color: var(--dim); letter-spacing: .04em; }
   .credo-trace:hover { color: var(--muted); border-left-color: var(--accent); }
 
-  .twrap { overflow-x: auto; }
-  table.t { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .twrap { overflow-x: auto; max-width: 100%; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+  .panel .body:has(> table.t),
+  .panel .body:has(> table.qsweep) {
+    overflow-x: auto; max-width: 100%; overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  table.t { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12.5px; font-variant-numeric: tabular-nums lining-nums; }
   table.t th { text-align: left; font-weight: 500; color: var(--muted); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; padding:4px 8px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   /* Ordenar es del encabezado, no un control nuevo: el botón hereda la
      tipografía del th y sólo gana el cursor, el color al pasar y la flecha. */
@@ -1271,9 +1278,10 @@ tbody tr:last-child td{border-bottom:0}
   .jstrip > div { background: var(--surface-2); padding:12px var(--s3); min-width: 0; }
   .jstrip .k { display: block; font-family: var(--font-ui); font-size: var(--read-label); font-weight: 650;
     letter-spacing: 0; text-transform: none; color: var(--dim); margin-bottom:4px; }
-  .jstrip .v { font-family: var(--font-mono); font-size: 21px; font-weight: 700; line-height: 1.05;
-    letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .jstrip .v { font-family: var(--font-mono); font-size: 21px; font-weight: 700; line-height: 1.28;
+    letter-spacing: -0.02em; font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    white-space: nowrap; overflow: visible; text-overflow: clip; }
   .jstrip .v.good { color: var(--positive); } .jstrip .v.bad { color: var(--negative); }
   .jstrip .v.warn { color: var(--warning); } .jstrip .v.dim { color: var(--dim); }
   .jstrip .s { margin-top:3px; font-family: var(--font-ui); font-size: var(--read-meta); color: var(--dim); line-height: 1.5;
@@ -1540,7 +1548,7 @@ tbody tr:last-child td{border-bottom:0}
   .calc-form .f.w2 { grid-column: span 2; }
   .hero { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; margin-bottom:16px; }
   .hero > div { background: var(--surface-2); padding:12px 16px; min-width: 0; }
-  .hero .v { font-family: var(--font-mono); font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hero .v { font-family: var(--font-mono); font-size: 21px; font-weight: 600; line-height: 1.28; font-variant-numeric: tabular-nums lining-nums; font-feature-settings: "tnum" 1, "lnum" 1; white-space: nowrap; overflow: visible; text-overflow: clip; }
   .hero .v.good { color: var(--good); }
   /* `.hero .v.bad` NO EXISTIA. Mientras el balance final llevaba `good` clavado
      nunca hizo falta — nada podía pintarse de rojo—, y al condicionar el color
@@ -1562,8 +1570,8 @@ tbody tr:last-child td{border-bottom:0}
   .legend { display: flex; gap:16px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top:8px; flex-wrap: wrap; }
   .legend i { display: inline-block; width: 14px; height: 0; border-top: 2px solid var(--accent); vertical-align: middle; margin-right:8px; }
   .legend i.d { border-top-color: var(--muted); border-top-style: dashed; }
-  .tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding:8px 8px; font-family: var(--font-mono); font-size: 11px; color: var(--text); white-space: nowrap; display: none; z-index: 5; }
-  .chartwrap { position: relative; }
+  .tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding:8px 8px; font-family: var(--font-mono); font-size: 11px; line-height: 1.35; color: var(--text); white-space: nowrap; display: none; z-index: 40; font-variant-numeric: tabular-nums lining-nums; }
+  .chartwrap { position: relative; overflow: visible; }
 
   /* ---------- futuros: calendario + desglose ---------- */
   .tiles.six { grid-template-columns: repeat(6, minmax(0,1fr)); }
@@ -1666,7 +1674,7 @@ tbody tr:last-child td{border-bottom:0}
   .lv { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap:8px; }
   .lv .l { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); padding:8px 8px; min-width: 0; }
   .lv .l .k { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
-  .lv .l .v { font-family: var(--font-mono); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lv .l .v { font-family: var(--font-mono); font-size: 15px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums lining-nums; font-feature-settings: "tnum" 1, "lnum" 1; white-space: nowrap; overflow: visible; text-overflow: clip; }
   .lv .l .r { font-family: var(--font-mono); font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
   .lv .l input { width: 100%; min-width: 0; margin-top:3px; padding:4px 8px; font-size: 13.5px; }
   .lv .l.hi .v { color: var(--good); } .lv .l.lo .v { color: var(--bad); }
@@ -1702,7 +1710,7 @@ tbody tr:last-child td{border-bottom:0}
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); gap:8px; background: transparent; }
   .kpis > div { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding:8px 12px; min-width: 0; }
   .kpis .k { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .kpis .v { font-family: var(--font-mono); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpis .v { font-family: var(--font-mono); font-size: 15px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums lining-nums; font-feature-settings: "tnum" 1, "lnum" 1; white-space: nowrap; overflow: visible; text-overflow: clip; }
   .kpis .v.good { color: var(--good); } .kpis .v.bad { color: var(--bad); } .kpis .v.warn { color: var(--warn); } .kpis .v.dim { color: var(--dim); }
   .kpis .n { font-family: var(--font-mono); font-size: 10.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .twocol { display: grid; grid-template-columns: 1fr 1fr; gap:16px; align-items: start; }
@@ -1794,7 +1802,7 @@ tbody tr:last-child td{border-bottom:0}
   /* ---------- ajustes de proporción ---------- */
   .kpis .k { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
   .kpis .n { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.3; }
-  .tile .v.dual { font-size: 16px; white-space: normal; line-height: 1.3; }
+  .tile .v.dual { font-size: 16px; white-space: normal; line-height: 1.35; overflow: visible; overflow-wrap: anywhere; text-overflow: clip; }
   .cards { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
   .cal .d .p { white-space: normal; overflow: visible; text-overflow: clip; font-size: 11px; }
 
@@ -3635,7 +3643,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 .tab .qec .qv, .tab .tile .v, .tab .estrow .ev {
   font-family: var(--font-mono); font-variant-numeric: tabular-nums lining-nums; letter-spacing: -.025em;
 }
-.tab .qec .qv { font-size: clamp(21px, 2.3vw, 27px); line-height: 1.25; }
+.tab .qec .qv { font-size: clamp(21px, 2.3vw, 27px); line-height: 1.28; overflow: visible; }
 .tab .qec .qs { font: 450 13px/1.5 var(--font-ui); }
 .tab th { font: 650 var(--read-meta)/1.4 var(--font-ui); letter-spacing: .01em; text-transform: none; }
 .tab table.t td { font-size: 13px; line-height: 1.45; font-variant-numeric: tabular-nums; }
@@ -3686,7 +3694,7 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 .metric-grid { grid-template-columns: repeat(auto-fit,minmax(min(100%,200px),1fr)); }
 :is(.metric-overview,.metric-grid) > :is(.tile,.qec) { min-width: 0; padding: var(--panel-space); border: 0; border-radius: var(--r-md); background: var(--surface-2) !important; box-shadow: none; }
 .metric-overview > :is(.tile,.qec):first-child { border-left: 3px solid var(--accent); }
-.metric-overview :is(.v,.qv) { font-size: clamp(25px,2.5vw,34px); line-height: 1.2; }
+.metric-overview :is(.v,.qv) { font-size: clamp(25px,2.5vw,34px); line-height: 1.28; overflow: visible; text-overflow: clip; }
 .metric-grid :is(.v,.qv) { font-size: clamp(21px,2vw,26px); }
 :is(.metric-overview,.metric-grid) :is(.s,.qs) { font: 450 var(--read-meta)/1.55 var(--font-ui); white-space: normal; overflow: visible; text-overflow: clip; }
 .metric-calculation { margin: 6px 0 0; }
@@ -4076,9 +4084,10 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
 :root {
   --ledger-gap: 16px;
   --ledger-inset: 20px;
-  --figure: 600 clamp(22px, 2.1vw, 28px)/1.15 var(--font-mono);
-  --figure-sm: 600 18px/1.2 var(--font-mono);
-  --label-caps: 600 11px/1.35 var(--font-ui);
+  /* 1.28 (no 1.15): con mono tabular, 1.15 + overflow:hidden recortaba tinta. */
+  --figure: 600 clamp(22px, 2.1vw, 28px)/1.28 var(--font-mono);
+  --figure-sm: 600 18px/1.3 var(--font-mono);
+  --label-caps: 600 11px/1.4 var(--font-ui);
 }
 body {
   font-feature-settings: "ss01" 0, "tnum" 0;
@@ -4344,13 +4353,14 @@ body {
   max-width: 52ch;
 }
 
-/* Paneles · superficie elevada, cabecera de trabajo, cuerpo respirable. */
+/* Paneles · superficie elevada, cabecera de trabajo, cuerpo respirable.
+   overflow:visible: clip recortaba anillos de foco, tips y tinta de cifras. */
 .tab section.panel {
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--surface);
   box-shadow: var(--sh-1);
-  overflow: clip;
+  overflow: visible;
 }
 .tab section.panel > header {
   display: flex;
@@ -4410,17 +4420,35 @@ body {
   filter: none;
 }
 
-/* Cifras y métricas · comparación fácil. */
+/* Cifras y métricas · comparación fácil. Completas: sin ellipsis ni clip. */
 .tab .tile .v,
 .tab .qec .qv,
 .tab .discipline-stat strong,
 .tab .jstrip .v,
+.tab .kpis .v,
+.tab .hero .v,
+.tab .lv .l .v,
 .metric-overview .tile .v {
   font: var(--figure);
   font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
+  font-feature-settings: "tnum" 1, "lnum" 1, "zero" 0;
   letter-spacing: -.03em;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.28;
 }
+.tab .tile .v,
+.tab .jstrip .v,
+.tab .kpis .v,
+.tab .hero .v,
+.tab .lv .l .v { white-space: nowrap; }
+.tab .tile .v.dual {
+  font: var(--figure-sm);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+.tab .qec .qv { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
 .tab .tile .s,
 .tab .qec .qk,
 .tab .lab {
@@ -4428,6 +4456,8 @@ body {
   letter-spacing: .04em;
   text-transform: uppercase;
   color: var(--muted);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 .tab .tiles {
   gap: 0;
@@ -4442,17 +4472,30 @@ body {
   border-bottom: 1px solid var(--line);
   background: var(--surface);
   min-height: 76px;
+  min-width: 0;
+  overflow: visible;
 }
 .tab .tile:hover { background: var(--surface-2); }
 
-/* Tablas · cabecera quieta, filas alineadas, P&L tabular. */
+/* Tablas · cabecera quieta, filas alineadas, P&L tabular.
+   overflow en .twrap (no en la tabla). */
+.tab .twrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.tab .twrap > table.t { border: 0; border-radius: 0; }
 .tab table.t {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  overflow: hidden;
+  overflow: visible;
   background: var(--surface);
 }
 .tab table.t thead th {
@@ -4553,6 +4596,8 @@ body {
   padding: 12px 14px;
   border-right: 1px solid var(--line);
   background: var(--surface);
+  min-width: 0;
+  overflow: visible;
 }
 .tab[data-tab="cabina"] .jstrip > div:last-child { border-right: 0; }
 .cab-checklist-fold > summary,
@@ -4712,6 +4757,40 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
 }
 @media (prefers-reduced-motion: reduce) {
   .btn, .editbtn, #panelAccts .acct, .tab .tile { transition: none !important; }
+}
+
+/* ── Tipografía legible · anti-recorte (Ledger) ───────────────────────────
+   Una sola capa: cifras financieras completas, tablas con scroll propio,
+   modales con acciones alcanzables, sin overflow-x en el documento. */
+.tab .estrow .ev,
+.tab table.t td.r,
+.tab table.t th.r,
+.tab .cap .v,
+.tab .cal .d .p,
+.tab .score .r .v,
+.tab .peorm b,
+.tab .mx-learn-value {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  overflow: visible;
+  text-overflow: clip;
+}
+.tab .estrow .ev { line-height: 1.3; white-space: nowrap; }
+.tab .cap .v { line-height: 1.3; white-space: nowrap; }
+.tab .peorm b { line-height: 1.25; }
+#mxLearnPanel .mx-learn-value { line-height: 1.2; overflow-wrap: anywhere; }
+.tab .panel > header h2,
+.tab .panel > header .meta { overflow-wrap: anywhere; line-height: 1.4; }
+.tab .btn, .tab .editbtn { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; max-width: 100%; }
+.ed > footer {
+  box-shadow: 0 -1px 0 var(--line);
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+}
+.ed .fld .help, .ed-field-error, #ov .ed-validation { overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .tab .tile .v, .tab .jstrip .v, .tab .qec .qv { font-size: 22px; line-height: 1.3; }
+  .tab .tile .v.dual { font-size: 15px; line-height: 1.35; }
+  .ov { padding: 12px 8px max(12px, env(safe-area-inset-bottom)); }
 }
 </style>
 </head>
