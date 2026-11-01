@@ -3907,6 +3907,25 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
 .discipline-criteria strong{display:block}
 .discipline-actions .btn{min-height:44px;white-space:normal}
 @media(max-width:600px){.discipline-grid{gap:6px}.discipline-stat{padding:10px 8px}.discipline-stat strong{font-size:21px}.discipline-dialog{padding:16px}.discipline-actions{align-items:stretch}.discipline-actions .btn{flex:1 1 160px}}
+
+/* Optional guidance and quiet breaks: shared tokens, no focus-grabbing alert. */
+.account-notice-actions{flex-wrap:wrap}
+.experience-dialog{box-sizing:border-box;width:min(620px,100%);max-height:calc(100dvh - 32px);overflow:auto;padding:24px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text)}
+.experience-dialog header,.experience-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.experience-dialog header{justify-content:space-between;margin-bottom:28px}
+.experience-dialog h2{font:700 26px/1.25 var(--font-ui,system-ui);letter-spacing:-.025em;margin:0 0 16px}
+.experience-dialog p{font:14px/1.7 var(--font-ui,system-ui);margin:12px 0}
+.experience-small{font:12px/1.6 var(--font-ui,system-ui);color:var(--muted)}
+.experience-demo-note{border-left:3px solid var(--accent);padding:10px 14px;background:var(--surface-2)}
+.experience-footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);justify-content:space-between}
+.experience-actions .btn{min-height:44px;white-space:normal}
+.experience-check{display:flex;align-items:center;gap:10px;font:600 14px/1.5 var(--font-ui,system-ui);margin:16px 0;min-height:44px;cursor:pointer}
+.experience-check input{width:20px;height:20px;accent-color:var(--accent)}
+.experience-setting{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0;font:13px/1.5 var(--font-ui,system-ui)}
+.experience-setting select{min-height:44px;min-width:112px}
+.break-notice{position:fixed;bottom:24px;right:24px;z-index:65;box-sizing:border-box;width:min(460px,calc(100vw - 32px));padding:18px;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.12);background:var(--surface);color:var(--text);font:14px/1.6 var(--font-ui,system-ui)}
+.break-notice[hidden]{display:none!important}.break-notice p{margin:8px 0 14px}
+@media(max-width:700px){.experience-dialog{padding:20px}.experience-dialog h2{font-size:24px}.experience-dialog header{margin-bottom:20px}.experience-actions:not(header .experience-actions)>.btn{flex:1 1 150px}.break-notice{bottom:82px;right:16px}.account-notice-actions .editbtn{flex:1 1 auto}}
 </style>
 </head>
 <body>
@@ -4001,7 +4020,8 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
   <div class="account-notice-copy"><b>Sin cuenta</b>
   <span>Tus datos se guardan sólo en este navegador. Crea una cuenta para conservarlos y sincronizarlos entre dispositivos.</span></div>
   <div class="account-notice-actions"><button type="button" class="editbtn" id="cuentaBarCrear">Crear cuenta</button>
-  <button type="button" class="editbtn" id="cuentaBarNo">Ahora no</button></div>
+  <button type="button" class="editbtn" id="cuentaBarNo">Ahora no</button>
+  <button type="button" class="editbtn" id="guideWelcome">Guía · 2 min</button></div>
 </div>
 <div class="editbar">
   <span>Modo edición: añade, borra y reescribe cuentas, reglas y pasos. Los cambios se guardan solos.</span>
@@ -4355,9 +4375,21 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
         <p class="help">Rellena la cabina con operaciones, setups, cuentas y cartera inventados para ver cómo queda todo con datos dentro. <b>No se guarda nada</b>: al salir vuelven tus datos reales intactos.</p>
         <div class="bkbtns">
           <button type="button" class="editbtn" id="demoToggle" aria-pressed="false">Ver demo</button>
+          <button type="button" class="editbtn" id="guideOpen">Guía inicial · 2 min</button>
         </div>
       </div>
     </div>
+  </div>
+</section>
+
+<section class="panel" id="panelBreaks" style="margin-top:24px">
+  <header><h2 id="breakTitle">Pausas a tu ritmo</h2></header>
+  <div class="body">
+    <p class="help" id="breakDescription">Recordatorio opcional dentro de Cabina. Sólo cuenta el tiempo con esta pestaña visible y activa; se guarda en este navegador.</p>
+    <label class="experience-check"><input type="checkbox" id="breakEnabled"><span id="breakEnabledLabel">Activar recordatorio de descanso</span></label>
+    <div class="experience-setting"><label for="breakLimit" id="breakLimitLabel">Recordarme una pausa tras</label><select id="breakLimit"><option value="30">30 min</option><option value="60" selected>60 min</option><option value="90">90 min</option><option value="120">120 min</option></select></div>
+    <p class="help" id="breakStatus">Desactivado. No se mide tiempo ni se muestran avisos.</p>
+    <p class="experience-small" id="breakPrivacy">Sin permisos de notificaciones, sonidos ni puntos por permanecer conectado. Apagarlo elimina el tiempo contado hoy.</p>
   </div>
 </section>
 
@@ -5023,6 +5055,19 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
   <span class="legal"><a href="./privacidad.html">Privacidad</a> · <a href="./terminos.html">Términos</a> · <a href="./seguridad.html">Seguridad</a></span>
 </footer>
 
+<aside class="break-notice" id="breakNotice" role="status" aria-live="polite" hidden>
+  <strong id="breakNoticeTitle">Un momento para descansar</strong><p id="breakNoticeText"></p>
+  <div class="experience-actions"><button type="button" class="btn ghost" id="breakDismiss">Entendido por hoy</button><button type="button" class="btn ghost" id="breakDisable">Apagar recordatorio</button></div>
+</aside>
+<div class="ov" id="guideOv">
+  <section class="experience-dialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle" aria-describedby="guideBody">
+    <header><span class="experience-small" id="guideProgress">Guía de 2 minutos</span><div class="experience-actions"><button type="button" class="btn ghost" id="guideLanguage" aria-label="Cambiar idioma a inglés">EN</button><button type="button" class="btn ghost" id="guideClose">Cerrar</button></div></header>
+    <h2 id="guideTitle" tabindex="-1">Conoce tu Cabina</h2>
+    <div id="guideBody"></div><p id="guideStatus" role="status"></p>
+    <div class="experience-actions" id="guideChoices"><button type="button" class="btn primary" id="guideDemo">Explorar con ejemplos</button><button type="button" class="btn ghost" id="guideReal">Continuar con mis registros</button></div>
+    <div class="experience-actions experience-footer" id="guideFooter" hidden><button type="button" class="btn ghost" id="guideBack" hidden>Volver</button><button type="button" class="btn primary" id="guideNext" hidden>Continuar</button><button type="button" class="btn primary" id="guideFinish" hidden>Ir a mi checklist</button></div>
+  </section>
+</div>
 <div class="ov" id="disciplineShareOv" role="dialog" aria-modal="true" aria-labelledby="disciplineDialogTitle">
   <section class="discipline-dialog">
     <header><h2 id="disciplineDialogTitle">Mi proceso</h2><button type="button" class="btn ghost" id="disciplineShareClose">Cerrar</button></header>
@@ -5163,6 +5208,8 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
      en la cabecera de ese fichero. Sigue siendo bloqueante y en esta misma
      posicion: ve el mismo DOM que veia inline. -->
 <script src="./discipline.js"></script>
+<script src="./session-break.js"></script>
+<script src="./experience.js"></script>
 <script src="./app.js"></script>
 
 

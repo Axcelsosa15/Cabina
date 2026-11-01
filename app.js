@@ -618,13 +618,19 @@
         if (i >= 0) this.items[i] = data; else this.items.push(data); this.emit();
         if (state.demo) return;
         const clave = name + "/" + id;
-        try { await state.db.collection(name).doc(id).set(data); siSeGuardo(clave); } catch (e) { noSeGuardo(clave, motivoDb(e), "la ficha"); }
+        const ctx = persistenceContext();
+        await trackPersistence(ctx.db.collection(name).doc(id).set(data).then(
+          () => { if (persistenceStillCurrent(ctx)) siSeGuardo(clave); },
+          e => { if (persistenceStillCurrent(ctx)) noSeGuardo(clave, motivoDb(e), "la ficha"); }));
       },
       async remove(id) {
         this.items = this.items.filter(x => x.id !== id); this.emit();
         if (state.demo) return;
         const clave = name + "/" + id;
-        try { await state.db.collection(name).doc(id).delete(); siSeGuardo(clave); } catch (e) { noSeGuardo(clave, motivoDb(e), "el borrado"); }
+        const ctx = persistenceContext();
+        await trackPersistence(ctx.db.collection(name).doc(id).delete().then(
+          () => { if (persistenceStillCurrent(ctx)) siSeGuardo(clave); },
+          e => { if (persistenceStillCurrent(ctx)) noSeGuardo(clave, motivoDb(e), "el borrado"); }));
       },
       /* Sin tope: la cuenta pagina, y una operación 1001 que no se pintara
          tampoco entraría en el respaldo.
@@ -823,41 +829,57 @@
   function sinSello(d) { const c = clone(d); delete c.updatedAt; return c; }
   function ruleByRole(role) { return state.settings.rules.find(r => r.role === role && r.kind === "num"); }
 
+  const pendingPersistence = new Map(), inFlightPersistence = new Set();
+  function persistenceContext() {
+    return { db: state.db, owner: state.nube && nube.ses ? nube.ses.uid : null, cloud: !!state.nube };
+  }
+  function persistenceStillCurrent(ctx) {
+    const current = persistenceContext();
+    return ctx.db === current.db && ctx.owner === current.owner && ctx.cloud === current.cloud;
+  }
+  function trackPersistence(work) {
+    const running = Promise.resolve(work); inFlightPersistence.add(running);
+    return running.finally(() => inFlightPersistence.delete(running));
+  }
+  function schedulePersistence(key, write, ms) {
+    const task = () => {
+      pendingPersistence.delete(key);
+      return trackPersistence(write());
+    };
+    pendingPersistence.set(key, task); debounce(key, task, ms);
+  }
+  async function flushPersistence() {
+    // Edits made before entering the demo must finish before replacing state.
+    // A new edit during a request is drained in the following pass.
+    while (pendingPersistence.size || inFlightPersistence.size) {
+      const entries = Array.from(pendingPersistence.entries());
+      entries.forEach(([key]) => clearTimeout(timers[key]));
+      await Promise.all([...Array.from(inFlightPersistence), ...entries.map(([, task]) => task())]);
+    }
+  }
   function persistSettings(quiet) {
     if (state.demo) return;
     if (!quiet) state.settings.customized = true;
-    /* SE SELLA AQUI, NO DENTRO DEL `debounce`. Entre pedir la escritura y
-       escribirla hay 500 ms, y en ese hueco puede entrar la configuracion del
-       servidor (al volver a la pestaña se recargan todas las suscripciones).
-       Con el sello puesto solo al escribir, ese documento remoto tenia el sello
-       mas nuevo, ganaba, y la edicion del usuario desaparecia de la pantalla
-       ANTES de que se guardara: la escritura que salia 500 ms despues llevaba
-       ya los valores remotos. Sellando al pedirlo, la pantalla declara que lo
-       que tiene es mas nuevo que lo que cargo, que es la verdad.
-
-       Solo si la configuracion YA cargo: antes de eso no hay nada sobre lo que
-       esta edicion sea «mas nueva», y sellarla haria que la cabina rechazara
-       para siempre la configuracion real de la cuenta. Es la misma condicion
-       que ya guarda la escritura unas lineas mas abajo. */
-    if (state.cfgConocida) state.settings.updatedAt = Date.now();
-    debounce("settings", async () => {
-      /* NO SE GUARDA CONFIGURACIÓN HASTA QUE LA BASE HAYA CONTESTADO. Con cuenta la
-         configuración llega por red; guardar en ese hueco escribía los valores por
-         defecto encima de la real — medido: «SIN CUENTAS», todas borradas por
-         cambiar una regla medio segundo antes de que cargara. Se comprueba AQUÍ, al
-         escribir, y no al pedir la escritura: entre las dos hay 500 ms. El cambio se
-         queda en pantalla hasta que llega lo guardado, y lo guardado manda. */
-      if (!state.cfgConocida) { flash("la configuración aún no había cargado: ese cambio no se guardó"); return; }
-      try { await state.db.doc("settings/main").set(clone(state.settings)); siSeGuardo("settings/main", state.nube ? "guardado" : "guardado en este navegador"); } catch (e) { noSeGuardo("settings/main", motivoDb(e), "la configuracion"); }
+    const known = state.cfgConocida;
+    if (known) state.settings.updatedAt = Date.now();
+    const snapshot = known ? clone(state.settings) : null, ctx = persistenceContext();
+    schedulePersistence("settings", async () => {
+      // Unknown defaults never overwrite a configuration that arrives later.
+      if (!known || !state.cfgConocida) { flash("la configuración aún no había cargado: ese cambio no se guardó"); return; }
+      if (!persistenceStillCurrent(ctx)) return;
+      try { await ctx.db.doc("settings/main").set(snapshot); if (persistenceStillCurrent(ctx)) siSeGuardo("settings/main", ctx.cloud ? "guardado" : "guardado en este navegador"); }
+      catch (e) { if (persistenceStillCurrent(ctx)) noSeGuardo("settings/main", motivoDb(e), "la configuracion"); }
     }, 500);
   }
   function persistDay() {
     if (state.demo) { renderDiscipline(); return; }
     state.day.updatedAt = Date.now();
+    const snapshot = clone(state.day), ctx = persistenceContext(), path = "days/" + snapshot.date;
     debounce("discipline-render", renderDiscipline, 120);
-    debounce("day", async () => {
-      const clave = "days/" + state.day.date;
-      try { await state.db.doc(clave).set(clone(state.day)); siSeGuardo(clave, state.nube ? "guardado" : "guardado en este navegador"); } catch (e) { noSeGuardo(clave, motivoDb(e), "el dia"); }
+    schedulePersistence("day:" + snapshot.date, async () => {
+      if (!persistenceStillCurrent(ctx)) return;
+      try { await ctx.db.doc(path).set(snapshot); if (persistenceStillCurrent(ctx)) siSeGuardo(path, ctx.cloud ? "guardado" : "guardado en este navegador"); }
+      catch (e) { if (persistenceStillCurrent(ctx)) noSeGuardo(path, motivoDb(e), "el dia"); }
     }, 400);
   }
   /* Todas las sesiones guardadas viven en state.dias; el historial de la Cabina
@@ -1533,6 +1555,7 @@
     if (b) b.addEventListener("click", () => {
       const v = idioma() === "en" ? "es" : "en"; idiomaGuarda(v); traduce(v);
       repintaEstadisticas(); renderDiscipline();
+      if (window.CabinaExperience) window.CabinaExperience.refresh();
       if (state.tab === "futuros") renderFutures();
     });
   }
@@ -4541,10 +4564,14 @@
     wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th class="r">Resultado</th><th class="r">Ops</th><th class="r">Pre</th><th>Regla</th><th>Nota</th><th></th></tr></thead><tbody>${h.map(d => { const r = d.result == null ? null : Number(d.result); return `<tr data-date="${d.date}"><td><span class="dim">${dowOf(d.date)}</span> ${d.date.slice(5)}</td><td class="r ${r > 0 ? "pos" : r < 0 ? "neg" : ""}">${r == null ? "—" : money(r)}</td><td class="r">${d.trades == null ? "—" : d.trades}</td>${preCell(d)}<td>${d.broke ? '<span class="neg">rota</span>' : '<span class="dim">ok</span>'}</td><td class="notes">${d.synthetic ? '<span class="dim">del journal de futuros</span>' : esc(d.note || "")}</td><td class="act">${d.synthetic ? "" : '<button type="button" class="icon del" data-act="del" title="Borrar esta sesión">×</button>'}</td></tr>`; }).join("")}</tbody></table>`;
   }
   $("histWrap").addEventListener("click", async e => {
-    const btn = e.target.closest("button[data-act='del']"); if (!btn || !armed(btn)) return;
+    const btn = e.target.closest("button[data-act='del']"); if (!btn) return;
+    if (state.demo) { flash("Sal de la demo para borrar sesiones reales."); return; }
+    if (!armed(btn)) return;
     const date = btn.closest("tr").dataset.date;
-    try { await state.db.doc("days/" + date).delete(); siSeGuardo("days/" + date); } catch (err) { noSeGuardo("days/" + date, motivoDb(err), "el borrado del dia"); }
-    if (date === state.today) { state.day = newDay(state.today); renderChecklist(); renderJournalDay(); }
+    await trackPersistence((async () => {
+      try { await state.db.doc("days/" + date).delete(); siSeGuardo("days/" + date); } catch (err) { noSeGuardo("days/" + date, motivoDb(err), "el borrado del dia"); }
+      if (date === state.today) { state.day = newDay(state.today); renderChecklist(); renderJournalDay(); }
+    })());
   });
   function renderSettings() { renderMeta(); renderWindow(); renderChecklist(); renderRules(); renderAccounts(); if (typeof renderFutAccounts === "function") { try { renderFutAccounts(); } catch (e) { } } }
   const _renderHistory = renderHistory; renderHistory = function () { _renderHistory(); if (typeof renderCalendar === "function" && $("cal")) { try { renderCalendar(); } catch {} } if (typeof renderCabCalendar === "function") { try { renderCabCalendar(); } catch {} } };
@@ -7382,6 +7409,8 @@
     };
   }
   function hasImg(x) { return !!(x && (x.id || x.data)); }
+  // Includes linking the uploaded file to its real record, not just the request.
+  let shotOperationsInFlight = 0;
   async function uploadShot(file) {
     if (!assetsReady()) throw { code: "no_assets" };
     if (!/^image\//.test(file.type)) throw { code: "type" };
@@ -7457,6 +7486,7 @@
           const f = inp.files && inp.files[0]; if (!f) return;
           b.disabled = true; b.textContent = "subiendo…";
           st.pending++; $("edSave").disabled = true;
+          shotOperationsInFlight++;
           try {
             const im = await uploadShot(f);
             /* Si el editor se cerró durante la subida, no dejar un asset huérfano. */
@@ -7467,6 +7497,7 @@
             st.imgs.push(im); draw();
           } catch (err) { if (box.isConnected && ov.classList.contains("open")) { b.disabled = false; b.textContent = label; flashEd(uploadErrMsg(err)); } }
           finally {
+            shotOperationsInFlight--;
             st.pending--;
             if (!st.pending && box.isConnected && ov.classList.contains("open")) $("edSave").disabled = false;
           }
@@ -9308,10 +9339,27 @@
   });
 
   /* ---------- panel de día ---------- */
-  let dayNoteTimer = null;
-  async function saveDayNote(date, patch) {
+  const pendingDayNotes = new Map();
+  function queueDayNote(date, patch, ms = 600) {
     if (state.demo) return;
-    try { const ref = state.db.doc("days/" + date); const snap = await ref.get(); const cur = snap.exists ? snap.data() : newDay(date); const next = Object.assign({}, cur, patch, { updatedAt: Date.now() }); await ref.set(next); siSeGuardo("days/" + date); if (date === state.today) { state.day = migrateDay(Object.assign(newDay(date), next)); renderJournalDay(); } } catch (e) { noSeGuardo("days/" + date, motivoDb(e), "el dia " + date); }
+    // Hoy comparte documento y cola con la Cabina: una nota y un cambio de
+    // checklist consecutivos no pueden sobrescribirse entre dos escritores.
+    if (date === state.today) {
+      Object.assign(state.day, patch); persistDay(); renderJournalDay(); renderCalendar(); return;
+    }
+    const ctx = persistenceContext(), previous = pendingDayNotes.get(date);
+    const draft = { ctx, patch: Object.assign({}, previous && persistenceStillCurrent(previous.ctx) ? previous.patch : {}, patch) };
+    pendingDayNotes.set(date, draft);
+    schedulePersistence("day-note:" + date, async () => {
+      if (pendingDayNotes.get(date) === draft) pendingDayNotes.delete(date);
+      if (!persistenceStillCurrent(ctx)) return;
+      try {
+        const ref = ctx.db.doc("days/" + date), snap = await ref.get();
+        const next = Object.assign({}, snap.exists ? snap.data() : newDay(date), draft.patch, { updatedAt: Date.now() });
+        await ref.set(next);
+        if (persistenceStillCurrent(ctx)) { siSeGuardo("days/" + date); renderCalendar(); }
+      } catch (e) { if (persistenceStillCurrent(ctx)) noSeGuardo("days/" + date, motivoDb(e), "el dia " + date); }
+    }, ms);
   }
   function dayDoc(date) { if (date === state.today) return state.day; const h = state.history.find(d => d.date === date); if (h) return migrateDay(h); const l = lsRead().days; return l && l[date] ? migrateDay(l[date]) : null; }
   function renderDay() {
@@ -9347,8 +9395,8 @@
     $("dayBody").innerHTML = `<div class="daygrid"><div>${rows}<button type="button" class="add" id="dayAdd">+ Añadir operación en ${date}</button></div>
       <div class="daynote">${cab}<label class="lab" for="dayNote">Nota del día · qué pasó, qué cambia</label><textarea id="dayNote" placeholder="Contexto del día, estado mental, qué haría distinto.">${esc(dd && dd.note ? dd.note : "")}</textarea><div class="jactions" style="margin-top:8px"><label style="display:flex;gap:8px;align-items:center;font-family:var(--font-mono);font-size:12px;color:var(--muted)"><input type="checkbox" id="dayBroke" ${dd && dd.broke ? "checked" : ""} style="margin:0"> regla rota este día</label></div></div></div>` + review;
     $("dayAdd").addEventListener("click", () => openTrade(null, "futuros"));
-    $("dayNote").addEventListener("input", e => { clearTimeout(dayNoteTimer); const v = e.target.value.slice(0, 2000); dayNoteTimer = setTimeout(() => saveDayNote(date, { note: v }), 600); });
-    $("dayBroke").addEventListener("change", e => { saveDayNote(date, { broke: e.target.checked }).then(() => renderCalendar()); });
+    $("dayNote").addEventListener("input", e => queueDayNote(date, { note: e.target.value.slice(0, 2000) }));
+    $("dayBroke").addEventListener("change", e => queueDayNote(date, { broke: e.target.checked }, 0));
     $("dayBody").querySelectorAll("button[data-act='edit']").forEach(b => b.addEventListener("click", () => { const t = coll("trades").get(b.closest("tr").dataset.id); if (t) openTrade(t); }));
     $("dayBody").querySelectorAll("button[data-act='hitstop']").forEach(b => b.addEventListener("click", () => hitStop(b.closest("tr").dataset.id)));
     $("dayBody").addEventListener("click", e => { if (e.target.tagName === "IMG" && (e.target.classList.contains("thumb") || e.target.closest("figure.pbimg"))) openLightbox(e.target.src, e.target.alt); });
@@ -11739,8 +11787,10 @@
     const file = e.target.files && e.target.files[0]; const id = e.target.dataset.id; if (!file || !id || !pb.assets) return;
     const p = coll("playbooks").get(id); if (!p) return;
     flash("subiendo imagen…");
-    try { const im = await uploadShot(file); coll("playbooks").set(id, Object.assign({}, p, { images: (p.images || []).concat([im]) })); flash("imagen guardada"); }
+    shotOperationsInFlight++;
+    try { const im = await uploadShot(file); await coll("playbooks").set(id, Object.assign({}, p, { images: (p.images || []).concat([im]) })); flash("imagen guardada"); }
     catch (err) { flash(uploadErrMsg(err)); }
+    finally { shotOperationsInFlight--; }
   });
   function openLightbox(src, alt) { const lb = $("lightbox"); lb.querySelector("img").src = src; lb.querySelector("img").alt = alt || ""; lb.classList.add("open"); }
   $("lightbox").addEventListener("click", () => $("lightbox").classList.remove("open"));
@@ -12850,8 +12900,20 @@
     ];
     return { pbs, trades: trades.concat(invOps), positions, watch, ideas, history, accounts, scenarios, demoLevels };
   }
-  function enterDemo() {
-    if (state.demo) return;
+  let demoEntering = false, bundleImportsInFlight = 0;
+  async function enterDemo(allowed = () => true) {
+    if (state.demo) return true;
+    if (shotOperationsInFlight) { flash("Espera a que termine la captura y su guardado antes de abrir la demo."); return false; }
+    if (bundleImportsInFlight) { flash("Espera a que termine la importación antes de abrir la demo."); return false; }
+    if (demoEntering) return false;
+    demoEntering = true;
+    $("demoToggle").disabled = true;
+    try {
+    await flushPersistence();
+    if (shotOperationsInFlight) { flash("Espera a que termine la captura y su guardado antes de abrir la demo."); return false; }
+    if (bundleImportsInFlight) { flash("Espera a que termine la importación antes de abrir la demo."); return false; }
+    if (!allowed()) return false;
+    if (sinGuardar.size || conflictos.size) { flash("Resuelve el guardado pendiente antes de abrir la demo."); return false; }
     const d = buildDemo();
     state.demo = true; document.body.classList.add("demo");
     /* Un desconocido no tiene reglas con valor, y un demo sin números no enseña
@@ -12876,6 +12938,8 @@
     ["playbooks", "trades", "positions", "watch", "ideas", "scenarios"].forEach(n => coll(n).emit());
     renderAll(); renderLevels(); renderInvest(); renderCalc(); renderDemoBar();
     flash("modo demo activo · nada se guarda");
+    return true;
+    } finally { demoEntering = false; $("demoToggle").disabled = false; }
   }
   function renderDemoBar() {
     const bar = $("demoBar"), btn = $("demoToggle");
@@ -12981,10 +13045,13 @@
     return m;
   }
   async function borraDiasDb(fechas) {
-    for (const f of fechas) {
-      const clave = "days/" + f;
-      try { await state.db.doc(clave).delete(); siSeGuardo(clave); } catch (e) { noSeGuardo(clave, motivoDb(e), "el borrado del dia"); }
-    }
+    if (state.demo) { flash("Sal de la demo para borrar sesiones reales."); return; }
+    return trackPersistence((async () => {
+      for (const f of fechas) {
+        const clave = "days/" + f;
+        try { await state.db.doc(clave).delete(); siSeGuardo(clave); } catch (e) { noSeGuardo(clave, motivoDb(e), "el borrado del dia"); }
+      }
+    })());
   }
   const val = v => typeof v === "function" ? v() : v;
 
@@ -13080,6 +13147,7 @@
   }
 
   function selBorra() {
+    if (state.demo) { flash("Sal de la demo para borrar registros reales."); return; }
     const L = listaDe(sel.lista); if (!L) return;
     const ids = [...sel.ids]; if (!ids.length) return;
     /* Se guarda ENTERO antes de tocar nada, para poder devolverlo tal cual. */
@@ -13106,9 +13174,10 @@
   function vaciaPapelera() { try { localStorage.removeItem(PAPELERA); } catch (e) { } avisaPapelera(); }
 
   function deshaceBorrado() {
+    if (state.demo) { flash("Sal de la demo para restaurar registros reales."); return; }
     const p = leePapelera(); if (!p || !p.regs || !p.regs.length) return;
     if (p.dias) {
-      p.regs.forEach(r => { if (!r || !r.date) return; const clave = "days/" + r.date; state.db.doc(clave).set(r).then(() => siSeGuardo(clave), e => noSeGuardo(clave, motivoDb(e), "el dia " + r.date)); });
+      p.regs.forEach(r => { if (!r || !r.date) return; const clave = "days/" + r.date; trackPersistence(state.db.doc(clave).set(r).then(() => siSeGuardo(clave), e => noSeGuardo(clave, motivoDb(e), "el dia " + r.date))); });
       if (p.regs.some(r => r && r.date === state.today)) { const r = p.regs.find(x => x.date === state.today); state.day = migrateDay(Object.assign(newDay(state.today), r)); renderChecklist(); renderJournalDay(); }
     }
     else if (p.cuentas) {
@@ -13159,6 +13228,7 @@
   }, true);
   document.addEventListener("click", e => {
     const b = e.target.closest("[data-pap]"); if (!b) return;
+    if (state.demo) { flash("La papelera real se conserva intacta durante la demo."); return; }
     if (b.dataset.pap === "undo") deshaceBorrado(); else vaciaPapelera();
   });
 
@@ -14817,7 +14887,7 @@
   coll("scenarios").subscribe(() => fanout([Z.escenarios]));
   coll("risk").subscribe(() => fanout([Z.riesgosGuardados]));
 
-  $("demoToggle").addEventListener("click", () => { if (state.demo) { location.reload(); return; } enterDemo(); setStoreLabel(); });
+  $("demoToggle").addEventListener("click", async () => { if (state.demo) { location.reload(); return; } await enterDemo(); setStoreLabel(); });
   $("demoExit").addEventListener("click", () => location.reload());
 
   /* ═════════════════ PALETA DE COMANDOS Y ATAJOS ═════════════════
@@ -14986,8 +15056,8 @@
     r: () => showTab("calc"),
   };
   document.addEventListener("keydown", e => {
-    if ($("disciplineShareOv").classList.contains("open")) {
-      if (e.key === "Escape") { e.preventDefault(); closeDisciplineDialog(); }
+    if ($("disciplineShareOv").classList.contains("open") || (window.CabinaExperience && window.CabinaExperience.isGuideOpen())) {
+      if (e.key === "Escape") { e.preventDefault(); if (window.CabinaExperience && window.CabinaExperience.isGuideOpen()) window.CabinaExperience.closeGuide(); else closeDisciplineDialog(); }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") e.preventDefault();
       return;
     }
@@ -16423,10 +16493,17 @@
      por id y no se borra nada que no venga en la copia: un borrado masivo en la
      nube no se deshace, y la cabina nunca va a provocarlo desde un botón. */
   async function applyBundle(b, mode) {
-    if (mode === "replace" && !state.nube && state.db.vaciar) await state.db.vaciar();
-    return applyBundleDb(b);
+    if (state.demo) throw new Error(demoImportMessage());
+    bundleImportsInFlight++;
+    try {
+      if (mode === "replace" && !state.nube && state.db.vaciar) await state.db.vaciar();
+      return await applyBundleDb(b);
+    } finally { bundleImportsInFlight--; }
   }
   async function applyBundleDb(b) {
+    if (state.demo) throw new Error(demoImportMessage());
+    bundleImportsInFlight++;
+    try {
     const pares = [];
     if (b.settings) pares.push(["settings/main", clone(normalize(b.settings))]);
     Object.keys(b.days).forEach(d => pares.push(["days/" + d, clone(b.days[d])]));
@@ -16444,9 +16521,13 @@
     }
     if (fallos && fallos === pares.length) throw new Error("no se pudo escribir nada");
     return { escritos: hechos - fallos, fallos };
+    } finally { bundleImportsInFlight--; }
   }
+  function demoImportMessage() { return dp("Sal de la demo para importar una copia. Tus registros reales no se modificaron.", "Leave the demo before importing a backup. Your real records were not changed."); }
+  function blockDemoImport() { if (!state.demo) return false; bkSay(demoImportMessage(), true); return true; }
   function bkMode() { const r = document.querySelector('input[name="bkmode"]:checked'); return r ? r.value : "replace"; }
   function bkConfirmImport(txt, nombre) {
+    if (blockDemoImport()) return;
     const r = bkParse(txt);
     if (r.csv) { bkDerivaCsv(bkLimpia(txt), nombre); return; }
     if (r.err) { bkSay(r.err, true); return; }
@@ -16489,14 +16570,16 @@
     const obs = new MutationObserver(() => { if (!ov.classList.contains("open")) { sv.textContent = "Guardar"; obs.disconnect(); } });
     obs.observe(ov, { attributes: true, attributeFilter: ["class"] });
   }
-  $("bkImport").addEventListener("click", () => { const f = $("bkFile"); f.value = ""; f.click(); });
+  $("bkImport").addEventListener("click", () => { if (blockDemoImport()) return; const f = $("bkFile"); f.value = ""; f.click(); });
   $("bkFile").addEventListener("change", async e => {
+    if (blockDemoImport()) return;
     const f = e.target.files && e.target.files[0]; if (!f) return;
     bkSay(`Leyendo ${f.name}…`);
     try { const txt = await f.text(); setTimeout(() => bkConfirmImport(txt, f.name), 40); }
     catch (err) { bkSay("No se pudo leer el archivo.", true); }
   });
   $("bkPaste").addEventListener("click", () => {
+    if (blockDemoImport()) return;
     openEditor({ title: "Pegar una copia de Cabina", fields: [{ key: "j", label: "Pega aquí el contenido del archivo", type: "textarea", w: 6, rows: 10 }], values: { j: "" },
       // Un CSV no se rechaza: pasa la revisión y `bkConfirmImport` lo deriva al importador.
       validate: v => { if (!bkLimpia(v.j)) return "Pega algo primero"; const r = bkParse(String(v.j || "")); return r.csv ? null : (r.err || null); },
@@ -17002,12 +17085,14 @@
     inp.onchange = async () => {
       const f = inp.files && inp.files[0]; if (!f) return;
       btn.disabled = true; btn.textContent = "subiendo…";
+      shotOperationsInFlight++;
       try {
         const im = await uploadShot(f);
         estudioEscenas[k] = (Array.isArray(estudioEscenas[k]) ? estudioEscenas[k] : []).concat([im]);
         renderEstudioEscenas();
         await estudioGuardarEscenas("Captura añadida a «" + k.replace(":", " · ") + "».");
       } catch (err) { btn.disabled = false; btn.textContent = etiqueta; estudioEscenaEstado(uploadErrMsg(err)); }
+      finally { shotOperationsInFlight--; }
     };
     inp.click();
   }
@@ -17092,6 +17177,22 @@
      esta y los primeros renders han corrido: traducir antes dejaria el cromo a
      medias hasta el primer repintado. */
   i18nArranca();
+  if (window.CabinaExperience) {
+    const openChecklist = () => {
+      showTab("cabina");
+      const panel = $("panelCheck"); panel.tabIndex = -1;
+      panel.scrollIntoView({ block: "start" }); panel.focus({ preventScroll: true });
+    };
+    window.CabinaExperience.mount({
+      context: () => ({ language: idioma(), demo: state.demo, today: state.today,
+        checkCount: state.settings.checks.length,
+        ready: state.listo && state.cfgConocida,
+        owner: state.nube && nube.ses ? nube.ses.uid : "local" }),
+      enterDemo: async allowed => { const entered = await enterDemo(allowed); setStoreLabel(); return entered; },
+      toggleLanguage: () => $("idiomaBtn").click(), openChecklist,
+      exitDemoToChecklist: () => { location.hash = "cabina"; location.reload(); },
+    });
+  }
 
 })();
 

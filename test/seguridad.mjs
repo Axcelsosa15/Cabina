@@ -18,7 +18,8 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const documento = readFileSync(join(raiz, 'index.html'), 'utf8');
 const aplicacion = readFileSync(join(raiz, 'app.js'), 'utf8');
-const apariencia = readFileSync(join(raiz, 'appearance.js'), 'utf8');
+const modulos = ['appearance.js', 'discipline.js', 'session-break.js', 'experience.js']
+  .map(f => readFileSync(join(raiz, f), 'utf8')).join('\n');
 /* `html` ERA EL FICHERO ENTERO, Y DURANTE 15.000 LINEAS ESO FUE LO MISMO QUE
    «la aplicacion». Desde que el script salio a app.js —para que la CSP pueda
    prohibir el inline— ya no lo es: si este guardian siguiera mirando solo el
@@ -29,7 +30,7 @@ const apariencia = readFileSync(join(raiz, 'appearance.js'), 'utf8');
    Asi que aqui `html` es LOS DOS ficheros: lo que se publica y se ejecuta. Lo
    que necesita mirar solo el documento —los recursos externos de la cabecera,
    la CSP— usa `documento` explicitamente. */
-const html = documento + '\n' + aplicacion + '\n' + apariencia;
+const html = documento + '\n' + aplicacion + '\n' + modulos;
 
 console.log('\n═══ SUPERFICIE DE EJECUCION · lo que no debe aparecer nunca ═══');
 /* SE CUENTA SOBRE EL CODIGO, NO SOBRE LA PROSA. La primera version de esta seccion
@@ -106,8 +107,8 @@ ok(hosts.every(h => /(^|\.)fonts\.googleapis\.com$|(^|\.)fonts\.gstatic\.com$/.t
   const ajenos = srcs.filter(u => /^(https?:)?\/\//i.test(u));
   ok(ajenos.length === 0, 'ningún <script src> de otro origen: no se carga codigo de terceros',
      ajenos.length ? ajenos.join(' | ') : `${srcs.length} script(s), todos del propio sitio: ${srcs.join(' ') || 'ninguno'}`);
-  ok(JSON.stringify(srcs) === JSON.stringify(['./appearance.js', './discipline.js', './app.js']),
-     'sólo módulos locales de apariencia, disciplina y aplicación: sin scripts ajenos', srcs.join(' · '));
+  ok(JSON.stringify(srcs) === JSON.stringify(['./appearance.js', './discipline.js', './session-break.js', './experience.js', './app.js']),
+     'sólo módulos locales: apariencia, disciplina, pausas, guía y aplicación', srcs.join(' · '));
   ok(documento.indexOf('<script src="./appearance.js">') < documento.indexOf('<style>'),
      'el bootstrap del tema está antes de la primera hoja CSS');
 }
