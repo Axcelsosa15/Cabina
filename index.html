@@ -4084,16 +4084,116 @@ body {
   font-feature-settings: "ss01" 0, "tnum" 0;
   letter-spacing: -.005em;
 }
+/* Top chrome · jerarquía de mesa: marca (primaria) → meta (reloj/sesión) → acciones.
+   Sin pastillas decorativas ni glow: borde, tipografía y peso hacen el trabajo. */
+.topbar {
+  gap: 12px 20px;
+  padding-block: 14px 12px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+}
 .brand h1, .topbar .brand h1 {
   font-family: var(--font-ui);
   font-weight: 700;
-  letter-spacing: -.04em;
-  font-size: 18px;
+  letter-spacing: -.045em;
+  font-size: clamp(20px, 1.7vw, 22px);
+  line-height: 1.15;
+  color: var(--text);
 }
-.clock .time {
+.topbar .brand .sub {
+  font: 450 12px/1.4 var(--font-ui);
+  color: var(--muted);
+  letter-spacing: .005em;
+  max-width: 42ch;
+}
+.topbar .brand .sub:empty { display: none; }
+.topbar .brand input.t {
+  font: 700 20px/1.15 var(--font-ui);
+  letter-spacing: -.04em;
+}
+.topbar .brand input.s {
+  font: 450 12px/1.4 var(--font-ui);
+  color: var(--muted);
+}
+.topbar .clock {
+  gap: 10px 14px;
+  align-items: center;
+}
+.topbar .clock .time {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: "tnum" 1, "lnum" 1;
   letter-spacing: -.02em;
+  color: var(--text);
+}
+.topbar .clock .tz {
+  font: 550 10.5px/1.3 var(--font-ui);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.topbar .save-state {
+  font: 450 11.5px/1.35 var(--font-ui);
+  letter-spacing: .02em;
+  color: var(--dim);
+}
+.topbar .clock #sessionPill.pill {
+  /* Estado de sesión, no pastilla promocional: radio de control, tipografía UI. */
+  border-radius: var(--r-sm);
+  padding: 5px 10px;
+  gap: 7px;
+  font: 550 12px/1.3 var(--font-ui);
+  letter-spacing: .01em;
+  text-transform: none;
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+}
+.topbar .clock #sessionPill.pill .dot {
+  width: 6px;
+  height: 6px;
+}
+.topbar .clock #sessionPill.pill.live {
+  color: var(--good);
+  border-color: color-mix(in srgb, var(--good) 35%, var(--line));
+  background: color-mix(in srgb, var(--good) 8%, transparent);
+}
+.topbar .clock #sessionPill.pill.warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 35%, var(--line));
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+}
+.topbar .clock #sessionPill.pill.off {
+  color: var(--dim);
+  border-color: var(--line);
+  background: transparent;
+}
+.topbar .clock .editbtn {
+  min-height: 34px;
+  padding: 6px 11px;
+  font: 550 12.5px/1.25 var(--font-ui);
+  letter-spacing: -.01em;
+  color: var(--muted);
+  background: transparent;
+  border-color: var(--line-strong);
+}
+.topbar .clock .editbtn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--muted);
+}
+.topbar .clock .editbtn.qkbtn {
+  color: var(--text);
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+.topbar .clock .conflbtn {
+  border-color: var(--bad);
+  color: var(--bad);
+  font-weight: 700;
 }
 
 /* Sidebar · mismo corte que el raíl vertical (1100px), no 901px.
@@ -4105,6 +4205,47 @@ body {
     gap: 2px;
     border-right: 1px solid var(--line);
     background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+  }
+  /* Marca anclada al raíl: misma columna, mismo tono, borde a 56px que empalma
+     con la barra de meta/acciones. padding-right deja hueco para #sidebarToggle. */
+  .topbar .brand {
+    width: var(--rail);
+    box-sizing: border-box;
+    min-height: 56px;
+    padding: 17px 48px 17px 14px;
+    gap: 3px;
+    justify-content: center;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+  }
+  .topbar .brand h1 {
+    font-size: 19px;
+    letter-spacing: -.05em;
+  }
+  .topbar .brand .sub {
+    font-size: 11px;
+    line-height: 1.35;
+    max-width: 100%;
+  }
+  .topbar {
+    padding-block: 14px;
+    margin-bottom: 20px;
+    min-height: 56px;
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar .clock .time { font-size: 16px; }
+  #sidebarToggle {
+    top: 12px;
+    width: 32px;
+    height: 32px;
+    border-color: var(--line);
+    background: transparent;
+    color: var(--muted);
+  }
+  #sidebarToggle:hover {
+    color: var(--text);
+    background: var(--surface-2);
+    border-color: var(--line-strong);
   }
   #tabnav .sidebar-section {
     margin: 22px 10px 8px;
@@ -4136,6 +4277,19 @@ body {
     font-variant-numeric: tabular-nums;
     color: var(--muted);
   }
+}
+@media (min-width: 1280px) {
+  .topbar {
+    flex-wrap: nowrap;
+    align-items: center;
+    min-height: 56px;
+    height: 56px;
+    padding-block: 0;
+    margin-bottom: 22px;
+    gap: 0 20px;
+    box-sizing: border-box;
+  }
+  .topbar .clock { gap: 10px 12px; }
 }
 
 /* Deck · un solo punto de entrada tipográfico por pantalla. */
@@ -4432,9 +4586,41 @@ html[data-cabina-theme="dark"] {
   --sh-2: 0 12px 32px rgba(0,0,0,.45);
   --ui-glow: transparent;
 }
+html[data-cabina-theme="dark"] .topbar {
+  border-bottom-color: var(--line);
+}
+html[data-cabina-theme="dark"] .topbar .brand h1 { color: var(--text); }
+html[data-cabina-theme="dark"] .topbar .clock .editbtn {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--muted);
+}
+html[data-cabina-theme="dark"] .topbar .clock .editbtn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+html[data-cabina-theme="dark"] .topbar .clock .editbtn.qkbtn {
+  background: var(--surface);
+  color: var(--text);
+}
 html[data-cabina-theme="dark"] nav.tabnav#tabnav {
   background: color-mix(in srgb, var(--surface) 80%, #000);
   border-right-color: var(--line);
+}
+@media (min-width: 1100px) {
+  html[data-cabina-theme="dark"] .topbar .brand {
+    background: color-mix(in srgb, var(--surface) 80%, #000);
+    border-bottom-color: var(--line);
+  }
+  html[data-cabina-theme="dark"] #sidebarToggle {
+    background: transparent;
+    border-color: var(--line);
+    color: var(--muted);
+  }
+  html[data-cabina-theme="dark"] #sidebarToggle:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 html[data-cabina-theme="dark"] .tab section.panel > header {
   background: color-mix(in srgb, var(--surface) 70%, #000);
