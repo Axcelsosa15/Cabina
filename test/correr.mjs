@@ -14,7 +14,9 @@ const aqui = dirname(fileURLToPath(import.meta.url));
    pregunte por qué faltan. */
 /* compuerta.mjs LANZA este archivo. Sin excluirla, correr.mjs la descubriria como
    una prueba mas y se llamaria a si mismo sin fondo. Se detecto antes de ejecutarla. */
-const NO_SON_TESTS = new Set(['espera.mjs', 'nube-doble.mjs', 'correr.mjs', 'compuerta.mjs', 'publicado.mjs']);
+/* qa-flujos.mjs es un agregador de matriz (como compuerta): si se descubriera
+   como prueba, re-lanzaría correr.mjs en bucle sobre media suite. */
+const NO_SON_TESTS = new Set(['espera.mjs', 'nube-doble.mjs', 'correr.mjs', 'compuerta.mjs', 'publicado.mjs', 'qa-flujos.mjs']);
 const SIN_BASELINE = new Set();
 
 /* Las pruebas del motor viven fuera de test/, y por eso no se ejecutaban NUNCA:
