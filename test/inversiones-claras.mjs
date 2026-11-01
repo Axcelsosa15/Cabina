@@ -60,8 +60,16 @@ try {
   ok(await page.locator('#marketGuide').evaluate(e => e.open) && await page.locator('#gSave').isVisible(), 'editar abre la guía y mantiene accesible Guardar');
   await page.locator('textarea[data-g="notes"]').fill('Nota de prueba');
   await page.click('#gSave');
-  await page.locator('#marketGuide > summary').click();
+  await quieto(page);
+  /* Tras Guardar el desplegable se recrea: debe permanecer abierto con las notas.
+     Un segundo clic en el summary lo cerraría y dejaría sólo el título visible,
+     que es exactamente el falso negativo que cerró la compuerta de #116. */
+  ok(await page.locator('#marketGuide').evaluate(e => e.open), 'guardar deja la guía abierta para leer lo escrito');
   ok((await page.locator('#marketGuide').innerText()).includes('Nota de prueba'), 'guardar la guía conserva sus notas');
+  await page.locator('#marketGuide > summary').click();
+  ok(!(await page.locator('#marketGuide').evaluate(e => e.open)), 'el summary sigue pudiendo cerrar la guía');
+  await page.locator('#marketGuide > summary').click();
+  ok((await page.locator('#marketGuide').innerText()).includes('Nota de prueba'), 'al reabrir, las notas siguen ahí');
 
   await page.click('.tabbtn[data-tab="playbook"]');
   await quieto(page);

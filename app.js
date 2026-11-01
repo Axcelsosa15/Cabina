@@ -12665,6 +12665,11 @@
     const ps = coll("positions").items.filter(p => p.market === m.id && investmentInScope(p)).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
     const ws = coll("watch").items.filter(w => w.market === m.id).sort((a, b) => (a.priority || 9) - (b.priority || 9));
     const isFut = m.id === "futuros";
+    /* Al salir de editar, el desplegable se recrea. Si estaba abierto —o si se
+       está editando— debe seguir abierto: si no, Guardar deja la guía cerrada un
+       instante y el clic de verificación (o el de la persona) la pliega antes de
+       poder leer las notas recién guardadas. */
+    const guideOpen = iv.editGuide || !!$("marketGuide")?.open;
     const guide = iv.editGuide
       ? `<div class="guide">${GUIDE_FIELDS.map(([k, l, w]) => `<div class="g ${w === 2 ? "w2" : ""}"><span class="lab">${l}</span><textarea data-g="${k}">${esc(m[k] || "")}</textarea></div>`).join("")}<div class="g w2" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn ghost sm" id="gCancel">Cancelar</button><button type="button" class="btn primary sm" id="gSave">Guardar guía</button></div></div>`
       : `<div class="guide">${GUIDE_FIELDS.map(([k, l, w]) => m[k] ? `<div class="g ${w === 2 ? "w2" : ""}"><span class="lab">${l}</span><p>${esc(m[k])}</p></div>` : "").join("")}</div>`;
@@ -12678,7 +12683,7 @@
           ${isFut ? "" : `<button type="button" class="btn ${ps.length ? "ghost" : "primary"}" id="posAdd">+ Añadir posición</button>`}
         </div>
       </section>
-      <details class="ui-disclosure" id="marketGuide" data-view-key="invest:panel:${esc(m.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""))}" data-view-label="Guía de ${esc(m.name)}" ${iv.editGuide ? "open" : ""}>
+      <details class="ui-disclosure" id="marketGuide" data-view-key="invest:panel:${esc(m.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""))}" data-view-label="Guía de ${esc(m.name)}" ${guideOpen ? "open" : ""}>
         <summary>Guía de ${esc(m.name)}</summary>
         <header><h2>${esc(m.name)}</h2><div class="tools"><button type="button" class="btn sm ghost" id="gEdit">${iv.editGuide ? "Editando…" : "Editar guía"}</button><button type="button" class="btn sm ghost" id="gRename">Renombrar</button><button type="button" class="icon del" id="gDel" title="Borrar mercado">×</button></div></header>
         <div class="body">${guide}</div>
