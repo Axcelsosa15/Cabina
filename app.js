@@ -1210,6 +1210,7 @@
     "1R en la simulación vale": "1R in the simulation is worth",
     "Ahora no": "Not now",
     "Ajustes": "Settings",
+    "Admin": "Admin",
     "Analizar": "Analyze",
     "Herramientas": "Tools",
     "Mejorar": "Improve",
