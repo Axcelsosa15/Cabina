@@ -4432,10 +4432,16 @@ body.editing .topbar .clock #editToggle.editbtn {
     position: relative;
   }
   .topbar .clock .editbtn.qkbtn,
-  .topbar .clock #quickBtn {
+  .topbar .clock #quickBtn,
+  .topbar .clock #quickBtn.editbtn.qkbtn {
     flex: 1 1 auto;
-    min-height: 44px;
+    min-height: 44px !important;
+    height: auto;
+    padding: 10px 12px;
     justify-content: center;
+  }
+  .topbar .tb-more-btn {
+    min-height: 44px !important;
   }
   .topbar .tb-more-btn {
     display: inline-flex !important;
