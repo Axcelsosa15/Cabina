@@ -4074,7 +4074,6 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
    Vive en esta misma capa (el tope estructural de cinco hojas se mantiene).
    ═══════════════════════════════════════════════════════════════════════════ */
 :root {
-  --ledger-rail: 220px;
   --ledger-gap: 16px;
   --ledger-inset: 20px;
   --figure: 600 clamp(22px, 2.1vw, 28px)/1.15 var(--font-mono);
@@ -4097,11 +4096,12 @@ body {
   letter-spacing: -.02em;
 }
 
-/* Sidebar · rail preciso, secciones con aire, activo sobrio. */
-@media (min-width: 901px) {
+/* Sidebar · mismo corte que el raíl vertical (1100px), no 901px.
+   El padding-top conserva ~80px bajo la marca fija del topbar. */
+@media (min-width: 1100px) {
   nav.tabnav#tabnav {
-    width: var(--ledger-rail);
-    padding: 18px 12px 28px;
+    width: var(--rail);
+    padding: 80px 12px 28px;
     gap: 2px;
     border-right: 1px solid var(--line);
     background: color-mix(in srgb, var(--surface) 92%, var(--bg));
@@ -4114,6 +4114,7 @@ body {
     letter-spacing: .14em;
     text-transform: uppercase;
   }
+  #tabnav .sidebar-section:first-child { margin-top: 0; }
   #tabnav .tabbtn {
     min-height: 40px;
     padding: 8px 12px;
