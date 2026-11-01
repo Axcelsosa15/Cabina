@@ -857,6 +857,42 @@
       await Promise.all([...Array.from(inFlightPersistence), ...entries.map(([, task]) => task())]);
     }
   }
+  /* CIERRE / RECARGA DURANTE EL DEBOUNCE.
+     `persistSettings` espera 500 ms y `persistDay` 400 ms. Ese hueco ya estaba
+     protegido CONTRA LECTURAS que pisaran la pantalla (`updatedAt` / sello), pero
+     no contra CERRAR la pestaña: el temporizador muere con la página y el cambio
+     nunca llega a localStorage ni a la cola IndexedDB. Medido: editar una cuenta,
+     recargar antes de 500 ms → la cuenta desaparece del almacén aunque la
+     pantalla la mostraba. `flushPersistence` ya existía para la demo; aquí se
+     dispara al ocultar/cerrar. En local la escritura a localStorage ocurre en el
+     mismo turno (el `async` del adaptador no espera a la red); en la cuenta el
+     `fetch` puede morir con la pestaña, y `beforeunload` avisa entonces. */
+  function kickPendingPersistence() {
+    if (!pendingPersistence.size) return 0;
+    const entries = Array.from(pendingPersistence.entries());
+    entries.forEach(([key]) => clearTimeout(timers[key]));
+    entries.forEach(([, task]) => { try { task(); } catch (e) { } });
+    return entries.length;
+  }
+  function peligroAlCerrar(kicked) {
+    if (state.demo) return false;
+    const uidCola = state.nube && nube.ses ? nube.ses.uid : null;
+    const enCola = uidCola ? cola.lista(uidCola) : [];
+    const rutasCola = new Set(enCola.map(r => r.ruta));
+    const volatiles = [...sinGuardar.keys()].filter(r => !rutasCola.has(r));
+    const colaFragil = !!(uidCola && !cola.durable && enCola.length);
+    /* Tras el kick, en local el disco ya tiene el cambio: no se molesta. En la
+       cuenta un fetch a medias o un kick recién lanzado SÍ se puede perder. */
+    const nubeEnVuelo = !!(state.nube && (enVuelo > 0 || kicked > 0 || inFlightPersistence.size));
+    return volatiles.length > 0 || colaFragil || conflictos.size > 0 || nubeEnVuelo;
+  }
+  window.addEventListener("pagehide", () => { kickPendingPersistence(); });
+  window.addEventListener("beforeunload", e => {
+    const kicked = kickPendingPersistence();
+    if (!peligroAlCerrar(kicked)) return;
+    e.preventDefault();
+    e.returnValue = "";
+  });
   function persistSettings(quiet) {
     if (state.demo) return;
     if (!quiet) state.settings.customized = true;
@@ -2410,8 +2446,9 @@
   $("auSalir").addEventListener("click", () => {
     auOcupado($("auSalir"), async () => {
       auDi("Cerrando sesión…");
-      /* Las escrituras van con 400-500 ms de retraso: se deja que salgan. */
-      await new Promise(r => setTimeout(r, 700));
+      /* Las escrituras van con 400-500 ms de retraso: se vacían de verdad, no
+         se espera a ojo un plazo fijo que a veces no alcanza. */
+      try { await flushPersistence(); } catch (e) { }
       try { await nubeFetch("/auth/v1/logout", { method: "POST" }); } catch (e) { }
       cambiaDeDueno(null);
     });
@@ -3118,7 +3155,26 @@
   $("edCancel").addEventListener("click", closeEditor);
   ov.addEventListener("click", e => { if (e.target === ov) closeEditor(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && ov.classList.contains("open")) closeEditor(); });
-  $("edSave").addEventListener("click", () => { if (!edCfg) return; const v = readEditor(); if (edCfg.validate) { const err = edCfg.validate(v); if (err) { flashEd(err); return; } } edCfg.onSave(v); closeEditor(); });
+  /* Guardar cierra el editor salvo que onSave diga lo contrario con `false`.
+     Eso permite abortar sin perder el borrador (p. ej. un cambio de cuenta de
+     posición bloqueado). También se deshabilita el botón mientras corre el
+     manejador síncrono: un doble clic no debe lanzar dos escrituras. */
+  $("edSave").addEventListener("click", () => {
+    if (!edCfg) return;
+    const btn = $("edSave");
+    if (btn.disabled) return;
+    const v = readEditor();
+    if (edCfg.validate) { const err = edCfg.validate(v); if (err) { flashEd(err); return; } }
+    const cfg = edCfg;
+    btn.disabled = true;
+    let keepOpen = false;
+    try {
+      keepOpen = cfg.onSave(v) === false;
+    } finally {
+      if (keepOpen && edCfg === cfg && ov.classList.contains("open")) btn.disabled = false;
+    }
+    if (!keepOpen) closeEditor();
+  });
   $("edDelete").addEventListener("click", function () { if (!edCfg || !edCfg.onDelete) return; if (!armed(this)) return; edCfg.onDelete(); closeEditor(); });
   /* The editor title is a stable dialog label. Validation belongs in a persistent
      summary and, when the validator knows the field, beside its control. */
@@ -8147,7 +8203,7 @@
      «ver qué error se repite». No es una taxonomía nueva. */
   const QK_TAGS = ["fomo", "forzada", "entrada temprana", "entrada tarde", "revenge", "según el plan"];
   const QK_CAL = [["A", "A · según protocolo"], ["B", "B · desviación menor"], ["C", "C · fuera del protocolo"]];
-  const qk = { cal: "", tags: [], modo: "op", ultimo: null, draftText: "", draftNote: "", draftCal: "", draftTags: [], draftMode: "op" };
+  const qk = { cal: "", tags: [], modo: "op", ultimo: null, draftText: "", draftNote: "", draftCal: "", draftTags: [], draftMode: "op", guardando: false };
 
   function qkHoraET() { const n = etNow(); return `${String(Math.floor(n.min / 60)).padStart(2, "0")}:${String(n.min % 60).padStart(2, "0")}`; }
   /* Un número con o sin signo, con $ y separadores de miles. Devuelve null si no lo es. */
@@ -8500,37 +8556,50 @@
     if (dif <= Math.max(comision * 1.5, 1)) return "";
     return `<div class="warn">Escribiste ${money(p.pnl)}, pero de ${p.entry} a ${p.exit} en ${q} ${q === 1 ? "contrato" : "contratos"} de ${res.value.symbol} salen ${money(mb.pnlEff)} brutos. Gana el tuyo —es lo que reportas—, pero la diferencia de ${money(dif)} no la explican las comisiones.</div>`;
   }
-  /* Guardar: un solo registro canónico, por la puerta de siempre. */
+  /* Guardar: un solo registro canónico, por la puerta de siempre.
+     `qk.guardando` corta el doble Enter / doble clic: sin él, dos pulsaciones
+     antes de cerrar el overlay creaban dos trades con distinto id. */
   function qkGuarda(abrirDetalles) {
+    if (qk.guardando) return;
     const p = qkParse($("qkText").value);
     const pts = qkPuntosADolares(p);
     if (qkFalta(p, pts).length || p.ambiguo.length) return;
-    const e = qkEnrich(p);
-    const rec = Object.assign(qkRegistro(p, e, pts), {
-      id: uid("t"), createdAt: Date.now(), updatedAt: Date.now(),
-    });
-    if (qk.cal) rec.quality = qk.cal;
-    if (qk.tags.length) rec.tags = qk.tags.join(", ");
-    coll("trades").set(rec.id, rec);
-    qk.ultimo = rec.id;
-    qkLimpiarBorrador(); qkCierra();
-    if (abrirDetalles) { const t = coll("trades").get(rec.id); if (t) openTrade(t); return; }
-    revealTrade(rec);
-    /* El aviso dice el resultado QUE SE GUARDÓ, que ya no es siempre `rec.pnl`:
-       cuando viene de entrada y salida lo calcula el motor. Preguntárselo evita
-       que el aviso diga «undefined» justo en el camino nuevo. */
-    const m = qkMotor(rec);
-    const usd = m && m.pnlEff !== null && m.pnlEff !== undefined ? m.pnlEff : rec.pnl;
-    flash(`${rec.instrument} ${usd === null || usd === undefined ? "" : (usd >= 0 ? "+" : "") + money(usd)} registrada · rápida`);
+    qk.guardando = true;
+    $("qkSave").disabled = true;
+    $("qkDetalles").disabled = true;
+    try {
+      const e = qkEnrich(p);
+      const rec = Object.assign(qkRegistro(p, e, pts), {
+        id: uid("t"), createdAt: Date.now(), updatedAt: Date.now(),
+      });
+      if (qk.cal) rec.quality = qk.cal;
+      if (qk.tags.length) rec.tags = qk.tags.join(", ");
+      coll("trades").set(rec.id, rec);
+      qk.ultimo = rec.id;
+      qkLimpiarBorrador(); qkCierra();
+      if (abrirDetalles) { const t = coll("trades").get(rec.id); if (t) openTrade(t); return; }
+      revealTrade(rec);
+      /* El aviso dice el resultado QUE SE GUARDÓ, que ya no es siempre `rec.pnl`:
+         cuando viene de entrada y salida lo calcula el motor. Preguntárselo evita
+         que el aviso diga «undefined» justo en el camino nuevo. */
+      const m = qkMotor(rec);
+      const usd = m && m.pnlEff !== null && m.pnlEff !== undefined ? m.pnlEff : rec.pnl;
+      flash(`${rec.instrument} ${usd === null || usd === undefined ? "" : (usd >= 0 ? "+" : "") + money(usd)} registrada · rápida`);
+    } finally { qk.guardando = false; }
   }
   function qkGuardaNota() {
+    if (qk.guardando) return;
     const txt = $("qkNota").value.trim(); if (!txt) return;
-    /* La nota del día que ya existe. No hay un journal paralelo. */
-    const prev = state.day.note || "";
-    state.day.note = prev ? prev.replace(/\s+$/, "") + "\n" + txt : txt;
-    persistDay();
-    if (typeof renderJournalDay === "function") renderJournalDay();
-    qkLimpiarBorrador(); qkCierra(); flash("añadido a la nota del día");
+    qk.guardando = true;
+    $("qkSave").disabled = true;
+    try {
+      /* La nota del día que ya existe. No hay un journal paralelo. */
+      const prev = state.day.note || "";
+      state.day.note = prev ? prev.replace(/\s+$/, "") + "\n" + txt : txt;
+      persistDay();
+      if (typeof renderJournalDay === "function") renderJournalDay();
+      qkLimpiarBorrador(); qkCierra(); flash("añadido a la nota del día");
+    } finally { qk.guardando = false; }
   }
   function qkModo(m) {
     qk.modo = m; qk.draftMode = m;
@@ -12767,7 +12836,8 @@
             x.market === p.market && String(x.accountId || "") === String(p.accountId || ""));
           if (sameBucket.length > 1) {
             alert("No se cambió la cuenta: hay varias posiciones del mismo activo en la cuenta de origen. Asigna sus operaciones manualmente para evitar mezclar lotes.");
-            return;
+            /* false = el editor genérico NO cierra: el borrador se conserva. */
+            return false;
           }
           const linked = coll("trades").items.filter(t => t.type === "inversion" &&
             String(t.asset || "").trim().toUpperCase() === String(p.asset || "").trim().toUpperCase() &&
@@ -14127,9 +14197,16 @@
     (a, en) => en ? "net result ÷ everything lost along the way" : "resultado neto ÷ todo lo perdido por el camino");
   E("acierto", "expectancy", "Expectativa por operación", "Trade expectancy", "n", a => estMedia(a.pnls),
     (a, en) => en ? "same money as «per trade average PnL», printed without currency" : "el mismo dinero que «P&L medio por operación», impreso sin moneda");
+  /* SQN = Van Tharp sobre R, con techo √100. Antes el catálogo reinventaba
+     √N × media($)/σ($): otra fórmula con el mismo nombre, en la misma pestaña
+     que ya tiene `analizarEdge` sobre estas filas. Dos SQN distintos a
+     centímetros. Se lee del mismo `c.e` que alimenta el resto del catálogo. */
   E("acierto", "sqn", "SQN · System Quality Number", "System quality number", "n",
-    a => { const s = estDesv(a.pnls), m = estMedia(a.pnls); return s && m != null ? Math.sqrt(a.pnls.length) * m / s : null; },
-    (a, en) => en ? `√${a.pnls.length} × mean ÷ standard deviation of P&L` : `√${a.pnls.length} × media ÷ desviación típica del P&L`);
+    a => a.c.e.sqn,
+    (a, en) => a.c.e.sqn == null
+      ? (en ? "needs at least two trades with a stop (R)" : "hacen falta al menos dos operaciones con stop (R)")
+      : (en ? `√min(n,100) × mean(R) ÷ σ(R) · Van Tharp on the same net R as this screen · n=${a.rs.length}${a.c.e.sqnEscala ? " · " + a.c.e.sqnEscala : ""}`
+            : `√min(n,100) × media(R) ÷ σ(R) · Van Tharp sobre la misma R neta de esta pantalla · n=${a.rs.length}${a.c.e.sqnEscala ? " · " + a.c.e.sqnEscala : ""}`));
   E("acierto", "kelly", "Kelly simplificado", "Kelly criterion", "p", a => a.c.kelly,
     (a, en) => en ? "f* = p − (1−p)/b · reference only: in a prop account the account caps the size, not Kelly"
                   : "f* = p − (1−p)/b · sólo referencia: en prop el tamaño lo limita la cuenta, no Kelly");
@@ -15207,7 +15284,16 @@
       { g: "Acciones", i: "＋", t: "Nueva operación de futuros", s: "N", f: () => { showTab("futuros"); openTrade(null, "futuros"); } },
       { g: "Acciones", i: "＋", t: "Nueva operación de inversión", s: "", f: () => { showTab("invest"); openTrade(null, "inversion"); } },
       { g: "Acciones", i: "＋", t: "Añadir cuenta", s: "", f: () => { showTab("cabina"); openAccountEditor(null); } },
-      { g: "Acciones", i: "⤓", t: "Descargar copia de seguridad", s: "", f: () => { showTab("cabina"); const b = $("bkExport"); if (b) b.click(); } },
+      /* Misma puerta que Exportar en Ajustes → Datos: abre el diálogo con la
+         opción de capturas. Un click() silencioso sobre #bkExport saltaba esa
+         elección y dejaba al usuario en Resumen. */
+      { g: "Acciones", i: "⤓", t: "Descargar copia de seguridad", s: "", f: () => {
+        showTab("ajustes");
+        const datos = document.getElementById("settingsTabData");
+        if (datos) selectSettingsTab(datos);
+        renderBackup();
+        openSettingsDialog("settingsExport");
+      } },
 
       { g: "Ir a", i: "▣", t: "Resumen", s: "C", f: ir("cabina") },
       { g: "Ir a", i: "▤", t: "Futuros · resumen", s: "F", f: ir("futuros", "resumen") },
@@ -15215,11 +15301,14 @@
       { g: "Ir a", i: "▤", t: "Futuros · análisis", s: "", f: ir("futuros", "analisis") },
       { g: "Ir a", i: "▤", t: "Futuros · diario", s: "J", f: ir("futuros", "diario") },
       { g: "Ir a", i: "▤", t: "Futuros · pre-sesión", s: "P", f: ir("futuros", "presesion") },
+      { g: "Ir a", i: "◷", t: "Historial", s: "", f: ir("historial") },
       { g: "Ir a", i: "▥", t: "Rendimiento", s: "", f: ir("edge") },
       { g: "Ir a", i: "◫", t: "Inversiones", s: "", f: ir("invest") },
       { g: "Ir a", i: "◱", t: "Estrategias", s: "", f: ir("playbook") },
       { g: "Ir a", i: "◰", t: "Oportunidades", s: "", f: ir("ideas") },
       { g: "Ir a", i: "▦", t: "Calculadora de riesgo", s: "R", f: ir("calc") },
+      { g: "Ir a", i: "☰", t: "Cuentas", s: "", f: ir("cuentas") },
+      { g: "Ir a", i: "⚙", t: "Ajustes", s: "", f: ir("ajustes") },
     ];
     /* Las cuentas se listan solas: son el filtro que más se cambia, y con tres
        o cuatro cuentas abrir la paleta y escribir dos letras gana a buscar el
@@ -15295,6 +15384,13 @@
     const acciones = cmdAcciones();
     const entidades = cmdResultados(q);
     cmdVis = q ? acciones.filter(a => sinTildes(a.t + " " + a.g + " " + (a.s || "")).includes(q)).concat(entidades) : acciones;
+    /* Una coincidencia exacta del título gana a una parcial: «Cuentas» no debe
+       ejecutar «Futuros · cuentas» sólo porque aparece antes en la lista. */
+    if (q) {
+      const exactas = [], resto = [];
+      for (const a of cmdVis) (sinTildes(a.t) === q ? exactas : resto).push(a);
+      cmdVis = exactas.concat(resto);
+    }
     if (cmdSel >= cmdVis.length) cmdSel = Math.max(0, cmdVis.length - 1);
     if (!cmdVis.length) { cmdList.innerHTML = `<p class="cmd-none">Nada que coincida con «${esc(cmdQ.value.trim())}».</p>`; return; }
     let html = "", grupo = null;
@@ -17155,8 +17251,20 @@
   $("studyLinkAdd").addEventListener("click",e=>{e.preventDefault();const type=$("studyLinkType").value,id=$("studyLinkTarget").value;if(!id)return;if(estudioLinksDraft.some(x=>x.type===type&&x.id===id))return;estudioLinksDraft.push({type,id});estudioRenderLinkList();});
   $("studyLinksList").addEventListener("click",e=>{const b=e.target.closest("button[data-study-link-remove]");if(!b)return;estudioLinksDraft.splice(Number(b.dataset.studyLinkRemove),1);estudioRenderLinkList();});
   $("studyNew").addEventListener("click",()=>estudioEditor());$("studyClose").addEventListener("click",estudioCerrar);$("studyCancel").addEventListener("click",estudioCerrar);$("studyModal").addEventListener("click",e=>{if(e.target===$("studyModal"))estudioCerrar();});
-  $("studyForm").addEventListener("submit",async e=>{e.preventDefault();const title=$("studyTitle").value.trim();if(!title)return;const id=$("studyId").value||uid("research"),old=coll("research").get(id),rawUrl=$("studyUrl").value.trim();let url="";if(rawUrl){try{const u=new URL(rawUrl);if(!["http:","https:"].includes(u.protocol))throw new Error();url=u.href;}catch{$("studyUrl").setCustomValidity("Introduce una URL http o https válida.");$("studyUrl").reportValidity();$("studyUrl").setCustomValidity("");return;}}
-    const d={id,type:$("studyType").value,status:$("studyStatus").value,title,question:$("studyQuestion").value.trim(),tags:$("studyTags").value.split(",").map(x=>x.trim()).filter(Boolean).slice(0,20),url,author:$("studyAuthor").value.trim(),publishedAt:$("studyPublishedAt").value||"",consultedAt:$("studyConsultedAt").value||"",nextReview:$("studyNextReview").value||"",links:estudioLinksDraft.map(x=>({type:x.type,id:x.id})),evidence:$("studyEvidence").value.trim(),catalysts:$("studyCatalysts").value.trim(),counter:$("studyCounter").value.trim(),conclusion:$("studyConclusion").value.trim(),prompt:$("studyPrompt").value.trim(),answer:$("studyAnswer").value.trim(),createdAt:old?.createdAt||Date.now(),updatedAt:Date.now()};await coll("research").set(id,d);estudioCerrar();renderEstudio();});
+  $("studyForm").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const form=$("studyForm"),button=form.querySelector('button[type="submit"]');
+    if(button&&button.disabled)return;
+    const title=$("studyTitle").value.trim();
+    if(!title){$("studyTitle").setCustomValidity("Escribe un título para el documento.");$("studyTitle").reportValidity();$("studyTitle").setCustomValidity("");$("studyTitle").focus();return;}
+    const id=$("studyId").value||uid("research"),old=coll("research").get(id),rawUrl=$("studyUrl").value.trim();let url="";
+    if(rawUrl){try{const u=new URL(rawUrl);if(!["http:","https:"].includes(u.protocol))throw new Error();url=u.href;}catch{$("studyUrl").setCustomValidity("Introduce una URL http o https válida.");$("studyUrl").reportValidity();$("studyUrl").setCustomValidity("");return;}}
+    if(button)button.disabled=true;
+    try{
+      const d={id,type:$("studyType").value,status:$("studyStatus").value,title,question:$("studyQuestion").value.trim(),tags:$("studyTags").value.split(",").map(x=>x.trim()).filter(Boolean).slice(0,20),url,author:$("studyAuthor").value.trim(),publishedAt:$("studyPublishedAt").value||"",consultedAt:$("studyConsultedAt").value||"",nextReview:$("studyNextReview").value||"",links:estudioLinksDraft.map(x=>({type:x.type,id:x.id})),evidence:$("studyEvidence").value.trim(),catalysts:$("studyCatalysts").value.trim(),counter:$("studyCounter").value.trim(),conclusion:$("studyConclusion").value.trim(),prompt:$("studyPrompt").value.trim(),answer:$("studyAnswer").value.trim(),createdAt:old?.createdAt||Date.now(),updatedAt:Date.now()};
+      await coll("research").set(id,d);estudioCerrar();renderEstudio();
+    }finally{if(button)button.disabled=false;}
+  });
   $("studyDelete").addEventListener("click",async()=>{const id=$("studyId").value,d=coll("research").get(id);if(!id||!d)return;if(!confirm("¿Eliminar «"+d.title+"»? Esta acción no se puede deshacer."))return;await coll("research").remove(id);estudioCerrar();renderEstudio();});
   $("studySearch").addEventListener("input",renderEstudio);$("studyFrom").addEventListener("change",renderEstudio);$("studyTo").addEventListener("change",renderEstudio);$("studyFilters").querySelectorAll("[data-study-filter]").forEach(b=>b.addEventListener("click",()=>{estudioFiltro=b.dataset.studyFilter;$("studyFilters").querySelectorAll("[data-study-filter]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderEstudio();}));
   $("studyExport").addEventListener("click",()=>{const data={schema:"cabina-research",version:1,exportedAt:new Date().toISOString(),docs:estudioLista()};descarga("cabina-estudio-"+new Date().toISOString().slice(0,10)+".json",JSON.stringify(data,null,2),"application/json");});

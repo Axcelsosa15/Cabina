@@ -1101,8 +1101,8 @@ tbody tr:last-child td{border-bottom:0}
   .acc-health.good .hbar > i { background: var(--positive); }
   .acc-health.warn .hbar > i { background: var(--warning); }
   .acc-health.bad  .hbar > i { background: var(--negative); }
-  .acc-health .hs { font-size: var(--t-meta); color: var(--dim); max-width: 22ch;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .acc-health .hs { font-size: var(--t-meta); color: var(--dim); max-width: 28ch;
+    white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; overflow-wrap: anywhere; }
   @container acct (max-width: 560px) { .acc-health { margin-left: 0; width: 100%; } .acc-health .hs { max-width: none; } }
 
   /* Estado del ciclo de vida y antigüedad del contrato, junto al nombre. */
@@ -1136,9 +1136,12 @@ tbody tr:last-child td{border-bottom:0}
     padding-top: var(--s4); padding-bottom: var(--s4); }
   .acc-figs .fig { min-width: 0; }
   .acc-figs .lab { display: block; margin-bottom: var(--s1); }
+  /* Cifras de cuenta: tinta completa. El 1.02 + ellipsis afeitaba descenders
+     y montos largos ($XX,XXX.XX) en rejillas estrechas. */
   .acc-figs .v { font-family: var(--font-mono); font-size: var(--t-display); font-weight: 700;
-    letter-spacing: -0.03em; line-height: 1.02; font-variant-numeric: tabular-nums;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    letter-spacing: -0.03em; line-height: 1.28; font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    white-space: nowrap; overflow: visible; text-overflow: clip; max-width: 100%; }
   .acc-figs .v.good { color: var(--positive); } .acc-figs .v.bad { color: var(--negative); } .acc-figs .v.dim { color: var(--dim); }
   .acc-figs .s { margin-top:8px; font-family: var(--font-mono); font-size: var(--t-meta); color: var(--dim); }
 
@@ -1155,8 +1158,9 @@ tbody tr:last-child td{border-bottom:0}
   .mtop .lab { display: block; font-family: var(--font-mono); font-size: 9.5px; font-weight: 700;
     letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-bottom:8px; }
   .mtop .v { display: block; font-family: var(--font-mono); font-size: var(--t-primary); font-weight: 700;
-    letter-spacing: -0.02em; line-height: 1.05; font-variant-numeric: tabular-nums;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    letter-spacing: -0.02em; line-height: 1.28; font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    white-space: nowrap; overflow: visible; text-overflow: clip; max-width: 100%; }
   .mtop .v.good { color: var(--positive); } .mtop .v.bad { color: var(--negative); }
   .mtop .v.warn { color: var(--warning); } .mtop .v.dim { color: var(--dim); }
   .mtop .s { display: block; margin-top: var(--s1); font-family: var(--font-ui);
@@ -4091,7 +4095,8 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
   /* 1.28 (no 1.15): con mono tabular, 1.15 + overflow:hidden recortaba tinta. */
   --figure: 600 clamp(22px, 2.1vw, 28px)/1.28 var(--font-mono);
   --figure-sm: 600 18px/1.3 var(--font-mono);
-  --label-caps: 600 11px/1.4 var(--font-ui);
+  /* 12px: piso de legibilidad (metricas-lectura); 11px bajaba del contrato. */
+  --label-caps: 600 12px/1.4 var(--font-ui);
 }
 body {
   font-feature-settings: "ss01" 0, "tnum" 0;
@@ -4165,6 +4170,15 @@ body {
   font: 450 11.5px/1.35 var(--font-ui);
   letter-spacing: .02em;
   color: var(--dim);
+}
+/* Misma especificidad que `.topbar .save-state` pero DESPUÉS: el aviso de
+   fallo de guardado tiene que seguir siendo el rojo de error (--negative),
+   no el gris ambiental del chrome. Sin esto, SIN GUARDAR parece un rótulo
+   normal y se confunde con «guardado local». */
+.topbar .save-state.nosave {
+  color: var(--negative);
+  font-weight: 800;
+  letter-spacing: .06em;
 }
 .topbar .clock #sessionPill.pill {
   /* Estado de sesión, no pastilla promocional: radio de control, tipografía UI. */
@@ -4458,6 +4472,13 @@ body {
   line-height: 1.35;
 }
 .tab .qec .qv { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+/* `font: var(--figure)` arriba gana a `.tile.sin-dato .v` (misma (0,3,0) y
+   posterior). El guión vacío tiene que seguir ligero: no es una cifra. */
+.tab .tile.sin-dato .v {
+  font-weight: 400;
+  color: var(--dim);
+  letter-spacing: 0;
+}
 .tab .tile .s,
 .tab .qec .qk,
 .tab .lab {
@@ -4796,10 +4817,74 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
   padding-bottom: max(14px, env(safe-area-inset-bottom));
 }
 .ed .fld .help, .ed-field-error, #ov .ed-validation { overflow-wrap: anywhere; }
+
+/* TAREA 5 · contención responsive sin clip de cifras.
+   El contenido vive en un bloque con min-width:0 para que las tablas
+   ensanchen .twrap (scroll) y no el documento — crítico con zoom 150–200%. */
+.tab[data-tab] {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.tab .cab-workspace,
+.tab .cab-workspace-columns,
+.tab .cab-workspace-primary,
+.tab .cab-workspace-secondary,
+.tab .stack,
+.tab .grid,
+.tab .twocol,
+.tab .daygrid {
+  min-width: 0;
+  max-width: 100%;
+}
+.tab .twrap,
+.tab section.panel > .body {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.tab .twrap > table.t {
+  width: 100%;
+  max-width: none; /* el min intrínseco vive dentro del scrollport del wrap */
+}
+.tab table.t td.notes,
+.tab table.t td.ui {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+.tab table.t td.act {
+  white-space: normal;
+}
+.tab table.t td.act .btn {
+  white-space: normal;
+  max-width: 100%;
+}
+/* Cuentas · mismas reglas de cifra que tiles/KPI (sin ellipsis). */
+.tab .acc-figs .v,
+.tab .mtop .v {
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.28;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+.tab .acc-health .hs {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
 @media (max-width: 700px) {
   .tab .tile .v, .tab .jstrip .v, .tab .qec .qv { font-size: 22px; line-height: 1.3; }
   .tab .tile .v.dual { font-size: 15px; line-height: 1.35; }
   .ov { padding: 12px 8px max(12px, env(safe-area-inset-bottom)); }
+  .tab .acc-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .tab .acc-metrics { grid-template-columns: minmax(0, 1fr); }
 }
 </style>
 </head>
