@@ -2,7 +2,7 @@
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { sirvePublicado } from './publicado.mjs';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -139,11 +139,19 @@ ok(JSON.stringify(journalBefore) === JSON.stringify(journalAfter), 'personalizar
 await page.setViewportSize({ width: 390, height: 844 });
 await page.click('#viewPrefsOpen', { force: true });
 ok(await page.locator('.view-prefs-dialog').evaluate(el => el.getBoundingClientRect().width <= innerWidth), 'configurador cabe en móvil');
-await page.locator('.view-prefs-dialog').evaluate(el => { el.scrollTop = 0; });
-await page.screenshot({ path: '../../outputs/cabina-ajustes-movil.png' });
-await page.setViewportSize({ width: 1440, height: 1000 });
-await page.locator('.view-prefs-dialog').evaluate(el => { el.scrollTop = 0; });
-await page.screenshot({ path: '../../outputs/cabina-ajustes.png' });
+/* Las capturas son opcionales (CABINA_CAPTURE=1). Un path relativo fuera del
+   repo tumba la suite en CI cuando la carpeta no existe. */
+if (process.env.CABINA_CAPTURE === '1') {
+  const outputs = join(raiz, 'outputs');
+  mkdirSync(outputs, { recursive: true });
+  await page.locator('.view-prefs-dialog').evaluate(el => { el.scrollTop = 0; });
+  await page.screenshot({ path: join(outputs, 'cabina-ajustes-movil.png') });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.locator('.view-prefs-dialog').evaluate(el => { el.scrollTop = 0; });
+  await page.screenshot({ path: join(outputs, 'cabina-ajustes.png') });
+} else {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+}
 ok(errors.length === 0, 'sin errores JavaScript en el flujo de preferencias', errors.join(' | ') || 'ninguno');
 await browser.close();
 await new Promise(resolve => srv.close(resolve));
