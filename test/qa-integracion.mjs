@@ -81,15 +81,13 @@ try {
     });
     ok(!!created, 'T1 crea operación MNQ en cuenta qa25');
     const id = created?.id;
-    /* Reabrir vía API de app (selector de tabla varía); no es escritura a nube. */
-    await page.evaluate(tid => {
-      if (typeof window.openTrade === 'function') window.openTrade(tid);
-      else if (typeof window.edOpen === 'function') window.edOpen(tid);
-      else document.querySelector(`[data-id="${tid}"]`)?.click();
-    }, id);
-    await page.locator('#ef_exit').waitFor({ timeout: 8000 });
-    await page.fill('#ef_exit', '21030');
-    await page.locator('#edSave').click();
+    /* Diario de Futuros: misma puerta que vivo2 / disciplina-ui. */
+    await page.locator('#ftSeg button[data-v="diario"]').click();
+    await quieto(page);
+    await page.locator(`#jrTable tr[data-id="${id}"] [data-act="edit"]`).click();
+    await page.waitForFunction(() => !!document.querySelector('.ov.open #ef_exit'), null, { timeout: 8000 });
+    await page.locator('.ov.open #ef_exit').fill('21030');
+    await page.locator('.ov.open #edSave').click();
     await enDisco(page, d => d?.trades?.[id]?.exit === 21030);
     ok((await page.evaluate(tid => JSON.parse(localStorage.getItem('cabina-mnq:v1')).trades[tid].exit, id)) === 21030,
       'T1 edita salida y persiste en disco');
