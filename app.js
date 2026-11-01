@@ -857,6 +857,42 @@
       await Promise.all([...Array.from(inFlightPersistence), ...entries.map(([, task]) => task())]);
     }
   }
+  /* CIERRE / RECARGA DURANTE EL DEBOUNCE.
+     `persistSettings` espera 500 ms y `persistDay` 400 ms. Ese hueco ya estaba
+     protegido CONTRA LECTURAS que pisaran la pantalla (`updatedAt` / sello), pero
+     no contra CERRAR la pestaña: el temporizador muere con la página y el cambio
+     nunca llega a localStorage ni a la cola IndexedDB. Medido: editar una cuenta,
+     recargar antes de 500 ms → la cuenta desaparece del almacén aunque la
+     pantalla la mostraba. `flushPersistence` ya existía para la demo; aquí se
+     dispara al ocultar/cerrar. En local la escritura a localStorage ocurre en el
+     mismo turno (el `async` del adaptador no espera a la red); en la cuenta el
+     `fetch` puede morir con la pestaña, y `beforeunload` avisa entonces. */
+  function kickPendingPersistence() {
+    if (!pendingPersistence.size) return 0;
+    const entries = Array.from(pendingPersistence.entries());
+    entries.forEach(([key]) => clearTimeout(timers[key]));
+    entries.forEach(([, task]) => { try { task(); } catch (e) { } });
+    return entries.length;
+  }
+  function peligroAlCerrar(kicked) {
+    if (state.demo) return false;
+    const uidCola = state.nube && nube.ses ? nube.ses.uid : null;
+    const enCola = uidCola ? cola.lista(uidCola) : [];
+    const rutasCola = new Set(enCola.map(r => r.ruta));
+    const volatiles = [...sinGuardar.keys()].filter(r => !rutasCola.has(r));
+    const colaFragil = !!(uidCola && !cola.durable && enCola.length);
+    /* Tras el kick, en local el disco ya tiene el cambio: no se molesta. En la
+       cuenta un fetch a medias o un kick recién lanzado SÍ se puede perder. */
+    const nubeEnVuelo = !!(state.nube && (enVuelo > 0 || kicked > 0 || inFlightPersistence.size));
+    return volatiles.length > 0 || colaFragil || conflictos.size > 0 || nubeEnVuelo;
+  }
+  window.addEventListener("pagehide", () => { kickPendingPersistence(); });
+  window.addEventListener("beforeunload", e => {
+    const kicked = kickPendingPersistence();
+    if (!peligroAlCerrar(kicked)) return;
+    e.preventDefault();
+    e.returnValue = "";
+  });
   function persistSettings(quiet) {
     if (state.demo) return;
     if (!quiet) state.settings.customized = true;
@@ -2410,8 +2446,9 @@
   $("auSalir").addEventListener("click", () => {
     auOcupado($("auSalir"), async () => {
       auDi("Cerrando sesión…");
-      /* Las escrituras van con 400-500 ms de retraso: se deja que salgan. */
-      await new Promise(r => setTimeout(r, 700));
+      /* Las escrituras van con 400-500 ms de retraso: se vacían de verdad, no
+         se espera a ojo un plazo fijo que a veces no alcanza. */
+      try { await flushPersistence(); } catch (e) { }
       try { await nubeFetch("/auth/v1/logout", { method: "POST" }); } catch (e) { }
       cambiaDeDueno(null);
     });
