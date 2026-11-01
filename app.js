@@ -857,6 +857,42 @@
       await Promise.all([...Array.from(inFlightPersistence), ...entries.map(([, task]) => task())]);
     }
   }
+  /* CIERRE / RECARGA DURANTE EL DEBOUNCE.
+     `persistSettings` espera 500 ms y `persistDay` 400 ms. Ese hueco ya estaba
+     protegido CONTRA LECTURAS que pisaran la pantalla (`updatedAt` / sello), pero
+     no contra CERRAR la pestaña: el temporizador muere con la página y el cambio
+     nunca llega a localStorage ni a la cola IndexedDB. Medido: editar una cuenta,
+     recargar antes de 500 ms → la cuenta desaparece del almacén aunque la
+     pantalla la mostraba. `flushPersistence` ya existía para la demo; aquí se
+     dispara al ocultar/cerrar. En local la escritura a localStorage ocurre en el
+     mismo turno (el `async` del adaptador no espera a la red); en la cuenta el
+     `fetch` puede morir con la pestaña, y `beforeunload` avisa entonces. */
+  function kickPendingPersistence() {
+    if (!pendingPersistence.size) return 0;
+    const entries = Array.from(pendingPersistence.entries());
+    entries.forEach(([key]) => clearTimeout(timers[key]));
+    entries.forEach(([, task]) => { try { task(); } catch (e) { } });
+    return entries.length;
+  }
+  function peligroAlCerrar(kicked) {
+    if (state.demo) return false;
+    const uidCola = state.nube && nube.ses ? nube.ses.uid : null;
+    const enCola = uidCola ? cola.lista(uidCola) : [];
+    const rutasCola = new Set(enCola.map(r => r.ruta));
+    const volatiles = [...sinGuardar.keys()].filter(r => !rutasCola.has(r));
+    const colaFragil = !!(uidCola && !cola.durable && enCola.length);
+    /* Tras el kick, en local el disco ya tiene el cambio: no se molesta. En la
+       cuenta un fetch a medias o un kick recién lanzado SÍ se puede perder. */
+    const nubeEnVuelo = !!(state.nube && (enVuelo > 0 || kicked > 0 || inFlightPersistence.size));
+    return volatiles.length > 0 || colaFragil || conflictos.size > 0 || nubeEnVuelo;
+  }
+  window.addEventListener("pagehide", () => { kickPendingPersistence(); });
+  window.addEventListener("beforeunload", e => {
+    const kicked = kickPendingPersistence();
+    if (!peligroAlCerrar(kicked)) return;
+    e.preventDefault();
+    e.returnValue = "";
+  });
   function persistSettings(quiet) {
     if (state.demo) return;
     if (!quiet) state.settings.customized = true;
@@ -2410,8 +2446,9 @@
   $("auSalir").addEventListener("click", () => {
     auOcupado($("auSalir"), async () => {
       auDi("Cerrando sesión…");
-      /* Las escrituras van con 400-500 ms de retraso: se deja que salgan. */
-      await new Promise(r => setTimeout(r, 700));
+      /* Las escrituras van con 400-500 ms de retraso: se vacían de verdad, no
+         se espera a ojo un plazo fijo que a veces no alcanza. */
+      try { await flushPersistence(); } catch (e) { }
       try { await nubeFetch("/auth/v1/logout", { method: "POST" }); } catch (e) { }
       cambiaDeDueno(null);
     });
@@ -14127,9 +14164,16 @@
     (a, en) => en ? "net result ÷ everything lost along the way" : "resultado neto ÷ todo lo perdido por el camino");
   E("acierto", "expectancy", "Expectativa por operación", "Trade expectancy", "n", a => estMedia(a.pnls),
     (a, en) => en ? "same money as «per trade average PnL», printed without currency" : "el mismo dinero que «P&L medio por operación», impreso sin moneda");
+  /* SQN = Van Tharp sobre R, con techo √100. Antes el catálogo reinventaba
+     √N × media($)/σ($): otra fórmula con el mismo nombre, en la misma pestaña
+     que ya tiene `analizarEdge` sobre estas filas. Dos SQN distintos a
+     centímetros. Se lee del mismo `c.e` que alimenta el resto del catálogo. */
   E("acierto", "sqn", "SQN · System Quality Number", "System quality number", "n",
-    a => { const s = estDesv(a.pnls), m = estMedia(a.pnls); return s && m != null ? Math.sqrt(a.pnls.length) * m / s : null; },
-    (a, en) => en ? `√${a.pnls.length} × mean ÷ standard deviation of P&L` : `√${a.pnls.length} × media ÷ desviación típica del P&L`);
+    a => a.c.e.sqn,
+    (a, en) => a.c.e.sqn == null
+      ? (en ? "needs at least two trades with a stop (R)" : "hacen falta al menos dos operaciones con stop (R)")
+      : (en ? `√min(n,100) × mean(R) ÷ σ(R) · Van Tharp on the same net R as this screen · n=${a.rs.length}${a.c.e.sqnEscala ? " · " + a.c.e.sqnEscala : ""}`
+            : `√min(n,100) × media(R) ÷ σ(R) · Van Tharp sobre la misma R neta de esta pantalla · n=${a.rs.length}${a.c.e.sqnEscala ? " · " + a.c.e.sqnEscala : ""}`));
   E("acierto", "kelly", "Kelly simplificado", "Kelly criterion", "p", a => a.c.kelly,
     (a, en) => en ? "f* = p − (1−p)/b · reference only: in a prop account the account caps the size, not Kelly"
                   : "f* = p − (1−p)/b · sólo referencia: en prop el tamaño lo limita la cuenta, no Kelly");
