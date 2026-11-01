@@ -4263,6 +4263,21 @@ body {
   min-width: 0;
   flex-wrap: wrap;
 }
+/* Contención: a zoom 150% las secundarias no deben ensanchar el documento
+   (tipografia-clip · overflow página ≤ 8px). */
+.topbar {
+  max-width: 100%;
+  overflow-x: clip;
+  box-sizing: border-box;
+}
+.topbar .clock {
+  min-width: 0;
+  max-width: 100%;
+}
+.topbar .tb-actions {
+  max-width: 100%;
+}
+
 .topbar .tb-secondary {
   display: inline-flex;
   align-items: center;
