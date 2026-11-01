@@ -157,12 +157,16 @@ async function boot(initExtra) {
         midOpen, midDisabled,
         closed: !ov.classList.contains('open'),
         ms: performance.now() - t0,
-        accounts: (JSON.parse(localStorage.getItem('cabina-mnq:v1')).settings.meta || {}).investAccounts || [],
       });
-    }, 400);
+    }, 200);
   }));
-  ok(timing.closed, 'camino sync sigue cerrando tras guardar', JSON.stringify(timing));
-  ok(timing.accounts.some(a => a.name === 'Cuenta Test Async'), 'cuenta creada');
+  ok(timing.closed && timing.midDisabled, 'camino sync cierra y deshabilita durante onSave', JSON.stringify(timing));
+  await p.waitForTimeout(700); /* persistSettings debounce 500 ms */
+  const created = await p.evaluate(() => {
+    const accts = (JSON.parse(localStorage.getItem('cabina-mnq:v1')).settings.meta || {}).investAccounts || [];
+    return accts.some(a => a.name === 'Cuenta Test Async');
+  });
+  ok(created, 'cuenta creada en disco tras debounce');
   await ctx.close();
 }
 
