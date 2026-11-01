@@ -36,7 +36,7 @@
      sistema operativo, no el documento. -->
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="color-scheme" content="light">
-<meta name="theme-color" content="#F5F6F8">
+<meta name="theme-color" content="#F3F5F8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Tema local: cargado antes de CSS y de la primera pintura. -->
@@ -47,8 +47,8 @@
 <style>
   /* Fondo de primera pintura: coherente con la elección guardada. */
   :root { color-scheme: light; }
-  html { background: #f7f9fc; }
-  body { margin: 0; background: #f7f9fc; color: #172334; }
+  html { background: #f3f5f8; }
+  body { margin: 0; background: #f3f5f8; color: #121a26; }
   :root[data-cabina-theme="dark"] { color-scheme: dark; }
   html[data-cabina-theme="dark"], html[data-cabina-theme="dark"] body { background: #0b0e13; color: #e8ecf2; }
   img { max-width: 100%; }
@@ -409,8 +409,8 @@ tbody tr:last-child td{border-bottom:0}
        La jerarquía guía el ojo; si todo pesa igual, nada pesa. Los números
        financieros van SIEMPRE en tabular: una columna de cifras que baila
        al actualizarse se lee peor y se compara mal. */
-    --font-ui:   -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, "Segoe UI", "Archivo", "Helvetica Neue", Arial, sans-serif;
-    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "IBM Plex Mono", Consolas, monospace;
+    --font-ui:   "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
     --t-display: 34px;   /* el balance: un número por pantalla */
     --t-primary: 21px;   /* la métrica de una sección */
     --t-body:    13.5px; /* el texto que se lee */
@@ -616,7 +616,7 @@ tbody tr:last-child td{border-bottom:0}
   .qnote.bad { border-color: var(--bad); color: var(--text); }
   .qnote b { color: var(--text); font-weight: 600; }
   .qsweep { width: 100%; border-collapse: collapse; margin-top:12px; font: 500 13px/1.4 "IBM Plex Mono", monospace; }
-  .qsweep th { text-align: right; font: 600 11px/1 "Archivo", sans-serif; letter-spacing: .06em; text-transform: uppercase;
+  .qsweep th { text-align: right; font: 600 11px/1 var(--font-ui), sans-serif; letter-spacing: .06em; text-transform: uppercase;
                color: var(--muted); padding: 0 8px 8px; border-bottom: 1px solid var(--line); }
   .qsweep th:first-child, .qsweep td:first-child { text-align: left; }
   .qsweep td { text-align: right; padding:8px 8px; border-bottom: 1px solid var(--line); }
@@ -654,10 +654,10 @@ tbody tr:last-child td{border-bottom:0}
   .eav.venta b { color: var(--accent); }
   .tocar { margin-top:12px; border: 1px solid var(--line); border-radius: var(--r-sm); padding:12px 16px; }
   .tocar .th { display: flex; align-items: baseline; justify-content: space-between; gap:12px; flex-wrap: wrap; }
-  .tocar .th h4 { margin: 0; font: 700 12px/1 "Archivo", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .tocar .th h4 { margin: 0; font: 700 12px/1 var(--font-ui), sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
   .tocar .big { font: 600 24px/1.1 "IBM Plex Mono", monospace; margin:8px 0 2px; }
   .tocar p { margin:8px 0 0; font-size: 12.5px; color: var(--dim); line-height: 1.5; }
-  .qhead h3 { font: 700 13px/1 "Archivo", sans-serif; letter-spacing: .07em; text-transform: uppercase; color: var(--text); margin: 0; }
+  .qhead h3 { font: 700 13px/1 var(--font-ui), sans-serif; letter-spacing: .07em; text-transform: uppercase; color: var(--text); margin: 0; }
   .qhead .qsub { font-size: 12.5px; color: var(--dim); }
   @media (max-width: 560px) { .qeg { grid-template-columns: 1fr 1fr; } .qec .qv { font-size: 18px; } }
   .tile .v { font-family: var(--font-mono); font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top:2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -3026,14 +3026,15 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   color-scheme: light !important;
   /* Concepto A: semantic, accessible tokens. The existing dark values are
      legacy fallbacks; these are the effective values of the light experience. */
-  --bg: #f7f9fc !important;
+  /* Cabina Ledger · Concepto A elevado: pizarra fría, cifras claras, acento sobrio. */
+  --bg: #f3f5f8 !important;
   --surface: #ffffff !important;
-  --surface-2: #f8fafc !important;
-  --surface-3: #edf2f8 !important;
-  --line: #e2e8f0 !important;
-  --line-strong: #cbd5e1 !important;
-  --text: #172334 !important;
-  --muted: #475569 !important;
+  --surface-2: #f7f9fc !important;
+  --surface-3: #eef2f7 !important;
+  --line: #dde3ec !important;
+  --line-strong: #c5cedb !important;
+  --text: #121a26 !important;
+  --muted: #4a5568 !important;
   --dim: #5b6779 !important;
   --accent: #1d4ed8 !important;
   --accent-ink: #f8fafc !important;
@@ -3041,13 +3042,16 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   --negative: #b42318 !important;
   --warning: #92400e !important;
   --info: #1d4ed8 !important;
-  --accent-soft: rgba(29,78,216,.09) !important;
-  --good-soft: rgba(22,101,52,.09) !important;
-  --bad-soft: rgba(180,35,24,.08) !important;
-  --warn-soft: rgba(146,64,14,.09) !important;
-  --info-soft: rgba(29,78,216,.08) !important;
-  --sh-1: 0 1px 2px rgba(23,35,52,.04) !important;
-  --sh-2: 0 10px 28px rgba(23,35,52,.09) !important;
+  --accent-soft: rgba(29,78,216,.08) !important;
+  --good-soft: rgba(22,101,52,.08) !important;
+  --bad-soft: rgba(180,35,24,.07) !important;
+  --warn-soft: rgba(146,64,14,.08) !important;
+  --info-soft: rgba(29,78,216,.07) !important;
+  --sh-1: 0 1px 2px rgba(18,26,38,.05) !important;
+  --sh-2: 0 8px 24px rgba(18,26,38,.07) !important;
+  --r-sm: 6px !important;
+  --r-md: 10px !important;
+  --r-lg: 14px !important;
   --ui-glow: transparent !important;
   --ui-panel: #ffffff !important;
   --ui-panel-raised: #f8fafc !important;
@@ -3123,8 +3127,18 @@ body { color-scheme: light !important; }
   background: var(--surface) !important;
   background-image: none !important;
   border-color: var(--line) !important;
-  box-shadow: none !important;
   text-shadow: none !important;
+}
+/* Elevación discreta: paneles llevan --sh-1; el resto permanece plano. */
+.study-stat, .study-flash, .tile, .tiles, .acct, .jstrip, .deck,
+.study-searchrow, .cmd-in, .cmd-it {
+  box-shadow: none !important;
+}
+section.panel, #panelAccts, #panelRules, #panelJournal, #panelLevels,
+#panelHist, #panelCabCal, .study-panel, .study-card,
+.view-prefs-dialog, .study-dialog, .ed, .qk, .cmd,
+#mobileMoreOv .mobile-more-sheet {
+  box-shadow: var(--sh-1) !important;
 }
 /* Diferencia visual medible entre ausencia de dato y valor disponible. */
 .tab:not([data-tab="estudio"]) .tile:not(.sin-dato) { background: #f8fafc !important; }
@@ -4052,6 +4066,426 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
 .break-notice{position:fixed;bottom:24px;right:24px;z-index:65;box-sizing:border-box;width:min(460px,calc(100vw - 32px));padding:18px;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.12);background:var(--surface);color:var(--text);font:14px/1.6 var(--font-ui,system-ui)}
 .break-notice[hidden]{display:none!important}.break-notice p{margin:8px 0 14px}
 @media(max-width:700px){.experience-dialog{padding:20px}.experience-dialog h2{font-size:24px}.experience-dialog header{margin-bottom:20px}.experience-actions:not(header .experience-actions)>.btn{flex:1 1 150px}.break-notice{bottom:82px;right:16px}.account-notice-actions .editbtn{flex:1 1 auto}}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CABINA LEDGER · refinamiento visual (Concepto A elevado)
+   Dirección: mesa operativa institucional. Pizarra fría, tipografía IBM Plex,
+   cifras tabulares, retícula 4/8/12/16/24. Sin glow ni pastillas decorativas.
+   Vive en esta misma capa (el tope estructural de cinco hojas se mantiene).
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --ledger-rail: 220px;
+  --ledger-gap: 16px;
+  --ledger-inset: 20px;
+  --figure: 600 clamp(22px, 2.1vw, 28px)/1.15 var(--font-mono);
+  --figure-sm: 600 18px/1.2 var(--font-mono);
+  --label-caps: 600 11px/1.35 var(--font-ui);
+}
+body {
+  font-feature-settings: "ss01" 0, "tnum" 0;
+  letter-spacing: -.005em;
+}
+.brand h1, .topbar .brand h1 {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  letter-spacing: -.04em;
+  font-size: 18px;
+}
+.clock .time {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  letter-spacing: -.02em;
+}
+
+/* Sidebar · rail preciso, secciones con aire, activo sobrio. */
+@media (min-width: 901px) {
+  nav.tabnav#tabnav {
+    width: var(--ledger-rail);
+    padding: 18px 12px 28px;
+    gap: 2px;
+    border-right: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+  }
+  #tabnav .sidebar-section {
+    margin: 22px 10px 8px;
+    padding: 0;
+    color: var(--dim);
+    font: var(--label-caps);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  #tabnav .tabbtn {
+    min-height: 40px;
+    padding: 8px 12px;
+    border-radius: var(--r-sm);
+    gap: 10px;
+    font: 550 13.5px/1.3 var(--font-ui);
+    letter-spacing: -.01em;
+    text-transform: none;
+  }
+  #tabnav .tabbtn .sidebar-icon { opacity: .7; }
+  #tabnav .tabbtn.active {
+    font-weight: 650;
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  #tabnav .tabbtn .n {
+    margin-left: auto;
+    min-width: 1.5ch;
+    font: 600 11px/1 var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+}
+
+/* Deck · un solo punto de entrada tipográfico por pantalla. */
+.tab[data-tab] .deck {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  margin: 4px 0 20px;
+  padding: 4px 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+.tab[data-tab] .deck-t {
+  font: 700 clamp(24px, 2.4vw, 30px)/1.12 var(--font-ui);
+  letter-spacing: -.038em;
+  text-wrap: balance;
+}
+.tab[data-tab] .deck-parts {
+  color: var(--muted);
+  font: 450 13px/1.45 var(--font-ui);
+  max-width: 52ch;
+}
+
+/* Paneles · superficie elevada, cabecera de trabajo, cuerpo respirable. */
+.tab section.panel {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--sh-1);
+  overflow: clip;
+}
+.tab section.panel > header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 14px var(--ledger-inset);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, var(--surface-2));
+}
+.tab section.panel > header h2 {
+  margin: 0;
+  font: 650 13px/1.35 var(--font-ui);
+  letter-spacing: .02em;
+  text-transform: none;
+  color: var(--text);
+}
+.tab section.panel > header .meta {
+  color: var(--muted);
+  font: 450 12px/1.4 var(--font-ui);
+}
+.tab section.panel > .body {
+  padding: var(--ledger-inset);
+}
+
+/* Botones · primaria / secundaria / destructiva con alturas fijas. */
+.btn, .editbtn {
+  border-radius: var(--r-sm);
+  font: 600 13.5px/1.25 var(--font-ui);
+  letter-spacing: -.01em;
+  transition: background var(--mo-fast) var(--ease), border-color var(--mo-fast) var(--ease), color var(--mo-fast) var(--ease), box-shadow var(--mo-fast) var(--ease);
+}
+.btn.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: transparent;
+  box-shadow: 0 1px 0 rgba(0,0,0,.04);
+}
+.btn.primary:hover { filter: brightness(1.04); }
+.btn.danger {
+  background: color-mix(in srgb, var(--negative) 9%, var(--surface));
+  color: var(--negative);
+  border-color: color-mix(in srgb, var(--negative) 35%, var(--line));
+}
+.btn.ghost, .btn:not(.primary):not(.danger) {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+.btn.ghost:hover, .btn:not(.primary):not(.danger):hover {
+  background: var(--surface-2);
+  border-color: var(--muted);
+}
+.btn:disabled, .editbtn:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+  filter: none;
+}
+
+/* Cifras y métricas · comparación fácil. */
+.tab .tile .v,
+.tab .qec .qv,
+.tab .discipline-stat strong,
+.tab .jstrip .v,
+.metric-overview .tile .v {
+  font: var(--figure);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  letter-spacing: -.03em;
+}
+.tab .tile .s,
+.tab .qec .qk,
+.tab .lab {
+  font: var(--label-caps);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tab .tiles {
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface);
+}
+.tab .tile {
+  padding: 14px 16px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  min-height: 76px;
+}
+.tab .tile:hover { background: var(--surface-2); }
+
+/* Tablas · cabecera quieta, filas alineadas, P&L tabular. */
+.tab table.t {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface);
+}
+.tab table.t thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-2);
+  color: var(--muted);
+  font: 600 11.5px/1.35 var(--font-ui);
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+  padding: 11px 14px;
+  white-space: nowrap;
+}
+.tab table.t tbody td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+  font: 450 13.5px/1.45 var(--font-ui);
+  font-variant-numeric: tabular-nums lining-nums;
+  vertical-align: middle;
+}
+.tab table.t tbody tr:last-child td { border-bottom: 0; }
+.tab table.t tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 55%, transparent); }
+.tab table.t .r, .tab table.t td.r, .tab table.t th.r {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Resumen · retícula de referencia del nuevo estándar. */
+.tab[data-tab="cabina"] .cab-workspace {
+  display: grid;
+  gap: var(--ledger-gap);
+}
+.tab[data-tab="cabina"] .cab-workspace-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.22fr) minmax(280px, .78fr);
+  gap: var(--ledger-gap);
+  align-items: start;
+}
+.tab[data-tab="cabina"] .cab-workspace-primary,
+.tab[data-tab="cabina"] .cab-workspace-secondary {
+  display: grid;
+  gap: var(--ledger-gap);
+  align-content: start;
+}
+#panelJournal {
+  box-shadow: var(--sh-1), inset 0 2px 0 var(--accent);
+}
+#panelAccts .acct {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: none;
+  transition: border-color var(--mo-fast) var(--ease), background var(--mo-fast) var(--ease);
+}
+#panelAccts .acct:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+  transform: none;
+}
+#panelCheck .go {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  font: 500 13px/1.45 var(--font-ui);
+}
+#panelCheck .progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+  margin-top: 12px;
+}
+#panelCheck .progress > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+}
+.tab[data-tab="cabina"] .jstrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.tab[data-tab="cabina"] .jstrip > div {
+  padding: 12px 14px;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+}
+.tab[data-tab="cabina"] .jstrip > div:last-child { border-right: 0; }
+.cab-checklist-fold > summary,
+.cab-analytics-fold > summary {
+  font: 600 12.5px/1.4 var(--font-ui);
+  letter-spacing: .01em;
+}
+.seschips button, .windays button {
+  min-height: 36px;
+  border-radius: 999px;
+  font: 550 12px/1.2 var(--font-ui);
+}
+
+/* Diálogos y overlays · misma familia que paneles. */
+.view-prefs-dialog, .study-dialog, .ed, .qk, .cmd,
+.settings-dialog, .discipline-dialog, .experience-dialog {
+  border-radius: var(--r-lg) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: var(--sh-2) !important;
+  background: var(--surface) !important;
+}
+.view-prefs-backdrop, .study-modal, #mobileMoreOv {
+  background: color-mix(in srgb, #0b1220 42%, transparent) !important;
+}
+
+/* Futuros / métricas · mismo lenguaje de panel. */
+.tab[data-tab="futuros"] .cab-futures-charts-primary .panel,
+#qeSec .qec {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--sh-1);
+}
+#qeSec .qec { padding: 14px 16px; }
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.seg button {
+  border: 0;
+  background: transparent;
+  border-radius: calc(var(--r-sm) - 2px);
+  min-height: 34px;
+  padding: 6px 12px;
+  font: 550 12.5px/1.2 var(--font-ui);
+  color: var(--muted);
+}
+.seg button.active, .seg button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--sh-1);
+  font-weight: 650;
+}
+
+/* Oscuro · acabado propio, no inversión barata ni glow teal. */
+html[data-cabina-theme="dark"] {
+  --sh-1: 0 1px 2px rgba(0,0,0,.35);
+  --sh-2: 0 12px 32px rgba(0,0,0,.45);
+  --ui-glow: transparent;
+}
+html[data-cabina-theme="dark"] nav.tabnav#tabnav {
+  background: color-mix(in srgb, var(--surface) 80%, #000);
+  border-right-color: var(--line);
+}
+html[data-cabina-theme="dark"] .tab section.panel > header {
+  background: color-mix(in srgb, var(--surface) 70%, #000);
+}
+html[data-cabina-theme="dark"] .tab .tile:hover,
+html[data-cabina-theme="dark"] #panelAccts .acct:hover {
+  background: color-mix(in srgb, var(--surface) 85%, #fff 4%);
+}
+html[data-cabina-theme="dark"] .btn.primary {
+  background: var(--accent) !important;
+  border-color: transparent !important;
+  color: var(--accent-ink, #0b0e13) !important;
+  box-shadow: none !important;
+  filter: none;
+}
+html[data-cabina-theme="dark"] .btn.ghost,
+html[data-cabina-theme="dark"] .btn:not(.primary):not(.danger) {
+  background: var(--surface);
+  border-color: var(--line-strong);
+}
+html[data-cabina-theme="dark"] .tabbtn.active::after,
+html[data-cabina-theme="dark"] #tabnav .tabbtn[data-tab="estudio"]::before {
+  box-shadow: none !important;
+}
+html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: none !important; }
+
+/* Tablet / móvil · misma jerarquía, una columna. */
+@media (max-width: 1100px) {
+  .tab[data-tab="cabina"] .cab-workspace-columns {
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  }
+}
+@media (max-width: 850px) {
+  .tab[data-tab="cabina"] .cab-workspace-columns { grid-template-columns: minmax(0,1fr); }
+  :root { --ledger-inset: 16px; --ledger-gap: 12px; }
+}
+@media (max-width: 700px) {
+  .tab[data-tab] .deck { margin-bottom: 14px; padding-bottom: 10px; }
+  .tab[data-tab] .deck-t { font-size: 22px; }
+  .tab section.panel > header { min-height: 48px; padding: 12px 14px; }
+  .tab .tile { min-height: 68px; padding: 12px 14px; }
+  .tab .tile .v, .tab .qec .qv { font-size: 22px; }
+  .tab table.t thead th, .tab table.t tbody td { padding: 10px 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn, .editbtn, #panelAccts .acct, .tab .tile { transition: none !important; }
+}
 </style>
 </head>
 <body>

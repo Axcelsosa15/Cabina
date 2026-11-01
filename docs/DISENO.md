@@ -1,10 +1,19 @@
-# Sistema visual de Cabina — Concepto A (Minimalista claro)
+# Sistema visual de Cabina — Concepto A / Ledger
 
-## Decisión aprobada · 2026-10-30
+## Decisión aprobada · 2026-10-30 · refinada 2026-11-01
 
-La dirección elegida para Cabina es **Concepto A — Minimalista claro**.
+La dirección elegida para Cabina es **Concepto A — Minimalista claro**,
+elevada como **Cabina Ledger**: mesa operativa institucional.
 Prioridad: entrada, corrección, lectura y organización de datos. Una operación
 debe ser fácil de registrar sin esconder el riesgo ni los campos importantes.
+
+**Ledger (2026-11-01):** tipografía IBM Plex Sans + IBM Plex Mono (cifras
+tabulares), retícula 4/8/12/16/24, paneles con elevación `--sh-1`, cabeceras
+de trabajo quietas, botones primaria/secundaria/destructiva diferenciados,
+sidebar con rail de 220px y activo por filete interior. Sin glow ni pastillas
+decorativas. Claro y oscuro tienen acabado propio. La pantalla de referencia
+es **Resumen**; el mismo lenguaje se propaga a paneles, tablas, métricas y
+diálogos.
 
 No es una migración de motor ni de base de datos. Se preservan QuantEngine,
 Supabase, RLS, importación, sincronización, rutas y contratos de datos.
@@ -26,14 +35,14 @@ los enlaces y el estado actual.
 
 | Función | Token | Valor |
 |---|---|---|
-| Fondo | `--bg` | `#F7F9FC` |
+| Fondo | `--bg` | `#F3F5F8` |
 | Superficie | `--surface` | `#FFFFFF` |
-| Superficie secundaria | `--surface-2` | `#F8FAFC` |
-| Borde | `--line` | `#E2E8F0` |
+| Superficie secundaria | `--surface-2` | `#F7F9FC` |
+| Borde | `--line` | `#DDE3EC` |
 | Borde de input editable | `--control-border` | `#8492A6` |
-| Borde de contenedor secundario | `--line-strong` | `#CBD5E1` |
-| Texto principal | `--text` | `#172334` |
-| Texto secundario | `--muted` | `#475569` |
+| Borde de contenedor secundario | `--line-strong` | `#C5CEDB` |
+| Texto principal | `--text` | `#121A26` |
+| Texto secundario | `--muted` | `#4A5568` |
 | Focus y acción primaria | `--accent` | `#1D4ED8` |
 | Profit | `--positive` | `#166534` |
 | Loss y error | `--negative` | `#B42318` |
