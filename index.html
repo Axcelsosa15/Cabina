@@ -2164,15 +2164,16 @@ tbody tr:last-child td{border-bottom:0}
        discrepar. El fondo es el del raíl para que la lista no se vea por
        debajo al desplazarla. */
     #tabnav::before { content: none; }
-    #tabnav { padding-top: 76px; }
+    #tabnav { padding-top: 68px; }
     .topbar .brand {
       position: fixed; top: 0; left: 0; z-index: 21;
       width: var(--rail); box-sizing: border-box;
-      display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-      margin: 0; padding: 18px 12px 14px;
+      display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px;
+      margin: 0; padding: 0 44px 0 14px;
+      min-height: 68px; height: 68px;
       background: var(--surface);
     }
-    .topbar .brand h1 { font-size: 19px; }
+    .topbar .brand h1 { font-size: 18px; }
     /* En 240px menos el canal no caben 220px de campo más su borde. */
     .topbar .brand input.t, .topbar .brand input.s { width: 100%; max-width: 100%; }
     .topbar .clock { margin-left: 0; }
@@ -2802,39 +2803,23 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
    con el reloj, el bloque de marca y el reloj bajan un escalón de tamaño, y el
    aire vertical se reduce al de un encabezado, no al de una portada. */
 @media (max-width: 700px) {
-  /* Cabecera operativa: contexto en una fila y acciones táctiles en una rejilla.
-     El acceso rápido pertenece al flujo; no debe cubrir tarjetas ni formularios. */
-  .topbar { display: block; padding-block: 12px 10px; margin-bottom: 4px; }
-  .topbar .brand { width: 100%; gap: 6px; margin-bottom: 10px; }
-  .topbar .brand h1 { font-size: 20px; letter-spacing: -.035em; }
+  /* Cabecera operativa compacta: sesión + registrar; secundarias en «Más». */
+  .topbar { display: block; padding-block: 8px 10px; margin-bottom: 4px; }
+  .topbar .brand { width: 100%; gap: 4px; margin-bottom: 8px; }
+  .topbar .brand h1 { font-size: 18px; letter-spacing: -.035em; }
   .topbar .brand .sub { font-size: 11px; }
-  .topbar .clock {
-    display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));
-    align-items: center; gap: 8px; width: 100%; margin-left: 0;
-  }
-  .topbar .clock > span:has(.time) {
-    grid-column: span 7; grid-row: 1; white-space: nowrap; min-width: 0;
-  }
-  .topbar .clock .time { font-size: clamp(15px, 4vw, 18px); }
-  .topbar .clock .tz { font-size: 10px; letter-spacing: -.025em; }
+  .topbar .clock .time { font-size: clamp(13px, 3.6vw, 15px); }
+  .topbar .clock .tz { font-size: 10.5px; letter-spacing: .01em; }
   .topbar .clock #sessionPill {
-    grid-column: span 5; grid-row: 1; justify-self: end;
-    max-width: 100%; min-width: 0; margin: 0; padding: 7px 9px;
+    max-width: 100%; min-width: 0; margin: 0; padding: 4px 8px;
     font-size: 11px; line-height: 1.25;
   }
-  .topbar .clock #saveState { grid-column: 1 / -1; min-width: 0; margin: 0; }
-  .topbar .clock .editbtn {
-    grid-column: span 3; min-width: 0; width: 100%; min-height: 44px;
-    padding: 9px 4px; margin: 0; font-size: 13px; line-height: 1.2;
-    white-space: nowrap; text-align: center;
-  }
-  .topbar .clock .save-state.nosave { grid-column: 1 / -1; }
+  .topbar .clock #saveState { min-width: 0; margin: 0; }
+  .topbar .clock .save-state.nosave { display: block; }
 }
 @media (max-width: 380px) {
-  /* A 320–380 px el reloj y el estado no compiten por los mismos píxeles. */
-  .topbar .clock > span:has(.time) { grid-column: 1 / -1; grid-row: 1; }
-  .topbar .clock #sessionPill { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
-  .topbar .clock .editbtn { font-size: 12px; letter-spacing: -.015em; }
+  .topbar .tb-session { flex-direction: column; align-items: flex-start; }
+  .topbar .tb-more-btn { min-width: 64px; font-size: 12px; }
 }
 @media (max-width: 700px) {
     :root { --mobile-nav-h: 68px; }
@@ -2889,7 +2874,7 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
       border-radius: var(--r-md); background: var(--accent); color: var(--accent-ink);
       font-size: 13px; font-weight: 700; box-shadow: none;
     }
-    .topbar .clock #quickBtn { grid-column: span 6; white-space: normal; }
+    .topbar .clock #quickBtn { white-space: normal; }
     #quickBtn:active { transform: translateY(1px) scale(.98); }
     .topbar, .topbar > *, .clock, .brand, .hgroup, .toolbar { min-width: 0; }
     .tab, .tab > *, .panel, .panel > header, .panel > .body, .study-shell, .study-grid, .study-bottom, .deck { min-width: 0; max-width: 100%; }
@@ -3892,8 +3877,8 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
   nav.tabnav#tabnav > .tabbtn[data-tab="ajustes"] {
     margin-top: 18px; border-top-color: var(--line); border-radius: 0;
   }
-  .topbar .brand { padding: 22px 24px 16px; border-bottom: 1px solid var(--line); }
-  .topbar .brand h1 { font-size: 22px; line-height: 1.2; letter-spacing: -.04em; }
+  .topbar .brand { padding: 0 44px 0 14px; border-bottom: 1px solid var(--line); }
+  .topbar .brand h1 { font-size: 18px; line-height: 1.15; letter-spacing: -.04em; }
 }
 
 /* Control independiente: permanece accesible cuando se cierra el menú. */
@@ -3915,11 +3900,36 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
     background: var(--surface); min-height: 44px;
     border-top-color: var(--line); border-radius: 0;
   }
-  html[data-sidebar-collapsed="true"] body { padding-left: var(--gut); }
-  html[data-sidebar-collapsed="true"] nav.tabnav#tabnav,
+  /* Raíl contraído: iconos + tooltips; el raíl sigue ocupando sitio (--rail). */
+  html[data-sidebar-collapsed="true"] { --rail: 64px; }
   html[data-sidebar-collapsed="true"] .topbar .brand { display: none !important; }
-  html[data-sidebar-collapsed="true"] #sidebarToggle { left: 12px; }
-  html[data-sidebar-collapsed="true"] .topbar { padding-left: 40px; }
+  html[data-sidebar-collapsed="true"] #sidebarToggle { left: 16px; }
+  html[data-sidebar-collapsed="true"] .topbar { padding-left: 0; }
+  html[data-sidebar-collapsed="true"] nav.tabnav#tabnav {
+    display: flex !important;
+    width: var(--rail);
+    padding: 76px 6px 18px;
+    overflow-x: hidden;
+  }
+  html[data-sidebar-collapsed="true"] #tabnav .sidebar-section {
+    height: 1px; margin: 10px 8px; padding: 0; overflow: hidden;
+    color: transparent; background: var(--line); border: 0; font-size: 0;
+  }
+  html[data-sidebar-collapsed="true"] nav.tabnav#tabnav > .tabbtn[data-tab] {
+    justify-content: center; padding: 10px 0; gap: 0; min-height: 44px;
+    font-size: 0; line-height: 0; color: transparent;
+  }
+  html[data-sidebar-collapsed="true"] nav.tabnav#tabnav > .tabbtn[data-tab] .sidebar-icon {
+    color: var(--text); stroke: currentColor;
+  }
+  html[data-sidebar-collapsed="true"] #tabnav .sidebar-icon { display: block; margin: 0; opacity: .9; }
+  html[data-sidebar-collapsed="true"] #tabnav .tabbtn .n {
+    position: absolute; top: 4px; right: 4px; margin: 0; min-width: 14px;
+    padding: 0 3px; font-size: 9px;
+  }
+  html[data-sidebar-collapsed="true"] nav.tabnav#tabnav > .tabbtn[data-tab="ajustes"] {
+    margin-top: auto;
+  }
 }
 
 /* Identidad discreta y estados inequívocos del menú. */
@@ -4102,74 +4112,105 @@ body {
   font-feature-settings: "ss01" 0, "tnum" 0;
   letter-spacing: -.005em;
 }
-/* Top chrome · la marca manda: tipografía grande, franja alta, acento de regla.
-   Meta (reloj/sesión) secundaria; acciones legibles sin competir. Sin glow. */
+/* Top chrome · barra de herramienta financiera: compacta (~68px), sin adorno.
+   Meta a la izquierda, acciones a la derecha. Registrar = única primaria. */
 .topbar {
-  gap: 14px 22px;
-  padding-block: 18px 16px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--line);
+  --tb-h: 68px;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  background: color-mix(in srgb, var(--surface) 70%, var(--bg));
+  gap: 10px 16px;
+  padding-block: 10px;
+  margin-bottom: 16px;
+  min-height: var(--tb-h);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 82%, var(--bg));
+  box-sizing: border-box;
 }
 .brand h1, .topbar .brand h1 {
   font-family: var(--font-ui);
-  font-weight: 800;
-  letter-spacing: -.06em;
-  font-size: clamp(28px, 3vw, 34px);
-  line-height: 1.02;
+  font-weight: 750;
+  letter-spacing: -.045em;
+  font-size: clamp(18px, 1.6vw, 20px);
+  line-height: 1.15;
   color: var(--text);
   display: inline-block;
   position: relative;
+  margin: 0;
 }
-/* Regla corta bajo el wordmark: identidad de mesa, no adorno. */
-.topbar .brand h1::after {
-  content: "";
-  display: block;
-  width: 1.55em;
-  height: 3px;
-  margin-top: 8px;
-  background: var(--accent);
-  opacity: .95;
-}
+.topbar .brand h1::after { content: none !important; display: none !important; }
 .topbar .brand .sub {
-  font: 500 12.5px/1.4 var(--font-ui);
+  font: 450 11.5px/1.35 var(--font-ui);
   color: var(--muted);
-  letter-spacing: .02em;
+  letter-spacing: .01em;
   max-width: 42ch;
 }
 .topbar .brand .sub:empty { display: none; }
 .topbar .brand input.t {
-  font: 800 30px/1.05 var(--font-ui);
-  letter-spacing: -.055em;
+  font: 700 18px/1.15 var(--font-ui);
+  letter-spacing: -.04em;
 }
 .topbar .brand input.s {
-  font: 450 12.5px/1.4 var(--font-ui);
+  font: 450 12px/1.35 var(--font-ui);
   color: var(--muted);
 }
 .topbar .clock {
-  gap: 10px 14px;
+  display: flex;
+  flex: 1 1 auto;
   align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  min-width: 0;
+  margin-left: 0;
+  flex-wrap: wrap;
+}
+.topbar .tb-session {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+.topbar .tb-clockwrap {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
 }
 .topbar .clock .time {
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: 14.5px;
   font-weight: 500;
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: "tnum" 1, "lnum" 1;
-  letter-spacing: -.02em;
-  color: var(--text);
+  letter-spacing: 0;
+  color: var(--muted);
+  min-width: 7.6ch;
 }
 .topbar .clock .tz {
-  font: 550 10.5px/1.3 var(--font-ui);
-  letter-spacing: .08em;
-  text-transform: uppercase;
+  font: 450 11px/1.3 var(--font-ui);
+  letter-spacing: .01em;
+  text-transform: none;
   color: var(--dim);
+  white-space: nowrap;
 }
 .topbar .save-state {
-  font: 450 11.5px/1.35 var(--font-ui);
-  letter-spacing: .02em;
+  font: 450 11px/1.35 var(--font-ui);
+  letter-spacing: .015em;
   color: var(--dim);
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar .save-state.nosave {
+  color: var(--bad);
+  font-weight: 700;
+  max-width: none;
+  white-space: normal;
+  overflow: visible;
 }
 /* Misma especificidad que `.topbar .save-state` pero DESPUÉS: el aviso de
    fallo de guardado tiene que seguir siendo el rojo de error (--negative),
@@ -4181,121 +4222,166 @@ body {
   letter-spacing: .06em;
 }
 .topbar .clock #sessionPill.pill {
-  /* Estado de sesión, no pastilla promocional: radio de control, tipografía UI. */
-  border-radius: var(--r-sm);
-  padding: 5px 10px;
-  gap: 7px;
-  font: 550 12px/1.3 var(--font-ui);
+  border-radius: 999px;
+  padding: 3px 8px 3px 7px;
+  gap: 6px;
+  font: 550 11.5px/1.25 var(--font-ui);
   letter-spacing: .01em;
   text-transform: none;
   background: transparent;
-  border-color: var(--line);
+  border: 1px solid transparent;
   color: var(--muted);
+  min-height: 0;
 }
 .topbar .clock #sessionPill.pill .dot {
   width: 6px;
   height: 6px;
+  flex: none;
+  background: currentColor;
 }
 .topbar .clock #sessionPill.pill.live {
   color: var(--good);
-  border-color: color-mix(in srgb, var(--good) 35%, var(--line));
-  background: color-mix(in srgb, var(--good) 8%, transparent);
+  border-color: color-mix(in srgb, var(--good) 28%, transparent);
+  background: color-mix(in srgb, var(--good) 7%, transparent);
 }
 .topbar .clock #sessionPill.pill.warn {
   color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 35%, var(--line));
-  background: color-mix(in srgb, var(--warn) 8%, transparent);
+  border-color: color-mix(in srgb, var(--warn) 28%, transparent);
+  background: color-mix(in srgb, var(--warn) 7%, transparent);
 }
 .topbar .clock #sessionPill.pill.off {
   color: var(--dim);
-  border-color: var(--line);
+  border-color: color-mix(in srgb, var(--line) 80%, transparent);
   background: transparent;
 }
+.topbar .tb-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+/* Contención: a zoom 150% las secundarias no deben ensanchar el documento
+   (tipografia-clip · overflow página ≤ 8px). */
+.topbar {
+  max-width: 100%;
+  overflow-x: clip;
+  box-sizing: border-box;
+}
+.topbar .clock {
+  min-width: 0;
+  max-width: 100%;
+}
+.topbar .tb-actions {
+  max-width: 100%;
+}
+
+.topbar .tb-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.topbar .tb-more-btn { display: none; }
 .topbar .clock .editbtn {
-  min-height: 34px;
-  padding: 6px 11px;
-  font: 550 12.5px/1.25 var(--font-ui);
+  min-height: 32px;
+  padding: 5px 10px;
+  font: 550 12px/1.2 var(--font-ui);
   letter-spacing: -.01em;
   color: var(--muted);
   background: transparent;
-  border-color: var(--line-strong);
+  border-color: transparent;
+  border-radius: var(--r-sm);
 }
 .topbar .clock .editbtn:hover {
   color: var(--text);
   background: var(--surface-2);
-  border-color: var(--muted);
+  border-color: var(--line);
 }
-.topbar .clock .editbtn.qkbtn {
-  color: var(--text);
-  border-color: var(--line-strong);
-  background: var(--surface);
+.topbar .clock .editbtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
+.topbar .clock .tb-secondary .editbtn {
+  border-color: var(--line);
+  background: transparent;
+}
+.topbar .clock .tb-secondary .editbtn[aria-pressed="true"],
+body.editing .topbar .clock #editToggle.editbtn {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.topbar .clock .editbtn.qkbtn,
+.topbar .clock #quickBtn.editbtn.qkbtn {
+  color: var(--accent-ink) !important;
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  font-weight: 700;
+  min-height: 34px;
+  padding: 6px 12px;
+  box-shadow: none;
+}
+.topbar .clock .editbtn.qkbtn:hover { filter: brightness(1.04); }
 .topbar .clock .conflbtn {
-  border-color: var(--bad);
-  color: var(--bad);
+  border-color: var(--bad) !important;
+  color: var(--bad) !important;
+  background: color-mix(in srgb, var(--bad) 8%, transparent) !important;
   font-weight: 700;
 }
 
-/* Sidebar · mismo corte que el raíl vertical (1100px), no 901px.
-   padding-top ~116px: franja de marca ~92px + aire hasta «Operativa». */
+/* Sidebar · raíl 1100px; franja de marca ~68px alineada con la barra. */
 @media (min-width: 1100px) {
   nav.tabnav#tabnav {
     width: var(--rail);
-    padding: 116px 12px 28px;
+    padding: 76px 12px 28px;
     gap: 2px;
     border-right: 1px solid var(--line);
     background: color-mix(in srgb, var(--surface) 92%, var(--bg));
   }
-  /* Marca anclada al raíl: wordmark hero (~30px), franja ~92px alineada
-     con la barra de meta/acciones. padding-right deja hueco para #sidebarToggle. */
   .topbar .brand {
     width: var(--rail);
     box-sizing: border-box;
-    min-height: 92px;
-    padding: 22px 48px 20px 16px;
-    gap: 5px;
+    min-height: var(--tb-h, 68px);
+    height: var(--tb-h, 68px);
+    padding: 0 44px 0 14px;
+    gap: 2px;
     justify-content: center;
     border-bottom: 1px solid var(--line);
-    background:
-      linear-gradient(180deg,
-        color-mix(in srgb, var(--surface) 98%, var(--bg)) 0%,
-        color-mix(in srgb, var(--surface) 88%, var(--bg)) 100%);
-    box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--accent) 28%, transparent);
+    background: color-mix(in srgb, var(--surface) 94%, var(--bg));
+    box-shadow: none;
   }
   .topbar .brand h1 {
-    font-size: 30px;
-    font-weight: 800;
-    letter-spacing: -.062em;
-    line-height: 1;
-  }
-  .topbar .brand h1::after {
-    width: 1.65em;
-    height: 3px;
-    margin-top: 9px;
+    font-size: 18px;
+    font-weight: 750;
+    letter-spacing: -.04em;
+    line-height: 1.15;
   }
   .topbar .brand .sub {
-    font-size: 12px;
-    line-height: 1.35;
+    font-size: 11px;
+    line-height: 1.25;
     max-width: 100%;
   }
   .topbar .brand input.t {
-    font-size: 28px;
+    font-size: 17px;
     width: 100%;
     max-width: 100%;
   }
   .topbar {
-    padding-block: 20px;
-    margin-bottom: 24px;
-    min-height: 92px;
+    padding-block: 0;
+    margin-bottom: 18px;
+    min-height: var(--tb-h, 68px);
     border-bottom: 1px solid var(--line);
-    background: color-mix(in srgb, var(--surface) 78%, var(--bg));
-    box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--line-strong) 55%, transparent);
+    background: color-mix(in srgb, var(--surface) 86%, var(--bg));
+    box-shadow: none;
   }
-  .topbar .clock .time { font-size: 17px; }
+  .topbar .clock .time { font-size: 14px; }
   #sidebarToggle {
-    top: 29px;
-    width: 34px;
-    height: 34px;
+    top: 17px;
+    width: 32px;
+    height: 32px;
     border-color: var(--line);
     background: transparent;
     color: var(--muted);
@@ -4306,7 +4392,7 @@ body {
     border-color: var(--line-strong);
   }
   #tabnav .sidebar-section {
-    margin: 22px 10px 8px;
+    margin: 18px 10px 6px;
     padding: 0;
     color: var(--dim);
     font: var(--label-caps);
@@ -4340,14 +4426,131 @@ body {
   .topbar {
     flex-wrap: nowrap;
     align-items: center;
-    min-height: 92px;
-    height: 92px;
+    min-height: var(--tb-h, 68px);
+    height: var(--tb-h, 68px);
     padding-block: 0;
-    margin-bottom: 26px;
-    gap: 0 22px;
+    margin-bottom: 20px;
+    gap: 0 18px;
     box-sizing: border-box;
   }
-  .topbar .clock { gap: 10px 14px; }
+  .topbar .clock { flex-wrap: nowrap; gap: 10px 14px; }
+  .topbar .tb-session { flex-wrap: nowrap; }
+  .topbar .tb-actions { flex-wrap: nowrap; }
+}
+@media (min-width: 701px) and (max-width: 1279px) {
+  .topbar {
+    align-items: flex-start;
+    padding-block: 10px 12px;
+  }
+  .topbar .clock {
+    width: 100%;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .topbar .tb-session { flex: 1 1 280px; }
+  .topbar .tb-actions { flex: 1 1 auto; margin-left: auto; }
+}
+@media (max-width: 700px) {
+  .topbar {
+    display: block;
+    padding-block: 8px 10px;
+    margin-bottom: 8px;
+    min-height: 0;
+  }
+  .topbar .brand {
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    gap: 2px;
+    margin-bottom: 8px;
+    padding: 0;
+    border-bottom: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .topbar .brand h1 { font-size: 18px; letter-spacing: -.035em; }
+  .topbar .clock {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+  .topbar .tb-session {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    align-items: center;
+  }
+  .topbar .tb-clockwrap { order: 1; }
+  .topbar .clock #sessionPill { order: 0; }
+  .topbar .save-state {
+    order: 2;
+    flex: 1 1 100%;
+    max-width: none;
+    margin: 0;
+  }
+  .topbar .tb-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    width: 100%;
+    gap: 8px;
+    position: relative;
+  }
+  .topbar .clock .editbtn.qkbtn,
+  .topbar .clock #quickBtn,
+  .topbar .clock #quickBtn.editbtn.qkbtn {
+    flex: 1 1 auto;
+    min-height: 44px !important;
+    height: auto;
+    padding: 10px 12px;
+    justify-content: center;
+  }
+  .topbar .tb-more-btn {
+    min-height: 44px !important;
+  }
+  .topbar .tb-more-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    min-width: 72px;
+    min-height: 44px;
+    border: 1px solid var(--line-strong) !important;
+    background: var(--surface) !important;
+    color: var(--text) !important;
+  }
+  .topbar .tb-secondary {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 45;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    min-width: min(220px, 100vw - 32px);
+    padding: 6px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    box-shadow: var(--sh-2);
+  }
+  .topbar .tb-secondary.is-open { display: flex; }
+  .topbar .tb-secondary .editbtn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: flex-start;
+    border-color: transparent !important;
+    background: transparent !important;
+    color: var(--text) !important;
+  }
+  .topbar .tb-secondary .editbtn:hover { background: var(--surface-2) !important; }
+  .topbar .clock .conflbtn {
+    order: -1;
+    flex: 1 1 100%;
+    min-height: 40px;
+  }
 }
 
 /* Deck · un solo punto de entrada tipográfico por pantalla. */
@@ -4686,6 +4889,109 @@ body {
   font-weight: 650;
 }
 
+/* ── Sistema de navegación unificado (toolbar + raíl + decks) ───────────── */
+:root {
+  --chrome-h: 68px;
+  --rail-collapsed: 64px;
+}
+.tab[data-tab] .deck {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 0 0 14px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--line);
+  min-height: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+.tab[data-tab] .deck::before { display: none !important; content: none !important; }
+.tab[data-tab] .deck-t {
+  margin: 0;
+  font: 700 clamp(18px, 1.7vw, 22px)/1.2 var(--font-ui);
+  letter-spacing: -.03em;
+}
+.tab[data-tab] .deck-parts {
+  margin-left: 0;
+  color: var(--muted);
+  font: 450 12.5px/1.4 var(--font-ui);
+  max-width: 48ch;
+}
+.tab[data-tab] .deck-n,
+.tab[data-tab] .deck-stage { display: none; }
+.tab[data-tab="cabina"] .deck {
+  border: 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+  padding: 0 0 10px !important;
+  margin-bottom: 14px !important;
+  background: transparent !important;
+}
+@media (min-width: 1100px) {
+  nav.tabnav#tabnav {
+    transition: width .18s var(--ease, ease), padding .18s var(--ease, ease);
+  }
+  .topbar .brand,
+  .topbar {
+    transition: none;
+  }
+  nav.tabnav#tabnav > .tabbtn[data-tab] {
+    position: relative;
+  }
+  nav.tabnav#tabnav > .tabbtn[data-tab]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  nav.tabnav#tabnav > .tabbtn[data-tab].active {
+    background: var(--surface-2) !important;
+    color: var(--text) !important;
+    box-shadow: inset 3px 0 0 var(--accent) !important;
+    border-color: transparent !important;
+    font-weight: 650;
+  }
+  nav.tabnav#tabnav > .tabbtn[data-tab][aria-disabled="true"],
+  nav.tabnav#tabnav > .tabbtn[data-tab]:disabled {
+    opacity: .45;
+    pointer-events: none;
+  }
+  #tabnav .sidebar-section {
+    margin: 14px 10px 6px;
+    font: 600 10px/1.3 var(--font-ui);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  #sidebarToggle {
+    transition: left .18s var(--ease, ease);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  nav.tabnav#tabnav,
+  #sidebarToggle { transition: none !important; }
+}
+/* Filtros activos compactos (chips existentes) */
+.cab-futures-filters #ftFilters,
+#ftFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+/* Mid: sin franjas vacías entre group bar y contenido */
+@media (min-width: 701px) and (max-width: 1099px) {
+  .cab-nav-groups { margin-bottom: 8px; }
+  nav.tabnav#tabnav { margin-bottom: 12px; }
+}
+/* Móvil · sheet Más ya actúa como drawer; safe area + sin scroll de fondo */
+@media (max-width: 700px) {
+  #mobileMoreOv .mobile-more-sheet {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  .tab[data-tab] .deck-t { font-size: 18px; }
+  .tab[data-tab] .deck { margin-bottom: 10px; padding-bottom: 8px; }
+}
+
 /* Oscuro · acabado propio, no inversión barata ni glow teal. */
 html[data-cabina-theme="dark"] {
   --sh-1: 0 1px 2px rgba(0,0,0,.35);
@@ -4694,25 +5000,31 @@ html[data-cabina-theme="dark"] {
 }
 html[data-cabina-theme="dark"] .topbar {
   border-bottom-color: var(--line);
-  background: color-mix(in srgb, var(--surface) 55%, #000);
+  background: color-mix(in srgb, var(--surface) 60%, #000);
 }
 html[data-cabina-theme="dark"] .topbar .brand h1 { color: var(--text); }
-html[data-cabina-theme="dark"] .topbar .brand h1::after {
-  background: var(--accent);
-  opacity: 1;
-}
+html[data-cabina-theme="dark"] .topbar .brand h1::after { display: none !important; }
 html[data-cabina-theme="dark"] .topbar .clock .editbtn {
   background: transparent;
-  border-color: var(--line-strong);
+  border-color: transparent;
   color: var(--muted);
+}
+html[data-cabina-theme="dark"] .topbar .clock .tb-secondary .editbtn {
+  border-color: var(--line);
 }
 html[data-cabina-theme="dark"] .topbar .clock .editbtn:hover {
   background: var(--surface-2);
   color: var(--text);
 }
-html[data-cabina-theme="dark"] .topbar .clock .editbtn.qkbtn {
+html[data-cabina-theme="dark"] .topbar .clock .editbtn.qkbtn,
+html[data-cabina-theme="dark"] .topbar .clock #quickBtn.editbtn.qkbtn {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent-ink, #0b0e13) !important;
+}
+html[data-cabina-theme="dark"] .topbar .tb-secondary {
   background: var(--surface);
-  color: var(--text);
+  border-color: var(--line-strong);
 }
 html[data-cabina-theme="dark"] nav.tabnav#tabnav {
   background: color-mix(in srgb, var(--surface) 80%, #000);
@@ -4720,12 +5032,9 @@ html[data-cabina-theme="dark"] nav.tabnav#tabnav {
 }
 @media (min-width: 1100px) {
   html[data-cabina-theme="dark"] .topbar .brand {
-    background:
-      linear-gradient(180deg,
-        color-mix(in srgb, var(--surface) 88%, #000) 0%,
-        color-mix(in srgb, var(--surface) 72%, #000) 100%);
+    background: color-mix(in srgb, var(--surface) 78%, #000);
     border-bottom-color: var(--line);
-    box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--accent) 35%, transparent);
+    box-shadow: none;
   }
   html[data-cabina-theme="dark"] #sidebarToggle {
     background: transparent;
@@ -4900,23 +5209,30 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
     <input class="s edit-only" id="subEdit" type="text" aria-label="Subtítulo" maxlength="80">
   </div>
   <div class="clock">
-    <span id="sessionPill" class="pill off"><span class="dot"></span><span id="sessionLabel">—</span></span>
-    <span><span id="etTime" class="time">--:--:--</span> <span class="tz">ET · Nueva York</span></span>
-    <span id="saveState" class="save-state" role="status" aria-live="polite" aria-atomic="true">guardado local</span>
-    <!-- UN BOTON DE VERDAD, NO EL ROTULO DISFRAZADO. El rotulo de al lado es una
-         region viva (`role="status"`): su trabajo es que un lector de pantalla
-         ANUNCIE los cambios de estado sin interrumpir. Al principio le puse
-         `role="button"` y `tabindex` encima cuando habia conflicto, y eso le quita
-         el `role="status"`: la region deja de anunciar nada y a cambio queda un
-         boton que aparece y desaparece. Lo cazó test/ui.mjs, que exige que el
-         estado de guardado se anuncie sin interrumpir. Lo que hay que resolver es
-         una ACCION, y una accion es un <button>: trae Enter, espacio, foco y
-         semantica sin inventar nada. -->
-    <button type="button" class="editbtn conflbtn" id="resolveConflict" hidden>Resolver conflicto</button>
-    <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)" aria-haspopup="dialog" aria-expanded="false" aria-controls="quickOv">Registrar operación</button>
-    <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
-    <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
-    <button type="button" class="editbtn" id="viewPrefsOpen" aria-haspopup="dialog" aria-controls="viewPrefs" title="Personalizar módulos visibles y densidad">Vista</button>
+    <div class="tb-session" role="group" aria-label="Sesión">
+      <span id="sessionPill" class="pill off"><span class="dot"></span><span id="sessionLabel">—</span></span>
+      <span class="tb-clockwrap"><span id="etTime" class="time">--:--:--</span> <span class="tz">Nueva York · ET</span></span>
+      <span id="saveState" class="save-state" role="status" aria-live="polite" aria-atomic="true">guardado local</span>
+    </div>
+    <div class="tb-actions" role="group" aria-label="Acciones">
+      <!-- UN BOTON DE VERDAD, NO EL ROTULO DISFRAZADO. El rotulo de al lado es una
+           region viva (`role="status"`): su trabajo es que un lector de pantalla
+           ANUNCIE los cambios de estado sin interrumpir. Al principio le puse
+           `role="button"` y `tabindex` encima cuando habia conflicto, y eso le quita
+           el `role="status"`: la region deja de anunciar nada y a cambio queda un
+           boton que aparece y desaparece. Lo cazó test/ui.mjs, que exige que el
+           estado de guardado se anuncie sin interrumpir. Lo que hay que resolver es
+           una ACCION, y una accion es un <button>: trae Enter, espacio, foco y
+           semantica sin inventar nada. -->
+      <button type="button" class="editbtn conflbtn" id="resolveConflict" hidden>Resolver conflicto</button>
+      <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)" aria-haspopup="dialog" aria-expanded="false" aria-controls="quickOv">Registrar operación</button>
+      <button type="button" class="editbtn" id="viewPrefsOpen" aria-haspopup="dialog" aria-controls="viewPrefs" title="Personalizar módulos visibles y densidad">Vista</button>
+      <button type="button" class="editbtn tb-more-btn" id="tbMoreBtn" aria-expanded="false" aria-controls="tbSecondary" aria-haspopup="true" title="Más acciones">Más</button>
+      <div class="tb-secondary" id="tbSecondary" role="group" aria-label="Acciones secundarias">
+        <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
+        <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
+      </div>
+    </div>
   </div>
 </div>
 <nav id="navGroupBar" class="cab-nav-groups" aria-label="Áreas de trabajo">
@@ -4929,20 +5245,20 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
   <button type="button" class="cab-nav-group" data-group="sistema" data-first-tab="ajustes" aria-pressed="false">Sistema</button>
 </nav>
 <nav class="tabnav" id="tabnav" data-active-group="operar" data-filter-enabled="false" aria-label="Secciones">
-  <h2 class="sidebar-section">Operativa</h2>
-  <button class="tabbtn active" data-tab="cabina" data-nav-group="operar"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 3l9 8M5 10v11h14V10M9 21v-7h6v7"/></svg>Resumen</button>
-  <button class="tabbtn" data-tab="futuros" data-nav-group="operar"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18 10 12l4 3 6-10M14 5h6v6"/></svg>Futuros<span class="n" id="nFut"></span></button>
-  <button class="tabbtn" data-tab="cuentas" data-nav-group="operar"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v15H4zM4 9h16M14 14h6"/></svg>Cuentas<span class="n" id="nCuentas"></span></button>
-  <button class="tabbtn" data-tab="invest" data-nav-group="portafolio"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10h4v10m4 0V4h4v16m4 0V8"/></svg>Inversiones<span class="n" id="nInvest"></span></button>
+  <h2 class="sidebar-section">Operación</h2>
+  <button class="tabbtn active" data-tab="cabina" data-nav-group="operar" title="Resumen"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 3l9 8M5 10v11h14V10M9 21v-7h6v7"/></svg>Resumen</button>
+  <button class="tabbtn" data-tab="futuros" data-nav-group="operar" title="Futuros"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18 10 12l4 3 6-10M14 5h6v6"/></svg>Futuros<span class="n" id="nFut"></span></button>
+  <button class="tabbtn" data-tab="cuentas" data-nav-group="operar" title="Cuentas"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v15H4zM4 9h16M14 14h6"/></svg>Cuentas<span class="n" id="nCuentas"></span></button>
   <h2 class="sidebar-section">Análisis</h2>
-  <button class="tabbtn" data-tab="historial" data-nav-group="analizar"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2 7M3 4v7h7m2-4v6l4 2"/></svg>Historial<span class="n" id="nHist"></span></button>
-  <button class="tabbtn" data-tab="edge" data-nav-group="analizar"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h17M5 16l5-5 4 3 6-9"/></svg>Rendimiento</button>
-  <button class="tabbtn" data-tab="playbook" data-nav-group="mejorar"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v18H5zM8 8h8M8 12h8M8 16h5"/></svg>Estrategias<span class="n" id="nPlaybook"></span></button>
-  <button class="tabbtn" data-tab="estudio" data-nav-group="mejorar"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h7l2 2 2-2h7v15h-7l-2 2-2-2H3zM12 6v15"/></svg>Estudio<span class="n" id="nResearch"></span></button>
-  <h2 class="sidebar-section">Recursos</h2>
-  <button class="tabbtn" data-tab="ideas" data-nav-group="herramientas"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M9 21h6M8 13a6 6 0 1 1 8 0l-1 2H9z"/></svg>Oportunidades<span class="n" id="nIdeas"></span></button>
-  <button class="tabbtn" data-tab="calc" data-nav-group="herramientas"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v18H5zM8 7h8M8 12h2m4 0h2m-8 4h2m4 0h2"/></svg>Calculadora</button>
-  <button class="tabbtn" data-tab="ajustes" data-nav-group="sistema"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/></svg>Ajustes</button>
+  <button class="tabbtn" data-tab="historial" data-nav-group="analizar" title="Historial"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2 7M3 4v7h7m2-4v6l4 2"/></svg>Historial<span class="n" id="nHist"></span></button>
+  <button class="tabbtn" data-tab="edge" data-nav-group="analizar" title="Rendimiento"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h17M5 16l5-5 4 3 6-9"/></svg>Rendimiento</button>
+  <button class="tabbtn" data-tab="playbook" data-nav-group="mejorar" title="Estrategias"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v18H5zM8 8h8M8 12h8M8 16h5"/></svg>Estrategias<span class="n" id="nPlaybook"></span></button>
+  <button class="tabbtn" data-tab="estudio" data-nav-group="mejorar" title="Estudio"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h7l2 2 2-2h7v15h-7l-2 2-2-2H3zM12 6v15"/></svg>Estudio<span class="n" id="nResearch"></span></button>
+  <button class="tabbtn" data-tab="invest" data-nav-group="portafolio" title="Inversiones"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10h4v10m4 0V4h4v16m4 0V8"/></svg>Inversiones<span class="n" id="nInvest"></span></button>
+  <button class="tabbtn" data-tab="ideas" data-nav-group="herramientas" title="Oportunidades"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M9 21h6M8 13a6 6 0 1 1 8 0l-1 2H9z"/></svg>Oportunidades<span class="n" id="nIdeas"></span></button>
+  <h2 class="sidebar-section">Admin</h2>
+  <button class="tabbtn" data-tab="calc" data-nav-group="herramientas" title="Calculadora"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v18H5zM8 7h8M8 12h2m4 0h2m-8 4h2m4 0h2"/></svg>Calculadora</button>
+  <button class="tabbtn" data-tab="ajustes" data-nav-group="sistema" title="Ajustes"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/></svg>Ajustes</button>
 
   <button type="button" id="mobileMoreBtn" aria-label="Más secciones" aria-haspopup="dialog" aria-expanded="false" aria-controls="mobileMoreOv">Más</button>
 </nav>
@@ -5019,7 +5335,7 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
 
 <!-- ======================= ESTUDIO ======================= -->
 <div class="tab" data-tab="estudio" id="studyTab"><section class="study-shell">
-<section class="deck" aria-label="Resumen de Estudio"><h1 class="deck-t">Estudio</h1><span class="deck-parts">Revisar operaciones · investigar ideas</span></section>
+<section class="deck" aria-label="Estudio"><h1 class="deck-t">Estudio</h1><span class="deck-parts">Revisión e investigación</span></section>
 <section class="study-review-section" aria-labelledby="studyReviewHeading">
 <div class="study-section-heading"><div><h2 id="studyReviewHeading">Revisar operaciones</h2><p class="study-note">Capturas y notas del journal de Futuros.</p></div><span class="study-note" id="studyTradeResults" role="status"></span></div>
 <div class="study-review-layout">

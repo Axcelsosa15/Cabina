@@ -34,11 +34,64 @@
     syncSidebar();
   }, true);
   document.addEventListener('DOMContentLoaded', syncSidebar, { once: true });
+  function syncNavTooltips() {
+    document.querySelectorAll('#tabnav .tabbtn[data-tab]').forEach(btn => {
+      const label = (btn.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!label) return;
+      if (!btn.title) btn.title = label;
+    });
+  }
+  document.addEventListener('DOMContentLoaded', syncNavTooltips, { once: true });
+
   addEventListener('storage', event => {
     if (event.key !== 'cabina-sidebar-collapsed:v1' && event.key !== null) return;
     root.dataset.sidebarCollapsed = String(event.newValue === 'true');
     syncSidebar();
   });
+  // Compact toolbar: «Más» wraps the same secondary actions on small screens.
+  function syncToolbarMore() {
+    const btn = document.getElementById('tbMoreBtn');
+    const panel = document.getElementById('tbSecondary');
+    if (!btn || !panel) return;
+    const mobile = typeof matchMedia === 'function' && matchMedia('(max-width: 700px)').matches;
+    btn.hidden = !mobile;
+    if (!mobile) {
+      panel.classList.remove('is-open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  }
+  document.addEventListener('click', event => {
+    const btn = document.getElementById('tbMoreBtn');
+    const panel = document.getElementById('tbSecondary');
+    if (!btn || !panel) return;
+    const mobile = typeof matchMedia === 'function' && matchMedia('(max-width: 700px)').matches;
+    if (btn.contains(event.target)) {
+      event.preventDefault();
+      const open = !panel.classList.contains('is-open');
+      panel.classList.toggle('is-open', open);
+      btn.setAttribute('aria-expanded', String(open));
+      return;
+    }
+    if (!mobile) return;
+    if (panel.contains(event.target)) return;
+    panel.classList.remove('is-open');
+    btn.setAttribute('aria-expanded', 'false');
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    const btn = document.getElementById('tbMoreBtn');
+    const panel = document.getElementById('tbSecondary');
+    if (!panel || !panel.classList.contains('is-open')) return;
+    panel.classList.remove('is-open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  });
+  document.addEventListener('DOMContentLoaded', syncToolbarMore, { once: true });
+  if (typeof matchMedia === 'function') {
+    const mq = matchMedia('(max-width: 700px)');
+    const onChange = () => syncToolbarMore();
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else if (mq.addListener) mq.addListener(onChange);
+  }
   const media = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
   const ATMOSPHERES = new Set(['calma','estudio','precision','noche']);
   const FONTS = { system: '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', humanist: '"IBM Plex Sans", "Avenir Next", "Trebuchet MS", sans-serif', serif: 'Georgia, "Times New Roman", serif' };

@@ -1246,6 +1246,7 @@
     "1R en la simulación vale": "1R in the simulation is worth",
     "Ahora no": "Not now",
     "Ajustes": "Settings",
+    "Admin": "Admin",
     "Analizar": "Analyze",
     "Herramientas": "Tools",
     "Mejorar": "Improve",
@@ -2302,8 +2303,17 @@
   function pintaCuentaBtn() {
     const b = $("cuentaBtn");
     b.hidden = false;
-    b.textContent = nube.ses ? "Cuenta" : "Entrar";
-    b.title = nube.ses ? "Sesión iniciada como " + nube.ses.email : "Entra o crea una cuenta para tener tu cabina en todos tus dispositivos";
+    if (nube.ses) {
+      const mail = String(nube.ses.email || "").trim();
+      const corto = mail.includes("@") ? mail.slice(0, mail.indexOf("@")) : mail;
+      b.textContent = corto || "Cuenta";
+      b.title = "Sesión iniciada como " + (mail || "tu cuenta");
+      b.setAttribute("aria-label", mail ? ("Cuenta · " + mail) : "Cuenta");
+    } else {
+      b.textContent = "Entrar";
+      b.title = "Entra o crea una cuenta para tener tu cabina en todos tus dispositivos";
+      b.removeAttribute("aria-label");
+    }
   }
   /* AQUÍ SE PIDE LA CUENTA, Y POR ESO ES UNA BARRA Y NO UN DIÁLOGO.
 
