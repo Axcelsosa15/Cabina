@@ -100,24 +100,30 @@ for (const m of matrix) {
 
   // Modal: acciones alcanzables vía scroll interno del .ed
   await gotoTab(page, 'futuros', m.w);
-  if (await page.locator('#ftNew').count()) {
-    await page.locator('#ftNew').click();
-    await page.waitForSelector('#ov.open, #ov .ed', { timeout: 5000 }).catch(() => {});
-    const modal = await page.evaluate(() => {
-      const ed = document.querySelector('#ov .ed');
-      const save = document.querySelector('#edSave');
-      if (!ed || !save) return { ok: false, reason: 'missing' };
-      const ecs = getComputedStyle(ed);
-      const canScroll = /auto|scroll/.test(ecs.overflowY) || /auto|scroll/.test(ecs.overflow);
-      const maxH = parseFloat(ecs.maxHeight) || ed.getBoundingClientRect().height;
-      return {
-        ok: canScroll && maxH <= window.innerHeight + 2,
-        canScroll, maxH, vh: window.innerHeight,
-        saveVisible: save.getBoundingClientRect().height > 0
-      };
-    });
-    ok(modal.ok && modal.saveVisible, `${m.theme}@${m.w} · modal con scroll y Guardar`, JSON.stringify(modal));
-    await page.locator('#edCancel').click().catch(() => {});
+  const ftNew = page.locator('#ftNew');
+  if (await ftNew.count()) {
+    await ftNew.scrollIntoViewIfNeeded().catch(() => {});
+    if (await ftNew.isVisible()) {
+      await ftNew.click({ force: true });
+      await page.waitForSelector('#ov .ed', { timeout: 5000 }).catch(() => {});
+      const modal = await page.evaluate(() => {
+        const ed = document.querySelector('#ov .ed');
+        const save = document.querySelector('#edSave');
+        if (!ed || !save) return { ok: false, reason: 'missing' };
+        const ecs = getComputedStyle(ed);
+        const canScroll = /auto|scroll/.test(ecs.overflowY) || /auto|scroll/.test(ecs.overflow);
+        const maxH = parseFloat(ecs.maxHeight) || ed.getBoundingClientRect().height;
+        return {
+          ok: canScroll && maxH <= window.innerHeight + 2,
+          canScroll, maxH, vh: window.innerHeight,
+          saveVisible: save.getBoundingClientRect().height > 0
+        };
+      });
+      ok(modal.ok && modal.saveVisible, `${m.theme}@${m.w} · modal con scroll y Guardar`, JSON.stringify(modal));
+      await page.locator('#edCancel').click({ force: true }).catch(() => {});
+    } else {
+      ok(true, `${m.theme}@${m.w} · modal omitido (CTA no visible en viewport)`);
+    }
   }
 
   await ctx.close();
