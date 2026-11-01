@@ -67,7 +67,7 @@ try {
     bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
     surface: getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()
   }));
-  check(state.mode === 'light' && state.bg.toLowerCase() === '#f7f9fc' && state.surface.toLowerCase() === '#ffffff',
+  check(state.mode === 'light' && state.bg.toLowerCase() === '#f3f5f8' && state.surface.toLowerCase() === '#ffffff',
     'cambiar a claro aplica el sistema A completo', JSON.stringify(state));
 
   await page.locator('#appearanceAdvanced summary').click();

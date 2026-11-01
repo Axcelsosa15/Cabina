@@ -41,7 +41,7 @@
   });
   const media = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
   const ATMOSPHERES = new Set(['calma','estudio','precision','noche']);
-  const FONTS = { system: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', humanist: '"Avenir Next", "Trebuchet MS", sans-serif', serif: 'Georgia, "Times New Roman", serif' };
+  const FONTS = { system: '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', humanist: '"IBM Plex Sans", "Avenir Next", "Trebuchet MS", sans-serif', serif: 'Georgia, "Times New Roman", serif' };
   const TEXT = { small: [14,12,12.5], normal: [15,12.5,13], large: [17,14,14.5] };
   const DENSITIES = new Set(['compact','balanced','comfortable']);
   const parse = value => {
@@ -89,7 +89,7 @@
   function palette(choice) {
     const dark=effectiveMode(choice)==='dark',warm=choice.atmosphere==='estudio';
     return dark?{bg:'#0b0e13',surface:'#111720',line:'#344253',text:'#e8ecf2',muted:'#b2bdcc',good:'#83d6ac',warn:'#f2bd75',warnBg:'#30261c'}:
-      {bg:warm?'#f5f2ec':'#f7f9fc',surface:warm?'#fffdf8':'#ffffff',line:warm?'#ddd6ca':'#e2e8f0',text:'#172334',muted:'#475569',good:'#166534',warn:'#92400e',warnBg:'#fff4e5'};
+      {bg:warm?'#f5f2ec':'#f3f5f8',surface:warm?'#fffdf8':'#ffffff',line:warm?'#ddd6ca':'#dde3ec',text:'#121a26',muted:'#4a5568',good:'#166534',warn:'#92400e',warnBg:'#fff4e5'};
   }
   function apply() {
     const dark=effectiveMode()==='dark',scheme=dark?'dark':'light',color=effectiveAccent(prefs,dark),channels=rgb(color),p=palette(prefs);

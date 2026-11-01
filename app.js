@@ -40,7 +40,7 @@
     if (document.getElementById("fuentesGoogle")) return;
     const l = document.createElement("link");
     l.id = "fuentesGoogle"; l.rel = "stylesheet";
-    l.href = "https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap";
+    l.href = "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap";
     document.head.appendChild(l);
   }
   if (document.readyState === "complete") cargaFuentes(); else window.addEventListener("load", cargaFuentes, { once: true });
