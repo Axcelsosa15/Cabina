@@ -216,7 +216,7 @@ ok(mismos(R.soloFut, R.journal),
 console.log('\n═══ 5 · UN FILTRO IMPOSIBLE DA VACÍO, Y LO DICE ═══');
 ok(R.imposible.length === 0,
   'cuenta de futuros + «sólo inversiones» no devuelve nada', `${R.imposible.length} filas`);
-ok(/Sin operaciones que coincidan/.test(R.vacioTexto),
+ok(/Sin operaciones en este filtro/.test(R.vacioTexto),
   'y la tabla lo explica en vez de quedarse en blanco', R.vacioTexto.slice(0, 60));
 
 console.log('\n═══ 6 · LA BÚSQUEDA, SIN INVENTAR DIRECCIONES ═══');

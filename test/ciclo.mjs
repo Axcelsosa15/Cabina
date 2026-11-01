@@ -387,8 +387,8 @@ ok(compra.ops === 6 && compra.primerDia !== '', 'q1 sigue teniendo operaciones c
 ok(compra.comprada === '', 'sin movimiento de coste, la fecha de compra queda VACIA, no la del primer trade',
    `comprada=${JSON.stringify(compra.comprada)} · primer trade ${compra.primerDia}`);
 ok(!/\$0/.test(sinCoste.caja), 'no se imprime «$0 pagado»', sinCoste.caja.replace(/\s+/g, ' ').slice(0, 80));
-ok(/no se sabe/.test(sinCoste.nota) && /No es cero/.test(sinCoste.nota),
-   'se dice que no se sabe, y por que un cero seria mentira');
+ok(/costes sin registrar/i.test(sinCoste.nota) && /neto no se puede calcular/i.test(sinCoste.nota),
+   'los costes faltantes explican por qué el neto no se puede calcular');
 
 ok(errs.length === 0, 'sin errores de consola', errs.length ? errs.join(' | ') : 'ninguno');
 

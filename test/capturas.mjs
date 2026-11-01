@@ -68,7 +68,8 @@ console.log('\n═══ VER · otra sesión del mismo usuario, recargando ═�
 const ana2 = await abre('ana@prueba.invalid');
 await ana2.p.click('.tabbtn[data-tab="futuros"]'); await quieto(ana2.p);
 await ana2.p.click('#ftSeg button[data-v="diario"]'); await quieto(ana2.p, 60, 3000);
-await ana2.p.waitForFunction(() => { const i = document.querySelector('#jrTable img.thumb'); return i && /^blob:/.test(i.src); }, null, { timeout: 5000 }).catch(() => {});
+await ana2.p.locator('#jrTable img.thumb').first().scrollIntoViewIfNeeded();
+await ana2.p.waitForFunction(() => { const i = document.querySelector('#jrTable img.thumb'); return i && /^blob:/.test(i.src) && i.complete && i.naturalWidth === 1; }, null, { timeout: 5000 });
 const mini = await ana2.p.evaluate(() => { const i = document.querySelector('#jrTable img.thumb'); return i ? { src: i.src.slice(0, 5), w: i.naturalWidth, shot: i.dataset.shot || null } : null; });
 ok(mini && mini.src === 'blob:', 'la miniatura se pide al bucket y se pinta', JSON.stringify(mini));
 ok(mini && mini.w === 1, 'y es la imagen de verdad: el navegador la decodifica (1 px)');

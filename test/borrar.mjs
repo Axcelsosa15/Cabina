@@ -117,7 +117,7 @@ const casos = [
     semilla: { positions: { pv: { id: 'pv', asset: 'VOO', market: 'etfs', current: 530 } },
       trades: { i1: { id: 'i1', type: 'inversion', asset: 'VOO', market: 'etfs', op: 'compra', date: '2026-02-01', qty: 4, price: 480 },
                 i2: { id: 'i2', type: 'inversion', asset: 'VOO', market: 'etfs', op: 'dividendo', date: '2026-03-01', pnl: 60 } } } },
-  { n: 'playbook', tab: 'playbook', host: 'pbCards', sub: '#pbNav .tabbtn[data-v="futuros"]', espera: /operación|operaciones|cita/,
+  { n: 'playbook', tab: 'playbook', host: 'pbCards', more: '#pbMoreActions > summary', sub: '#pbNav .tabbtn[data-v="futuros"]', espera: /operación|operaciones|cita/,
     semilla: { playbooks: { p1: { id: 'p1', name: 'Setup C', kind: 'futuros', type: 'futuros', status: 'activo' },
                             p2: { id: 'p2', name: 'FVG', kind: 'futuros', type: 'futuros', status: 'activo' } },
       trades: { tz: { id: 'tz', type: 'futuros', accountId: 'a1', date: '2026-09-17', instrument: 'MNQ', direction: 'long', qty: 1, entry: 21000, stop: 20990, exit: 21020, setupId: 'p1' } } } },
@@ -132,6 +132,7 @@ for (const c of casos) {
   const p = await pagina(base(c.semilla));
   await p.click(`.tabbtn[data-tab="${c.tab}"]`); await quieto(p);
   if (c.sub) { await p.click(c.sub); await quieto(p); }
+  if (c.more) await p.click(c.more);
   await new Promise(r => setTimeout(r, 80));
   const antes = await vivos(p, c.host);
   await p.click(`#selbtn-${c.host}`); await quieto(p);

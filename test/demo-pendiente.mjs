@@ -31,6 +31,7 @@ try {
         const cb=document.querySelector('#dayBroke');cb.checked=true;cb.dispatchEvent(new Event('change',{bubbles:true}));
       }
       document.querySelector('#demoToggle').click();
+      document.querySelector('#settingsDemoEnter').click();
     },kind);
     await p.waitForFunction(()=>document.body.classList.contains('demo'));
     await enDisco(p,d=>kind==='settings'?d.settings?.meta?.acct==='real-b':d.days?.[date]?.note==='Edición real antes de demo');

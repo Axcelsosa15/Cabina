@@ -134,7 +134,7 @@ for (const [etiqueta, conSemilla] of [['cuenta nueva', false], ['con la semilla'
 console.log('\n§2 · cero es un dato; dos guiones son dos vacíos; uno y una cifra, no');
 {
   const { ctx, p } = await abrir(false);
-  await irA(p, 'invest');
+  await irA(p, 'cabina');
   const tiles = await leerTiles(p);
   const cero = tiles.find(t => t.val === '0');
   ok(!!cero && !cero.marcado, 'un tile con «0» NO se marca', cero ? `${cero.lab} = "${cero.val}"` : 'no encontrado');
@@ -254,9 +254,9 @@ console.log('\n§5 · el texto sigue ahí y la etiqueta no se tocó');
     const mismos = vac.every(t => t.labColor === con[0].labColor);
     ok(mismos, 'la etiqueta de un tile sin dato se ve igual que la de uno con dato', con[0].labColor);
   } else {
-    await irA(p, 'invest');
-    const iv = await leerTiles(p), ivCon = iv.find(t => !t.marcado), ivVac = iv.filter(t => t.marcado);
-    ok(!!ivCon && ivVac.every(t => t.labColor === ivCon.labColor),
+    await irA(p, 'cabina');
+    const iv = await leerTiles(p), ivCon = iv.find(t => !t.marcado);
+    ok(!!ivCon && vac.every(t => t.labColor === ivCon.labColor),
       'la etiqueta de un tile sin dato se ve igual que la de uno con dato', ivCon?.labColor);
   }
   await ctx.close();

@@ -303,6 +303,7 @@ console.log('\n═══ 7 · «el peor día» no afirma una pérdida que no exi
 console.log('\n═══ 6 · el buscador y las categorías ═══');
 {
   const todas = await p.evaluate(() => window.nFilas());
+  await p.locator('#mxEstDetails > summary').click();
   await p.fill('#mxEstQ', 'volumen');
   await p.waitForFunction(() => window.nFilas() < 160, null, { timeout: 10000 });
   const busca = await p.evaluate(() => ({
@@ -339,7 +340,12 @@ console.log('\n═══ 6 · el buscador y las categorías ═══');
 const enAjustes = async (p, sel) => {
   const vuelta = await p.evaluate(() => (document.querySelector('.tab.active') || {}).dataset?.tab || 'cabina');
   await p.click('#tabnav .tabbtn[data-tab="ajustes"]');
-  await p.click(sel);
+  await p.click('#settingsTabPrefs');
+  if (sel === '#idiomaBtn') {
+    const lang = await p.inputValue(sel); await p.selectOption(sel, lang === 'en' ? 'es' : 'en');
+  } else {
+    await p.click(sel); await p.click('#settingsDemoEnter');
+  }
   if (vuelta && vuelta !== 'ajustes') await p.click(`#tabnav .tabbtn[data-tab="${vuelta}"]`);
 };
 console.log('\n═══ 8 · el inglés llega a las 160 filas, no a la cabecera sola ═══');

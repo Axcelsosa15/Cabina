@@ -55,6 +55,8 @@ const importa = async (json, { confirmar = true } = {}) => {
      #impPaste, el del importador de CSV en Futuros—: el localizador por texto
      resolvía a dos elementos y acertaba sólo por el orden del DOM. */
   await p.click('[data-tab="ajustes"]'); await p.waitForTimeout(350);
+  await p.click('#settingsTabData');
+  await p.locator('#panelDatos > .settings-details:not([open]) > summary').click();
   await p.click('#bkPaste'); await p.waitForTimeout(600);
   await p.fill('#edFields textarea', json); await p.waitForTimeout(250);
   /* El error de validación persiste en #edValidation, sin reemplazar el título.
@@ -200,6 +202,8 @@ console.log('\n═══ LA OTRA DIRECCION · exportar con la base caida ══�
   ok(d.filasDe(uid).filter(f => f.path.startsWith('days/')).length === 2, 'hay dos dias en la cuenta');
   d.e.lecturasRotas = 'days';
   await q.click('[data-tab="ajustes"]'); await q.waitForTimeout(400);
+  await q.click('#settingsTabData');
+  await q.locator('#panelDatos > .settings-details:not([open]) > summary').click();
   await q.click('#bkShow'); await q.waitForTimeout(3000);
   const e = await q.evaluate(() => {
     const ta = document.querySelector('#edFields textarea');

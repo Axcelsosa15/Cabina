@@ -28,6 +28,7 @@ ok(!(await p.evaluate(()=>document.querySelector('.acct[data-id="prop25"] .metri
 await p.screenshot({path:new URL('./tomas/', import.meta.url).pathname+'detalle.png', clip:{x:0,y:120,width:1600,height:700}});
 
 console.log('\n═══ ESTADOS VACÍOS ═══');
+await p.locator('.acct[data-id="prop50"] details[data-account-analysis] > summary').click();
 const v = await p.evaluate(()=>{const e=document.querySelector('.acct[data-id="prop50"] .acc-recent .vacio'); return e?e.innerText.replace(/\s+/g,' '):'(no)';});
 ok(/sin operaciones/i.test(v) && /registrar/i.test(v), 'el vacío dice qué falta y ofrece el paso', v);
 const q=await (await b.newContext({viewport:{width:1200,height:900}})).newPage();
@@ -35,7 +36,7 @@ await q.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringif
 await q.goto('file://'+process.cwd()+'/../index.html'); await q.waitForTimeout(1200);
 const v2 = await q.evaluate(()=>{const e=document.querySelector('#accts .vacio'); return e?e.innerText.replace(/\s+/g,' '):'(no)';});
 ok(/sin cuentas/i.test(v2), 'sin cuentas también', v2);
-await q.click('#accts .vacio button'); await q.waitForTimeout(400);
+await q.click('#addAcct'); await q.waitForTimeout(400);
 ok(await q.isVisible('#ov.open'), 'y su botón abre el editor de cuenta');
 
 console.log('\n═══ ACCESIBILIDAD ═══');
@@ -50,7 +51,7 @@ ok(saveA11y.role === 'status' && saveA11y.live === 'polite', 'el estado de guard
 const modalLabel = await q.getAttribute('#ov', 'aria-labelledby');
 ok(modalLabel === 'edTitle', 'el editor tiene nombre accesible', modalLabel || 'sin aria-labelledby');
 await q.click('#edCancel');
-ok(await q.evaluate(() => document.activeElement && document.activeElement.matches('#accts .vacio button')), 'al cerrar el editor vuelve el foco al control que lo abrió');
+ok(await q.evaluate(() => document.activeElement && document.activeElement.matches('#addAcct')), 'al cerrar el editor vuelve el foco al control que lo abrió');
 /* :focus-visible sólo se activa con teclado — .focus() por JS no cuenta, que
    es justo lo que se quiere: el contorno no aparece al hacer clic con ratón. */
 await p.click('body'); 

@@ -70,7 +70,12 @@ const abrir = async () => {
 const enAjustes = async (p, sel) => {
   const vuelta = await p.evaluate(() => (document.querySelector('.tab.active') || {}).dataset?.tab || 'cabina');
   await p.click('#tabnav .tabbtn[data-tab="ajustes"]');
-  await p.click(sel);
+  await p.click('#settingsTabPrefs');
+  if (sel === '#idiomaBtn') {
+    const lang = await p.inputValue(sel); await p.selectOption(sel, lang === 'en' ? 'es' : 'en');
+  } else {
+    await p.click(sel); await p.click('#settingsDemoEnter');
+  }
   if (vuelta && vuelta !== 'ajustes') await p.click(`#tabnav .tabbtn[data-tab="${vuelta}"]`);
 };
 const pulsa = async (p) => { await enAjustes(p, '#idiomaBtn'); await quieto(p, 80, 2500); };
