@@ -14127,9 +14127,16 @@
     (a, en) => en ? "net result ÷ everything lost along the way" : "resultado neto ÷ todo lo perdido por el camino");
   E("acierto", "expectancy", "Expectativa por operación", "Trade expectancy", "n", a => estMedia(a.pnls),
     (a, en) => en ? "same money as «per trade average PnL», printed without currency" : "el mismo dinero que «P&L medio por operación», impreso sin moneda");
+  /* SQN = Van Tharp sobre R, con techo √100. Antes el catálogo reinventaba
+     √N × media($)/σ($): otra fórmula con el mismo nombre, en la misma pestaña
+     que ya tiene `analizarEdge` sobre estas filas. Dos SQN distintos a
+     centímetros. Se lee del mismo `c.e` que alimenta el resto del catálogo. */
   E("acierto", "sqn", "SQN · System Quality Number", "System quality number", "n",
-    a => { const s = estDesv(a.pnls), m = estMedia(a.pnls); return s && m != null ? Math.sqrt(a.pnls.length) * m / s : null; },
-    (a, en) => en ? `√${a.pnls.length} × mean ÷ standard deviation of P&L` : `√${a.pnls.length} × media ÷ desviación típica del P&L`);
+    a => a.c.e.sqn,
+    (a, en) => a.c.e.sqn == null
+      ? (en ? "needs at least two trades with a stop (R)" : "hacen falta al menos dos operaciones con stop (R)")
+      : (en ? `√min(n,100) × mean(R) ÷ σ(R) · Van Tharp on the same net R as this screen · n=${a.rs.length}${a.c.e.sqnEscala ? " · " + a.c.e.sqnEscala : ""}`
+            : `√min(n,100) × media(R) ÷ σ(R) · Van Tharp sobre la misma R neta de esta pantalla · n=${a.rs.length}${a.c.e.sqnEscala ? " · " + a.c.e.sqnEscala : ""}`));
   E("acierto", "kelly", "Kelly simplificado", "Kelly criterion", "p", a => a.c.kelly,
     (a, en) => en ? "f* = p − (1−p)/b · reference only: in a prop account the account caps the size, not Kelly"
                   : "f* = p − (1−p)/b · sólo referencia: en prop el tamaño lo limita la cuenta, no Kelly");
