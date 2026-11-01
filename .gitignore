@@ -14,3 +14,6 @@ node_modules/
 # Sin barra ignora las dos formas, que es lo que hacía falta desde el principio.
 node_modules
 test/tomas/
+
+# QA matrix output (local)
+test/artifacts-qa/

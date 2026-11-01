@@ -1,0 +1,163 @@
+{
+  "_meta": {
+    "owner": "TAREA 6 · QA e integración",
+    "purpose": "Semilla aislada para flujos de punta a punta. No escribe a Supabase real ni toca QuantEngine/RLS de producción.",
+    "storageKey": "cabina-mnq:v1",
+    "clock": "2026-09-17T14:00:00Z"
+  },
+  "settings": {
+    "meta": {
+      "acct": "qa25",
+      "mx": { "com": 0 }
+    },
+    "accounts": [
+      {
+        "id": "qa25",
+        "firm": "QA Fixture",
+        "name": "Evaluación QA 25K",
+        "kind": "Evaluación",
+        "size": 25000,
+        "dd": 1000,
+        "ddKind": "trailing_lock",
+        "trailBase": "intradia",
+        "limit": 50,
+        "total": 0,
+        "best": 0,
+        "target": 1500,
+        "status": "activa",
+        "ledger": []
+      },
+      {
+        "id": "qa50",
+        "firm": "QA Fixture",
+        "name": "Evaluación QA 50K",
+        "kind": "Evaluación",
+        "size": 50000,
+        "dd": 2000,
+        "ddKind": "trailing_lock",
+        "trailBase": "intradia",
+        "limit": 50,
+        "total": 0,
+        "best": 0,
+        "target": 3000,
+        "status": "activa",
+        "ledger": []
+      }
+    ],
+    "rules": [
+      {
+        "id": "qa-onlymnq",
+        "kind": "fixed",
+        "name": "Un solo instrumento (QA)",
+        "why": "Fixture de integración.",
+        "role": "instrument",
+        "allow": "MNQ"
+      },
+      {
+        "id": "qa-maxloss",
+        "kind": "num",
+        "name": "Pérdida máxima del día",
+        "why": "Fixture de integración.",
+        "role": "maxLoss",
+        "value": 300
+      },
+      {
+        "id": "qa-contracts",
+        "kind": "num",
+        "name": "Contratos máximos",
+        "why": "Fixture de integración.",
+        "role": "maxContracts",
+        "value": 2
+      }
+    ],
+    "checks": [
+      {
+        "id": "qa-ready",
+        "t": "Confirmar plan QA",
+        "s": "Semilla de integración",
+        "gate": true
+      }
+    ]
+  },
+  "days": {
+    "2026-09-17": {
+      "date": "2026-09-17",
+      "closed": false,
+      "note": "DÍA QA INTEGRACIÓN",
+      "trades": 2,
+      "pres": {
+        "NY AM": { "done": 1, "total": 1 }
+      }
+    },
+    "2026-09-16": {
+      "date": "2026-09-16",
+      "closed": true,
+      "result": 20,
+      "resultManual": true,
+      "note": "DÍA QA ANTERIOR",
+      "trades": 1
+    }
+  },
+  "trades": {
+    "qa_win": {
+      "id": "qa_win",
+      "type": "futuros",
+      "accountId": "qa25",
+      "instrument": "MNQ",
+      "direction": "long",
+      "qty": 1,
+      "entry": 21000,
+      "stop": 20980,
+      "exit": 21050,
+      "date": "2026-09-17",
+      "time": "10:00"
+    },
+    "qa_loss": {
+      "id": "qa_loss",
+      "type": "futuros",
+      "accountId": "qa50",
+      "instrument": "MNQ",
+      "direction": "long",
+      "qty": 1,
+      "entry": 21000,
+      "stop": 20980,
+      "exit": 20975,
+      "date": "2026-09-17",
+      "time": "11:00"
+    },
+    "qa_open": {
+      "id": "qa_open",
+      "type": "futuros",
+      "accountId": "qa50",
+      "instrument": "MNQ",
+      "direction": "long",
+      "qty": 1,
+      "entry": 21000,
+      "stop": 20980,
+      "exit": null,
+      "date": "2026-09-17",
+      "time": "12:00"
+    },
+    "qa_prev": {
+      "id": "qa_prev",
+      "type": "futuros",
+      "accountId": "qa25",
+      "instrument": "MNQ",
+      "direction": "long",
+      "qty": 1,
+      "entry": 21000,
+      "stop": 20980,
+      "exit": 21010,
+      "date": "2026-09-16",
+      "time": "10:00"
+    }
+  },
+  "expected": {
+    "day_2026_09_17_trade_ids": ["qa_loss", "qa_open", "qa_win"],
+    "day_2026_09_16_trade_ids": ["qa_prev"],
+    "mnq_point_usd": 2,
+    "qa_win_pnl": 100,
+    "qa_loss_pnl": -50,
+    "qa_prev_pnl": 20
+  }
+}
