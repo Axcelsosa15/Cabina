@@ -4084,36 +4084,49 @@ body {
   font-feature-settings: "ss01" 0, "tnum" 0;
   letter-spacing: -.005em;
 }
-/* Top chrome · jerarquía de mesa: marca (primaria) → meta (reloj/sesión) → acciones.
-   Sin pastillas decorativas ni glow: borde, tipografía y peso hacen el trabajo. */
+/* Top chrome · la marca manda: tipografía grande, franja alta, acento de regla.
+   Meta (reloj/sesión) secundaria; acciones legibles sin competir. Sin glow. */
 .topbar {
-  gap: 12px 20px;
-  padding-block: 14px 12px;
-  margin-bottom: 18px;
+  gap: 14px 22px;
+  padding-block: 18px 16px;
+  margin-bottom: 20px;
   border-bottom: 1px solid var(--line);
   align-items: center;
+  background: color-mix(in srgb, var(--surface) 70%, var(--bg));
 }
 .brand h1, .topbar .brand h1 {
   font-family: var(--font-ui);
-  font-weight: 700;
-  letter-spacing: -.045em;
-  font-size: clamp(20px, 1.7vw, 22px);
-  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -.06em;
+  font-size: clamp(28px, 3vw, 34px);
+  line-height: 1.02;
   color: var(--text);
+  display: inline-block;
+  position: relative;
+}
+/* Regla corta bajo el wordmark: identidad de mesa, no adorno. */
+.topbar .brand h1::after {
+  content: "";
+  display: block;
+  width: 1.55em;
+  height: 3px;
+  margin-top: 8px;
+  background: var(--accent);
+  opacity: .95;
 }
 .topbar .brand .sub {
-  font: 450 12px/1.4 var(--font-ui);
+  font: 500 12.5px/1.4 var(--font-ui);
   color: var(--muted);
-  letter-spacing: .005em;
+  letter-spacing: .02em;
   max-width: 42ch;
 }
 .topbar .brand .sub:empty { display: none; }
 .topbar .brand input.t {
-  font: 700 20px/1.15 var(--font-ui);
-  letter-spacing: -.04em;
+  font: 800 30px/1.05 var(--font-ui);
+  letter-spacing: -.055em;
 }
 .topbar .brand input.s {
-  font: 450 12px/1.4 var(--font-ui);
+  font: 450 12.5px/1.4 var(--font-ui);
   color: var(--muted);
 }
 .topbar .clock {
@@ -4122,7 +4135,7 @@ body {
 }
 .topbar .clock .time {
   font-family: var(--font-mono);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 500;
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: "tnum" 1, "lnum" 1;
@@ -4197,47 +4210,65 @@ body {
 }
 
 /* Sidebar · mismo corte que el raíl vertical (1100px), no 901px.
-   El padding-top conserva ~80px bajo la marca fija del topbar. */
+   padding-top ~116px: franja de marca ~92px + aire hasta «Operativa». */
 @media (min-width: 1100px) {
   nav.tabnav#tabnav {
     width: var(--rail);
-    padding: 80px 12px 28px;
+    padding: 116px 12px 28px;
     gap: 2px;
     border-right: 1px solid var(--line);
     background: color-mix(in srgb, var(--surface) 92%, var(--bg));
   }
-  /* Marca anclada al raíl: misma columna, mismo tono, borde a 56px que empalma
+  /* Marca anclada al raíl: wordmark hero (~30px), franja ~92px alineada
      con la barra de meta/acciones. padding-right deja hueco para #sidebarToggle. */
   .topbar .brand {
     width: var(--rail);
     box-sizing: border-box;
-    min-height: 56px;
-    padding: 17px 48px 17px 14px;
-    gap: 3px;
+    min-height: 92px;
+    padding: 22px 48px 20px 16px;
+    gap: 5px;
     justify-content: center;
     border-bottom: 1px solid var(--line);
-    background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--surface) 98%, var(--bg)) 0%,
+        color-mix(in srgb, var(--surface) 88%, var(--bg)) 100%);
+    box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--accent) 28%, transparent);
   }
   .topbar .brand h1 {
-    font-size: 19px;
-    letter-spacing: -.05em;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -.062em;
+    line-height: 1;
+  }
+  .topbar .brand h1::after {
+    width: 1.65em;
+    height: 3px;
+    margin-top: 9px;
   }
   .topbar .brand .sub {
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.35;
     max-width: 100%;
   }
-  .topbar {
-    padding-block: 14px;
-    margin-bottom: 20px;
-    min-height: 56px;
-    border-bottom: 1px solid var(--line);
+  .topbar .brand input.t {
+    font-size: 28px;
+    width: 100%;
+    max-width: 100%;
   }
-  .topbar .clock .time { font-size: 16px; }
+  .topbar {
+    padding-block: 20px;
+    margin-bottom: 24px;
+    min-height: 92px;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface) 78%, var(--bg));
+    box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--line-strong) 55%, transparent);
+  }
+  .topbar .clock .time { font-size: 17px; }
   #sidebarToggle {
-    top: 12px;
-    width: 32px;
-    height: 32px;
+    top: 29px;
+    width: 34px;
+    height: 34px;
     border-color: var(--line);
     background: transparent;
     color: var(--muted);
@@ -4282,14 +4313,14 @@ body {
   .topbar {
     flex-wrap: nowrap;
     align-items: center;
-    min-height: 56px;
-    height: 56px;
+    min-height: 92px;
+    height: 92px;
     padding-block: 0;
-    margin-bottom: 22px;
-    gap: 0 20px;
+    margin-bottom: 26px;
+    gap: 0 22px;
     box-sizing: border-box;
   }
-  .topbar .clock { gap: 10px 12px; }
+  .topbar .clock { gap: 10px 14px; }
 }
 
 /* Deck · un solo punto de entrada tipográfico por pantalla. */
@@ -4588,8 +4619,13 @@ html[data-cabina-theme="dark"] {
 }
 html[data-cabina-theme="dark"] .topbar {
   border-bottom-color: var(--line);
+  background: color-mix(in srgb, var(--surface) 55%, #000);
 }
 html[data-cabina-theme="dark"] .topbar .brand h1 { color: var(--text); }
+html[data-cabina-theme="dark"] .topbar .brand h1::after {
+  background: var(--accent);
+  opacity: 1;
+}
 html[data-cabina-theme="dark"] .topbar .clock .editbtn {
   background: transparent;
   border-color: var(--line-strong);
@@ -4609,8 +4645,12 @@ html[data-cabina-theme="dark"] nav.tabnav#tabnav {
 }
 @media (min-width: 1100px) {
   html[data-cabina-theme="dark"] .topbar .brand {
-    background: color-mix(in srgb, var(--surface) 80%, #000);
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--surface) 88%, #000) 0%,
+        color-mix(in srgb, var(--surface) 72%, #000) 100%);
     border-bottom-color: var(--line);
+    box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--accent) 35%, transparent);
   }
   html[data-cabina-theme="dark"] #sidebarToggle {
     background: transparent;
