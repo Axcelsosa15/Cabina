@@ -716,10 +716,14 @@ tbody tr:last-child td{border-bottom:0}
   .credo-trace:hover { color: var(--muted); border-left-color: var(--accent); }
 
   .twrap { overflow-x: auto; max-width: 100%; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
-  .panel .body:has(> table.t),
-  .panel .body:has(> table.qsweep) {
+  /* Contenedores con tablas anidadas (p.ej. #mxDD): el scroll queda en el
+     cuerpo del panel, no en la página — :has(> table) no basta si hay un wrap. */
+  .panel .body {
     overflow-x: auto; max-width: 100%; overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
+  }
+  .panel .body :is(#mxDD, #cnOut, #prOut, #seOut, #prPayOut, #ivAllocTable, [id$="Out"]:has(> table.t)) {
+    overflow-x: auto; max-width: 100%; overscroll-behavior-x: contain;
   }
   table.t { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12.5px; font-variant-numeric: tabular-nums lining-nums; }
   table.t th { text-align: left; font-weight: 500; color: var(--muted); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; padding:4px 8px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -4384,6 +4388,9 @@ body {
 }
 .tab section.panel > .body {
   padding: var(--ledger-inset);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  max-width: 100%;
 }
 
 /* Botones · primaria / secundaria / destructiva con alturas fijas. */
