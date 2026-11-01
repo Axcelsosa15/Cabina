@@ -4904,7 +4904,7 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
            semantica sin inventar nada. -->
       <button type="button" class="editbtn conflbtn" id="resolveConflict" hidden>Resolver conflicto</button>
       <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)" aria-haspopup="dialog" aria-expanded="false" aria-controls="quickOv">Registrar operación</button>
-      <button type="button" class="editbtn tb-more-btn" id="tbMoreBtn" aria-expanded="false" aria-controls="tbSecondary" aria-haspopup="true" title="Más acciones" hidden>Más</button>
+      <button type="button" class="editbtn tb-more-btn" id="tbMoreBtn" aria-expanded="false" aria-controls="tbSecondary" aria-haspopup="true" title="Más acciones">Más</button>
       <div class="tb-secondary" id="tbSecondary" role="group" aria-label="Acciones secundarias">
         <button type="button" class="editbtn" id="cuentaBtn" hidden>Entrar</button>
         <button type="button" class="editbtn" id="editToggle" aria-pressed="false">Editar</button>
@@ -4913,44 +4913,6 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
     </div>
   </div>
 </div>
-<script>
-/* Toolbar chrome: menú «Más» en móvil. Mismos botones, sin listeners duplicados. */
-(() => {
-  const btn = document.getElementById('tbMoreBtn');
-  const panel = document.getElementById('tbSecondary');
-  if (!btn || !panel) return;
-  const mq = typeof matchMedia === 'function' ? matchMedia('(max-width: 700px)') : null;
-  const close = () => {
-    panel.classList.remove('is-open');
-    btn.setAttribute('aria-expanded', 'false');
-  };
-  const sync = () => {
-    const mobile = !!(mq && mq.matches);
-    btn.hidden = !mobile;
-    if (!mobile) close();
-  };
-  btn.addEventListener('click', event => {
-    event.stopPropagation();
-    const open = !panel.classList.contains('is-open');
-    panel.classList.toggle('is-open', open);
-    btn.setAttribute('aria-expanded', String(open));
-  });
-  document.addEventListener('click', event => {
-    if (!mq || !mq.matches) return;
-    if (btn.contains(event.target) || panel.contains(event.target)) return;
-    close();
-  });
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && panel.classList.contains('is-open')) close();
-  });
-  if (mq) {
-    if (mq.addEventListener) mq.addEventListener('change', sync);
-    else if (mq.addListener) mq.addListener(sync);
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync, { once: true });
-  else sync();
-})();
-</script>
 <nav id="navGroupBar" class="cab-nav-groups" aria-label="Áreas de trabajo">
   <button type="button" class="cab-nav-group" data-group="todas" aria-pressed="true">Todas</button>
   <button type="button" class="cab-nav-group" data-group="operar" data-first-tab="cabina" aria-pressed="false">Operar</button>
