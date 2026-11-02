@@ -1112,6 +1112,15 @@
         + (esperando ? " Se reintenta solo." : "")
         + (parados ? " " + plu(parados, "Uno no se puede reintentar solo", "No se pueden reintentar solos") + ": espera" + (parados === 1 ? "" : "n") + " a que vuelvas a entrar o a que decidas qué versión vale." : "")
         + (cola.durable ? "" : avisoCola);
+      /* Una cola pendiente NO puede ocultar que FALLAN LAS LECTURAS. El
+         incidente 2026-11-01 mostraba PENDIENTES mientras PostgREST devolvía
+         PGRST002/503 y las 6 operaciones existentes no podían aparecer. */
+      const lectura = state.db && state.db.salud ? state.db.salud() : null;
+      if (lectura && lectura.fallos > 0) {
+        f.textContent += " Además, la lectura de la nube falló"
+          + (lectura.motivo ? " (" + lectura.motivo + ")" : "")
+          + ": las operaciones pueden seguir en Supabase aunque no aparezcan. No borres ni reemplaces datos.";
+      }
       return;
     }
     f.className = "";
