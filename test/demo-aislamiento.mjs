@@ -95,6 +95,9 @@ try {
     await p.locator('#ef_ok').waitFor();
     await p.locator('#ef_ok').fill('IMPORTAR'); await p.locator('#edSave').click();
     await pending;
+    check('el editor espera la importación y bloquea un segundo guardado', await p.locator('#edSave').isDisabled());
+    // Cerrar el diálogo no cancela una escritura que ya salió a la red.
+    await p.locator('#edClose').click();
     await p.locator('#settingsTabPrefs').click();
     await p.locator('#guideOpen').click(); await p.locator('#guideDemo').click();
     await p.waitForFunction(() => /guardado pendiente|pending save/i.test(document.getElementById('guideStatus').textContent));

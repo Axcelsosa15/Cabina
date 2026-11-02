@@ -498,6 +498,8 @@
   function resuelto(clave) {
     const uid = state.nube && nube.ses ? nube.ses.uid : null;
     if (uid) cola.quita(uid, clave).catch(() => { });
+    sinGuardar.delete(clave);
+    if (!sinGuardar.size) sinGuardarMotivo = "";
     if (conflictos.delete(clave)) setStoreLabel();
   }
   function noSeGuardo(clave, motivo, que) {
@@ -568,7 +570,7 @@
       title: c.op === "del" ? "Tu borrado coincide con cambios de otro dispositivo" : c.borrado ? "Este documento se borró en otro dispositivo" : "Este documento cambió en otro dispositivo",
       fields: [
         { key: "nota", type: "nota", w: 6, label: c.op === "del"
-          ? `Pediste borrar «${ruta}» sin conexión, pero otro dispositivo lo cambió. El registro sigue en la cuenta. Confirma el borrado o conserva la versión actual.`
+          ? `Pediste borrar «${ruta}», pero otro dispositivo lo cambió. El registro sigue en la cuenta. Confirma el borrado o conserva la versión actual.`
           : c.borrado
           ? `«${ruta}» ya no existe en tu cuenta: otro dispositivo lo borró. Lo que tienes aquí NO está guardado. Puedes volver a crearlo con tus cambios, o aceptar el borrado y perderlos.`
           : `«${ruta}» cambió en tu cuenta después de que esta pestaña lo leyera, así que lo que escribiste aquí NO se guardó. Abajo están las dos versiones. Ninguna se guarda sola: elige.` },
@@ -586,7 +588,19 @@
         if (v.elijo === "remoto") {
           /* La versión de la cuenta manda: se olvida lo de aquí y se recarga. Es la
              única rama en la que se descarta algo del usuario, y la eligió él. */
+          const snap = await state.db.doc(ruta).get();
+          const remoto = snap.exists ? snap.data() : null;
+          const i = ruta.lastIndexOf("/"), nombre = ruta.slice(0, i), id = ruta.slice(i + 1);
+          if (nombre === "settings") state.settings = normalize(remoto || {});
+          else if (nombre === "days" && state.day && state.day.date === id) state.day = migrateDay(Object.assign(newDay(id), remoto || {}));
+          else if (colls[nombre]) {
+            const c = colls[nombre];
+            c.items = c.items.filter(x => x.id !== id);
+            if (remoto) c.items.push(clone(remoto));
+            c.emit();
+          }
           resuelto(ruta);
+          renderAll();
           if (state.db && state.db.refresca) state.db.refresca(true);
           flash("Recargado desde tu cuenta.");
           return;
@@ -597,7 +611,7 @@
             resuelto(ruta);
             if (state.db.refresca) state.db.refresca(true);
             flash("Borrado confirmado sobre la versión de tu cuenta.");
-          } catch (e) { noSeGuardo(ruta, motivoDb(e), "el borrado"); }
+          } catch (e) { noSeGuardo(ruta, motivoDb(e), "el borrado"); return false; }
           return;
         }
         /* «Mantener mis cambios»: se vuelve a escribir, ahora SOBRE la versión que
@@ -610,7 +624,7 @@
           await state.db.doc(ruta).set(dato);
           resuelto(ruta);
           flash("Guardados tus cambios encima de la versión de la cuenta.");
-        } catch (e) { noSeGuardo(ruta, motivoDb(e), "tu versión"); }
+        } catch (e) { noSeGuardo(ruta, motivoDb(e), "tu versión"); return false; }
       },
     });
     /* La versión de la cuenta se pide después de abrir, para no dejar el diálogo
@@ -674,7 +688,10 @@
         const ctx = persistenceContext();
         await trackPersistence(ctx.db.collection(name).doc(id).delete().then(
           () => { if (persistenceStillCurrent(ctx)) siSeGuardo(clave); },
-          e => { if (persistenceStillCurrent(ctx)) noSeGuardo(clave, motivoDb(e), "el borrado"); }));
+          e => { if (persistenceStillCurrent(ctx)) {
+            if (motivoDb(e) === "conflicto" || motivoDb(e) === "conflicto_borrado") hayConflicto(clave, { op: "del", borrado: motivoDb(e) === "conflicto_borrado" });
+            else noSeGuardo(clave, motivoDb(e), "el borrado");
+          } }));
       },
       /* Sin tope: la cuenta pagina, y una operación 1001 que no se pintara
          tampoco entraría en el respaldo.
@@ -3340,7 +3357,7 @@
      Eso permite abortar sin perder el borrador (p. ej. un cambio de cuenta de
      posición bloqueado). También se deshabilita el botón mientras corre el
      manejador síncrono: un doble clic no debe lanzar dos escrituras. */
-  $("edSave").addEventListener("click", () => {
+  $("edSave").addEventListener("click", async () => {
     if (!edCfg) return;
     const btn = $("edSave");
     if (btn.disabled) return;
@@ -3350,11 +3367,15 @@
     btn.disabled = true;
     let keepOpen = false;
     try {
-      keepOpen = cfg.onSave(v) === false;
+      const result = cfg.onSave(v);
+      keepOpen = (result && typeof result.then === "function" ? await result : result) === false;
+    } catch (e) {
+      keepOpen = true;
+      if (edCfg === cfg) flashEd("No se pudo guardar: " + motivoDb(e));
     } finally {
       if (keepOpen && edCfg === cfg && ov.classList.contains("open")) btn.disabled = false;
     }
-    if (!keepOpen) closeEditor();
+    if (!keepOpen && edCfg === cfg) closeEditor();
   });
   $("edDelete").addEventListener("click", function () { if (!edCfg || !edCfg.onDelete) return; if (!armed(this)) return; edCfg.onDelete(); closeEditor(); });
   /* The editor title is a stable dialog label. Validation belongs in a persistent
