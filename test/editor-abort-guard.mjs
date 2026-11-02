@@ -18,7 +18,7 @@ const ok = (pass, label, detail = '') => {
   if (!pass) failures.push(label);
 };
 
-ok(/keepOpen = cfg\.onSave\(v\) === false/.test(app), 'edSave honors onSave === false');
+ok(/const result = cfg\.onSave\(v\)/.test(app) && /keepOpen = .*await result.*=== false/.test(app), 'edSave honors synchronous and asynchronous onSave === false');
 ok(/qk\.guardando/.test(app), 'quick-add tracks in-flight flag');
 ok(/false = el editor genérico NO cierra/.test(app), 'position account-change abort returns false');
 ok(/Escribe un título para el documento/.test(app), 'study form surfaces empty-title message');
