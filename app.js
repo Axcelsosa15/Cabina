@@ -612,7 +612,11 @@
       emit() { this.rev++; this.cbs.forEach(cb => cb(this.items)); },
       get(id) { return this.items.find(x => x.id === id); },
       async set(id, data) {
-        data = clone(data); data.id = id; data.updatedAt = Date.now();
+         if (!state.demo && state.nube && !this.loaded) {
+           flash("La cuenta todavía está cargando. No se hizo ningún cambio.");
+           return false;
+         }
+         data = clone(data); data.id = id; data.updatedAt = Date.now();
         const i = this.items.findIndex(x => x.id === id);
         if (name === "trades" && i >= 0 && (this.items[i].accountId !== data.accountId || this.items[i].date !== data.date)) delete data.processRules;
         if (i >= 0) this.items[i] = data; else this.items.push(data); this.emit();
@@ -624,7 +628,11 @@
           e => { if (persistenceStillCurrent(ctx)) noSeGuardo(clave, motivoDb(e), "la ficha"); }));
       },
       async remove(id) {
-        this.items = this.items.filter(x => x.id !== id); this.emit();
+         if (!state.demo && state.nube && !this.loaded) {
+           flash("La cuenta todavía está cargando. No se borró ningún dato.");
+           return false;
+         }
+         this.items = this.items.filter(x => x.id !== id); this.emit();
         if (state.demo) return;
         const clave = name + "/" + id;
         const ctx = persistenceContext();
@@ -660,6 +668,7 @@
           const ids = new Set(llegan.map(x => x.id));
           pend.forEach((x, id) => { if (!ids.has(id)) llegan.push(x); });
           this.items = llegan; this.loaded = true; this.emit();
+           setStoreLabel();
         }, () => {});
       },
     };
@@ -935,7 +944,8 @@
     db.doc("settings/main").onSnapshot(snap => {
       if (state.demo) return;
       state.cfgConocida = true;
-      state.cfgRemota = !!snap.exists;
+       state.cfgRemota = !!snap.exists;
+       setStoreLabel();
       if (!snap.exists) return;
       const incoming = normalize(snap.data());
       /* UN DOCUMENTO VIEJO NO PISA UNO NUEVO ────────────────────────────────
@@ -980,7 +990,8 @@
       if (state.demo) return;
       state.dias = q.docs.map(d => d.data()).filter(d => d && d.date);
       state.daysKnown = true;
-      derivaHistoria();
+       setStoreLabel();
+       derivaHistoria();
       if (state.listo) { renderHistory(); renderDiscipline(); }
     }, () => {});
     COLLS.forEach(n => coll(n).attachDb(db));
@@ -1111,8 +1122,15 @@
         + ". Lo que ves puede estar viejo, y lo que cambies en otro dispositivo no va a aparecer aquí. Se reintenta solo.";
       return;
     }
-    if (state.nube) {
-      el.textContent = "sincronizado"; el.className = "save-state cloud";
+    if (state.nube && (!state.cfgConocida || !state.daysKnown || COLLS.some(n => !coll(n).loaded))) {
+       el.textContent = "cargando datos";
+       el.className = "save-state nosave";
+       f.className = "nosave";
+       f.textContent = "Conectado, esperando la confirmación de las lecturas. Los paneles vacíos durante esta fase NO indican pérdida de datos.";
+       return;
+     }
+     if (state.nube) {
+       el.textContent = "sincronizado"; el.className = "save-state cloud";
       f.textContent = "Guardado en tu cuenta" + (nube.ses && nube.ses.email ? " (" + nube.ses.email + ")" : "")
         + ". Sólo tu sesión puede leer estos datos: ningún otro usuario los ve."
         /* Sin la columna `version` la base no puede detectar que dos dispositivos
