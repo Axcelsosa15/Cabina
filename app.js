@@ -2484,6 +2484,37 @@
   /* Subir lo de antes de tener cuenta. Nunca solo: el mismo navegador puede ser
      de otra persona. Por id, sin borrar nada de la cuenta, y la configuración
      sólo si la cuenta aún no tiene una — jamás encima de la tuya. */
+  /* RESCATE SEGURO: este botón NO es una importación que reemplaza datos.
+     Un error de lectura aborta TODA la operación antes de comenzar a escribir.
+     Los IDs que existen en la nube quedan intactos y nunca se sobrescriben. */
+  async function uploadOnlyMissing(b) {
+    if (!state.nube || !state.cfgConocida || !state.daysKnown || COLLS.some(n => !coll(n).loaded)) {
+      throw new Error("La cuenta todavía no ha terminado de cargar. No se importó nada.");
+    }
+    const pares = [];
+    let omitidos = 0;
+    const config = await state.db.doc("settings/main").get();
+    if (b.settings) {
+      if (config.exists) omitidos++;
+      else pares.push(["settings/main", clone(normalize(b.settings))]);
+    }
+    const nombres = ["days", ...COLLS];
+    const listas = await Promise.all(nombres.map(n => state.db.collection(n).get()));
+    for (let i = 0; i < nombres.length; i++) {
+      const nombre = nombres[i], locales = b[nombre] || {}, docs = listas[i].docs.map(d => d.data());
+      const ids = new Set(docs.map(d => nombre === "days" ? d && d.date : d && d.id).filter(Boolean).map(String));
+      const sinId = docs.some(d => !d || !(nombre === "days" ? d.date : d.id));
+      for (const id of Object.keys(locales)) {
+        if (ids.has(id)) { omitidos++; continue; }
+        const ruta = nombre + "/" + id;
+        if (sinId && (await state.db.doc(ruta).get()).exists) { omitidos++; continue; }
+        const dato = nombre === "days" ? clone(locales[id]) : Object.assign(clone(locales[id]), { id });
+        pares.push([ruta, dato]);
+      }
+    }
+    const r = await state.db.escribeVarios(pares);
+    return { ...r, omitidos };
+  }
   $("auSubir").addEventListener("click", function () {
     const lc = localCuenta();
     if (this.dataset.armed !== "1") { this.dataset.armed = "1"; this.textContent = `¿Subir ${plu(lc.n, "registro", "registros")}? Pulsa otra vez`; return; }
@@ -2493,8 +2524,8 @@
       const l = lsRead(), b = { settings: state.cfgRemota ? null : (l.settings || null), days: l.days || {} };
       COLLS.forEach(n => { b[n] = l[n] || {}; });
       auDi("Subiendo…");
-      const r = await applyBundleDb(b);
-      auDi(`Subido: ${plu(r.escritos, "registro", "registros")}${r.fallos ? `, ${r.fallos} con error` : ""}. Siguen también en este navegador. Recargando…`, r.fallos ? "bad" : "good");
+      const r = await uploadOnlyMissing(b);
+      auDi(`Subido: ${plu(r.escritos, "registro", "registros")}; ${r.omitidos} coincidencias conservadas${r.fallos ? `, ${r.fallos} con error` : ""}. Los datos locales siguen guardados. Recargando…`, r.fallos ? "bad" : "good");
       setTimeout(() => location.reload(), 1500);
     });
   });
