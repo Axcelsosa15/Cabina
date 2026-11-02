@@ -138,8 +138,8 @@ const SEMILLA = {
   ok(rot === 'sin actualizar', 'y dice exactamente qué pasa', '«' + rot + '»');
 
   const pie = await p.evaluate(() => document.getElementById('footerStore').textContent);
-  ok(/no se puede LEER/i.test(pie), 'el pie explica que es la LECTURA lo que falla', pie.slice(0, 90));
-  ok(/se está guardando/i.test(pie), 'y que lo que cambias sí se guarda', pie.slice(0, 60));
+  ok(/no se ha podido LEER/i.test(pie), 'el pie explica que es la LECTURA lo que falla', pie.slice(0, 90));
+  ok(!/SÍ se está guardando/i.test(pie), 'una lectura fallida no garantiza escrituras que no se comprobaron', pie.slice(0, 80));
   ok(/no ha llegado nada/i.test(pie), 'y que en esta sesión no llegó nada', pie.slice(-70));
 
   console.log('\n═══ 4 · al volver la lectura, el rótulo se corrige solo ═══');

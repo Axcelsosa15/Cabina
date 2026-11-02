@@ -413,12 +413,31 @@
   }
 
   const LS_KEY = "cabina-mnq:v1";
-  function lsRead() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "null") || {}; } catch { return {}; } }
+  /* Nunca convertir un JSON local ilegible en un objeto nuevo que luego
+     reemplace el original. Se bloquea la escritura hasta restaurar una copia. */
+  let lsCorrupto = false;
+  function lsRead() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw === null) return {};
+      const obj = JSON.parse(raw);
+      if (!obj || typeof obj !== "object" || Array.isArray(obj)) throw new Error("json_local_invalido");
+      return obj;
+    } catch (e) {
+      lsCorrupto = true;
+      lsMotivo = "datos_locales_ilegibles";
+      return {};
+    }
+  }
   /* lsWrite dice si pudo escribir, y el almacén local convierte un «no» en un
      error con su motivo (almacenamiento lleno, modo privado): la puerta de
      escritura lo recibe y lo dice, en vez de afirmar «guardado». */
   let lsMotivo = "";
-  function lsWrite(obj) { try { localStorage.setItem(LS_KEY, JSON.stringify(obj)); lsMotivo = ""; return true; } catch (e) { lsMotivo = (e && e.name) || "almacenamiento lleno"; return false; } }
+  function lsWrite(obj) {
+    if (lsCorrupto) { lsMotivo = "datos_locales_ilegibles"; return false; }
+    try { localStorage.setItem(LS_KEY, JSON.stringify(obj)); lsMotivo = ""; return true; }
+    catch (e) { lsMotivo = (e && e.name) || "almacenamiento lleno"; return false; }
+  }
   const timers = {};
   function debounce(key, fn, ms) { clearTimeout(timers[key]); timers[key] = setTimeout(fn, ms); }
   function flash(msg) { const el = $("jSaved"); el.textContent = msg; clearTimeout(timers.flash); timers.flash = setTimeout(() => { el.textContent = ""; }, 2500); }
@@ -465,7 +484,9 @@
   const conflictos = new Map();     // ruta -> { esperada, actual, borrado, dato }
   let enVuelo = 0;                  // escrituras en la red ahora mismo
   function hayConflicto(clave, info, dato) {
-    conflictos.set(clave, Object.assign({ dato }, info || {}));
+    const previo = conflictos.get(clave);
+    conflictos.set(clave, Object.assign({}, previo || {},
+      { dato: dato === undefined && previo ? previo.dato : dato }, info || {}));
     setStoreLabel();
     avisaConflicto(clave);
   }
@@ -544,14 +565,18 @@
        lo de la cuenta se pide ahora, porque la versión de hace un momento ya no es
        la que hay. */
     openEditor({
-      title: c.borrado ? "Este documento se borró en otro dispositivo" : "Este documento cambió en otro dispositivo",
+      title: c.op === "del" ? "Tu borrado coincide con cambios de otro dispositivo" : c.borrado ? "Este documento se borró en otro dispositivo" : "Este documento cambió en otro dispositivo",
       fields: [
-        { key: "nota", type: "nota", w: 6, label: c.borrado
+        { key: "nota", type: "nota", w: 6, label: c.op === "del"
+          ? `Pediste borrar «${ruta}» sin conexión, pero otro dispositivo lo cambió. El registro sigue en la cuenta. Confirma el borrado o conserva la versión actual.`
+          : c.borrado
           ? `«${ruta}» ya no existe en tu cuenta: otro dispositivo lo borró. Lo que tienes aquí NO está guardado. Puedes volver a crearlo con tus cambios, o aceptar el borrado y perderlos.`
           : `«${ruta}» cambió en tu cuenta después de que esta pestaña lo leyera, así que lo que escribiste aquí NO se guardó. Abajo están las dos versiones. Ninguna se guarda sola: elige.` },
         { key: "aqui", label: "Lo que tienes en esta pestaña", type: "textarea", w: 6, rows: 7 },
         { key: "alla", label: c.borrado ? "En tu cuenta" : "Lo que hay en tu cuenta ahora", type: "textarea", w: 6, rows: 7 },
-        { key: "elijo", label: "Con qué versión te quedas", type: "select", w: 6, options: c.borrado
+        { key: "elijo", label: "Con qué versión te quedas", type: "select", w: 6, options: c.op === "del"
+            ? [["", "— elige —"], ["mio", "Confirmar mi borrado sobre la versión actual"], ["remoto", "Conservar el registro de la cuenta"]]
+            : c.borrado
             ? [["", "— elige —"], ["mio", "Volver a crearlo con mis cambios"], ["remoto", "Aceptar el borrado y perder mis cambios"]]
             : [["", "— elige —"], ["mio", "Mantener mis cambios (se escriben encima de la versión de la cuenta)"], ["remoto", "Usar la versión de la cuenta (pierdo lo que escribí aquí)"]] },
       ],
@@ -564,6 +589,15 @@
           resuelto(ruta);
           if (state.db && state.db.refresca) state.db.refresca(true);
           flash("Recargado desde tu cuenta.");
+          return;
+        }
+        if (c.op === "del") {
+          try {
+            await state.db.doc(ruta).delete();
+            resuelto(ruta);
+            if (state.db.refresca) state.db.refresca(true);
+            flash("Borrado confirmado sobre la versión de tu cuenta.");
+          } catch (e) { noSeGuardo(ruta, motivoDb(e), "el borrado"); }
           return;
         }
         /* «Mantener mis cambios»: se vuelve a escribir, ahora SOBRE la versión que
@@ -592,6 +626,8 @@
   }
   /* El dato que esta pestaña tiene para esa ruta, que es lo que el usuario ve. */
   function conflictoLocal(ruta) {
+    const pendiente = conflictos.get(ruta);
+    if (pendiente && pendiente.dato !== undefined) return clone(pendiente.dato);
     const i = ruta.lastIndexOf("/");
     const col = ruta.slice(0, i), id = ruta.slice(i + 1);
     if (col === "settings" && id === "main") return clone(state.settings);
@@ -612,7 +648,11 @@
       emit() { this.rev++; this.cbs.forEach(cb => cb(this.items)); },
       get(id) { return this.items.find(x => x.id === id); },
       async set(id, data) {
-        data = clone(data); data.id = id; data.updatedAt = Date.now();
+         if (!state.demo && state.nube && !this.loaded) {
+           flash("La cuenta todavía está cargando. No se hizo ningún cambio.");
+           return false;
+         }
+         data = clone(data); data.id = id; data.updatedAt = Date.now();
         const i = this.items.findIndex(x => x.id === id);
         if (name === "trades" && i >= 0 && (this.items[i].accountId !== data.accountId || this.items[i].date !== data.date)) delete data.processRules;
         if (i >= 0) this.items[i] = data; else this.items.push(data); this.emit();
@@ -624,7 +664,11 @@
           e => { if (persistenceStillCurrent(ctx)) noSeGuardo(clave, motivoDb(e), "la ficha"); }));
       },
       async remove(id) {
-        this.items = this.items.filter(x => x.id !== id); this.emit();
+         if (!state.demo && state.nube && !this.loaded) {
+           flash("La cuenta todavía está cargando. No se borró ningún dato.");
+           return false;
+         }
+         this.items = this.items.filter(x => x.id !== id); this.emit();
         if (state.demo) return;
         const clave = name + "/" + id;
         const ctx = persistenceContext();
@@ -660,6 +704,7 @@
           const ids = new Set(llegan.map(x => x.id));
           pend.forEach((x, id) => { if (!ids.has(id)) llegan.push(x); });
           this.items = llegan; this.loaded = true; this.emit();
+           setStoreLabel();
         }, () => {});
       },
     };
@@ -909,6 +954,10 @@
   }
   function persistDay() {
     if (state.demo) { renderDiscipline(); return; }
+    if (state.nube && !state.dayKnown) {
+      flash("El día todavía está cargando. No se guardó ningún cambio.");
+      return;
+    }
     state.day.updatedAt = Date.now();
     const snapshot = clone(state.day), ctx = persistenceContext(), path = "days/" + snapshot.date;
     debounce("discipline-render", renderDiscipline, 120);
@@ -934,8 +983,10 @@
     const db = state.db;
     db.doc("settings/main").onSnapshot(snap => {
       if (state.demo) return;
+      const primeraCarga = !state.cfgConocida;
       state.cfgConocida = true;
-      state.cfgRemota = !!snap.exists;
+       state.cfgRemota = !!snap.exists;
+       setStoreLabel();
       if (!snap.exists) return;
       const incoming = normalize(snap.data());
       /* UN DOCUMENTO VIEJO NO PISA UNO NUEVO ────────────────────────────────
@@ -971,16 +1022,21 @@
         return;
       }
       state.settings = incoming;
+      /* En la nube settings llega después del arranque. Restaurar aquí evita
+         perder la selección por validar las cuentas mientras aún están vacías. */
+      if (primeraCarga) ft.acct = incoming.meta.acct && acctById(incoming.meta.acct) ? incoming.meta.acct : "";
       if (!state.listo) return;
       const ae = document.activeElement; const typing = ae && ae.dataset && ae.dataset.f;
       if (state.editing || typing) { renderAccountsMeters(); updateCheckProgress(); } else renderSettings();
+      if (primeraCarga) fanout(FANOUT_SEL);
     }, () => {});
     subscribeDay();
     db.collection("days").onSnapshot(q => {
       if (state.demo) return;
       state.dias = q.docs.map(d => d.data()).filter(d => d && d.date);
       state.daysKnown = true;
-      derivaHistoria();
+       setStoreLabel();
+       derivaHistoria();
       if (state.listo) { renderHistory(); renderDiscipline(); }
     }, () => {});
     COLLS.forEach(n => coll(n).attachDb(db));
@@ -992,6 +1048,7 @@
       if (state.demo) return;
       state.dayKnown = true;
       if (snap.exists) { const remote = snap.data(); if ((remote.updatedAt || 0) >= (state.day.updatedAt || 0)) state.day = migrateDay(Object.assign(newDay(state.today), remote)); }
+      setStoreLabel();
       if (state.listo) { renderChecklist(); renderJournalDay(); renderLevels(); renderDiscipline(); }
     }, () => {}));
   }
@@ -1082,6 +1139,15 @@
         + (esperando ? " Se reintenta solo." : "")
         + (parados ? " " + plu(parados, "Uno no se puede reintentar solo", "No se pueden reintentar solos") + ": espera" + (parados === 1 ? "" : "n") + " a que vuelvas a entrar o a que decidas qué versión vale." : "")
         + (cola.durable ? "" : avisoCola);
+      /* Una cola pendiente NO puede ocultar que FALLAN LAS LECTURAS. El
+         incidente 2026-11-01 mostraba PENDIENTES mientras PostgREST devolvía
+         PGRST002/503 y las 6 operaciones existentes no podían aparecer. */
+      const lectura = state.db && state.db.salud ? state.db.salud() : null;
+      if (lectura && lectura.fallos > 0) {
+        f.textContent += " Además, la lectura de la nube falló"
+          + (lectura.motivo ? " (" + lectura.motivo + ")" : "")
+          + ": las operaciones pueden seguir en Supabase aunque no aparezcan. No borres ni reemplaces datos.";
+      }
       return;
     }
     f.className = "";
@@ -1095,15 +1161,15 @@
     }
     /* NO SE PUEDE DECIR «SINCRONIZADO» CUANDO SÓLO LO ESTÁ LA MITAD. Lo tuyo
        puede estar guardado y la pantalla ir vieja a la vez, si lo que falla son
-       las LECTURAS. Dos fallos seguidos son ya 20-40 s sin dato nuevo: deja de
-       ser un parpadeo y pasa a ser una pantalla que miente. Va después de
+       las LECTURAS. Basta una colección pendiente de recuperar para que el
+       estado completo deje de estar confirmado. Va después de
        «guardando…», que es urgente y dura segundos, y justo antes de
        «sincronizado», que es la frase que esto desmiente. */
     const sal = state.nube && state.db && state.db.salud ? state.db.salud() : null;
-    if (sal && sal.fallos >= 2) {
+    if (sal && sal.fallos > 0) {
       const min = sal.ok ? Math.floor((Date.now() - sal.ok) / 60000) : -1;
       el.textContent = "sin actualizar"; el.className = "save-state nosave"; f.className = "nosave";
-      f.textContent = "Lo que cambias SÍ se está guardando, pero no se puede LEER de tu cuenta"
+      f.textContent = "No se ha podido LEER toda la información de tu cuenta"
         + (sal.motivo ? " (" + sal.motivo + ")" : "") + ": "
         + (min < 0 ? "en esta sesión no ha llegado nada"
           : min < 1 ? "lo último llegó hace menos de un minuto"
@@ -1111,13 +1177,27 @@
         + ". Lo que ves puede estar viejo, y lo que cambies en otro dispositivo no va a aparecer aquí. Se reintenta solo.";
       return;
     }
-    if (state.nube) {
-      el.textContent = "sincronizado"; el.className = "save-state cloud";
+    if (state.nube && (!state.cfgConocida || !state.daysKnown || !state.dayKnown || COLLS.some(n => !coll(n).loaded))) {
+       el.textContent = "cargando datos";
+       el.className = "save-state nosave";
+       f.className = "nosave";
+       f.textContent = "Conectado, esperando la confirmación de las lecturas. Los paneles vacíos durante esta fase NO indican pérdida de datos.";
+       return;
+     }
+     if (state.nube) {
+       el.textContent = "sincronizado"; el.className = "save-state cloud";
       f.textContent = "Guardado en tu cuenta" + (nube.ses && nube.ses.email ? " (" + nube.ses.email + ")" : "")
         + ". Sólo tu sesión puede leer estos datos: ningún otro usuario los ve."
         /* Sin la columna `version` la base no puede detectar que dos dispositivos
            escriben el mismo documento, y eso hay que decirlo en vez de callarlo. */
         + (nube.occ === false ? " AVISO: esta base todavía no detecta si otro dispositivo cambió un documento, así que con dos abiertos a la vez un cambio puede perderse. Falta aplicar la migración de la versión." : "");
+      return;
+    }
+    if (state.store === "local" && lsCorrupto) {
+      el.textContent = "DATOS LOCALES ILEGIBLES";
+      el.className = "save-state nosave";
+      f.className = "nosave";
+      f.textContent = "Cabina no puede leer el archivo local y ha BLOQUEADO las escrituras para no reemplazarlo. Conserva el navegador y copia la clave cabina-mnq:v1 antes de cualquier restauración.";
       return;
     }
     if (state.store === "local") { el.textContent = "guardado local"; el.className = "save-state"; f.textContent = "Guardado solo en este navegador. Tus operaciones no se envían a ningún servidor."; }
@@ -1726,14 +1806,20 @@
        el rótulo sigue diciendo «sincronizado»: exactamente la mentira que ese
        rótulo existe para no contar. Se cuenta aquí, en el único punto por el
        que pasan TODAS las lecturas, y lo dice `setStoreLabel()`. */
-    const lect = { ok: 0, fallos: 0, motivo: "" };
-    function leeOk() {
-      const habia = lect.fallos;
-      lect.ok = Date.now(); lect.fallos = 0; lect.motivo = "";
-      if (habia) setStoreLabel();   // sólo si había algo que desmentir
+    const lect = { ok: 0, fallos: 0, motivo: "" }, fallosLectura = new Map();
+    function actualizaLecturas() {
+      lect.fallos = [...fallosLectura.values()].reduce((n, f) => n + f.intentos, 0);
+      lect.motivo = [...fallosLectura.values()].map(f => f.motivo).join(", ");
     }
-    function leeMal(e) {
-      lect.fallos++; lect.motivo = motivoDb(e);
+    function leeOk(s) {
+      lect.ok = Date.now();
+      /* Un éxito de settings no demuestra que trades haya vuelto a funcionar. */
+      if (fallosLectura.delete(s)) { actualizaLecturas(); setStoreLabel(); }
+    }
+    function leeMal(s, e) {
+      const anterior = fallosLectura.get(s);
+      fallosLectura.set(s, { intentos: (anterior ? anterior.intentos : 0) + 1, motivo: motivoDb(e) });
+      actualizaLecturas();
       /* Un fallo suelto no debe gastar la ventana de 20 s: que el siguiente tic
          reintente. Del tercero en adelante se vuelve al ritmo normal, para no
          convertir una base caída en una petición cada 10 s para siempre. */
@@ -1749,7 +1835,10 @@
       if (q.lim) a = a.slice(0, q.lim);
       return a.map(r => r.data);
     }
-    function suscribe(s) { subs.add(s); s.carga(); return () => { subs.delete(s); }; }
+    function suscribe(s) {
+      subs.add(s); s.carga();
+      return () => { subs.delete(s); if (fallosLectura.delete(s)) { actualizaLecturas(); setStoreLabel(); } };
+    }
     function avisa(p, d) {
       const c = collDe(p);
       subs.forEach(s => { try { if (s.path === p) s.cambia(d); else if (s.q && s.q.coll === c) s.cambia(d, p); } catch (e) { } });
@@ -1759,11 +1848,27 @@
       return {
         get: async () => snapDoc(await be.leeDoc(p)),
         async set(data) { const d = clone(data); await be.escribe(p, d); avisa(p, d); },
+        async create(data) {
+          if (!be.crea) throw { code: "creacion_no_disponible" };
+          const d = clone(data), creada = await be.crea(p, d);
+          if (creada) avisa(p, d);
+          return creada;
+        },
         async delete() { await be.borra(p); avisa(p, null); },
         onSnapshot(cb, err) {
-          return suscribe({ path: p,
-            carga() { cuando(() => be.leeDoc(p), d => { leeOk(); cb(snapDoc(d)); }, e => { leeMal(e); if (err) err(e); }); },
-            cambia(d) { cb(snapDoc(d)); } });
+          const s = { path: p, seq: 0,
+            carga() {
+              const mio = ++s.seq;
+              cuando(() => be.leeDoc(p), d => {
+                if (!subs.has(s) || mio !== s.seq) return;
+                leeOk(s); cb(snapDoc(d));
+              }, e => {
+                if (!subs.has(s) || mio !== s.seq) return;
+                leeMal(s, e); if (err) err(e);
+              });
+            },
+            cambia(d) { cb(snapDoc(d)); } };
+          return suscribe(s);
         },
       };
     }
@@ -1787,10 +1892,7 @@
                el usuario ve la pantalla de conflicto. Se descarta la respuesta
                que ya quedó atrás. */
             seq: 0,
-            /* `leeOk()` se avisa aunque la respuesta llegue tarde y se
-               descarte: la lectura funcionó, y lo que mide la salud es la red,
-               no cuál de dos respuestas ganó la carrera. */
-            carga() { const mio = ++s.seq; cuando(() => be.leeFilas(q), a => { leeOk(); if (mio !== s.seq) return; s.filas = new Map(a.map(r => [r.path, r.data])); s.emite(); }, e => { leeMal(e); if (err) err(e); }); },
+            carga() { const mio = ++s.seq; cuando(() => be.leeFilas(q), a => { if (!subs.has(s) || mio !== s.seq) return; leeOk(s); s.filas = new Map(a.map(r => [r.path, r.data])); s.emite(); }, e => { if (!subs.has(s) || mio !== s.seq) return; leeMal(s, e); if (err) err(e); }); },
             cambia(d, p) { if (d == null) s.filas.delete(p); else s.filas.set(p, d); s.emite(); } };
           return suscribe(s);
         },
@@ -1906,13 +2008,14 @@
       if (Array.isArray(todo)) for (const r of todo) if (r && r.clave) espejo.set(r.clave, r);
       return espejo.size;
     }
-    function guarda(uid, ruta, op, dato, estado, motivo) {
+    function guarda(uid, ruta, op, dato, estado, motivo, versionBase) {
       const c = k(uid, ruta), viejo = espejo.get(c);
       /* El motivo entra con el registro, no en una segunda escritura: «pendiente»
          a secas no distingue un túnel de un documento que la base rechaza una y
          otra vez, y son dos problemas con dos salidas distintas. */
       const r = { clave: c, uid, ruta, op, dato: op === "del" ? null : dato, at: Date.now(),
                   estado: estado || "espera", motivo: String(motivo || ""),
+                  versionBase: viejo ? (viejo.versionBase ?? null) : (versionBase ?? null),
                   intentos: (viejo ? viejo.intentos : 0) + 1 };
       espejo.set(c, r);
       return tx("readwrite", t => t.put(r)).then(() => r);
@@ -2021,7 +2124,7 @@
       return "espera";
     }
     const uidAhora = () => (nube.ses && nube.ses.uid) || null;
-    async function alFallar(p, op, d, e) {
+    async function alFallar(p, op, d, e, versionBase) {
       const uid = uidAhora(); if (!uid) return;
       const cl = clasifica(e);
       /* UN CONFLICTO NO ENTRA EN LA COLA. Hay dos versiones del documento y
@@ -2029,7 +2132,7 @@
          control de concurrencia existe para no hacer. Lo decide el usuario, y
          `hayConflicto` ya guarda su copia y abre la pantalla. */
       if (cl === "conflicto") return;
-      try { await cola.guarda(uid, p, op, d, cl, (e && e.code) || ""); } catch (x) { }
+      try { await cola.guarda(uid, p, op, d, cl, (e && e.code) || "", versionBase); } catch (x) { }
       programa();
     }
     const desencola = p => { const uid = uidAhora(); return uid ? cola.quita(uid, p).catch(() => { }) : Promise.resolve(); };
@@ -2053,7 +2156,18 @@
              que la regla 1 existe para impedir. */
           if (uidAhora() !== uid || nube.caducada) break;
           try {
-            if (r.op === "del") await this.borraOcc(r.ruta); else await this.escribeOcc(r.ruta, r.dato);
+            /* La versión leída ANTES de quedar offline es la condición del
+               reintento. Releer al arrancar no autoriza a pisar esa versión.
+               Entradas antiguas sin versión sólo pueden crear algo ausente. */
+            if (Number.isInteger(r.versionBase) && r.versionBase > 0) {
+              if (r.op === "del") await this.borraOcc(r.ruta, r.versionBase);
+              else await this.escribeOcc(r.ruta, r.dato, r.versionBase);
+            } else if (r.op === "del") {
+              if (await this.leeDoc(r.ruta) != null) throw err("conflicto", { path: r.ruta });
+            } else if (!await this.crea(r.ruta, r.dato)) {
+              await this.leeDoc(r.ruta);
+              throw err("conflicto", { path: r.ruta });
+            }
             await cola.quita(uid, r.ruta);
             siSeGuardo(r.ruta);
             hechos++;
@@ -2064,7 +2178,7 @@
                  la copia pendiente es justo la que el usuario necesita para
                  decidir, y si la tiráramos aquí la decisión sería imposible. */
               await cola.marca(uid, r.ruta, "conflicto", (e && e.code) || "");
-              hayConflicto(r.ruta, { borrado: e && e.code === "conflicto_borrado" }, r.dato);
+              hayConflicto(r.ruta, { op: r.op, borrado: e && e.code === "conflicto_borrado" }, r.dato);
             } else {
               await cola.marca(uid, r.ruta, cl, (e && e.code) || "");
             }
@@ -2137,21 +2251,39 @@
          que siempre pintó. Tragárselo aquí sería volver a decir «guardado» de
          algo que no lo está, que es justo lo que este código dejó de hacer. */
       async escribe(p, d) {
+        const versionBase = vers.get(p) ?? null;
         enVuelo++; setStoreLabel();
         try { const r = await this.escribeOcc(p, d); await desencola(p); return r; }
-        catch (e) { await alFallar(p, "set", d, e); throw e; }
+        catch (e) { await alFallar(p, "set", d, e, versionBase); throw e; }
         finally { enVuelo--; setStoreLabel(); }
       },
-      async escribeOcc(p, d) {
+      /* Recuperar sólo lo ausente requiere INSERT, nunca un set que pueda
+         convertirse en PATCH tras descubrir una fila creada entre medias.
+         Un fallo conserva el original local; no se encola como un set porque
+         ese reintento podría reemplazar un documento de otro dispositivo. */
+      async crea(p, d) {
+        enVuelo++; setStoreLabel();
+        try {
+          await nubeFetch(T, { method: "POST", headers: { prefer: "return=minimal" },
+            body: { user_id: uidAhora(), path: p, data: d } });
+          vers.delete(p); invalidaLecturas(p);
+          return true;
+        } catch (e) {
+          if (e && e.code === "23505") return false;
+          throw e;
+        } finally { enVuelo--; setStoreLabel(); }
+      },
+      async escribeOcc(p, d, versionBase) {
         /* Sin columna no hay escritura condicional posible: se vuelve al upsert de
            siempre. Pierde la detección de conflictos —y el pie lo dice— pero no
            pierde los datos de nadie por no poder escribir. */
         if (nube.occ === false) {
+          if (versionBase != null) throw err("conflicto", { path: p });
           await nubeFetch(`${T}?on_conflict=user_id,path`, { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=minimal" },
             body: { user_id: nube.ses ? nube.ses.uid : null, path: p, data: d } });
           return;
         }
-        let esperada = vers.get(p);
+        let esperada = versionBase ?? vers.get(p);
         /* Sin versión conocida no se puede escribir a ciegas: se lee para saber si
            el documento existe. Una ronda más, sólo la primera vez que se toca un
            documento en esta sesión, y a cambio ninguna escritura ciega. */
@@ -2187,14 +2319,18 @@
          al borrar: la pestaña cerrada en ese segundo se llevaba el borrado sin
          que nada lo avisara. Mismo envoltorio que `escribe`, misma cola. */
       async borra(p) {
+        const versionBase = vers.get(p) ?? null;
         enVuelo++; setStoreLabel();
         try { await this.borraOcc(p); await desencola(p); }
-        catch (e) { await alFallar(p, "del", null, e); throw e; }
+        catch (e) { await alFallar(p, "del", null, e, versionBase); throw e; }
         finally { enVuelo--; setStoreLabel(); }
       },
-      async borraOcc(p) {
-        if (nube.occ === false) { await nubeFetch(`${T}?path=eq.${enc(p)}`, { method: "DELETE", headers: { prefer: "return=minimal" } }); return; }
-        let esperada = vers.get(p);
+      async borraOcc(p, versionBase) {
+        if (nube.occ === false) {
+          if (versionBase != null) throw err("conflicto", { path: p });
+          await nubeFetch(`${T}?path=eq.${enc(p)}`, { method: "DELETE", headers: { prefer: "return=minimal" } }); return;
+        }
+        let esperada = versionBase ?? vers.get(p);
         if (esperada == null) { await this.leeDoc(p); esperada = vers.get(p); }
         /* Ya no está: borrar lo que no existe es el resultado que se pedía. */
         if (esperada == null) return;
@@ -2466,6 +2602,41 @@
   /* Subir lo de antes de tener cuenta. Nunca solo: el mismo navegador puede ser
      de otra persona. Por id, sin borrar nada de la cuenta, y la configuración
      sólo si la cuenta aún no tiene una — jamás encima de la tuya. */
+  /* RESCATE SEGURO: este botón NO es una importación que reemplaza datos.
+     Un error de lectura aborta TODA la operación antes de comenzar a escribir.
+     Los IDs que existen en la nube quedan intactos y nunca se sobrescriben. */
+  async function uploadOnlyMissing(b) {
+    if (!state.nube || !state.cfgConocida || !state.daysKnown || COLLS.some(n => !coll(n).loaded)) {
+      throw new Error("La cuenta todavía no ha terminado de cargar. No se importó nada.");
+    }
+    const pares = [];
+    let omitidos = 0;
+    const config = await state.db.doc("settings/main").get();
+    if (b.settings) {
+      if (config.exists) omitidos++;
+      else pares.push(["settings/main", clone(normalize(b.settings))]);
+    }
+    const nombres = ["days", ...COLLS];
+    const listas = await Promise.all(nombres.map(n => state.db.collection(n).get()));
+    for (let i = 0; i < nombres.length; i++) {
+      const nombre = nombres[i], locales = b[nombre] || {}, docs = listas[i].docs.map(d => d.data());
+      const ids = new Set(docs.map(d => nombre === "days" ? d && d.date : d && d.id).filter(Boolean).map(String));
+      const sinId = docs.some(d => !d || !(nombre === "days" ? d.date : d.id));
+      for (const id of Object.keys(locales)) {
+        if (ids.has(id)) { omitidos++; continue; }
+        const ruta = nombre + "/" + id;
+        if (sinId && (await state.db.doc(ruta).get()).exists) { omitidos++; continue; }
+        const dato = nombre === "days" ? clone(locales[id]) : Object.assign(clone(locales[id]), { id });
+        pares.push([ruta, dato]);
+      }
+    }
+    let escritos = 0, fallos = 0;
+    for (const [ruta, dato] of pares) {
+      try { if (await state.db.doc(ruta).create(dato)) escritos++; else omitidos++; }
+      catch (e) { fallos++; }
+    }
+    return { escritos, fallos, omitidos };
+  }
   $("auSubir").addEventListener("click", function () {
     const lc = localCuenta();
     if (this.dataset.armed !== "1") { this.dataset.armed = "1"; this.textContent = `¿Subir ${plu(lc.n, "registro", "registros")}? Pulsa otra vez`; return; }
@@ -2475,8 +2646,8 @@
       const l = lsRead(), b = { settings: state.cfgRemota ? null : (l.settings || null), days: l.days || {} };
       COLLS.forEach(n => { b[n] = l[n] || {}; });
       auDi("Subiendo…");
-      const r = await applyBundleDb(b);
-      auDi(`Subido: ${plu(r.escritos, "registro", "registros")}${r.fallos ? `, ${r.fallos} con error` : ""}. Siguen también en este navegador. Recargando…`, r.fallos ? "bad" : "good");
+      const r = await uploadOnlyMissing(b);
+      auDi(`Subido: ${plu(r.escritos, "registro", "registros")}; ${r.omitidos} coincidencias conservadas${r.fallos ? `, ${r.fallos} con error` : ""}. Los datos locales siguen guardados. Recargando…`, r.fallos ? "bad" : "good");
       setTimeout(() => location.reload(), 1500);
     });
   });
@@ -4681,7 +4852,9 @@
     const banner = $("closedBanner"); banner.hidden = !d.closed;
     if (d.closed) { const r = Number(d.result) || 0; banner.className = "closed-banner" + (r < 0 || d.broke ? " red" : ""); banner.textContent = d.broke ? `Sesión cerrada con regla rota. ${money(r)}. Mañana la lista empieza de cero.` : r >= 0 ? `Sesión cerrada en verde: ${money(r)}. Ya está. No se vuelve a abrir la plataforma.` : `Sesión cerrada en rojo: ${money(r)}. Dentro del límite, mañana se repite el proceso.`; }
     $("jClose").hidden = d.closed; $("jReopen").hidden = !d.closed;
-    [jResult, jTrades, jNote, jBroke].forEach(el => { el.disabled = d.closed; });
+    const cargando = !state.demo && state.nube && (!state.dayKnown || !state.cfgConocida);
+    [jResult, jTrades, jNote, jBroke].forEach(el => { el.disabled = d.closed || cargando; });
+    $("jClose").disabled = cargando; $("jReopen").disabled = cargando;
     renderDaySync();
     fillQtDest(); fillQtAccount(); renderQtNote();
     try { paintGateButtons(); } catch (e) { }
@@ -7255,6 +7428,7 @@
     selectedAccountId() { return ft.acct && ft.acct !== "__none" && acctById(ft.acct) ? ft.acct : ""; },
     selectedAccount() { const id = FUT.selectedAccountId(); return id ? acctById(id) : null; },
     setSelectedAccount(id) {
+      if (state.nube && !state.cfgConocida) return false;
       const v = id == null ? "" : String(id);
       if (ft.acct === v) return false;
       ft.acct = v;
@@ -7268,6 +7442,10 @@
 
     // ── escrituras: TODAS pasan por coll("trades") / state.settings ──
     createTrade(t) {
+      if (state.nube && !coll("trades").loaded) {
+        flash("Las operaciones todavía están cargando. No se creó ninguna.");
+        return null;
+      }
       const id = t && t.id ? t.id : uid("t");
       coll("trades").set(id, Object.assign({ type: "futuros", createdAt: Date.now() }, t, { id }));
       return id;
@@ -7279,6 +7457,10 @@
     deleteTrade(id) { if (!coll("trades").get(id)) return false; coll("trades").remove(id); return true; },
 
     createAccount(a) {
+      if (state.nube && !state.cfgConocida) {
+        flash("Las cuentas todavía están cargando. No se creó ninguna.");
+        return null;
+      }
       const id = a && a.id ? a.id : uid("a");
       const rec = Object.assign({ status: "evaluacion", total: 0, best: 0, ledger: [] }, a, { id });
       rec.status = migraEstado(rec.status, rec.kind);
@@ -7286,6 +7468,7 @@
       persistSettings(); fanout(FANOUT_SEL); return id;
     },
     updateAccount(id, patch) {
+      if (state.nube && !state.cfgConocida) return false;
       const a = acctById(id); if (!a) return false;
       Object.assign(a, patch); persistSettings(); fanout(FANOUT_SEL); return true;
     },
@@ -7295,6 +7478,7 @@
        desaparece de toda estadística de cuenta sin que nadie lo diga. Así que
        se devuelve qué se quedó suelto, para que quien borre lo vea. */
     deleteAccount(id) {
+      if (state.nube && !state.cfgConocida) return false;
       const arr = state.settings.accounts, i = arr.findIndex(x => x.id === id);
       if (i < 0) return false;
       const huerfanas = tradesOf("futuros").filter(t => t.accountId === id);
