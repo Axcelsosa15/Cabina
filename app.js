@@ -7273,6 +7273,7 @@
     selectedAccountId() { return ft.acct && ft.acct !== "__none" && acctById(ft.acct) ? ft.acct : ""; },
     selectedAccount() { const id = FUT.selectedAccountId(); return id ? acctById(id) : null; },
     setSelectedAccount(id) {
+      if (state.nube && !state.cfgConocida) return false;
       const v = id == null ? "" : String(id);
       if (ft.acct === v) return false;
       ft.acct = v;
@@ -7286,6 +7287,10 @@
 
     // ── escrituras: TODAS pasan por coll("trades") / state.settings ──
     createTrade(t) {
+      if (state.nube && !coll("trades").loaded) {
+        flash("Las operaciones todavía están cargando. No se creó ninguna.");
+        return null;
+      }
       const id = t && t.id ? t.id : uid("t");
       coll("trades").set(id, Object.assign({ type: "futuros", createdAt: Date.now() }, t, { id }));
       return id;
@@ -7297,6 +7302,10 @@
     deleteTrade(id) { if (!coll("trades").get(id)) return false; coll("trades").remove(id); return true; },
 
     createAccount(a) {
+      if (state.nube && !state.cfgConocida) {
+        flash("Las cuentas todavía están cargando. No se creó ninguna.");
+        return null;
+      }
       const id = a && a.id ? a.id : uid("a");
       const rec = Object.assign({ status: "evaluacion", total: 0, best: 0, ledger: [] }, a, { id });
       rec.status = migraEstado(rec.status, rec.kind);
@@ -7304,6 +7313,7 @@
       persistSettings(); fanout(FANOUT_SEL); return id;
     },
     updateAccount(id, patch) {
+      if (state.nube && !state.cfgConocida) return false;
       const a = acctById(id); if (!a) return false;
       Object.assign(a, patch); persistSettings(); fanout(FANOUT_SEL); return true;
     },
@@ -7313,6 +7323,7 @@
        desaparece de toda estadística de cuenta sin que nadie lo diga. Así que
        se devuelve qué se quedó suelto, para que quien borre lo vea. */
     deleteAccount(id) {
+      if (state.nube && !state.cfgConocida) return false;
       const arr = state.settings.accounts, i = arr.findIndex(x => x.id === id);
       if (i < 0) return false;
       const huerfanas = tradesOf("futuros").filter(t => t.accountId === id);
