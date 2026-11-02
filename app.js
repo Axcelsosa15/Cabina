@@ -413,12 +413,31 @@
   }
 
   const LS_KEY = "cabina-mnq:v1";
-  function lsRead() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "null") || {}; } catch { return {}; } }
+  /* Nunca convertir un JSON local ilegible en un objeto nuevo que luego
+     reemplace el original. Se bloquea la escritura hasta restaurar una copia. */
+  let lsCorrupto = false;
+  function lsRead() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw === null) return {};
+      const obj = JSON.parse(raw);
+      if (!obj || typeof obj !== "object" || Array.isArray(obj)) throw new Error("json_local_invalido");
+      return obj;
+    } catch (e) {
+      lsCorrupto = true;
+      lsMotivo = "datos_locales_ilegibles";
+      return {};
+    }
+  }
   /* lsWrite dice si pudo escribir, y el almacén local convierte un «no» en un
      error con su motivo (almacenamiento lleno, modo privado): la puerta de
      escritura lo recibe y lo dice, en vez de afirmar «guardado». */
   let lsMotivo = "";
-  function lsWrite(obj) { try { localStorage.setItem(LS_KEY, JSON.stringify(obj)); lsMotivo = ""; return true; } catch (e) { lsMotivo = (e && e.name) || "almacenamiento lleno"; return false; } }
+  function lsWrite(obj) {
+    if (lsCorrupto) { lsMotivo = "datos_locales_ilegibles"; return false; }
+    try { localStorage.setItem(LS_KEY, JSON.stringify(obj)); lsMotivo = ""; return true; }
+    catch (e) { lsMotivo = (e && e.name) || "almacenamiento lleno"; return false; }
+  }
   const timers = {};
   function debounce(key, fn, ms) { clearTimeout(timers[key]); timers[key] = setTimeout(fn, ms); }
   function flash(msg) { const el = $("jSaved"); el.textContent = msg; clearTimeout(timers.flash); timers.flash = setTimeout(() => { el.textContent = ""; }, 2500); }
@@ -1136,6 +1155,13 @@
         /* Sin la columna `version` la base no puede detectar que dos dispositivos
            escriben el mismo documento, y eso hay que decirlo en vez de callarlo. */
         + (nube.occ === false ? " AVISO: esta base todavía no detecta si otro dispositivo cambió un documento, así que con dos abiertos a la vez un cambio puede perderse. Falta aplicar la migración de la versión." : "");
+      return;
+    }
+    if (state.store === "local" && lsCorrupto) {
+      el.textContent = "DATOS LOCALES ILEGIBLES";
+      el.className = "save-state nosave";
+      f.className = "nosave";
+      f.textContent = "Cabina no puede leer el archivo local y ha BLOQUEADO las escrituras para no reemplazarlo. Conserva el navegador y copia la clave cabina-mnq:v1 antes de cualquier restauración.";
       return;
     }
     if (state.store === "local") { el.textContent = "guardado local"; el.className = "save-state"; f.textContent = "Guardado solo en este navegador. Tus operaciones no se envían a ningún servidor."; }
