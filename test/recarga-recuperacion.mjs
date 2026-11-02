@@ -70,7 +70,7 @@ try {
       'recarga ' + (i + 1) + ' conserva exactamente los datos de la nube');
   }
   ok(!d.e.filas.has(uid + '|trades/phantom_on_reload'), 'nunca publica el intento prematuro');
-  const mutaciones = d.e.pedidas.filter(r => /^\\/(rest|storage)\\//.test(r.ruta) && /^(POST|PATCH|DELETE)$/.test(r.m));
+  const mutaciones = d.e.pedidas.filter(r => (r.ruta.startsWith('/rest/') || r.ruta.startsWith('/storage/')) && ['POST','PATCH','DELETE'].includes(r.m));
   ok(mutaciones.length === 0, 'recargar sin editar nunca escribe, reemplaza ni borra documentos');
   ok(errors.length === 0, 'sin errores JavaScript de página');
 } finally {
