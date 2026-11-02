@@ -25,7 +25,7 @@ try {
  check(inicial.raw==='{datos_originales_ilegibles','los bytes originales continúan');
  check(/ILEGIBLES/.test(inicial.label)&&/BLOQUEADO/.test(inicial.note),'advierte que la copia local es ilegible y está protegida');
  await p.evaluate(()=>FUT.createTrade({type:'futuros',instrument:'MNQ',date:'2026-11-01',qty:1,entry:20000,exit:20005}));
- await p.waitForTimeout(200);
+ await p.waitForFunction(() => /SIN GUARDAR/i.test(document.getElementById('saveState').textContent));
  const despues=await p.evaluate(()=>({
    raw:localStorage.getItem('cabina-mnq:v1'),
    label:document.getElementById('saveState').textContent

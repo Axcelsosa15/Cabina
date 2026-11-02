@@ -20,10 +20,10 @@ const browser = await chromium.launch();
 const ctx = await browser.newContext();
 const remote = nubeDoble();
 const uid = await remote.conSesion(ctx, 'incidente-503@ejemplo.invalid');
-remote.siembra(uid,'settings/main', { meta:{title:'Mi cuenta'},accounts:[{id:'lucidflex25',name:'LucidFlex 25K'}],updatedAt:1000 });
+remote.siembra(uid,'settings/main', { meta:{title:'Mi cuenta'},accounts:[{id:'prop25',name:'Cuenta de prueba 25K'}],updatedAt:1000 });
 const expected = ['t1','t2','t3','t4','t5','t6'];
 for (const [i,id] of expected.entries()) remote.siembra(uid, 'trades/' + id, {
-  id, type:'futuros', accountId:'lucidflex25', date:'2026-10-'+(25+i),
+  id, type:'futuros', accountId:'prop25', date:'2026-10-'+(25+i),
   instrument:'MNQ',qty:1,entry:20000,exit:20010,pnl:20,updatedAt:1000+i
 });
 remote.e.lecturasRotas = 'trades';

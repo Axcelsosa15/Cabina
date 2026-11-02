@@ -25,9 +25,20 @@ await ctx.addInitScript(() => localStorage.setItem('cabina-mnq:v1', JSON.stringi
   settings: {meta:{title:'LOCAL'},accounts:[{id:'local',name:'Local'}]},
   trades: {
     coincide: {id:'coincide',type:'futuros',date:'2026-10-20',instrument:'MNQ',pnl:-999,note:'incorrecto'},
-    nuevo: {id:'nuevo',type:'futuros',date:'2026-10-21',instrument:'MNQ',pnl:25,note:'recuperar'}
+    nuevo: {id:'nuevo',type:'futuros',date:'2026-10-21',instrument:'MNQ',pnl:25,note:'recuperar'},
+    carrera: {id:'carrera',type:'futuros',date:'2026-10-22',instrument:'MNQ',pnl:-999,note:'local antiguo'}
   }
 })));
+let carrera = false;
+await ctx.route('**/rest/v1/cabina_docs*', async route => {
+  const req = route.request(), u = new URL(req.url());
+  const escribe = req.method() === 'POST' && req.postDataJSON()?.path === 'trades/carrera';
+  if (!carrera && (escribe || (req.method() === 'GET' && u.searchParams.get('path') === 'eq.trades/carrera'))) {
+    carrera = true;
+    d.siembra(uid, 'trades/carrera', {id:'carrera',type:'futuros',date:'2026-10-22',instrument:'MNQ',pnl:77,note:'creado en otro dispositivo'});
+  }
+  await route.fallback();
+});
 const p = await ctx.newPage();
 const errors = [];
 p.on('pageerror', e => errors.push(e.message));
@@ -40,13 +51,15 @@ try {
   });
   await p.click('#auSubir');
   await p.click('#auSubir');
-  await p.waitForFunction(() => window.FUT && FUT.trades().some(t => t.id === 'nuevo'), null, {timeout:12000});
+  await p.waitForFunction(() => document.getElementById('auMsg').textContent.startsWith('Subido:'), null, {timeout:12000});
   const existing = d.e.filas.get(uid+'|trades/coincide')?.data;
   const imported = d.e.filas.get(uid+'|trades/nuevo')?.data;
   const config = d.e.filas.get(uid+'|settings/main')?.data;
   check(existing?.note === 'no sobrescribir' && existing?.pnl === 30, 'colisión conservada en nube');
   check(imported?.note === 'recuperar' && imported?.pnl === 25, 'trade local ausente importado');
   check(config?.meta?.title === 'REMOTO' && config?.accounts?.[0]?.id === 'cloud', 'configuración de nube sin alterar');
+  check(carrera && d.e.filas.get(uid+'|trades/carrera')?.data?.pnl === 77,
+    'conserva también un ID creado en otro dispositivo después de la vista previa');
   const trash = d.e.pedidas.filter(r => r.m==='DELETE' && r.ruta.startsWith('/rest/'));
   check(trash.length === 0, 'la recuperación nunca borra documentos');
   check(errors.length === 0, 'sin errores JavaScript');
