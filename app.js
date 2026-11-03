@@ -2717,7 +2717,7 @@
     switchingTabScroll = true;
     state.tab = name;
     document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
-    document.querySelectorAll(".tabbtn").forEach(b => {
+    document.querySelectorAll("#tabnav .tabbtn").forEach(b => {
       const active = b.dataset.tab === name;
       b.classList.toggle("active", active);
       if (active) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
@@ -2923,6 +2923,10 @@
     }
     applyColumnPrefs();
   }
+  function viewTabLabel(tabName) {
+    const button = document.querySelector('#tabnav .tabbtn[data-tab="' + tabName + '"]');
+    return (button?.getAttribute("title") || button?.textContent || tabName).replace(/\s+/g, " ").trim();
+  }
   function renderViewPrefs() {
     if (!viewPrefsRoot || !viewPrefsList) return;
     const tabName = state.tab || "cabina";
@@ -2964,9 +2968,10 @@
     const tabsWithTables = Array.from(document.querySelectorAll(".tab")).map(tab => ({
       tab,
       tabName: tab.dataset.tab || "cabina",
-      tabLabel: (document.querySelector('#tabnav .tabbtn[data-tab="' + (tab.dataset.tab || "cabina") + '"]')?.textContent || tab.dataset.tab || "Cabina").replace(/\s+/g, " ").trim(),
+      tabLabel: viewTabLabel(tab.dataset.tab || "cabina"),
       tables: Array.from(tab.querySelectorAll("table"))
-    })).filter(item => item.tables.length);
+    })).filter(item => item.tables.length)
+      .sort((a, b) => Number(b.tabName === tabName) - Number(a.tabName === tabName));
     let columnCount = 0;
     tabsWithTables.forEach(({tab, tabName: tableTabName, tabLabel, tables}) => {
       const tabHeading = document.createElement("strong");
@@ -3016,7 +3021,7 @@
       columnGroup.append(empty);
     }
     viewPrefsList.append(columnGroup);
-    document.getElementById("viewPrefsNote").textContent = "Pestaña: " + (document.querySelector('#tabnav .tabbtn.active')?.textContent || tabName).replace(/\s+/g," ").trim() + ". Los módulos ocultos conservan sus datos y vuelven al activar Mostrar.";
+    document.getElementById("viewPrefsNote").textContent = "Pestaña: " + viewTabLabel(tabName) + ". Los módulos ocultos conservan sus datos y vuelven al activar Mostrar.";
   }
   function openViewPrefs() {
     viewPrefsReturnFocus = document.activeElement;
@@ -4808,6 +4813,10 @@
     return a ? (a.name || a.firm || "cuenta") : null;
   }
   $("addAcct").addEventListener("click", () => openAccountEditor(null));
+  // El estado vacío se repinta: delegar en el contenedor estable.
+  $("cuCajaNota").addEventListener("click", e => {
+    if (e.target.closest("[data-open-account]")) openAccountEditor(null);
+  });
   // el menú ··· se cierra al tocar fuera o con Escape
   /* Cerrar un menú toca DOS cosas —el DOM, que es lo que se ve ahora, y
      `menuAbierto`, que es lo que sobrevive al siguiente repintado— así que pasa por
@@ -11325,9 +11334,9 @@
         + `<td class="r">${t.qty ?? "—"}</td>`
         + `<td class="r">${precio}</td>`
         + `<td class="r ${res > 0 ? "pos" : res < 0 ? "neg" : ""}">${res == null ? '<span class="dim">—</span>' : money(res, inv ? 2 : undefined)}</td>`
-        + `<td class="notes">${esc(nota || "")}</td></tr>`;
+        + `<td class="notes">${esc(nota || "")}</td><td class="act"><button type="button" class="btn ghost sm" data-hs-open aria-label="Abrir operación ${esc(t.date || "")} ${esc(inv ? t.asset || "" : t.instrument || "")}">Abrir</button></td></tr>`;
     }).join("");
-    wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Cuenta</th><th>Activo</th><th>Op.</th><th class="r">Cant.</th><th class="r">Precio</th><th class="r">Resultado</th><th>Nota</th></tr></thead><tbody>${filas}</tbody></table>`
+    wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Cuenta</th><th>Activo</th><th>Op.</th><th class="r">Cant.</th><th class="r">Precio</th><th class="r">Resultado</th><th>Nota</th><th>Acción</th></tr></thead><tbody>${filas}</tbody></table>`
       + (total > visibles.length
         ? `<div style="padding:12px 0;text-align:center"><button type="button" class="btn ghost" id="hsMas">Mostrar ${Math.min(HS_TRAMO, total - visibles.length)} más · quedan ${total - visibles.length}</button></div>`
         : "");
@@ -12277,8 +12286,8 @@
     /* Las secciones de PB_KINDS son clases de activo. «Tesis» no lo es —es otra
        entidad— así que va separada, no como una novena clase. */
     const nt = coll("tesis").items.length;
-    $("pbNav").innerHTML = PB_KINDS.map(k => { const n = coll("playbooks").items.filter(x => pbKindOf(x) === k.id).length; return `<button type="button" class="tabbtn ${k.id === pb.view ? "active" : ""}" data-v="${k.id}">${esc(k.label)}${n ? `<span class="n">${n}</span>` : ""}</button>`; }).join("")
-      + `<span class="navsep" aria-hidden="true"></span><button type="button" class="tabbtn ${pb.view === "tesis" ? "active" : ""}" data-v="tesis" title="Una por jugada">Tesis${nt ? `<span class="n">${nt}</span>` : ""}</button>`;
+    $("pbNav").innerHTML = PB_KINDS.map(k => { const n = coll("playbooks").items.filter(x => pbKindOf(x) === k.id).length; return `<button type="button" class="tabbtn ${k.id === pb.view ? "active" : ""}" data-v="${k.id}" aria-pressed="${k.id === pb.view}">${esc(k.label)}${n ? `<span class="n">${n}</span>` : ""}</button>`; }).join("")
+      + `<span class="navsep" aria-hidden="true"></span><button type="button" class="tabbtn ${pb.view === "tesis" ? "active" : ""}" data-v="tesis" aria-pressed="${pb.view === "tesis"}" title="Una por jugada">Tesis${nt ? `<span class="n">${nt}</span>` : ""}</button>`;
   }
   function renderPlaybook() {
     if (pb.view === "tesis") { pintaPbNav(); renderTesis(); return; }
@@ -13096,7 +13105,11 @@
   function setCalcView(v) {
     cc.view = (v === "risk" || v === "trading") ? v : "classic";
     if (cc.view !== "risk") cc.mode = cc.view;
-    $("calcSeg").querySelectorAll("button").forEach(x => x.classList.toggle("active", x.dataset.v === cc.view));
+    $("calcSeg").querySelectorAll("button").forEach(x => {
+      const active = x.dataset.v === cc.view;
+      x.classList.toggle("active", active);
+      x.setAttribute("aria-pressed", String(active));
+    });
     $("calcProj").hidden = cc.view === "risk";
     $("calcRisk").hidden = cc.view !== "risk";
     $("calcHint").textContent = CALC_HINTS[cc.view] || "";

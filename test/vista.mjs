@@ -65,7 +65,9 @@ const mide = p => p.evaluate(() => {
   };
   let peor = null;
   for (const el of document.querySelectorAll('body *')) {
-    if (!el.offsetParent && el !== document.body) continue;
+    // offsetParent también existe para descendientes de <details> cerrado.
+    // Esos rectángulos no son contenido visible ni desbordan el documento.
+    if (!el.checkVisibility()) continue;
     const q = el.getBoundingClientRect();
     if (q.width === 0 || q.height === 0) continue;
     const exceso = Math.round(q.right - de.clientWidth);
@@ -86,6 +88,12 @@ const mide = p => p.evaluate(() => {
 
 for (const [w, h, nombre] of ANCHOS) {
   const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
+  // La geometría usa el payload publicado; una fuente externa bloqueada no
+  // debe dejar cada navegación esperando al proxy durante un minuto.
+  await ctx.route('**/*', route => {
+    const u = route.request().url();
+    return u.startsWith(BASE) || /^(data:|blob:)/.test(u) ? route.continue() : route.abort();
+  });
   const p = await ctx.newPage();
   const errs = [];
   p.on('pageerror', e => errs.push(e.message));
@@ -250,6 +258,9 @@ for (const [w, h, nombre] of ANCHOS) {
       await p.click(`[data-tab="${t}"]`);
     }
     await p.waitForTimeout(320);
+    if (t === 'historial') {
+      await p.locator('.ui-filter-details > summary').click();
+    }
     if (t === 'playbook') {
       await p.locator('#pbMoreActions > summary').click();
       const fits = await p.locator('#pbMoreActions button').evaluateAll(nodes => nodes.every(el => {

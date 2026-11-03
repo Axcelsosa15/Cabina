@@ -3445,8 +3445,8 @@ body { font-variant-numeric: tabular-nums lining-nums; }
   display: grid;
   align-content: end;
   gap: 5px;
-  flex: 0 1 158px;
-  min-width: 120px;
+  flex: 0 0 220px;
+  min-width: min(220px, 100%);
   max-width: 100%;
 }
 .tab .toolbar .cab-filter-field:has(input[type="search"]) { flex: 1 1 190px; }
@@ -3464,7 +3464,7 @@ body { font-variant-numeric: tabular-nums lining-nums; }
   margin: 0;
 }
 @media (max-width: 700px) {
-  .tab .toolbar .cab-filter-field { flex: 1 1 140px; }
+  .tab .toolbar .cab-filter-field { flex: 1 1 220px; min-width: 0; }
   .tab .toolbar .cab-filter-field:has(input[type="search"]) { flex-basis: 100%; }
 }
 /* Componentes globales de apariencia y filtros para ambos temas. */
@@ -5195,6 +5195,15 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
 @media (max-width: 520px) {
   .tab .acc-metrics { grid-template-columns: minmax(0, 1fr); }
 }
+/* Auditoría de producto: preservar unidades legibles en el historial. */
+#hsTabla table.t { min-width: 1060px; }
+#hsTabla table.t td:is(:nth-child(1), :nth-child(2), :nth-child(5), :nth-child(7), :nth-child(9)) {
+  white-space: nowrap;
+}
+#hsTabla table.t td.ui { min-width: 150px; overflow-wrap: break-word; word-break: normal; }
+#hsTabla table.t td.notes { min-width: 220px; }
+/* Las acciones pequeñas del registro deben poder pulsarse con el dedo. */
+#quickOv #qkClose, #quickOv .qkchips button { min-width: 44px; min-height: 44px; }
 </style>
 </head>
 <body>
