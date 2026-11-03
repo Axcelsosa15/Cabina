@@ -8,7 +8,7 @@ const browser = await chromium.launch();
 let fallos = 0;
 function ok(v, s) { console.log(`  ${v ? '✅' : '❌'} ${s}`); if (!v) fallos++; }
 try {
-  for (const width of [390, 820, 1366]) {
+  for (const width of [320, 390, 820, 834, 1366]) {
     const ctx = await browser.newContext({viewport:{width,height:950}});
     await ctx.route('**/*', r => r.request().url().startsWith(`http://127.0.0.1:${srv.address().port}/`) ? r.continue() : r.abort());
     const p = await ctx.newPage();
@@ -55,6 +55,11 @@ try {
     await p.locator('#demoToggle').click();
     await p.locator('#settingsDemoEnter').click();
     await ir('historial');
+    await p.locator('.ui-filter-details > summary').click();
+    ok(await p.locator('#hsDesde, #hsHasta').evaluateAll(es=>es.every(e=>{
+      const r=e.getBoundingClientRect(), l=e.parentElement.getBoundingClientRect();
+      return r.left >= -1 && r.right <= innerWidth+1 && l.right <= innerWidth+1;
+    })), `${width}px · fechas desplegadas dentro del viewport`);
     const dateOneLine = await p.locator('#hsTabla tbody tr:first-child td:first-child').evaluate(e=>{
       const r=document.createRange(); r.selectNodeContents(e);
       return r.getBoundingClientRect().height <= parseFloat(getComputedStyle(e).lineHeight)*1.2;

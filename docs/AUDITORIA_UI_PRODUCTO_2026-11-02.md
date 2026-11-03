@@ -11,7 +11,7 @@ Calculadora y Ajustes. Se comprobaron estados vacíos y registros de la demo,
 registro rápido, edición de operación y creación de estrategia. Los datos de la
 demo son inventados; no se modificaron operaciones reales.
 
-La revisión móvil/tablet se verifica con regresiones automatizadas a 390, 820 y
+La revisión móvil/tablet se verifica con regresiones automatizadas a 320, 390, 820, 834 y
 1366 px, además de las suites existentes de distribución, contraste, tipografía,
 formularios y navegación. No equivale a una certificación WCAG ni a una prueba
 manual en cada dispositivo físico o de todas las combinaciones de datos.
@@ -35,11 +35,24 @@ ocho grupos de defectos en total.
 
 ## Validación reproducible
 
-`node test/auditoria-producto-ui.mjs`: 44 comprobaciones; en el código anterior
-fallan 34, en el corregido pasan todas. Cubre categoría al entrar y regresar,
+`node test/auditoria-producto-ui.mjs`: ampliada a 77 comprobaciones. La versión
+inicial de 44 detectó 34 fallos en el código anterior y pasó completa en el
+corregido. Cubre categoría al entrar y regresar,
 apertura del editor desde Cuentas vacías, filtros legibles, selección accesible
 en Calculadora, tamaños táctiles, fechas, acceso por teclado, prioridades de Vista y ausencia de overflow del documento.
 
 La compuerta completa es obligatoria antes de publicar. La verificación final en
 el navegador debe comprobar la versión efectivamente servida, porque un test
 local no demuestra que el despliegue haya terminado.
+
+## Estabilidad de las pruebas completas
+
+La primera corrida de GitHub detectó dos precondiciones de prueba inestables:
+`vista` contaba rectángulos dentro de un `details` cerrado; ahora usa visibilidad
+real y comprueba también el filtro de fechas abierto. Se bloquea la red externa
+en esa suite: mide el payload publicado, no el tiempo de respuesta de fuentes.
+`conflicto` requería un dispositivo rezagado pero lo dejaba visible, permitiendo
+que el refresco automático de 20 s actualizase su versión antes de escribir.
+Se simula la pestaña en segundo plano y se conservan sus recargas explícitas y
+las comprobaciones de los datos del servidor. No se modifica la sincronización
+del producto para acomodar la prueba.

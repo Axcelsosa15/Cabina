@@ -56,6 +56,13 @@ const OP = (id, nota) => ({ id, type: 'futuros', instrument: 'MNQ', direction: '
 
 async function dispositivo(email) {
   const ctx = await nav.newContext();
+  // Este caso requiere un dispositivo que SIGA con su versión vieja. En CI
+  // los pasos pueden cruzar el tic de refresco de 20 s: entonces B ya leyó la
+  // nueva y guardar sin conflicto es correcto. Simular una pestaña en segundo
+  // plano mantiene esa precondición; las recargas explícitas siguen siendo reales.
+  await ctx.addInitScript(() => Object.defineProperty(document, 'visibilityState', {
+    configurable: true, get: () => 'hidden'
+  }));
   const uid = await d.conSesion(ctx, email);
   const p = await ctx.newPage();
   p.on('pageerror', e => errs.push(e.message));
