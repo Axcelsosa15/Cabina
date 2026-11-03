@@ -25,3 +25,13 @@ elegido. En el código corregido pasan las 30.
 Pasan también editor-abort-guard, editor-validacion y estudio-investigacion. La
 compuerta completa se ejecuta antes de integrar. La prueba automatizada no sustituye
 una certificación de accesibilidad ni una prueba en cada dispositivo físico.
+
+## Hallazgo de contraste durante la compuerta
+
+La primera compuerta pasó 102 de 103 suites y detectó un texto de sesión con
+contraste 1.63:1 sobre fondo claro. El estado dependía de la hora real de la
+corrida. `sesion-contraste.mjs` fija tres momentos (aviso, operativa, fuera de
+protocolo) en ambos temas: sus 12 comprobaciones detectan también el aviso claro
+que aquella corrida no mostraba. Ambos subtextos usaban colores RGBA fijos de la
+paleta oscura; ahora emplean los tokens semánticos del tema, sin transparencia.
+La prueba inicial detecta dos contrastes insuficientes de los seis estados.
