@@ -3183,6 +3183,7 @@
   /* =============================== GENERIC EDITOR =============================== */
   const ov = $("ov"); let edCfg = null, edReturnFocus = null;
   function openEditor(cfg) {
+    disarm($("edDelete"));
     const active = document.activeElement;
     edReturnFocus = active && active !== document.body && typeof active.focus === "function" ? active : null;
     edCfg = cfg;
@@ -3349,11 +3350,31 @@
     return out;
   }
   function closeEditor() {
+    disarm($("edDelete"));
     ov.classList.remove("open");
     edCfg = null;
     const back = edReturnFocus; edReturnFocus = null;
     if (back && back.isConnected && !back.disabled) back.focus();
   }
+  // Compartir la misma frontera de teclado entre editores y lectura.
+  function trapDialogFocus(event, dialog) {
+    if (event.key !== "Tab" || !dialog.classList.contains("open")) return;
+    const items = [...dialog.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]')]
+      .filter(el => el.tabIndex >= 0 && (el.checkVisibility ? el.checkVisibility() : el.getClientRects().length > 0));
+    if (!items.length) { event.preventDefault(); return; }
+    const first = items[0], last = items[items.length - 1], active = document.activeElement;
+    if (event.shiftKey && (active === first || !dialog.contains(active))) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
+      event.preventDefault(); first.focus();
+    }
+  }
+  function returnDialogFocus(target, fallback) {
+    const usable = target && target.isConnected && !target.disabled &&
+      (target.checkVisibility ? target.checkVisibility() : target.getClientRects().length > 0);
+    if (usable) target.focus(); else if (fallback) fallback.focus();
+  }
+  ov.addEventListener("keydown", e => trapDialogFocus(e, ov));
   $("edClose").addEventListener("click", closeEditor);
   $("edCancel").addEventListener("click", closeEditor);
   ov.addEventListener("click", e => { if (e.target === ov) closeEditor(); });
@@ -3424,7 +3445,19 @@
       field.focus();
     } else summary.focus();
   }
-  function armed(btn) { if (btn.dataset.armed === "1") return true; btn.dataset.armed = "1"; const old = btn.textContent; btn.textContent = "¿borrar?"; setTimeout(() => { btn.dataset.armed = ""; btn.textContent = old; }, 3000); return false; }
+  const armados = new WeakMap();
+  function disarm(btn) {
+    const saved = armados.get(btn);
+    if (saved) { clearTimeout(saved.timer); btn.textContent = saved.label; armados.delete(btn); }
+    btn.dataset.armed = "";
+  }
+  function armed(btn) {
+    if (btn.dataset.armed === "1") return true;
+    const label = btn.textContent;
+    btn.dataset.armed = "1"; btn.textContent = "¿borrar?";
+    armados.set(btn, { label, timer: setTimeout(() => disarm(btn), 3000) });
+    return false;
+  }
   function move(arr, i, dir) { const j = i + dir; if (j < 0 || j >= arr.length) return false; [arr[i], arr[j]] = [arr[j], arr[i]]; return true; }
 
   /* =============================== CABINA: EDIT MODE =============================== */
@@ -17454,9 +17487,11 @@
     }
     renderEstudioFlash();renderEstudioTrades();
   }
-  let estudioReaderId="";
+  let estudioReaderId="", estudioReaderReturnFocus=null, estudioEditorReturnFocus=null;
   function estudioReader(id){
-    const d=coll("research").get(id);if(!d)return;estudioReaderId=id;
+    const d=coll("research").get(id);if(!d)return;
+    if(!$("studyReader").classList.contains("open"))estudioReaderReturnFocus=document.activeElement;
+    estudioReaderId=id;
     const sections=[["question","Pregunta / resumen",d.question],["evidence","Evidencia / hechos",d.evidence],["catalysts","Catalizadores",d.catalysts],["counter","Antítesis / riesgos",d.counter],["conclusion","Interpretación / conclusión",d.conclusion],["prompt","Pregunta de recuperación",d.prompt],["answer","Respuesta",d.answer]].filter(x=>String(x[2]||"").trim());
     const total=sections.reduce((n,x)=>n+String(x[2]).length,0),toc=$("studyReaderToc");
     $("studyReaderTitle").textContent=d.title||"Documento de estudio";
@@ -17465,16 +17500,35 @@
     $("studyReaderContent").innerHTML=sections.map(x=>'<section id="study-reader-'+x[0]+'" style="margin:0 0 22px"><h4 style="font-size:15px;letter-spacing:-.01em;margin:0 0 8px">'+estudioEsc(x[1])+'</h4><div>'+estudioEsc(x[2]).replace(/\n/g,"<br>")+'</div></section>').join("");
     const links=Array.isArray(d.links)?d.links:[],backs=estudioLista().filter(x=>x.id!==d.id&&Array.isArray(x.links)&&x.links.some(l=>l&&l.type==="research"&&l.id===d.id));
     $("studyReaderContext").innerHTML='<strong style="display:block;margin-bottom:9px">Contexto</strong>'+(d.url&&urlNavegable(d.url)?'<p><a href="'+estudioEsc(d.url)+'" target="_blank" rel="noopener noreferrer">Abrir fuente ↗</a></p>':"")+(d.nextReview?'<p>Próxima revisión: '+estudioEsc(d.nextReview)+'</p>':"")+(Array.isArray(d.tags)&&d.tags.length?'<p>Etiquetas: '+estudioEsc(d.tags.join(", "))+'</p>':"")+(links.length?'<p><strong>Vinculado a</strong></p><ul>'+links.map(l=>'<li>'+estudioEsc(estudioLinkLabel(l))+'</li>').join("")+'</ul>':"")+(backs.length?'<p><strong>Referenciado por</strong></p><ul>'+backs.map(x=>'<li><button type="button" data-study-reader-open="'+estudioEsc(x.id)+'" style="border:0;background:transparent;color:var(--accent);cursor:pointer;text-align:left;padding:0">'+estudioEsc(x.title||"Documento")+'</button></li>').join("")+'</ul>':"");
-    $("studyReader").classList.add("open");
+    $("studyReader").classList.add("open");$("studyReaderClose").focus();
   }
-  $("studyReaderClose").addEventListener("click",()=>$("studyReader").classList.remove("open"));
-  $("studyReaderCloseBottom").addEventListener("click",()=>$("studyReader").classList.remove("open"));
-  $("studyReader").addEventListener("click",e=>{if(e.target===$("studyReader"))$("studyReader").classList.remove("open");});
-  $("studyReaderEdit").addEventListener("click",()=>{const id=estudioReaderId;$("studyReader").classList.remove("open");estudioEditor(id);});
+  function estudioReaderCerrar(restore=true){
+    if(!$("studyReader").classList.contains("open"))return;
+    $("studyReader").classList.remove("open");
+    const back=estudioReaderReturnFocus;estudioReaderReturnFocus=null;
+    if(restore)returnDialogFocus(back,$("studyNew"));
+  }
+  $("studyReader").addEventListener("keydown",e=>{
+    if(e.key==="Escape"){e.preventDefault();e.stopPropagation();estudioReaderCerrar();}
+    else trapDialogFocus(e,$("studyReader"));
+  });
+  $("studyReaderClose").addEventListener("click",()=>estudioReaderCerrar());
+  $("studyReaderCloseBottom").addEventListener("click",()=>estudioReaderCerrar());
+  $("studyReader").addEventListener("click",e=>{if(e.target===$("studyReader"))estudioReaderCerrar();});
+  $("studyReaderEdit").addEventListener("click",()=>{const id=estudioReaderId,back=estudioReaderReturnFocus;estudioReaderCerrar(false);estudioEditor(id,back);});
   $("studyReaderToc").addEventListener("click",e=>{const b=e.target.closest("button[data-study-reader-section]");if(!b)return;const el=$("study-reader-"+b.dataset.studyReaderSection);if(el)el.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});});
   $("studyReaderContext").addEventListener("click",e=>{const b=e.target.closest("button[data-study-reader-open]");if(b)estudioReader(b.dataset.studyReaderOpen);});
-  function estudioEditor(id){const d=estudioLista().find(x=>x.id===id)||{};$("studyForm").reset();$("studyId").value=d.id||"";$("studyType").value=d.type||"concept";$("studyStatus").value=d.status||"todo";$("studyTitle").value=d.title||"";$("studyQuestion").value=d.question||"";$("studyTags").value=(d.tags||[]).join(", ");$("studyUrl").value=d.url||"";$("studyAuthor").value=d.author||"";$("studyPublishedAt").value=d.publishedAt||"";$("studyConsultedAt").value=d.consultedAt||"";$("studyNextReview").value=d.nextReview||"";$("studyEvidence").value=d.evidence||"";$("studyCatalysts").value=d.catalysts||"";$("studyCounter").value=d.counter||"";$("studyConclusion").value=d.conclusion||"";$("studyPrompt").value=d.prompt||"";$("studyAnswer").value=d.answer||"";estudioLinkCurrentId=id||"";estudioLinksDraft=Array.isArray(d.links)?d.links.map(x=>({type:x.type,id:x.id})).filter(x=>x.type&&x.id):[];estudioRenderLinkTargets();estudioRenderLinkList();$("studyModalTitle").textContent=id?"Editar documento":"Nuevo documento de estudio";$("studyDelete").hidden=!id;$("studyModal").classList.add("open");$("studyTitle").focus();}
-  function estudioCerrar(){$("studyModal").classList.remove("open");}
+  function estudioEditor(id,returnFocus){estudioEditorReturnFocus=returnFocus||document.activeElement;const d=estudioLista().find(x=>x.id===id)||{};$("studyForm").reset();$("studyId").value=d.id||"";$("studyType").value=d.type||"concept";$("studyStatus").value=d.status||"todo";$("studyTitle").value=d.title||"";$("studyQuestion").value=d.question||"";$("studyTags").value=(d.tags||[]).join(", ");$("studyUrl").value=d.url||"";$("studyAuthor").value=d.author||"";$("studyPublishedAt").value=d.publishedAt||"";$("studyConsultedAt").value=d.consultedAt||"";$("studyNextReview").value=d.nextReview||"";$("studyEvidence").value=d.evidence||"";$("studyCatalysts").value=d.catalysts||"";$("studyCounter").value=d.counter||"";$("studyConclusion").value=d.conclusion||"";$("studyPrompt").value=d.prompt||"";$("studyAnswer").value=d.answer||"";estudioLinkCurrentId=id||"";estudioLinksDraft=Array.isArray(d.links)?d.links.map(x=>({type:x.type,id:x.id})).filter(x=>x.type&&x.id):[];estudioRenderLinkTargets();estudioRenderLinkList();$("studyModalTitle").textContent=id?"Editar documento":"Nuevo documento de estudio";$("studyDelete").hidden=!id;$("studyModal").classList.add("open");$("studyTitle").focus();}
+  function estudioCerrar(){
+    if(!$("studyModal").classList.contains("open"))return;
+    $("studyModal").classList.remove("open");
+    const back=estudioEditorReturnFocus;estudioEditorReturnFocus=null;
+    returnDialogFocus(back,$("studyNew"));
+  }
+  $("studyModal").addEventListener("keydown",e=>{
+    if(e.key==="Escape"){e.preventDefault();e.stopPropagation();estudioCerrar();}
+    else trapDialogFocus(e,$("studyModal"));
+  });
   $("studyLinkType").addEventListener("change",estudioRenderLinkTargets);
   $("studyLinkAdd").addEventListener("click",e=>{e.preventDefault();const type=$("studyLinkType").value,id=$("studyLinkTarget").value;if(!id)return;if(estudioLinksDraft.some(x=>x.type===type&&x.id===id))return;estudioLinksDraft.push({type,id});estudioRenderLinkList();});
   $("studyLinksList").addEventListener("click",e=>{const b=e.target.closest("button[data-study-link-remove]");if(!b)return;estudioLinksDraft.splice(Number(b.dataset.studyLinkRemove),1);estudioRenderLinkList();});
