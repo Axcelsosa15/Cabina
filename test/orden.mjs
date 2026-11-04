@@ -54,6 +54,13 @@ await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(
 await p.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(JSON.stringify(SEMILLA))});}catch(e){}`);
 await p.goto('file://' + process.cwd() + '/../index.html'); await arrancada(p, '.tabbtn');
 await p.click('.tabbtn[data-tab="futuros"]'); await quieto(p);
+await p.selectOption('#ftAcct', 'b2');
+await p.waitForFunction(() => document.querySelectorAll('#ftAccts .facct').length === 1 && document.querySelector('#ftAccts .facct').dataset.id === 'b2');
+ok(await p.locator('#ftAccts .facct').count() === 1 && await p.locator('#ftAccts .facct').getAttribute('data-id') === 'b2', 'el filtro de cuenta también filtra las tarjetas');
+ok(await p.locator('#ftAccts .facct').evaluate(el => getComputedStyle(el).opacity) === '1', 'la tarjeta de evaluación mantiene contraste completo');
+await p.selectOption('#ftAcct', '');
+await p.waitForFunction(() => document.querySelectorAll('#ftAccts .facct').length === 2);
+ok(await p.locator('#ftAccts .facct').count() === 2, 'quitar el filtro devuelve ambas tarjetas', await p.locator('#ftAccts .facct').evaluateAll(es => es.map(e => e.dataset.id).join(',')));
 await p.click('#ftSeg button[data-v="diario"]'); await quieto(p);
 
 const ids = () => p.$$eval('#jrTable tbody tr[data-id]', n => n.map(x => x.dataset.id));
