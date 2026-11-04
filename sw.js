@@ -66,8 +66,20 @@ self.addEventListener('activate', function (e) {
 function deLaRedPrimero(req) {
   return fetch(req).then(function (res) {
     if (res && res.status === 200 && res.type === 'basic') {
-      var copia = res.clone();
-      caches.open(CACHE).then(function (c) { c.put(req, copia); });
+      return caches.open(CACHE).then(function (c) {
+        var escrituras = [c.put(req, res.clone())];
+        var ruta = new URL(req.url).pathname;
+        var inicio = new URL('./', self.location.href).pathname;
+        var indice = new URL('./index.html', self.location.href).pathname;
+        /* La entrada /Cabina/ y index.html son la misma aplicación. Renovar
+           sólo la primera deja al comparador leyendo una copia antigua.
+           Las páginas legales nunca reemplazan esta referencia. */
+        if (req.mode === 'navigate' && (ruta === inicio || ruta === indice)) {
+          escrituras.push(c.put('./', res.clone()));
+          escrituras.push(c.put('./index.html', res.clone()));
+        }
+        return Promise.all(escrituras).then(function () { return res; });
+      }).catch(function () { return res; });
     }
     return res;
   }).catch(function () {
