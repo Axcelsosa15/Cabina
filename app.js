@@ -7967,7 +7967,12 @@
     const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     const pinta = (id, u) => document.querySelectorAll("img[data-shot]").forEach(img => {
       if (img.dataset.shot === id) { img.src = u; img.removeAttribute("data-shot"); } });
-    const blob = id => nubeFetch(O + "/authenticated/" + ruta(id), { blob: true, headers: { "content-type": undefined } });
+    const blob = async id => {
+      const b = await nubeFetch(O + "/authenticated/" + ruta(id), { blob: true, headers: { "content-type": undefined } });
+      // Una respuesta vacía no debe quedar en caché: el reintento debe volver a Storage.
+      if (!b.size || !/^image\/(png|jpeg|webp|gif)$/i.test(b.type)) throw new Error("captura vacía o tipo no admitido");
+      return b;
+    };
     return {
       url: id => urls.get(id) || null,
       blob: id => blobs.has(id) ? Promise.resolve(blobs.get(id)) : blob(id),
@@ -13913,6 +13918,8 @@
     /* Sin esta línea el respaldo no se lleva las tesis: exportar diría «todo» y
        dejaría fuera el trabajo de investigación, que es lo más caro de rehacer. */
     ["tesis", "tesis", "tesis"],
+    ["credo", "regla personal", "reglas personales"],
+    ["research", "documento de estudio", "documentos de estudio"],
   ];
 
   /* CATÁLOGO DE ZONAS. Cada zona es un trozo de pantalla con nombre y la función
@@ -15503,7 +15510,7 @@
     try { localStorage.removeItem(CREDO_VISTO); } catch { }
     renderCredo();
   });
-  coll("credo").subscribe(() => fanout([Z.credo]));
+  coll("credo").subscribe(() => fanout([Z.credo, Z.respaldo]));
 
   coll("playbooks").subscribe(() => fanout([Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.edge, Z.estudio]));
   coll("ideas").subscribe(() => fanout([Z.ideas, Z.contadores]));
@@ -16886,7 +16893,15 @@
     }
   }
   function imagesOf(rec) { return rec && Array.isArray(rec.images) ? rec.images : []; }
-  function eachImage(b, fn) { ["trades", "playbooks"].forEach(n => Object.values(b[n] || {}).forEach(r => imagesOf(r).forEach(fn))); }
+  function eachImage(b, fn) {
+    ["trades", "playbooks", "research"].forEach(n => Object.values(b[n] || {}).forEach(r => {
+      imagesOf(r).forEach(fn);
+      // Las capturas propias de ESTUDIO viven en scenes, no en trade.images.
+      if (n === "research" && r && r.scenes && typeof r.scenes === "object" && !Array.isArray(r.scenes)) {
+        Object.values(r.scenes).forEach(scene => { if (Array.isArray(scene)) scene.forEach(fn); });
+      }
+    }));
+  }
   async function buildBundle(opts) {
     opts = opts || {};
     const days = {};
@@ -16920,6 +16935,7 @@
         if (!imgValida(im)) { failed++; done++; continue; }
         if (!capt()) throw new Error("sin cuenta");
         const blob = await capt().blob(String(im.id));
+        if (!blob.size || !/^image\/(png|jpeg|webp|gif)$/i.test(blob.type)) throw new Error("captura vacía o ilegible");
         im.data = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.onerror = () => rej(fr.error); fr.readAsDataURL(blob); });
       } catch (e) { failed++; }
       done++;
@@ -16996,11 +17012,12 @@
       const st = bundleStats(b);
       const how = await bkDownload(txt, bkName());
       const perdidas = b.imagesInlined && b.imagesInlined.failed;
+      $("bkRetry").hidden = !perdidas;
       if (!perdidas) {
         try { localStorage.setItem(bkLastKey(), new Date().toISOString()); } catch (_) { /* Download completed; the date is optional local metadata. */ }
         renderBackup();
       }
-      bkSay(`Archivo ${how} · ${bkSize(txt)} · ${st.text}.` + (withImgs ? ` ${plu(st.inlined, "captura va dentro", "capturas van dentro")}${perdidas ? `, ${plu(perdidas, "no se pudo leer", "no se pudieron leer")}` : ""}.` : st.images ? ` ${plu(st.images, "captura se queda", "capturas se quedan")} en esta cabina.` : ""));
+      bkSay(`Archivo ${how} · ${bkSize(txt)} · ${st.text}.` + (withImgs ? ` ${plu(st.inlined, "captura va dentro", "capturas van dentro")}${perdidas ? `, ${plu(perdidas, "no se pudo leer", "no se pudieron leer")}. Copia incompleta: reintenta para incluirlas` : ""}.` : st.images ? ` ${plu(st.images, "captura se queda", "capturas se quedan")} en esta cabina.` : ""), !!perdidas);
     } catch (err) { bkSay("Error: " + bkDownloadErr(err), true); $("bkRetry").hidden = false; }
     bkExporting = false; btn.disabled = false; btn.textContent = $("bkRetry").hidden ? "Descargar copia" : "Reintentar";
   });
@@ -17391,7 +17408,8 @@
     const meta = $("bkMeta"); if (!meta) return;
     const parts = [];
     BK_PARTS.forEach(([k, one, many]) => { if (k === "days") return; const n = coll(k).items.length; if (n) parts.push(plu(n, one, many)); });
-    let imgs = 0; ["trades", "playbooks"].forEach(n => coll(n).items.forEach(r => { imgs += imagesOf(r).length; }));
+    let imgs = 0;
+    eachImage({ trades: coll("trades").items, playbooks: coll("playbooks").items, research: coll("research").items }, im => { if (hasImg(im)) imgs++; });
     meta.textContent = parts.length ? parts.join(" · ") + (imgs ? " · " + plu(imgs, "captura", "capturas") : "") : "sin datos todavía";
     const last = $("bkLastBackup");
     try { const date = localStorage.getItem(bkLastKey()); last.textContent = date && Number.isFinite(Date.parse(date)) ? "Último respaldo: " + new Date(date).toLocaleString(idioma() === "en" ? "en-US" : "es", { dateStyle: "medium", timeStyle: "short" }) + " · descarga iniciada" : "Último respaldo: Sin registrar"; }
@@ -17408,7 +17426,7 @@
     }
     const inote = $("bkImgsNote");
     inote.textContent = !imgs
-      ? "Todavía no hay capturas adjuntas a ninguna operación."
+      ? "Todavía no hay capturas adjuntas."
       : $("bkImgs").checked
         ? plu(imgs, "captura viaja", "capturas viajan") + " dentro del archivo. Pesa mucho más, pero la copia llega completa."
         : imgs === 1
@@ -17923,7 +17941,7 @@
       try { await pb.assets.delete(im.id); } catch (err) { estudioEscenaEstado("Captura quitada de la revisión; no se pudo liberar del almacenamiento."); }
     }
   });
-  coll("research").subscribe(()=>fanout([Z.estudio]));document.addEventListener("keydown",e=>{if(e.key==="Escape")estudioCerrar();});renderEstudio();
+  coll("research").subscribe(()=>fanout([Z.estudio,Z.respaldo]));document.addEventListener("keydown",e=>{if(e.key==="Escape")estudioCerrar();});renderEstudio();
 
   /* ── TILES SIN DATO ──────────────────────────────────────
      Con una cuenta nueva, 23 de los 27 tiles de la aplicación muestran «—»:
