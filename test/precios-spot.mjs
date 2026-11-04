@@ -13,7 +13,9 @@ try {
     await ctx.route('**/*', r => r.request().url().startsWith(base) ? r.continue() : r.abort());
     const p = await ctx.newPage(), errors = [];
     p.on('pageerror', e => errors.push(e.message));
-    await siembra(p, base, { settings: { ...structuredClone(CONFIG_PRUEBA), accounts: [] }, trades: {}, positions: {}, days: {} });
+    await siembra(p, base, { settings: { ...structuredClone(CONFIG_PRUEBA), accounts: [] }, trades: {}, positions: {
+      legacy: { id: 'legacy', asset: 'LEGADO', market: 'etfs', qty: 1, entry: '', current: null }
+    }, days: {} });
     await arrancada(p, null);
     async function ir(tab) {
       const b = p.locator(`#tabnav [data-tab="${tab}"]`);
@@ -59,6 +61,7 @@ try {
       await p.locator('#ef_price').fill('0'); await p.locator('#edSave').click();
       ok(await p.evaluate(name => INV.transactions().some(x => x.asset === name && x.price === 0 && x.qty === 0.5), 'COMPRA ' + market), `${width}px · ${market}: corregir el precio permite guardar`);
     }
+    ok(await p.evaluate(() => INV.performance('legacy').costeMedio === null), `${width}px · un precio histórico vacío sigue siendo un dato ausente`);
     await ir('futuros'); await p.locator('#ftNew').click();
     await p.locator('#ef_instrument').fill('CL'); await p.locator('#ef_entry').fill('-10');
     await p.locator('#edSave').click();

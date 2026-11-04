@@ -23,9 +23,9 @@ el cero explícito en el coste medio de las posiciones manuales.
 
 ## Verificación
 
-`test/precios-spot.mjs` reproduce 42 fallos en 64 comprobaciones contra el código
-anterior. Con la corrección pasan las 64, a 390 y 1366 px: posiciones, compras,
-errores de campo, precio cero, cantidades fraccionadas, precio actual ausente y
+`test/precios-spot.mjs` reproduce 42 fallos en 66 comprobaciones contra el código
+anterior. Con la corrección pasan las 66, a 390 y 1366 px: posiciones, compras,
+errores de campo, precio cero, cantidades fraccionadas, precio actual ausente, compatibilidad con precios históricos vacíos y
 corrección del dato antes de guardar. También comprueba que la regla spot no se
 aplique al formulario de futuros y que no haya excepciones JavaScript.
 

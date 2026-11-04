@@ -12673,7 +12673,7 @@
     if (l && l.ambigua) {
       const cost = (p.qty || 0) * (p.entry || 0) + comisionDe(p.fees);
       const cur = p.current != null ? (p.qty || 0) * p.current : null;
-      return { cost, cur, qty: p.qty || 0, medio: p.entry ?? null, derivada: false, ambigua: true, gemelas: l.gemelas,
+      return { cost, cur, qty: p.qty || 0, medio: p.entry === 0 ? 0 : (p.entry || null), derivada: false, ambigua: true, gemelas: l.gemelas,
                pnl: cur == null ? null : cur - cost, pct: cur == null || !cost ? null : (cur - cost) / cost };
     }
     if (l && l.qty > 0) {
@@ -12688,7 +12688,7 @@
     if (l && l.qty === 0 && l.nCompras) {
       return { cost: 0, cur: 0, pnl: 0, pct: null, qty: 0, medio: null, lotes: l, derivada: true, cerrada: true };
     }
-    const cost = (p.qty || 0) * (p.entry || 0) + comisionDe(p.fees); const cur = p.current != null ? (p.qty || 0) * p.current : null; return { cost, cur, qty: p.qty || 0, medio: p.entry ?? null, derivada: false, pnl: cur != null ? cur - cost : null, pct: cur != null && cost ? (cur - cost) / cost : null }; }
+    const cost = (p.qty || 0) * (p.entry || 0) + comisionDe(p.fees); const cur = p.current != null ? (p.qty || 0) * p.current : null; return { cost, cur, qty: p.qty || 0, medio: p.entry === 0 ? 0 : (p.entry || null), derivada: false, pnl: cur != null ? cur - cost : null, pct: cur != null && cost ? (cur - cost) / cost : null }; }
   /* ═══════ LA TABLA DE POSICIONES, CON LAS CINCO PIEZAS ═══════
      Antes la columna P&L enseñaba sólo lo que subió el precio. Una posición
      con dividendos salía con un número más bajo del real, y no había forma de
