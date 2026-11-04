@@ -8370,6 +8370,10 @@
       validate: v => { if (shots && shots.pending) return "La captura todavía se está subiendo"; if (!v.date) return { message: "Falta la fecha", field: "date" }; if (type === "futuros" && !v.instrument) return { message: "Falta el instrumento", field: "instrument" }; if (type !== "futuros" && !v.asset) return { message: "Falta el activo", field: "asset" };
         const mueveUnidades = type === "futuros" || ["compra", "venta", "aporte"].includes(String(v.op || "compra"));
         if (mueveUnidades && v.qty != null && v.qty !== "" && !(Number(v.qty) > 0)) return { message: type === "futuros" ? "Los contratos tienen que ser más de cero" : "La cantidad tiene que ser más de cero", field: "qty" };
+        if (type !== "futuros" && mueveUnidades) {
+          const priceError = spotPriceError(v, v.market, [["price", "El precio unitario"]]);
+          if (priceError) return priceError;
+        }
         return null; },
       onSave: v => {
         const rec = Object.assign({}, values, v, { type, id: isNew ? uid("t") : t.id });
@@ -12666,7 +12670,7 @@
     if (l && l.ambigua) {
       const cost = (p.qty || 0) * (p.entry || 0) + comisionDe(p.fees);
       const cur = p.current != null ? (p.qty || 0) * p.current : null;
-      return { cost, cur, qty: p.qty || 0, medio: p.entry || null, derivada: false, ambigua: true, gemelas: l.gemelas,
+      return { cost, cur, qty: p.qty || 0, medio: p.entry ?? null, derivada: false, ambigua: true, gemelas: l.gemelas,
                pnl: cur == null ? null : cur - cost, pct: cur == null || !cost ? null : (cur - cost) / cost };
     }
     if (l && l.qty > 0) {
@@ -12681,7 +12685,7 @@
     if (l && l.qty === 0 && l.nCompras) {
       return { cost: 0, cur: 0, pnl: 0, pct: null, qty: 0, medio: null, lotes: l, derivada: true, cerrada: true };
     }
-    const cost = (p.qty || 0) * (p.entry || 0) + comisionDe(p.fees); const cur = p.current != null ? (p.qty || 0) * p.current : null; return { cost, cur, qty: p.qty || 0, medio: p.entry || null, derivada: false, pnl: cur != null ? cur - cost : null, pct: cur != null && cost ? (cur - cost) / cost : null }; }
+    const cost = (p.qty || 0) * (p.entry || 0) + comisionDe(p.fees); const cur = p.current != null ? (p.qty || 0) * p.current : null; return { cost, cur, qty: p.qty || 0, medio: p.entry ?? null, derivada: false, pnl: cur != null ? cur - cost : null, pct: cur != null && cost ? (cur - cost) / cost : null }; }
   /* ═══════ LA TABLA DE POSICIONES, CON LAS CINCO PIEZAS ═══════
      Antes la columna P&L enseñaba sólo lo que subió el precio. Una posición
      con dividendos salía con un número más bajo del real, y no había forma de
@@ -13105,12 +13109,26 @@
     el.querySelectorAll("button[data-act='pos']").forEach(b => b.addEventListener("click", () => { const p = coll("positions").get(b.closest("tr").dataset.id); if (p) openPosition(p, m.id); }));
     el.querySelectorAll("button[data-act='watch']").forEach(b => b.addEventListener("click", () => { const w = coll("watch").get(b.closest("tr").dataset.id); if (w) openWatch(w, m.id); }));
   }
+  function spotPriceError(values, marketId, fields) {
+    if (!["acciones", "etfs", "cripto"].includes(marketId)) return null;
+    for (const [field, label] of fields) {
+      if (values[field] != null && Number(values[field]) < 0) {
+        return { message: label + " no puede ser negativo en " + marketName(marketId), field };
+      }
+    }
+    return null;
+  }
   function openPosition(p, marketId) {
     const isNew = !p;
     openEditor({ title: isNew ? "Nueva posición · " + marketName(marketId) : "Editar posición",
       fields: [{ type: "seccion", n: "01", label: "Lo que compraste", help: "la entrada, tal como fue" }, { key: "asset", label: "Activo", w: 2 }, { key: "accountId", label: "Cuenta de inversión", type: "select", options: [["", "Sin asignar"]].concat(investmentAccounts().map(a => [a.id, a.name])) }, { key: "date", label: "Fecha de entrada", type: "date" }, { key: "qty", label: "Cantidad", type: "number", step: "0.0001" }, { key: "entry", label: "Precio de entrada", type: "number", step: "0.01" }, { key: "fees", label: "Comisiones $", type: "number", step: "0.01" }, { type: "seccion", n: "02", label: "Lo que vale hoy", help: "el precio lo escribes tú" }, { key: "current", label: "Precio actual (lo actualizas tú)", type: "number", step: "0.01" }, { type: "seccion", n: "03", label: "Por qué y hasta cuándo", help: "se escribe sin saber el resultado" }, { key: "thesis", label: "Tesis", type: "textarea", w: 6, rows: 2 }, { key: "exitPlan", label: "Salida planeada · cuándo vendo", type: "textarea", w: 6, rows: 2, ph: "Objetivo, stop mental o fecha. Sin plan de salida no hay posición." }],
       values: p || { date: todayISO(), qty: 1, accountId: defaultInvestmentAccountId() },
-      validate: v => !v.asset ? "Falta el activo" : v.qty == null || v.entry == null ? "Falta cantidad o precio" : null,
+      validate: v => {
+        if (!v.asset) return { message: "Falta el activo", field: "asset" };
+        if (v.qty == null) return { message: "Falta la cantidad", field: "qty" };
+        if (v.entry == null) return { message: "Falta el precio de entrada", field: "entry" };
+        return spotPriceError(v, marketId, [["entry", "El precio de entrada"], ["current", "El precio actual"]]);
+      },
       onSave: v => {
         const nextAccountId = v.accountId || "";
         if (!isNew && String(p.accountId || "") !== nextAccountId) {
