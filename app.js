@@ -11075,7 +11075,9 @@
   }
   function renderFutAccounts() {
     const el = $("ftAccts"); if (!el) return;
-    const accts = state.settings.accounts || [];
+    const todas = state.settings.accounts || [];
+    const accts = todas.filter(a => !ft.acct || ft.acct === a.id);
+    if (todas.length && !accts.length) { el.innerHTML = `<p class="empty">Sin cuenta asociada al filtro actual.</p>`; return; }
     if (!accts.length) { el.innerHTML = `<p class="empty">Ninguna cuenta registrada. Pulsa <code>+ Registrar cuenta</code>: con la firma, el tamaño y el drawdown ya se calculan el colchón y la consistencia con tus operaciones reales.</p>`; return; }
     el.innerHTML = accts.map(a => {
       /* El estado operativo sale del MISMO motor que lo pinta en la Cabina. Sin
