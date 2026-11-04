@@ -7956,7 +7956,7 @@
   function imgAttrs(im) {
     const A = capt();
     const espera = imgValida(im) && im.data == null && A && !A.url(String(im.id));
-    return `src="${esc(imgSrc(im))}"` + (espera ? ` data-shot="${esc(String(im.id))}"` : "");
+    return `src="${esc(imgSrc(im))}" data-lightbox tabindex="0" role="button" aria-haspopup="dialog"` + (espera ? ` data-shot="${esc(String(im.id))}"` : "");
   }
   /* El bucket «capturas» de la cuenta. Sin sesión no hay dónde guardar imágenes:
      pb.assets se queda en null y la app lo dice. */
@@ -8059,7 +8059,7 @@
     box.addEventListener("change", e => { const i = e.target.dataset.scene; if (i == null || !st.imgs[Number(i)]) return; if (TRADE_SHOT_KEYS.has(e.target.value)) st.imgs[Number(i)].scene = e.target.value; else delete st.imgs[Number(i)].scene; });
     box.addEventListener("click", async e => {
       const b = e.target.closest("button[data-act]");
-      if (!b) { if (e.target.tagName === "IMG" && e.target.closest("figure.pbimg")) openLightbox(e.target.src, e.target.alt); return; }
+      if (!b) { if (e.target.tagName === "IMG" && e.target.closest("figure.pbimg")) openLightbox(e.target.src, e.target.alt, e.target); return; }
       if (b.dataset.act === "rm") {
         if (!armed(b)) return;
         const i = Number(b.dataset.i); const im = st.imgs[i]; st.imgs.splice(i, 1); if (im && im.id && !im.data) st.removals.push(im.id); draw();
@@ -10003,7 +10003,7 @@
     $("dayBroke").addEventListener("change", e => queueDayNote(date, { broke: e.target.checked }, 0));
     $("dayBody").querySelectorAll("button[data-act='edit']").forEach(b => b.addEventListener("click", () => { const t = coll("trades").get(b.closest("tr").dataset.id); if (t) openTrade(t); }));
     $("dayBody").querySelectorAll("button[data-act='hitstop']").forEach(b => b.addEventListener("click", () => hitStop(b.closest("tr").dataset.id)));
-    $("dayBody").addEventListener("click", e => { if (e.target.tagName === "IMG" && (e.target.classList.contains("thumb") || e.target.closest("figure.pbimg"))) openLightbox(e.target.src, e.target.alt); });
+    $("dayBody").addEventListener("click", e => { if (e.target.tagName === "IMG" && (e.target.classList.contains("thumb") || e.target.closest("figure.pbimg"))) openLightbox(e.target.src, e.target.alt, e.target); });
     if (!dd) { state.db.doc("days/" + date).get().then(snap => { if (!snap.exists || ft.day !== date) return; const d = snap.data(); const ta = $("dayNote"), cb = $("dayBroke"); if (ta && document.activeElement !== ta) ta.value = d.note || ""; if (cb) cb.checked = !!d.broke; }).catch(() => {}); }
   }
 
@@ -10281,7 +10281,7 @@
     if (e.target.closest("#jrMas")) { jrTope += JR_TRAMO; renderFutures(); return; }
     const so = e.target.closest("button[data-sort]");
     if (so) { jrSetOrden(so.dataset.sort); return; }
-    if (e.target.classList.contains("thumb")) { openLightbox(e.target.src, e.target.alt); return; }
+    if (e.target.classList.contains("thumb")) { openLightbox(e.target.src, e.target.alt, e.target); return; }
     const hs = e.target.closest("button[data-act='hitstop']");
     if (hs) { hitStop(hs.closest("tr").dataset.id); return; }
     const btn = e.target.closest("button[data-act='edit']"); if (!btn) return; const t = coll("trades").get(btn.closest("tr").dataset.id); if (t) openTrade(t);
@@ -11268,7 +11268,7 @@
     wrap.innerHTML = `<table class="t"><thead><tr><th>Fecha</th><th>Cuenta</th><th>Mercado</th><th>Activo</th><th>Op.</th><th class="r">Cant.</th><th class="r">Precio</th><th class="r">Total</th><th class="r">Resultado</th><th>Horiz.</th><th>Img</th><th>Tesis</th><th></th></tr></thead><tbody>${list.map(t => { const total = (t.qty || 0) * (t.price || 0); return `<tr data-id="${t.id}"><td>${esc(dmy(t.date))}</td><td class="ui">${esc(investmentAccountName(t.accountId))}</td><td class="ui">${esc(marketName(t.market))}</td><td>${esc(t.asset)}</td><td><span class="chip ${t.op === "compra" || t.op === "aporte" ? "inv" : t.op === "venta" ? "warn" : "good"}">${esc(t.op)}</span></td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.price != null ? money(t.price, 2) : "—"}</td><td class="r">${total ? money(total, 2) : "—"}</td><td class="r ${t.pnl > 0 ? "pos" : t.pnl < 0 ? "neg" : ""}">${t.pnl == null ? "—" : money(t.pnl, 2)}</td><td>${esc(t.horizon || "")}</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.note || "")}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button></td></tr>`; }).join("")}</tbody></table>`;
   }
   $("ivOps").addEventListener("click", e => {
-    if (e.target.classList.contains("thumb")) { openLightbox(e.target.src, e.target.alt); return; }
+    if (e.target.classList.contains("thumb")) { openLightbox(e.target.src, e.target.alt, e.target); return; }
     const btn = e.target.closest("button[data-act='edit']"); if (!btn) return; const t = coll("trades").get(btn.closest("tr").dataset.id); if (t) openTrade(t);
   });
 
@@ -12374,7 +12374,7 @@
     const sel = e.target.closest("select[data-act='status']"); if (!sel) return; const p = coll("playbooks").get(sel.closest(".card").dataset.id); if (p) coll("playbooks").set(p.id, Object.assign({}, p, { status: sel.value })); });
   $("pbCards").addEventListener("click", async e => {
     const btn = e.target.closest("button[data-act]"); const fig = e.target.closest("figure.pbimg");
-    if (!btn && fig && !e.target.closest("button")) { const img = fig.querySelector("img"); openLightbox(img.src, img.alt); return; }
+    if (!btn && fig && !e.target.closest("button")) { const img = fig.querySelector("img"); openLightbox(img.src, img.alt, img); return; }
     if (!btn) return;
     const card = btn.closest(".card"); const act = btn.dataset.act;
     if (act.startsWith("ts")) { tsAccion(act, card.dataset.id, btn); return; }
@@ -12402,8 +12402,27 @@
     catch (err) { flash(uploadErrMsg(err)); }
     finally { shotOperationsInFlight--; }
   });
-  function openLightbox(src, alt) { const lb = $("lightbox"); lb.querySelector("img").src = src; lb.querySelector("img").alt = alt || ""; lb.classList.add("open"); }
-  $("lightbox").addEventListener("click", () => $("lightbox").classList.remove("open"));
+  let lightboxReturnFocus = null, lightboxOverflow = "";
+  function openLightbox(src, alt, opener = document.activeElement) {
+    const lb = $("lightbox");
+    if (!lb.classList.contains("open")) { lightboxReturnFocus = opener; lightboxOverflow = document.body.style.overflow; }
+    lb.querySelector("img").src = src; lb.querySelector("img").alt = alt || "";
+    lb.classList.add("open"); document.body.style.overflow = "hidden"; $("lightboxClose").focus();
+  }
+  function closeLightbox() {
+    const lb = $("lightbox"); if (!lb.classList.contains("open")) return;
+    lb.classList.remove("open"); document.body.style.overflow = lightboxOverflow;
+    const back = lightboxReturnFocus; lightboxReturnFocus = null; returnDialogFocus(back, null);
+  }
+  $("lightbox").addEventListener("click", closeLightbox);
+  $("lightbox").addEventListener("keydown", e => {
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeLightbox(); }
+    else if (e.key === "Tab") { trapDialogFocus(e, $("lightbox")); e.stopPropagation(); }
+  });
+  document.addEventListener("keydown", e => {
+    if (!e.target?.matches?.('img[data-lightbox]') || (e.key !== "Enter" && e.key !== " ")) return;
+    e.preventDefault(); e.stopPropagation(); if (!e.repeat) e.target.click();
+  }, true);
   pb.assets = null;
 
   /* =============================== IDEAS (formas de hacer dinero) =============================== */
@@ -17932,7 +17951,7 @@
   });
   $("studyScenes").addEventListener("click", async e => {
     const img = e.target.tagName === "IMG" ? e.target.closest("figure.pbimg") : null;
-    if (img) { openLightbox(e.target.src, e.target.alt); return; }
+    if (img) { openLightbox(e.target.src, e.target.alt, e.target); return; }
     const edit = e.target.closest("button[data-study-edit-shots]");
     if (edit) { const t = coll("trades").get($("studyTradeId").value); if (t) openTrade(t); return; }
     const add = e.target.closest("button[data-escena-add]");
