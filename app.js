@@ -260,7 +260,7 @@
     { id: "lunch",   short: "Lunch",       start: 11 * 60,      end: 13 * 60 + 30, cls: "warn", pre: true,  label: "Lunch · sin entradas" },
     { id: "nypm",    short: "NY PM",       start: 13 * 60 + 30, end: 16 * 60,      cls: "off",  pre: true,  label: "NY PM · fuera del protocolo" },
     { id: "cierre",  short: "Cierre",      start: 16 * 60,      end: 17 * 60,      cls: "off",  pre: false, label: "Cierre RTH" },
-    { id: "pausa",   short: "Pausa",       start: 17 * 60,      end: 20 * 60,      cls: "off",  pre: false, label: "Pausa diaria · reabre a las 6 PM ET" },
+    { id: "pausa",   short: "Pausa",       start: 17 * 60,      end: 20 * 60,      cls: "off",  pre: false, label: "Antes de Asia" },
   ];
   const SES_CLOSED = { id: "cerrado", short: "Cerrado", cls: "off", pre: false, label: "Mercado cerrado" };
   const PRE_SESSIONS = SESSIONS.filter(s => s.pre);
@@ -271,6 +271,7 @@
   function sesAt(min) { return SESSIONS.find(x => inSes(x, min)) || SESSIONS[0]; }
   function marketClosed(n) { const m = n.min, d = n.dow; return d === "Sat" || (d === "Sun" && m < 18 * 60) || (d === "Fri" && m >= 17 * 60); }
   function sessionState(n) { return marketClosed(n) ? SES_CLOSED : sesAt(n.min); }
+  function sessionLabelText(label) { return idioma() === "en" ? (I18N_EN[label] || label) : label; }
   function minOfTime(t) { const m = String(t == null ? "" : t).match(/^(\d{1,2}):(\d{2})/); return m ? Number(m[1]) * 60 + Number(m[2]) : null; }
   // La sesión de una operación sale de su hora de entrada (ET, como todo aquí).
   function tradeSes(t) { const m = minOfTime(t && t.time); return m == null ? null : sesAt(m).id; }
@@ -352,17 +353,18 @@
   function renderSessionNow() {
     const el = $("sesNow"); if (!el) return;
     const n = etNow(); const s = sessionInfo(n);
+    const label = sessionLabelText(s.label);
     const reloj = fmtHM.format(new Date());
     const corto = s.next ? s.next.split(" · ")[0] : "";
     // Con el mercado cerrado lo útil es cuándo abre, no cómo se llama la franja siguiente.
     const cerrado = s.label === "Mercado cerrado";
     const verbo = s.ends === 1 ? "queda" : "quedan";
     const sub = `${reloj} ET` + (s.ends == null ? "" : cerrado ? ` · abre en ${hhmmLeft(s.ends)}` : ` · ${verbo} ${hhmmLeft(s.ends)}${corto ? ` → ${corto}` : ""}`);
-    const sig = s.cls + "|" + s.label + "|" + sub;
+    const sig = s.cls + "|" + label + "|" + sub;
     if (sig === sesSig) return;
     sesSig = sig;
     el.className = "sesnow " + s.cls;
-    el.innerHTML = `<span class="dot"></span><div class="sn"><b>${esc(s.label)}</b><small>${esc(sub)}</small></div>`;
+    el.innerHTML = `<span class="dot"></span><div class="sn"><b>${esc(label)}</b><small>${esc(sub)}</small></div>`;
   }
   let tickSes = "";
   function tickClock() {
@@ -370,7 +372,7 @@
     $("etTime").textContent = fmtTime.format(new Date());
     const s = sessionState(n);
     $("sessionPill").className = "pill " + s.cls;
-    $("sessionLabel").textContent = s.label;
+    $("sessionLabel").textContent = sessionLabelText(s.label);
     if (n.date !== state.today) { state.today = n.date; loadDay(); }
     renderSessionNow();
     if (state.tab === "cabina") {
@@ -1302,6 +1304,7 @@
   /* El idioma EFECTIVO: lo elegido, y si no hay nada, español. */
   function idioma() { return idiomaLee() || "es"; }
   const I18N_EN = {
+    "Antes de Asia": "Before Asia",
     "Apariencia": "Appearance", "Preferencias": "Preferences", "Datos": "Data",
     "Ayuda y atajos": "Help and shortcuts", "Tu espacio de trabajo": "Your workspace",
     "Fuente": "Font", "Texto": "Text", "Pequeño": "Small", "Normal": "Normal", "Grande": "Large",
