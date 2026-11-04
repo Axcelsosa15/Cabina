@@ -1646,9 +1646,11 @@ tbody tr:last-child td{border-bottom:0}
   .pbimg img { width: 120px; height: 80px; object-fit: cover; border-radius: var(--r-sm); border: 1px solid var(--line); display: block; }
   .pbimg figcaption { font-size: 11px; color: var(--muted); margin-top:2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pbimg .icon { position: absolute; top: 2px; right: 2px; background: var(--surface); }
-  .lightbox { position: fixed; inset: 0; background: rgba(4,6,10,.9); display: none; align-items: center; justify-content: center; padding:24px; z-index: 60; cursor: zoom-out; }
+  .lightbox { position: fixed; inset: 0; background: rgba(4,6,10,.9); display: none; align-items: center; justify-content: center; padding:64px 24px 24px; z-index: 1100; cursor: zoom-out; }
   .lightbox.open { display: flex; }
   .lightbox img { max-width: 100%; max-height: 100%; border-radius: var(--r-sm); }
+  .lightbox-close { position:absolute; top:12px; right:16px; min-width:44px; min-height:44px; cursor:pointer; }
+  img[data-lightbox]:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
   .card .pbst { background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-sm); color: var(--muted); font-family: var(--font-mono); }
   .setupconds { display: grid; gap:8px; padding:12px 12px; border: 1px dashed var(--line-strong); border-radius: var(--r-sm); }
   .setupconds label { display: flex; gap:8px; align-items: center; font-size: 13.5px; }
@@ -6452,7 +6454,7 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
   </div>
 </div>
 <div class="tip" id="tip"></div>
-<div class="lightbox" id="lightbox" role="dialog" aria-label="Imagen"><img alt=""></div>
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Imagen"><button type="button" class="btn lightbox-close" id="lightboxClose">Cerrar</button><img alt=""></div>
 
 <!-- LA APLICACION VIVE EN app.js, y no aqui dentro, para que la CSP pueda
      declarar `script-src 'self'` sin 'unsafe-inline'. El motivo completo esta
