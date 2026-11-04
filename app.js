@@ -260,7 +260,7 @@
     { id: "lunch",   short: "Lunch",       start: 11 * 60,      end: 13 * 60 + 30, cls: "warn", pre: true,  label: "Lunch · sin entradas" },
     { id: "nypm",    short: "NY PM",       start: 13 * 60 + 30, end: 16 * 60,      cls: "off",  pre: true,  label: "NY PM · fuera del protocolo" },
     { id: "cierre",  short: "Cierre",      start: 16 * 60,      end: 17 * 60,      cls: "off",  pre: false, label: "Cierre RTH" },
-    { id: "pausa",   short: "Pausa",       start: 17 * 60,      end: 20 * 60,      cls: "off",  pre: false, label: "Pausa diaria · reabre a las 6 PM ET" },
+    { id: "pausa",   short: "Pausa",       start: 17 * 60,      end: 20 * 60,      cls: "off",  pre: false, label: "Antes de Asia" },
   ];
   const SES_CLOSED = { id: "cerrado", short: "Cerrado", cls: "off", pre: false, label: "Mercado cerrado" };
   const PRE_SESSIONS = SESSIONS.filter(s => s.pre);
@@ -271,6 +271,7 @@
   function sesAt(min) { return SESSIONS.find(x => inSes(x, min)) || SESSIONS[0]; }
   function marketClosed(n) { const m = n.min, d = n.dow; return d === "Sat" || (d === "Sun" && m < 18 * 60) || (d === "Fri" && m >= 17 * 60); }
   function sessionState(n) { return marketClosed(n) ? SES_CLOSED : sesAt(n.min); }
+  function sessionLabelText(label) { return idioma() === "en" ? (I18N_EN[label] || label) : label; }
   function minOfTime(t) { const m = String(t == null ? "" : t).match(/^(\d{1,2}):(\d{2})/); return m ? Number(m[1]) * 60 + Number(m[2]) : null; }
   // La sesión de una operación sale de su hora de entrada (ET, como todo aquí).
   function tradeSes(t) { const m = minOfTime(t && t.time); return m == null ? null : sesAt(m).id; }
@@ -352,17 +353,18 @@
   function renderSessionNow() {
     const el = $("sesNow"); if (!el) return;
     const n = etNow(); const s = sessionInfo(n);
+    const label = sessionLabelText(s.label);
     const reloj = fmtHM.format(new Date());
     const corto = s.next ? s.next.split(" · ")[0] : "";
     // Con el mercado cerrado lo útil es cuándo abre, no cómo se llama la franja siguiente.
     const cerrado = s.label === "Mercado cerrado";
     const verbo = s.ends === 1 ? "queda" : "quedan";
     const sub = `${reloj} ET` + (s.ends == null ? "" : cerrado ? ` · abre en ${hhmmLeft(s.ends)}` : ` · ${verbo} ${hhmmLeft(s.ends)}${corto ? ` → ${corto}` : ""}`);
-    const sig = s.cls + "|" + s.label + "|" + sub;
+    const sig = s.cls + "|" + label + "|" + sub;
     if (sig === sesSig) return;
     sesSig = sig;
     el.className = "sesnow " + s.cls;
-    el.innerHTML = `<span class="dot"></span><div class="sn"><b>${esc(s.label)}</b><small>${esc(sub)}</small></div>`;
+    el.innerHTML = `<span class="dot"></span><div class="sn"><b>${esc(label)}</b><small>${esc(sub)}</small></div>`;
   }
   let tickSes = "";
   function tickClock() {
@@ -370,7 +372,7 @@
     $("etTime").textContent = fmtTime.format(new Date());
     const s = sessionState(n);
     $("sessionPill").className = "pill " + s.cls;
-    $("sessionLabel").textContent = s.label;
+    $("sessionLabel").textContent = sessionLabelText(s.label);
     if (n.date !== state.today) { state.today = n.date; loadDay(); }
     renderSessionNow();
     if (state.tab === "cabina") {
@@ -1302,6 +1304,7 @@
   /* El idioma EFECTIVO: lo elegido, y si no hay nada, español. */
   function idioma() { return idiomaLee() || "es"; }
   const I18N_EN = {
+    "Antes de Asia": "Before Asia",
     "Apariencia": "Appearance", "Preferencias": "Preferences", "Datos": "Data",
     "Ayuda y atajos": "Help and shortcuts", "Tu espacio de trabajo": "Your workspace",
     "Fuente": "Font", "Texto": "Text", "Pequeño": "Small", "Normal": "Normal", "Grande": "Large",
@@ -8370,6 +8373,10 @@
       validate: v => { if (shots && shots.pending) return "La captura todavía se está subiendo"; if (!v.date) return { message: "Falta la fecha", field: "date" }; if (type === "futuros" && !v.instrument) return { message: "Falta el instrumento", field: "instrument" }; if (type !== "futuros" && !v.asset) return { message: "Falta el activo", field: "asset" };
         const mueveUnidades = type === "futuros" || ["compra", "venta", "aporte"].includes(String(v.op || "compra"));
         if (mueveUnidades && v.qty != null && v.qty !== "" && !(Number(v.qty) > 0)) return { message: type === "futuros" ? "Los contratos tienen que ser más de cero" : "La cantidad tiene que ser más de cero", field: "qty" };
+        if (type !== "futuros" && mueveUnidades) {
+          const priceError = spotPriceError(v, v.market, [["price", "El precio unitario"]]);
+          if (priceError) return priceError;
+        }
         return null; },
       onSave: v => {
         const rec = Object.assign({}, values, v, { type, id: isNew ? uid("t") : t.id });
@@ -12666,7 +12673,7 @@
     if (l && l.ambigua) {
       const cost = (p.qty || 0) * (p.entry || 0) + comisionDe(p.fees);
       const cur = p.current != null ? (p.qty || 0) * p.current : null;
-      return { cost, cur, qty: p.qty || 0, medio: p.entry || null, derivada: false, ambigua: true, gemelas: l.gemelas,
+      return { cost, cur, qty: p.qty || 0, medio: p.entry === 0 ? 0 : (p.entry || null), derivada: false, ambigua: true, gemelas: l.gemelas,
                pnl: cur == null ? null : cur - cost, pct: cur == null || !cost ? null : (cur - cost) / cost };
     }
     if (l && l.qty > 0) {
@@ -12681,7 +12688,7 @@
     if (l && l.qty === 0 && l.nCompras) {
       return { cost: 0, cur: 0, pnl: 0, pct: null, qty: 0, medio: null, lotes: l, derivada: true, cerrada: true };
     }
-    const cost = (p.qty || 0) * (p.entry || 0) + comisionDe(p.fees); const cur = p.current != null ? (p.qty || 0) * p.current : null; return { cost, cur, qty: p.qty || 0, medio: p.entry || null, derivada: false, pnl: cur != null ? cur - cost : null, pct: cur != null && cost ? (cur - cost) / cost : null }; }
+    const cost = (p.qty || 0) * (p.entry || 0) + comisionDe(p.fees); const cur = p.current != null ? (p.qty || 0) * p.current : null; return { cost, cur, qty: p.qty || 0, medio: p.entry === 0 ? 0 : (p.entry || null), derivada: false, pnl: cur != null ? cur - cost : null, pct: cur != null && cost ? (cur - cost) / cost : null }; }
   /* ═══════ LA TABLA DE POSICIONES, CON LAS CINCO PIEZAS ═══════
      Antes la columna P&L enseñaba sólo lo que subió el precio. Una posición
      con dividendos salía con un número más bajo del real, y no había forma de
@@ -13105,12 +13112,26 @@
     el.querySelectorAll("button[data-act='pos']").forEach(b => b.addEventListener("click", () => { const p = coll("positions").get(b.closest("tr").dataset.id); if (p) openPosition(p, m.id); }));
     el.querySelectorAll("button[data-act='watch']").forEach(b => b.addEventListener("click", () => { const w = coll("watch").get(b.closest("tr").dataset.id); if (w) openWatch(w, m.id); }));
   }
+  function spotPriceError(values, marketId, fields) {
+    if (!["acciones", "etfs", "cripto"].includes(marketId)) return null;
+    for (const [field, label] of fields) {
+      if (values[field] != null && Number(values[field]) < 0) {
+        return { message: label + " no puede ser negativo en " + marketName(marketId), field };
+      }
+    }
+    return null;
+  }
   function openPosition(p, marketId) {
     const isNew = !p;
     openEditor({ title: isNew ? "Nueva posición · " + marketName(marketId) : "Editar posición",
       fields: [{ type: "seccion", n: "01", label: "Lo que compraste", help: "la entrada, tal como fue" }, { key: "asset", label: "Activo", w: 2 }, { key: "accountId", label: "Cuenta de inversión", type: "select", options: [["", "Sin asignar"]].concat(investmentAccounts().map(a => [a.id, a.name])) }, { key: "date", label: "Fecha de entrada", type: "date" }, { key: "qty", label: "Cantidad", type: "number", step: "0.0001" }, { key: "entry", label: "Precio de entrada", type: "number", step: "0.01" }, { key: "fees", label: "Comisiones $", type: "number", step: "0.01" }, { type: "seccion", n: "02", label: "Lo que vale hoy", help: "el precio lo escribes tú" }, { key: "current", label: "Precio actual (lo actualizas tú)", type: "number", step: "0.01" }, { type: "seccion", n: "03", label: "Por qué y hasta cuándo", help: "se escribe sin saber el resultado" }, { key: "thesis", label: "Tesis", type: "textarea", w: 6, rows: 2 }, { key: "exitPlan", label: "Salida planeada · cuándo vendo", type: "textarea", w: 6, rows: 2, ph: "Objetivo, stop mental o fecha. Sin plan de salida no hay posición." }],
       values: p || { date: todayISO(), qty: 1, accountId: defaultInvestmentAccountId() },
-      validate: v => !v.asset ? "Falta el activo" : v.qty == null || v.entry == null ? "Falta cantidad o precio" : null,
+      validate: v => {
+        if (!v.asset) return { message: "Falta el activo", field: "asset" };
+        if (v.qty == null) return { message: "Falta la cantidad", field: "qty" };
+        if (v.entry == null) return { message: "Falta el precio de entrada", field: "entry" };
+        return spotPriceError(v, marketId, [["entry", "El precio de entrada"], ["current", "El precio actual"]]);
+      },
       onSave: v => {
         const nextAccountId = v.accountId || "";
         if (!isNew && String(p.accountId || "") !== nextAccountId) {
