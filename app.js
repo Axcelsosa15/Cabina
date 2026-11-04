@@ -15734,7 +15734,16 @@
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") e.preventDefault();
       return;
     }
-    // ⌘K / Ctrl+K abre la paleta desde donde sea, incluso escribiendo
+    // Los atajos de página no atraviesan el diálogo que el usuario está usando.
+    // La paleta se excluye para conservar su propio atajo de apertura/cierre.
+    const dialogOpen = [...document.querySelectorAll('[role="dialog"], dialog[open]')].some(dialog =>
+      dialog !== cmdOv && (dialog.checkVisibility ? dialog.checkVisibility() :
+        dialog.getClientRects().length > 0 && getComputedStyle(dialog).visibility !== "hidden"));
+    if (dialogOpen) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") e.preventDefault();
+      return;
+    }
+    // ⌘K / Ctrl+K abre la paleta incluso escribiendo, si no hay otro diálogo.
     if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
       e.preventDefault();
       cmdOv.classList.contains("open") ? cmdCierra() : cmdAbre();
