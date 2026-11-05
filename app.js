@@ -15586,7 +15586,8 @@
      paralela, ni un camino que sólo exista desde el teclado — si algo sólo se
      puede hacer con ⌘K, es una función escondida, no un atajo. */
   const cmdOv = $("cmdOv"), cmdQ = $("cmdQ"), cmdList = $("cmdList");
-  let cmdSel = 0, cmdVis = [];
+  const cmdOpen = $("cmdOpen"), cmdStatus = $("cmdStatus");
+  let cmdSel = 0, cmdVis = [], cmdSearchTimer = null, cmdReturnFocus = null;
 
   function cmdAcciones() {
     const ir = (tab, vista) => () => { showTab(tab); if (vista) setFtView(vista); };
@@ -15626,122 +15627,208 @@
     const cuentas = FUT.accounts().map(a => ({
       g: "Cuenta de trabajo", i: FUT.selectedAccountId() === a.id ? "●" : "○",
       t: `${a.firm ? a.firm + " · " : ""}${a.name || "sin nombre"}`,
-      s: FUT.selectedAccountId() === a.id ? "activa" : "",
+      s: FUT.selectedAccountId() === a.id ? "activa" : "", campos: [a.name, a.firm, a.id],
       f: () => { FUT.setSelectedAccount(a.id); showTab("cabina"); },
     }));
     if (FUT.selectedAccountId()) cuentas.push({ g: "Cuenta de trabajo", i: "○", t: "Todas las cuentas", s: "", f: () => { FUT.setSelectedAccount(""); showTab("cabina"); } });
-    return base.concat(cuentas, estudioAcciones());
+    return base.concat(estudioAcciones(), cuentas, investmentAccounts().map(a => ({
+      g: "Cuentas de inversión", i: "◫", t: a.name, s: a.broker,
+      campos: [a.type, a.id], f: () => abreRegistro("invest-account", a.id),
+    })));
   }
 
-  // Coincidencia por subcadena sin acentos: «analisis» encuentra «análisis».
-  const sinTildes = x => String(x).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-  /* La paleta combina acciones con resultados reales del almacén. Es búsqueda
-     local por texto normalizado, no una promesa de búsqueda semántica/IA. */
-  function cmdResultados(q) {
-    q = sinTildes(String(q || "").trim());
-    if (q.length < 2) return [];
-    const out = [], hit = (...v) => sinTildes(v.filter(x => x != null && x !== "").join(" ")).includes(q);
-    const take = (g, i, t, s, f) => { if (out.length < 48) out.push({ g, i, t, s: s || "", f }); };
-    const trades = coll("trades").items;
-    trades.forEach(t => {
-      const acct = acctLabel(t.accountId), setup = t.setupId ? (coll("playbooks").get(t.setupId)?.name || "") : "";
-      const name = t.type === "inversion" ? (t.asset || t.instrument || "Inversión") : (t.instrument || "Operación");
-      if (!hit(name, t.date, t.time, t.direction, t.op, acct, setup, t.notes, t.tags, t.lesson, t.exitWhy)) return;
-      const id = t.id, tab = t.type === "inversion" ? "invest" : "futuros";
+  /* Texto local: frases y términos exactos primero, luego una errata en
+     una palabra (inserción, borrado, sustitución o transposición adyacente). */
+  const cmdNorm = x => estudioNorm(x).trim().replace(/\s+/g, " ");
+  const cmdPalabras = texto => texto.match(/[\p{L}\p{N}]+/gu) || [];
+
+  function cmdUnaErrata(a, b) {
+    if (a.length > b.length) return cmdUnaErrata(b, a);
+    if (b.length - a.length > 1) return false;
+    let i = 0;
+    while (i < a.length && a[i] === b[i]) i++;
+    if (i === a.length) return true;
+    if (a.length < b.length) return a.slice(i) === b.slice(i + 1);
+    return a.slice(i + 1) === b.slice(i + 1) ||
+      (a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2));
+  }
+
+  function cmdPuntaje(q, palabras, titulo, campos) {
+    const nombre = cmdNorm(titulo);
+    if (nombre === q) return 0;
+    const datos = campos.map(cmdNorm).filter(Boolean);
+    if (datos.includes(q)) return 1;
+    if (q.length < 2) return Infinity;
+    if (nombre.startsWith(q)) return 2;
+    if (nombre.includes(q)) return 3;
+    const texto = datos.concat(nombre).join(" ");
+    if (texto.includes(q)) return 4;
+    if (!palabras.length) return Infinity;
+    const faltan = palabras.filter(x => !texto.includes(x));
+    if (!faltan.length) return 5;
+    const errata = faltan[0];
+    return faltan.length === 1 && errata.length >= 4 && /[a-z]/.test(errata) &&
+      cmdPalabras(texto).some(x => /^[a-z]+$/.test(x) && cmdUnaErrata(errata, x)) ? 6 : Infinity;
+  }
+
+  function cmdResultados(take, q) {
+    const hit = (tipo, id) => () => abreRegistro(tipo, id);
+    coll("trades").items.forEach(t => {
+      const inv = t.type === "inversion";
+      const acct = inv ? investmentAccountName(t.accountId) : acctLabel(t.accountId);
+      const setup = t.setupId ? (coll("playbooks").get(t.setupId)?.name || "") : "";
+      const name = (inv ? t.asset || t.instrument : t.instrument) || "Operación";
       take("Operaciones", "↗", `${name} · ${t.direction || t.op || "operación"} · ${t.date || "sin fecha"}`,
         [acct, t.exit == null ? "abierta" : "cerrada", t.source && /^import:/.test(t.source) ? "importada" : ""].filter(Boolean).join(" · "),
-        () => { const live = coll("trades").get(id); if (!live) return; showTab(tab); if (tab === "futuros") setFtView("diario"); setTimeout(() => openTrade(live), 60); });
+        hit("trade", t.id), [name, t.id, t.date, t.time, t.direction, t.op, acct, setup, t.notes, t.tags, t.lesson, t.exitWhy]);
     });
-    historyMerged().forEach(d => {
-      if (!hit(d.date, d.note, d.result, d.trades, d.broke ? "rota" : "", JSON.stringify(d.pres || {}))) return;
+    if (q.length >= 2) historyMerged().forEach(d => {
       take("Sesiones", "◷", `Sesión · ${d.date}`, d.result == null ? "resultado sin registrar" : money(Number(d.result)), () => {
         ft.day = d.date; ft.month = String(d.date).slice(0, 7); showTab("futuros"); setFtView("diario"); renderCalendar(); renderDay();
-      });
+      }, [d.date, d.note, d.result, d.trades, d.broke ? "rota" : "", JSON.stringify(d.pres || {})]);
     });
     coll("positions").items.forEach(p => {
-      if (!hit(p.asset, p.name, p.thesis, p.exitPlan, p.date, p.accountId, investmentAccountName(p.accountId))) return;
-      const id = p.id;
+      const cuenta = investmentAccountName(p.accountId);
       take("Posiciones", "◫", `${p.asset || p.name || "Posición"} · ${p.date || "sin fecha"}`,
-        investmentAccountName(p.accountId) || "cuenta no asignada", () => {
-          const live = coll("positions").get(id); if (!live) return; showTab("invest"); setTimeout(() => openPosition(live), 60);
-        });
+        cuenta, hit("position", p.id), [p.asset, p.name, p.thesis, p.exitPlan, p.date, p.accountId, cuenta]);
     });
     coll("playbooks").items.forEach(p => {
-      if (!hit(p.name, p.market, p.tags, p.context, p.entry, p.notes, p.kind)) return;
-      const id = p.id;
-      take("Playbook", "◱", p.name || "Setup sin nombre", [kindDef(pbKindOf(p)).label, p.status || ""].filter(Boolean).join(" · "), () => {
-        const live = coll("playbooks").get(id); if (!live) return; showTab("playbook"); setTimeout(() => openPlaybook(live), 60);
-      });
+      take("Playbook", "◱", p.name || "Setup sin nombre", [kindDef(pbKindOf(p)).label, p.status].filter(Boolean).join(" · "),
+        hit("playbook", p.id), [p.market, p.tags, p.context, p.entry, p.notes, p.kind]);
     });
     coll("tesis").items.forEach(t => {
-      if (!hit(t.name, t.asset, t.tesis, t.hipotesis, t.leccion, t.status, t.bias, t.horizonte)) return;
-      const id = t.id;
-      take("Tesis", "◈", `${t.name || t.asset || "Tesis"} · ${t.asset || "sin activo"}`, t.status || "", () => {
-        const live = coll("tesis").get(id); if (!live) return; showTab("playbook"); pb.view = "tesis"; renderPlaybook(); setTimeout(() => abreSeccion(live, "ficha"), 60);
-      });
+      take("Tesis", "◈", `${t.name || t.asset || "Tesis"} · ${t.asset || "sin activo"}`, t.status || "",
+        hit("thesis", t.id), [t.name, t.asset, t.tesis, t.hipotesis, t.leccion, t.status, t.bias, t.horizonte]);
     });
     coll("research").items.forEach(d => {
-      if (d.type === "trade-review" || !hit(d.title, d.question, d.evidence, d.catalysts, d.counter, d.conclusion, d.url, d.author, d.publishedAt, d.consultedAt, d.nextReview, (d.tags || []).join(" "), (Array.isArray(d.links) ? d.links : []).map(estudioLinkLabel).join(" "), d.status)) return;
-      const id = d.id;
-      take("Estudio", "⌕", d.title || "Documento de estudio", [d.type || "concepto", d.status || "por estudiar", d.url || ""].filter(Boolean).join(" · "), () => {
-        showTab("estudio"); setTimeout(() => estudioEditor(id), 60);
-      });
+      if (d.type === "trade-review") return;
+      const fecha = d.consultedAt || d.publishedAt;
+      take("Estudio", "⌕", d.title || "Documento de estudio",
+        [ESTUDIO_TIPOS[d.type], fecha, ESTUDIO_ESTADOS[d.status]].filter(Boolean).join(" · "),
+        hit("research", d.id), [d.id, estudioTexto(d), d.prompt, d.answer, d.status, d.type]);
     });
-    return out;
   }
+
+  function cmdSelecciona(k, scroll = true) {
+    if (!cmdVis.length) return;
+    cmdSel = Math.max(0, Math.min(k, cmdVis.length - 1));
+    cmdList.querySelector('[aria-selected="true"]')?.setAttribute("aria-selected", "false");
+    const opcion = $("cmd-option-" + cmdSel);
+    opcion.setAttribute("aria-selected", "true");
+    cmdQ.setAttribute("aria-activedescendant", opcion.id);
+    if (scroll) opcion.scrollIntoView({ block: "nearest" });
+  }
+
   function cmdPinta() {
-    const q = sinTildes(cmdQ.value.trim());
-    const acciones = cmdAcciones();
-    const entidades = cmdResultados(q);
-    cmdVis = q ? acciones.filter(a => sinTildes(a.t + " " + a.g + " " + (a.s || "")).includes(q)).concat(entidades) : acciones;
-    /* Una coincidencia exacta del título gana a una parcial: «Cuentas» no debe
-       ejecutar «Futuros · cuentas» sólo porque aparece antes en la lista. */
-    if (q) {
-      const exactas = [], resto = [];
-      for (const a of cmdVis) (sinTildes(a.t) === q ? exactas : resto).push(a);
-      cmdVis = exactas.concat(resto);
+    clearTimeout(cmdSearchTimer);
+    cmdSearchTimer = null;
+    const consulta = cmdQ.value.trim(), q = cmdNorm(consulta), palabras = cmdPalabras(q);
+    const resultados = [], acciones = cmdAcciones();
+    const take = (g, i, t, s, f, campos = []) => {
+      const orden = q ? cmdPuntaje(q, palabras, t, campos.concat(s || "")) : 0;
+      if (Number.isFinite(orden)) resultados.push({ g, i, t, s, f, orden });
+    };
+    acciones.forEach(a => take(a.g, a.i, a.t, a.s, a.f, [a.g, ...(a.campos || [])]));
+    if (q) cmdResultados(take, q);
+
+    // La mejor coincidencia ordena su grupo. Cada grupo conserva su cupo.
+    resultados.sort((a, b) => a.orden - b.orden);
+    const grupos = new Map();
+    for (const r of resultados) {
+      if (!grupos.has(r.g)) grupos.set(r.g, []);
+      const grupo = grupos.get(r.g);
+      if (!q || grupo.length < 8) grupo.push(r);
     }
-    if (cmdSel >= cmdVis.length) cmdSel = Math.max(0, cmdVis.length - 1);
-    if (!cmdVis.length) { cmdList.innerHTML = `<p class="cmd-none">Nada que coincida con «${esc(cmdQ.value.trim())}».</p>`; return; }
-    let html = "", grupo = null;
-    cmdVis.forEach((a, k) => {
-      if (a.g !== grupo) { grupo = a.g; html += `<div class="cmd-grp">${esc(grupo)}</div>`; }
-      html += `<button type="button" class="cmd-it" role="option" data-k="${k}" aria-selected="${k === cmdSel}">
-        <span class="ci">${a.i}</span><span class="ct">${esc(a.t)}</span>${a.s ? `<span class="cs">${esc(a.s)}</span>` : ""}</button>`;
-    });
-    cmdList.innerHTML = html;
-    const act = cmdList.querySelector('[aria-selected="true"]');
-    if (act) act.scrollIntoView({ block: "nearest" });
+    cmdVis = [];
+    cmdList.innerHTML = [...grupos].map(([g, items], n) =>
+      `<div role="group" aria-labelledby="cmd-group-${n}">
+        <div class="cmd-grp" id="cmd-group-${n}">${esc(g)}</div>
+        ${items.map(a => {
+          const k = cmdVis.push(a) - 1;
+          return `<button type="button" class="cmd-it" role="option" tabindex="-1" id="cmd-option-${k}" data-k="${k}" aria-selected="false">
+            <span class="ci" aria-hidden="true">${a.i}</span><span class="ct">${esc(a.t)}</span>${a.s ? `<span class="cs">${esc(a.s)}</span>` : ""}</button>`;
+        }).join("")}</div>`).join("");
+    cmdList.setAttribute("aria-busy", "false");
+    cmdQ.removeAttribute("aria-activedescendant");
+    if (cmdStatus) cmdStatus.textContent = !q ? "" : cmdVis.length
+      ? `${cmdVis.length} resultado${cmdVis.length === 1 ? "" : "s"}${cmdVis.length < resultados.length ? " · Acota la búsqueda para ver otros resultados." : ""}`
+      : `Nada que coincida con «${consulta}». Prueba un símbolo, una fecha o menos palabras.`;
+    cmdSelecciona(cmdSel);
   }
+
   function cmdAbre() {
-    cmdQ.value = ""; cmdSel = 0; cmdPinta();
+    cmdReturnFocus = document.activeElement;
+    cmdQ.value = "";
+    cmdSel = 0;
     cmdOv.classList.add("open");
+    cmdOpen?.setAttribute("aria-expanded", "true");
+    cmdQ.setAttribute("aria-expanded", "true");
     cmdQ.focus();
+    cmdPinta();
   }
-  function cmdCierra() { cmdOv.classList.remove("open"); }
+
+  function cmdCierra() {
+    clearTimeout(cmdSearchTimer);
+    cmdSearchTimer = null;
+    cmdVis = [];
+    cmdOv.classList.remove("open");
+    cmdOpen?.setAttribute("aria-expanded", "false");
+    cmdQ.setAttribute("aria-expanded", "false");
+    cmdQ.removeAttribute("aria-activedescendant");
+    returnDialogFocus(cmdReturnFocus, cmdOpen);
+    cmdReturnFocus = null;
+  }
+
   function cmdEjecuta(k) {
-    const a = cmdVis[k]; if (!a) return;
+    const a = cmdVis[k];
+    if (!a) return;
     cmdCierra();
-    try { a.f(); } catch (e) { try { console.error("acción «" + a.t + "» falló:", e); } catch (x) { } flash("Esa acción no se pudo abrir."); }
+    try { a.f(); } catch (e) { console.error("acción «" + a.t + "» falló:", e); flash("Esa acción no se pudo abrir."); }
   }
-  let cmdSearchTimer = null;
+
+  // Pages puede entregar el HTML anterior durante la propagación de app.js.
+  cmdOpen?.addEventListener("click", cmdAbre);
+  $("cmdClose")?.addEventListener("click", cmdCierra);
   cmdQ.addEventListener("input", () => {
     cmdSel = 0;
-    if (cmdSearchTimer) clearTimeout(cmdSearchTimer);
-    cmdSearchTimer = setTimeout(() => { cmdSearchTimer = null; cmdPinta(); }, 80);
+    cmdVis = [];
+    cmdList.replaceChildren();
+    cmdList.setAttribute("aria-busy", "true");
+    cmdQ.removeAttribute("aria-activedescendant");
+    if (cmdStatus) cmdStatus.textContent = "Buscando…";
+    clearTimeout(cmdSearchTimer);
+    cmdSearchTimer = setTimeout(cmdPinta, 80);
   });
-  cmdList.addEventListener("click", e => { const b = e.target.closest(".cmd-it"); if (b) cmdEjecuta(Number(b.dataset.k)); });
+  cmdList.addEventListener("mousedown", e => {
+    if (e.target.closest(".cmd-it")) e.preventDefault(); // El foco real se queda en el combobox.
+  });
+  cmdList.addEventListener("click", e => {
+    const b = e.target.closest(".cmd-it");
+    if (b) cmdEjecuta(Number(b.dataset.k));
+  });
   cmdList.addEventListener("mousemove", e => {
-    const b = e.target.closest(".cmd-it"); if (!b) return;
-    const k = Number(b.dataset.k); if (k === cmdSel) return;
-    cmdSel = k; cmdList.querySelectorAll(".cmd-it").forEach(x => x.setAttribute("aria-selected", String(Number(x.dataset.k) === k)));
+    const b = e.target.closest(".cmd-it");
+    if (b && Number(b.dataset.k) !== cmdSel) cmdSelecciona(Number(b.dataset.k), false);
   });
-  cmdOv.addEventListener("mousedown", e => { if (e.target === cmdOv) cmdCierra(); });
+  cmdOv.addEventListener("mousedown", e => {
+    if (e.target === cmdOv) { e.preventDefault(); cmdCierra(); }
+  });
+  cmdOv.addEventListener("keydown", e => {
+    if (e.isComposing) return;
+    if (e.key === "Escape") {
+      e.preventDefault(); e.stopPropagation(); cmdCierra();
+    } else trapDialogFocus(e, cmdOv);
+  });
   cmdQ.addEventListener("keydown", e => {
-    if (e.key === "ArrowDown" || (e.key === "n" && e.ctrlKey)) { e.preventDefault(); cmdSel = Math.min(cmdVis.length - 1, cmdSel + 1); cmdPinta(); }
-    else if (e.key === "ArrowUp" || (e.key === "p" && e.ctrlKey)) { e.preventDefault(); cmdSel = Math.max(0, cmdSel - 1); cmdPinta(); }
-    else if (e.key === "Enter") { e.preventDefault(); cmdEjecuta(cmdSel); }
-    else if (e.key === "Escape") { e.preventDefault(); cmdCierra(); }
+    if (e.isComposing) return;
+    const abajo = e.key === "ArrowDown" || (e.key === "n" && e.ctrlKey);
+    const arriba = e.key === "ArrowUp" || (e.key === "p" && e.ctrlKey);
+    if (!abajo && !arriba && e.key !== "Enter") return;
+    e.preventDefault();
+    // Si todavía corre el debounce, Enter y las flechas usan la consulta nueva.
+    if (cmdSearchTimer !== null) cmdPinta();
+    if (e.key === "Enter") cmdEjecuta(cmdSel);
+    else cmdSelecciona(cmdSel + (abajo ? 1 : -1));
   });
 
   /* ── ATAJOS ───────────────────────────────────────────────────────
@@ -15765,6 +15852,7 @@
     r: () => showTab("calc"),
   };
   document.addEventListener("keydown", e => {
+    if (e.isComposing) return;
     if (document.querySelector('.settings-dialog[open]')) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") e.preventDefault();
       return;
@@ -17505,17 +17593,75 @@
   const estudioNorm=x=>String(x||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
   function estudioEsc(x){return esc(String(x==null?"":x));}
   function estudioLista(){return coll("research").items.slice().sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));}
-  function estudioTexto(d){return[d.title,d.question,d.evidence,d.catalysts,d.counter,d.conclusion,d.url,d.author,d.publishedAt,d.consultedAt,d.nextReview,(d.tags||[]).join(" "),(Array.isArray(d.links)?d.links:[]).map(estudioLinkLabel).join(" ")].join(" ");}
+  function estudioTexto(d){
+    const tags = Array.isArray(d.tags) ? d.tags.join(" ") : d.tags;
+    const links = Array.isArray(d.links) ? d.links.map(estudioLinkLabel).join(" ") : "";
+    return [d.title,d.question,d.evidence,d.catalysts,d.counter,d.conclusion,d.url,d.author,d.publishedAt,d.consultedAt,d.nextReview,tags,links].join(" ");
+  }
   function estudioVisible(){const q=estudioNorm($("studySearch").value.trim()),hoy=todayISO(),desde=$("studyFrom").value,hasta=$("studyTo").value;return estudioLista().filter(d=>{if(d.type==="trade-review")return false;const ok=estudioFiltro==="all"||(estudioFiltro==="todo"?d.status==="todo":estudioFiltro==="review"?!!d.nextReview&&d.nextReview<=hoy:d.type===estudioFiltro),fecha=d.consultedAt||"";return ok&&(!desde||!!fecha&&fecha>=desde)&&(!hasta||!!fecha&&fecha<=hasta)&&(!q||estudioNorm(estudioTexto(d)).includes(q));});}
   function estudioFecha(v){try{if(typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v)){const a=v.split("-").map(Number);return new Intl.DateTimeFormat("es-US",{month:"short",day:"numeric",year:"numeric"}).format(new Date(a[0],a[1]-1,a[2],12));}return new Intl.DateTimeFormat("es-US",{month:"short",day:"numeric",year:"numeric"}).format(new Date(Number(v)||v));}catch{return"Sin fecha";}}
+  const VINCULOS_COLECCION = new Map([
+    ["trade", "trades"], ["position", "positions"], ["playbook", "playbooks"],
+    ["thesis", "tesis"], ["research", "research"],
+  ]);
+  function registroVinculado(tipo, id) {
+    if (!id) return;
+    if (tipo === "account") return acctById(id);
+    if (tipo === "invest-account") return investmentAccounts().find(a => a.id === id);
+    const coleccion = VINCULOS_COLECCION.get(tipo);
+    if (!coleccion) return;
+    const registro = coll(coleccion).get(id);
+    if (tipo !== "research" || registro?.type !== "trade-review") return registro;
+  }
+  function abreRegistro(tipo, id) {
+    const registro = registroVinculado(tipo, id);
+    if (!registro) { flash("El registro ya no está disponible."); return; }
+    switch (tipo) {
+      case "trade":
+        if (registro.type === "inversion") showTab("invest");
+        else { showTab("futuros"); setFtView("diario"); }
+        openTrade(registro);
+        break;
+      case "position":
+        showTab("invest");
+        openPosition(registro, registro.market);
+        break;
+      case "playbook":
+        showTab("playbook");
+        pb.view = pbKindOf(registro);
+        renderPlaybook();
+        openPlaybook(registro);
+        break;
+      case "thesis":
+        showTab("playbook");
+        pb.view = "tesis";
+        renderPlaybook();
+        abreSeccion(registro, "ficha");
+        break;
+      case "account":
+        showTab("futuros");
+        setFtView("cuentas");
+        openAccountEditor(registro);
+        break;
+      case "invest-account":
+        showTab("invest");
+        openInvestmentAccountEditor(registro);
+        break;
+      case "research":
+        if (state.tab !== "estudio") showTab("estudio");
+        estudioReader(id);
+        break;
+    }
+  }
   function estudioLinkLabel(l){
     if(!l||!l.id)return"Vínculo sin destino";
-    if(l.type==="trade"){const x=coll("trades").get(l.id);return x?(x.instrument||x.asset||"Operación")+" · "+(x.date||"sin fecha"):"Operación eliminada";}
-    if(l.type==="position"){const x=coll("positions").get(l.id);return x?(x.asset||x.name||"Posición"):"Posición eliminada";}
-    if(l.type==="playbook"){const x=coll("playbooks").get(l.id);return x?(x.name||"Setup"):"Setup eliminado";}
-    if(l.type==="thesis"){const x=coll("tesis").get(l.id);return x?(x.name||x.asset||"Tesis"):"Tesis eliminada";}
-    if(l.type==="account"){const x=FUT.accounts().find(a=>a.id===l.id);return x?((x.firm?x.firm+" · ":"")+(x.name||"Cuenta")):"Cuenta eliminada";}
-    if(l.type==="research"){const x=coll("research").get(l.id);return x?(x.title||"Documento"):"Documento eliminado";}
+    const x=registroVinculado(l.type,l.id);
+    if(l.type==="trade")return x?(x.instrument||x.asset||"Operación")+" · "+(x.date||"sin fecha"):"Operación eliminada";
+    if(l.type==="position")return x?(x.asset||x.name||"Posición"):"Posición eliminada";
+    if(l.type==="playbook")return x?(x.name||"Setup"):"Setup eliminado";
+    if(l.type==="thesis")return x?(x.name||x.asset||"Tesis"):"Tesis eliminada";
+    if(l.type==="account")return x?((x.firm?x.firm+" · ":"")+(x.name||"Cuenta")):"Cuenta eliminada";
+    if(l.type==="research")return x?(x.title||"Documento"):"Documento eliminado";
     return String(l.id);
   }
   function estudioEntidadesVinculables(tipo){
@@ -17568,7 +17714,12 @@
     toc.hidden=total<1200;toc.innerHTML=total<1200?"":'<strong style="display:block;margin-bottom:8px">Contenido</strong>'+sections.map(x=>'<button type="button" data-study-reader-section="'+x[0]+'" style="display:block;border:0;background:transparent;color:var(--text);padding:5px 0;text-align:left;cursor:pointer">'+estudioEsc(x[1])+'</button>').join("");
     $("studyReaderContent").innerHTML=sections.map(x=>'<section id="study-reader-'+x[0]+'" style="margin:0 0 22px"><h4 style="font-size:15px;letter-spacing:-.01em;margin:0 0 8px">'+estudioEsc(x[1])+'</h4><div>'+estudioEsc(x[2]).replace(/\n/g,"<br>")+'</div></section>').join("");
     const links=Array.isArray(d.links)?d.links:[],backs=estudioLista().filter(x=>x.id!==d.id&&Array.isArray(x.links)&&x.links.some(l=>l&&l.type==="research"&&l.id===d.id));
-    $("studyReaderContext").innerHTML='<strong style="display:block;margin-bottom:9px">Contexto</strong>'+(d.url&&urlNavegable(d.url)?'<p><a href="'+estudioEsc(d.url)+'" target="_blank" rel="noopener noreferrer">Abrir fuente ↗</a></p>':"")+(d.nextReview?'<p>Próxima revisión: '+estudioEsc(d.nextReview)+'</p>':"")+(Array.isArray(d.tags)&&d.tags.length?'<p>Etiquetas: '+estudioEsc(d.tags.join(", "))+'</p>':"")+(links.length?'<p><strong>Vinculado a</strong></p><ul>'+links.map(l=>'<li>'+estudioEsc(estudioLinkLabel(l))+'</li>').join("")+'</ul>':"")+(backs.length?'<p><strong>Referenciado por</strong></p><ul>'+backs.map(x=>'<li><button type="button" data-study-reader-open="'+estudioEsc(x.id)+'" style="border:0;background:transparent;color:var(--accent);cursor:pointer;text-align:left;padding:0">'+estudioEsc(x.title||"Documento")+'</button></li>').join("")+'</ul>':"");
+    const relaciones = links.map(l => {
+      const label = estudioEsc(estudioLinkLabel(l));
+      if (!l || !registroVinculado(l.type, l.id)) return `<li>${label}</li>`;
+      return `<li><button type="button" class="study-link" data-study-link-type="${estudioEsc(l.type)}" data-study-link-id="${estudioEsc(l.id)}">${label}</button></li>`;
+    }).join("");
+    $("studyReaderContext").innerHTML='<strong style="display:block;margin-bottom:9px">Contexto</strong>'+(d.url&&urlNavegable(d.url)?'<p><a href="'+estudioEsc(d.url)+'" target="_blank" rel="noopener noreferrer">Abrir fuente ↗</a></p>':"")+(d.nextReview?'<p>Próxima revisión: '+estudioEsc(d.nextReview)+'</p>':"")+(Array.isArray(d.tags)&&d.tags.length?'<p>Etiquetas: '+estudioEsc(d.tags.join(", "))+'</p>':"")+(relaciones?'<p><strong>Vinculado a</strong></p><ul>'+relaciones+'</ul>':"")+(backs.length?'<p><strong>Referenciado por</strong></p><ul>'+backs.map(x=>'<li><button type="button" class="study-link" data-study-reader-open="'+estudioEsc(x.id)+'">'+estudioEsc(x.title||"Documento")+'</button></li>').join("")+'</ul>':"");
     $("studyReader").classList.add("open");$("studyReaderClose").focus();
   }
   function estudioReaderCerrar(restore=true){
@@ -17586,7 +17737,17 @@
   $("studyReader").addEventListener("click",e=>{if(e.target===$("studyReader"))estudioReaderCerrar();});
   $("studyReaderEdit").addEventListener("click",()=>{const id=estudioReaderId,back=estudioReaderReturnFocus;estudioReaderCerrar(false);estudioEditor(id,back);});
   $("studyReaderToc").addEventListener("click",e=>{const b=e.target.closest("button[data-study-reader-section]");if(!b)return;const el=$("study-reader-"+b.dataset.studyReaderSection);if(el)el.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});});
-  $("studyReaderContext").addEventListener("click",e=>{const b=e.target.closest("button[data-study-reader-open]");if(b)estudioReader(b.dataset.studyReaderOpen);});
+  $("studyReaderContext").addEventListener("click", e => {
+    const b = e.target.closest("button[data-study-link-id], button[data-study-reader-open]");
+    if (!b) return;
+    const { studyLinkType: tipo = "research", studyLinkId, studyReaderOpen } = b.dataset;
+    if (tipo !== "research") {
+      estudioReaderCerrar();
+      // La tarjeta que abrió el lector se oculta al cambiar de pestaña.
+      cmdOpen?.focus({ preventScroll: true });
+    }
+    abreRegistro(tipo, studyLinkId || studyReaderOpen);
+  });
   function estudioEditor(id,returnFocus){estudioEditorReturnFocus=returnFocus||document.activeElement;const d=estudioLista().find(x=>x.id===id)||{};$("studyForm").reset();$("studyId").value=d.id||"";$("studyType").value=d.type||"concept";$("studyStatus").value=d.status||"todo";$("studyTitle").value=d.title||"";$("studyQuestion").value=d.question||"";$("studyTags").value=(d.tags||[]).join(", ");$("studyUrl").value=d.url||"";$("studyAuthor").value=d.author||"";$("studyPublishedAt").value=d.publishedAt||"";$("studyConsultedAt").value=d.consultedAt||"";$("studyNextReview").value=d.nextReview||"";$("studyEvidence").value=d.evidence||"";$("studyCatalysts").value=d.catalysts||"";$("studyCounter").value=d.counter||"";$("studyConclusion").value=d.conclusion||"";$("studyPrompt").value=d.prompt||"";$("studyAnswer").value=d.answer||"";estudioLinkCurrentId=id||"";estudioLinksDraft=Array.isArray(d.links)?d.links.map(x=>({type:x.type,id:x.id})).filter(x=>x.type&&x.id):[];estudioRenderLinkTargets();estudioRenderLinkList();$("studyModalTitle").textContent=id?"Editar documento":"Nuevo documento de estudio";$("studyDelete").hidden=!id;$("studyModal").classList.add("open");$("studyTitle").focus();}
   function estudioCerrar(){
     if(!$("studyModal").classList.contains("open"))return;
@@ -17622,7 +17783,27 @@
   function estudioFlashcards(){return estudioLista().filter(d=>(d.type==="flashcard"||d.prompt)&&d.prompt&&d.answer);}
   function renderEstudioFlash(){const fs=estudioFlashcards(),p=$("studyFlashPrompt"),a=$("studyFlashAnswer");$("studyFlashPanel").hidden=!fs.length;if(!fs.length){$("studyFlashPos").textContent="";p.textContent="Crea una flashcard para practicar la recuperación activa.";a.hidden=true;a.textContent="";$("studyReveal").disabled=true;$("studyNext").disabled=true;return;}$("studyReveal").disabled=false;$("studyNext").disabled=fs.length<2;estudioFlashIdx%=fs.length;const d=fs[estudioFlashIdx];$("studyFlashPos").textContent=(estudioFlashIdx+1)+"/"+fs.length;p.textContent=d.prompt;a.textContent=d.answer;a.hidden=!estudioFlashRevelada;$("studyReveal").textContent=estudioFlashRevelada?"Ocultar respuesta":"Revelar respuesta";}
   $("studyReveal").addEventListener("click",()=>{estudioFlashRevelada=!estudioFlashRevelada;renderEstudioFlash();});$("studyNext").addEventListener("click",()=>{const fs=estudioFlashcards();if(fs.length){estudioFlashIdx=(estudioFlashIdx+1)%fs.length;estudioFlashRevelada=false;renderEstudioFlash();}});
-  function estudioAcciones(){return[{g:"Ir a",i:"⌕",t:"Estudio · biblioteca de investigación",s:"⌘K",f:()=>showTab("estudio")}];}
+  function estudioIrA(id) {
+    const ir = () => {
+      const heading = $(id);
+      heading.focus({ preventScroll: true });
+      heading.scrollIntoView({ block: "start" });
+    };
+    if (state.tab === "estudio") { ir(); return; }
+    showTab("estudio");
+    // showTab restaura primero el scroll previo de la pestaña.
+    requestAnimationFrame(ir);
+  }
+  $("studySections")?.addEventListener("click", e => {
+    const b = e.target.closest("button[data-study-section]");
+    if (b) estudioIrA(b.dataset.studySection);
+  });
+  function estudioAcciones(){
+    return [
+      { g: "Ir a", i: "⌕", t: "Estudio · biblioteca de investigación", f: () => estudioIrA("studyLibraryHeading") },
+      { g: "Ir a", i: "◷", t: "Estudio · revisar operaciones", f: () => estudioIrA("studyReviewHeading") },
+    ];
+  }
   /* ESTUDIO · revisión vinculada al journal existente. No copia ni altera el trade. */
   const estudioTrades=()=>typeof FUT!=="undefined"&&FUT&&typeof FUT.trades==="function"?FUT.trades().slice():[];
   const estudioDinero=v=>v==null||v===""||!Number.isFinite(Number(v))?"—":new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:2}).format(Number(v));
