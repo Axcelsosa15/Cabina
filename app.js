@@ -12593,6 +12593,11 @@
   }
   function redondeaQty(q) { const n = Number(q) || 0; return n >= 100 ? n.toFixed(2) : n >= 1 ? n.toFixed(4) : n.toFixed(6); }
 
+  function quedanUnidades(compras, ventas) {
+    // Una venta total deja cero unidades, incluso con el redondeo de fracciones.
+    return compras - ventas > Number.EPSILON * Math.max(compras, ventas) * 4;
+  }
+
   function posLotes(p) {
     const activo = String(p.asset || "").trim().toUpperCase();
     if (!activo) return null;
@@ -12637,7 +12642,7 @@
            final, para que se vea cuánto se llevó la fricción. Meterlas dentro
            del coste las vuelve invisibles. */
         const medio = qty > 0 ? coste / qty : 0;
-        const sale = Math.min(q, qty);
+        const sale = quedanUnidades(qty, q) ? q : qty;
         realizado += sale * px - sale * medio;
         recuperado += sale * px;
         coste -= sale * medio; qty -= sale; vendidoQty += sale; nVentas++;
@@ -12857,9 +12862,7 @@
       else saldo.compras += qty;
       cantidades.set(k, saldo);
     }
-    // Una venta total deja cero unidades, incluso con el redondeo de fracciones.
-    return [...cantidades.values()].filter(({ compras, ventas }) =>
-      compras - ventas > Number.EPSILON * Math.max(compras, ventas) * 4).length;
+    return [...cantidades.values()].filter(({ compras, ventas }) => quedanUnidades(compras, ventas)).length;
   }
   function investStats() {
     const ps = coll("positions").items.filter(investmentInScope), ops = tradesOf("inversion").filter(investmentInScope);

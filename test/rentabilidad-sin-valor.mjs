@@ -65,6 +65,18 @@ try {
   });
   await quieto(page);
   check(await page.evaluate(() => INV.portfolio().totalRet === 0.2), 'una compra fraccionada vendida por completo conserva su retorno');
+  await page.evaluate(() => {
+    INV.updateTransaction('buy', { qty: 0.1 });
+    INV.deleteTransaction('sell');
+    INV.updateTransaction('close', { qty: 0.3 });
+    INV.createTransaction({ id: 'second-buy', asset: 'VTI', market: 'etfs', accountId: 'a', op: 'compra', date: '2026-01-06', qty: 0.2, price: 100 });
+    INV.createPosition({ id: 'closed', asset: 'VTI', market: 'etfs', accountId: 'a' });
+  });
+  await quieto(page);
+  check(await page.evaluate(() => {
+    const p = INV.performance('closed');
+    return p.cerrada && p.cantidad === 0 && INV.portfolio().totalRet === 0.2;
+  }), 'una posición fraccionada cerrada no necesita cotización aunque quede en el historial');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));
