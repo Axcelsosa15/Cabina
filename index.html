@@ -1406,7 +1406,8 @@ tbody tr:last-child td{border-bottom:0}
   .cmd-in input { flex: 1; min-width: 0; background: none; border: 0; outline: none; padding: 0;
     font-family: var(--font-ui); font-size: 15px; color: var(--text); }
   .cmd-in input::placeholder { color: var(--dim); }
-  .cmd-k, .cmd-esc { flex: none; font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
+  .cmd-in:focus-within { box-shadow: inset 0 0 0 2px var(--accent); }
+  .cmd-k { flex: none; font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
     letter-spacing: .06em; color: var(--dim); border: 1px solid var(--line-strong);
     border-radius: var(--r-sm); padding:2px 8px; }
   .cmd-list { max-height: min(52vh, 420px); overflow-y: auto; padding: var(--s1) 0; }
@@ -1414,19 +1415,51 @@ tbody tr:last-child td{border-bottom:0}
     background: none; border: 0; padding:12px var(--s4); cursor: pointer; color: var(--text); }
   .cmd-it .ci { flex: none; width: 20px; text-align: center; font-size: 13.5px; color: var(--dim); }
   .cmd-it .ct { flex: 1; min-width: 0; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cmd-it .cs { flex: none; font-family: var(--font-mono); font-size: var(--t-meta); color: var(--dim); }
-  .cmd-it[aria-selected="true"] { background: var(--surface-3); }
+  .cmd-it .cs { max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--t-meta); color: var(--dim); }
+  .cmd-it[aria-selected="true"], .cmd-it:hover { background: var(--surface-3); }
   .cmd-it[aria-selected="true"] .ci { color: var(--accent); }
   .cmd-it[aria-selected="true"] .ct { font-weight: 600; }
   .cmd-grp { padding: var(--s3) var(--s4) var(--s1); font-family: var(--font-mono);
     font-size: 9.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
-  .cmd-none { padding: var(--s5) var(--s4); text-align: center; color: var(--dim); font-size: 13.5px; }
+  .cmd-status { margin: 0; padding: var(--s2) var(--s4); color: var(--muted); overflow-wrap: anywhere; }
+  .cmd-status:empty, .cmd-list:empty { padding: 0; }
+  .cmd-it:focus-visible, #cmdClose:focus-visible, .study-link:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: -2px;
+  }
+  .topbar #cmdOpen { display: inline-flex; align-items: center; gap: 6px; }
+  .study-link-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto; gap: 8px; }
+  .study-link-fields select { min-width: 0; }
+  @media (max-width: 560px) { .study-link-fields { grid-template-columns: minmax(0, 1fr); } }
+  .study-flash-scope { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .study-flash-grade { flex-wrap: wrap; }
+  .study-flash-grade .btn { flex-basis: 120px; }
+  .study-library-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 8px; margin-bottom: 12px; }
+  .study-library-fields .study-field { min-width: 0; }
+  .study-library-fields :is(select, input) { min-width: 0; width: 100%; }
+  .study-card .study-tag { overflow-wrap: anywhere; }
+  .study-sections { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: var(--s4); }
+  :is(#studyReviewHeading, #studyLibraryHeading) { scroll-margin-top: var(--s4); }
+  .study-link { border: 0; background: transparent; color: var(--accent); cursor: pointer; text-align: left; padding: 4px; }
+  #studyReader .study-reader-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 250px); gap: 22px; overflow-wrap: anywhere; }
   .cmd-foot { display: flex; align-items: center; gap:8px; flex-wrap: wrap;
     padding: var(--s2) var(--s4); border-top: 1px solid var(--line);
     font-size: 11px; color: var(--dim); background: var(--bg); }
   .cmd-foot kbd { font-family: var(--font-mono); font-size: 10.5px; border: 1px solid var(--line-strong);
     border-radius: var(--r-sm); padding:1px 4px; color: var(--muted); }
-  @media (max-width: 560px) { .cmd-ov { padding-top: var(--s4); } .cmd-foot { display: none; } }
+  @media (max-width: 1279px) { #cmdOpen .cmd-k { display: none; } }
+  @media (max-width: 700px) {
+    .topbar #cmdOpen, #cmdClose, .study-sections button, .study-link { min-height: 44px; }
+    #cmdOpen, #cmdClose { min-width: 44px; justify-content: center; }
+    #cmdOpen .cmd-label { display: none; }
+    #studyReader .study-reader-layout { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .cmd-ov { padding-top: var(--s4); }
+    .cmd-foot { display: none; }
+    .cmd-it { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 4px 10px; }
+    .cmd-it .cs { grid-column: 2; max-width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) { .cmd { animation: none; } }
 
   /* ── MICROINTERACCIONES ────────────────────────────────────────────
      Rápidas y sutiles: confirman que el sistema te oyó. Nada celebra nada.
@@ -5240,6 +5273,9 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
            una ACCION, y una accion es un <button>: trae Enter, espacio, foco y
            semantica sin inventar nada. -->
       <button type="button" class="editbtn conflbtn" id="resolveConflict" hidden>Resolver conflicto</button>
+      <button type="button" class="editbtn" id="cmdOpen" aria-label="Buscar en Cabina" aria-haspopup="dialog" aria-expanded="false" aria-controls="cmdOv" aria-keyshortcuts="Control+K Meta+K">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><span class="cmd-label">Buscar</span><kbd class="cmd-k" aria-hidden="true">Ctrl/⌘ K</kbd>
+      </button>
       <button type="button" class="editbtn qkbtn" id="quickBtn" title="Registro rápido (una operación en 5 segundos)" aria-haspopup="dialog" aria-expanded="false" aria-controls="quickOv">Registrar operación</button>
       <button type="button" class="editbtn" id="viewPrefsOpen" aria-haspopup="dialog" aria-controls="viewPrefs" title="Personalizar módulos visibles y densidad">Vista</button>
       <button type="button" class="editbtn tb-more-btn" id="tbMoreBtn" aria-expanded="false" aria-controls="tbSecondary" aria-haspopup="true" title="Más acciones">Más</button>
@@ -5351,8 +5387,12 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
 <!-- ======================= ESTUDIO ======================= -->
 <div class="tab" data-tab="estudio" id="studyTab"><section class="study-shell">
 <section class="deck" aria-label="Estudio"><h1 class="deck-t">Estudio</h1><span class="deck-parts">Revisión e investigación</span></section>
+<nav class="study-sections" id="studySections" aria-label="Secciones de Estudio">
+<button type="button" class="btn ghost sm" data-study-section="studyReviewHeading" aria-controls="studyReviewHeading">Revisar operaciones</button>
+<button type="button" class="btn ghost sm" data-study-section="studyLibraryHeading" aria-controls="studyLibraryHeading">Biblioteca</button>
+</nav>
 <section class="study-review-section" aria-labelledby="studyReviewHeading">
-<div class="study-section-heading"><div><h2 id="studyReviewHeading">Revisar operaciones</h2><p class="study-note">Capturas y notas del journal de Futuros.</p></div><span class="study-note" id="studyTradeResults" role="status"></span></div>
+<div class="study-section-heading"><div><h2 id="studyReviewHeading" tabindex="-1">Revisar operaciones</h2><p class="study-note">Capturas y notas del journal de Futuros.</p></div><span class="study-note" id="studyTradeResults" role="status"></span></div>
 <div class="study-review-layout">
 <aside class="study-trade-browser" data-view-key="estudio:study-panel:trades-para-revisar" data-view-label="Elegir operación" aria-label="Elegir operación">
 <div class="study-field"><label for="studyTradeSearch">Buscar operaciones</label><input id="studyTradeSearch" type="search" placeholder="Instrumento, fecha o ID…" autocomplete="off"></div>
@@ -5383,22 +5423,64 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
 <section data-view-key="estudio:study-panel:comparativa-por-instrumento-y-direccion" data-view-label="Comparativa por instrumento y dirección"><h3>Por instrumento y dirección</h3><div id="studyTradeBreakdown"><p class="study-note">Sin operaciones para comparar.</p></div></section>
 </details></div>
 </section>
-<section class="study-library" aria-labelledby="studyLibraryHeading"><div class="study-section-heading"><div><h2 id="studyLibraryHeading">Biblioteca</h2><p class="study-note" id="studyLibraryStatus"><b id="studyTotal">0</b> documentos · <span id="studyActive">0 en curso</span> · <span id="studySources">0 fuentes</span> · <span id="studyCompletion">0% revisado</span><i class="deck-bar"><span id="studyProgress"></span></i></p></div><button type="button" class="btn primary" id="studyNew">Nuevo documento</button></div>
+<section class="study-library" aria-labelledby="studyLibraryHeading"><div class="study-section-heading"><div><h2 id="studyLibraryHeading" tabindex="-1">Biblioteca</h2><p class="study-note" id="studyLibraryStatus"><b id="studyTotal">0</b> documentos · <span id="studyActive">0 en curso</span> · <span id="studySources">0 fuentes</span> · <span id="studyCompletion">0% revisado</span><i class="deck-bar"><span id="studyProgress"></span></i></p></div><button type="button" class="btn primary" id="studyNew">Nuevo documento</button></div>
 <label class="study-searchrow" for="studySearch"><span class="study-searchicon">⌕</span><input id="studySearch" type="text" autocomplete="off" placeholder="Buscar documentos, fuentes o etiquetas…" aria-label="Buscar en la biblioteca de estudio"></label>
-<div class="study-toolbar"><div class="study-date-filters" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:5px;color:var(--muted)">Consultada desde <input id="studyFrom" type="date" aria-label="Fecha consultada desde" style="width:132px"></label><label style="display:flex;align-items:center;gap:5px;color:var(--muted)">Hasta <input id="studyTo" type="date" aria-label="Fecha consultada hasta" style="width:132px"></label></div><div class="study-filters" id="studyFilters" aria-label="Filtrar documentos"><button class="study-filter" data-study-filter="all" aria-pressed="true">Todo</button><button class="study-filter" data-study-filter="concept">Conceptos</button><button class="study-filter" data-study-filter="brief">Research briefs</button><button class="study-filter" data-study-filter="source">Fuentes</button><button class="study-filter" data-study-filter="flashcard">Flashcards</button><button class="study-filter" data-study-filter="todo">Por estudiar</button><button class="study-filter" data-study-filter="review">Revisión pendiente</button></div><div class="study-actions"><span id="studyResults" class="muted" >0 resultados</span><button type="button" class="btn ghost sm" id="studyExport">Exportar JSON</button></div></div>
-<div class="study-grid" id="studyGrid" aria-live="polite"></div>
+<div class="study-library-fields" role="group" aria-label="Filtros de biblioteca">
+  <div class="study-field"><label for="studyTopicFilter">Tema</label><select id="studyTopicFilter"><option value="">Todos los temas</option></select></div>
+  <div class="study-field"><label for="studyTagFilter">Etiqueta</label><select id="studyTagFilter"><option value="">Todas las etiquetas</option></select></div>
+  <div class="study-field"><label for="studyStatusFilter">Estado</label><select id="studyStatusFilter"><option value="">Todos los estados</option><option value="todo">Por estudiar</option><option value="progressing">En curso</option><option value="mastered">Revisado</option></select></div>
+  <div class="study-field"><label for="studyFrom">Consultada desde</label><input id="studyFrom" type="date" aria-label="Fecha consultada desde"></div>
+  <div class="study-field"><label for="studyTo">Consultada hasta</label><input id="studyTo" type="date" aria-label="Fecha consultada hasta"></div>
+</div>
+<div class="study-toolbar">
+  <div class="study-filters" id="studyFilters" role="group" aria-label="Filtrar documentos">
+    <button type="button" class="study-filter" data-study-filter="all" aria-pressed="true">Todo</button>
+    <button type="button" class="study-filter" data-study-filter="concept" aria-pressed="false">Conceptos</button>
+    <button type="button" class="study-filter" data-study-filter="brief" aria-pressed="false">Research briefs</button>
+    <button type="button" class="study-filter" data-study-filter="source" aria-pressed="false">Fuentes</button>
+    <button type="button" class="study-filter" data-study-filter="flashcard" aria-pressed="false">Flashcards</button>
+    <button type="button" class="study-filter" data-study-filter="review" aria-pressed="false">Revisión pendiente</button>
+  </div>
+  <div class="study-actions"><span id="studyResults" class="muted" role="status">0 resultados</span><button type="button" class="btn ghost sm" id="studyClearFilters">Limpiar filtros</button><button type="button" class="btn ghost sm" id="studyExport">Exportar JSON</button></div>
+</div>
+<div class="study-grid" id="studyGrid"></div>
 <div class="study-bottom"><details class="study-panel" data-view-key="estudio:study-panel:modulo-11" data-view-label="Protocolo de investigación" style="align-self:start"><summary style="font-size:14px;font-weight:650;cursor:pointer">Protocolo de investigación</summary><div class="study-protocol"><div class="study-step"><i>01</i><span><b style="color:var(--text)">Pregunta.</b> Define qué necesitas descubrir antes de recopilar información.</span></div><div class="study-step"><i>02</i><span><b style="color:var(--text)">Evidencia.</b> Registra fuente, fecha, datos y limitaciones.</span></div><div class="study-step"><i>03</i><span><b style="color:var(--text)">Antítesis.</b> Busca qué invalidaría tu hipótesis.</span></div><div class="study-step"><i>04</i><span><b style="color:var(--text)">Síntesis.</b> Separa hechos, interpretación y especulación.</span></div></div></details>
-<section class="study-panel" id="studyFlashPanel" data-view-key="estudio:study-panel:recuperacion-activa" data-view-label="Recuperación activa" data-view-legacy-heading="h3"><h3>Recuperación activa <span id="studyFlashPos" class="muted"></span></h3><div class="study-flash"><small>FLASHCARD</small><p id="studyFlashPrompt">Crea una flashcard para practicar la recuperación activa.</p><div id="studyFlashAnswer" class="study-flash-answer" hidden></div></div><div class="study-flash-actions"><button type="button" class="btn ghost sm" id="studyReveal">Revelar respuesta</button><button type="button" class="btn ghost sm" id="studyNext">Siguiente ↗</button></div></section></div></section></section></div>
+<section class="study-panel" id="studyFlashPanel" data-view-key="estudio:study-panel:recuperacion-activa" data-view-label="Recuperación activa" data-view-legacy-heading="h3">
+  <h3>Recuperación activa <span id="studyFlashPos" class="muted"></span></h3>
+  <div class="study-flash-scope"><label for="studyFlashAll"><input id="studyFlashAll" type="checkbox"> Todas las flashcards</label><span id="studyFlashPending" class="muted" role="status"></span></div>
+  <div class="study-flash">
+    <small>FLASHCARD</small><p id="studyFlashPrompt" aria-live="polite">Crea una flashcard para practicar la recuperación activa.</p>
+    <small id="studyFlashDue" hidden></small>
+    <div id="studyFlashAnswer" class="study-flash-answer" hidden></div>
+  </div>
+  <div class="study-flash-actions">
+    <button type="button" class="btn ghost sm" id="studyReveal" aria-controls="studyFlashAnswer" aria-expanded="false">Revelar respuesta</button>
+    <button type="button" class="btn ghost sm" id="studyNext">Siguiente ↗</button>
+  </div>
+  <div class="study-flash-actions study-flash-grade" id="studyFlashGrade" role="group" aria-label="Calificar revisión" hidden>
+    <button type="button" class="btn ghost sm" id="studyFlashAgain">Repasar · 1 día</button>
+    <button type="button" class="btn ghost sm" id="studyFlashRecall">Recordé · 3 días</button>
+  </div>
+  <p class="study-note" id="studyFlashStatus" role="status" hidden></p>
+</section></div></section></section></div>
 <div class="study-modal" id="studyModal" role="dialog" aria-modal="true" aria-labelledby="studyModalTitle"><div class="study-dialog"><div class="study-dialog-head"><h3 id="studyModalTitle">Nuevo documento de estudio</h3><button type="button" class="btn ghost sm" id="studyClose" aria-label="Cerrar">✕</button></div><form id="studyForm"><div class="study-dialog-body"><input type="hidden" id="studyId"><div class="study-fields">
 <div class="study-field"><label for="studyType">Tipo</label><select id="studyType"><option value="concept">Concepto</option><option value="brief">Research brief / tesis</option><option value="source">Fuente</option><option value="flashcard">Flashcard</option></select></div><div class="study-field"><label for="studyStatus">Estado</label><select id="studyStatus"><option value="todo">Por estudiar</option><option value="progressing">En curso</option><option value="mastered">Dominado / revisado</option></select></div>
 <h4 class="study-form-heading">Idea</h4><div class="study-field full"><label for="studyTitle">Título *</label><input id="studyTitle" required maxlength="180" placeholder="Ej. Cómo afecta el real yield al oro"></div><div class="study-field full"><label for="studyQuestion">Pregunta o resumen</label><textarea id="studyQuestion" maxlength="4000" placeholder="¿Qué quieres entender? ¿Cuál es la idea principal?"></textarea></div>
-<h4 class="study-form-heading">Fuente y organización</h4><div class="study-field"><label for="studyTags">Etiquetas (separadas por coma)</label><input id="studyTags" maxlength="300" placeholder="macro, rates, gold"></div><div class="study-field"><label for="studyUrl">URL de la fuente</label><input id="studyUrl" type="url" maxlength="2000" placeholder="https://…"></div>
+<h4 class="study-form-heading">Fuente y organización</h4><div class="study-field full"><label for="studyTopic">Tema</label><input id="studyTopic" maxlength="120" placeholder="Ej. Macro, energía o gestión del riesgo"></div><div class="study-field"><label for="studyTags">Etiquetas (separadas por coma)</label><input id="studyTags" maxlength="300" placeholder="macro, rates, gold"></div><div class="study-field"><label for="studyUrl">URL de la fuente</label><input id="studyUrl" type="url" maxlength="2000" placeholder="https://…"></div>
 <div class="study-field"><label for="studyAuthor">Autor / publicación</label><input id="studyAuthor" maxlength="240" placeholder="Autor, medio o institución"></div><div class="study-field"><label for="studyPublishedAt">Fecha de publicación</label><input id="studyPublishedAt" type="date"></div><div class="study-field"><label for="studyConsultedAt">Fecha consultada</label><input id="studyConsultedAt" type="date"></div><div class="study-field"><label for="studyNextReview">Próxima revisión</label><input id="studyNextReview" type="date"></div>
-<div class="study-field full"><label>Vínculos con registros existentes</label><div style="display:grid;grid-template-columns:minmax(130px,.7fr) minmax(180px,1.3fr) auto;gap:8px"><select id="studyLinkType" aria-label="Tipo de vínculo"><option value="trade">Operación</option><option value="position">Posición</option><option value="playbook">Playbook / setup</option><option value="thesis">Tesis</option><option value="account">Cuenta</option><option value="research">Documento de estudio</option></select><select id="studyLinkTarget" aria-label="Registro relacionado"><option value="">— elige un registro —</option></select><button type="button" class="btn ghost sm" id="studyLinkAdd">Vincular</button></div><div id="studyLinksList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px"></div><p class="help">Los vínculos apuntan a registros existentes; no duplican la operación, posición, cuenta o setup.</p></div>
-<h4 class="study-form-heading">Investigación</h4><div class="study-field full"><label for="studyEvidence">Evidencia</label><textarea class="tall" id="studyEvidence" maxlength="8000" placeholder="Datos, citas breves, cifras, fechas y fuente."></textarea></div><div class="study-field full"><label for="studyCatalysts">Catalizadores</label><textarea id="studyCatalysts" maxlength="5000" placeholder="Datos, anuncios, fechas o condiciones que podrían cambiar la tesis."></textarea></div><div class="study-field full"><label for="studyCounter">Riesgos y límites</label><textarea id="studyCounter" maxlength="8000" placeholder="¿Qué podría contradecir la hipótesis? ¿Qué falta saber?"></textarea></div><div class="study-field full"><label for="studyConclusion">Conclusión provisional</label><textarea id="studyConclusion" maxlength="8000" placeholder="Distingue la interpretación propia de los hechos registrados."></textarea></div>
+<div class="study-field full"><label>Vínculos con registros existentes</label><div class="study-link-fields"><select id="studyLinkType" aria-label="Tipo de vínculo"><option value="trade">Operación</option><option value="position">Posición</option><option value="playbook">Playbook / setup</option><option value="thesis">Tesis</option><option value="account">Cuenta de futuros</option><option value="invest-account">Cuenta de inversión</option><option value="research">Documento de estudio</option></select><select id="studyLinkTarget" aria-label="Registro relacionado"><option value="">— elige un registro —</option></select><button type="button" class="btn ghost sm" id="studyLinkAdd">Vincular</button></div><div id="studyLinksList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px"></div><p class="help">Los vínculos apuntan a registros existentes; no duplican la operación, posición, cuenta o setup.</p></div>
+<h4 class="study-form-heading">Investigación</h4>
+<div class="study-field full" data-study-brief hidden><label for="studyThesis">Tesis del brief</label><textarea id="studyThesis" maxlength="4000" placeholder="¿Qué afirmas y en qué horizonte esperas que se compruebe?"></textarea></div>
+<div class="study-field full"><label for="studyEvidence" id="studyEvidenceLabel">Evidencia</label><textarea class="tall" id="studyEvidence" maxlength="8000" placeholder="Datos, citas breves, cifras, fechas y fuente."></textarea></div>
+<div class="study-field full" data-study-brief hidden><label for="studyEvidenceAgainst">Evidencia en contra</label><textarea id="studyEvidenceAgainst" maxlength="8000" placeholder="Datos o fuentes que debilitan la tesis."></textarea></div>
+<div class="study-field full"><label for="studyCatalysts">Catalizadores</label><textarea id="studyCatalysts" maxlength="5000" placeholder="Datos, anuncios, fechas o condiciones que podrían cambiar la tesis."></textarea></div>
+<div class="study-field full"><label for="studyCounter">Riesgos y límites</label><textarea id="studyCounter" maxlength="8000" placeholder="Riesgos, supuestos sensibles y límites de la evidencia."></textarea></div>
+<div class="study-field full" data-study-brief hidden><label for="studyOpenQuestions">Preguntas abiertas</label><textarea id="studyOpenQuestions" maxlength="8000" placeholder="¿Qué falta verificar para actualizar la tesis?"></textarea></div>
+<div class="study-field full"><label for="studyConclusion">Conclusión provisional</label><textarea id="studyConclusion" maxlength="8000" placeholder="Distingue la interpretación propia de los hechos registrados."></textarea></div>
+<div class="study-field full"><label for="studySpeculation">Especulación</label><textarea id="studySpeculation" maxlength="8000" placeholder="Escenarios o supuestos todavía sin verificar."></textarea></div>
 <h4 class="study-form-heading">Recuperación activa · opcional</h4><div class="study-field"><label for="studyPrompt">Flashcard: pregunta</label><textarea id="studyPrompt" maxlength="1500" placeholder="¿Qué debes recordar sin mirar?"></textarea></div><div class="study-field"><label for="studyAnswer">Flashcard: respuesta</label><textarea id="studyAnswer" maxlength="3000" placeholder="Respuesta breve y verificable."></textarea></div>
 </div></div><div class="study-dialog-foot"><button type="button" class="btn danger sm" id="studyDelete">Eliminar</button><span style="flex:1"></span><button type="button" class="btn ghost sm" id="studyCancel">Cancelar</button><button type="submit" class="btn primary sm">Guardar documento</button></div></form></div></div>
-<div class="study-modal" id="studyReader" role="dialog" aria-modal="true" aria-labelledby="studyReaderTitle"><div class="study-dialog" style="max-width:1180px"><div class="study-dialog-head"><h3 id="studyReaderTitle">Lectura</h3><button type="button" class="btn ghost sm" id="studyReaderClose" aria-label="Cerrar lectura">✕</button></div><div class="study-dialog-body" style="display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:22px"><div><div id="studyReaderMeta" class="muted" style="font-size:11px;margin-bottom:12px"></div><nav id="studyReaderToc" aria-label="Contenido del documento" hidden style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px"></nav><article id="studyReaderContent" style="max-width:72ch;font-size:14px;line-height:1.75"></article></div><aside id="studyReaderContext" style="border-left:1px solid var(--line);padding-left:16px;font-size:12px"></aside></div><div class="study-dialog-foot"><span style="flex:1"></span><button type="button" class="btn ghost sm" id="studyReaderCloseBottom">Cerrar</button><button type="button" class="btn primary sm" id="studyReaderEdit">Editar documento</button></div></div></div>
+<div class="study-modal" id="studyReader" role="dialog" aria-modal="true" aria-labelledby="studyReaderTitle"><div class="study-dialog" style="max-width:1180px"><div class="study-dialog-head"><h3 id="studyReaderTitle">Lectura</h3><button type="button" class="btn ghost sm" id="studyReaderClose" aria-label="Cerrar lectura">✕</button></div><div class="study-dialog-body study-reader-layout"><div><div id="studyReaderMeta" class="muted" style="font-size:11px;margin-bottom:12px"></div><nav id="studyReaderToc" aria-label="Contenido del documento" hidden style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px"></nav><article id="studyReaderContent" style="max-width:72ch;font-size:14px;line-height:1.75"></article></div><aside id="studyReaderContext" style="border-left:1px solid var(--line);padding-left:16px;font-size:12px"></aside></div><div class="study-dialog-foot"><span style="flex:1"></span><button type="button" class="btn ghost sm" id="studyReaderCloseBottom">Cerrar</button><button type="button" class="btn primary sm" id="studyReaderEdit">Editar documento</button></div></div></div>
 <!-- ======================= CABINA ======================= -->
 <div class="tab active" data-tab="cabina">
 <!-- ORDEN VISUAL. Las preguntas se responden en el orden en que se hacen:
@@ -6345,10 +6427,11 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
 <div class="ov cmd-ov" id="cmdOv" role="dialog" aria-modal="true" aria-label="Paleta de comandos">
   <div class="cmd">
     <div class="cmd-in">
-      <span class="cmd-k">⌘K</span>
-      <input type="text" id="cmdQ" autocomplete="off" spellcheck="false" placeholder="Buscar acción, pestaña o cuenta…" aria-label="Buscar" aria-controls="cmdList" aria-autocomplete="list">
-      <span class="cmd-esc">esc</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg>
+      <input type="text" id="cmdQ" role="combobox" autocomplete="off" spellcheck="false" placeholder="Buscar símbolo, nota o sección…" aria-label="Buscar en Cabina" aria-controls="cmdList" aria-expanded="false" aria-autocomplete="list">
+      <button type="button" class="btn ghost sm" id="cmdClose" aria-label="Cerrar búsqueda">×</button>
     </div>
+    <p class="cmd-status" id="cmdStatus" role="status"></p>
     <div class="cmd-list" id="cmdList" role="listbox" aria-label="Resultados"></div>
     <div class="cmd-foot"><kbd>↑</kbd><kbd>↓</kbd> moverse · <kbd>↵</kbd> abrir · <kbd>esc</kbd> cerrar</div>
   </div>

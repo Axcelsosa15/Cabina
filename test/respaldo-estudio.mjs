@@ -16,6 +16,9 @@ try {
   const uid = await D.conSesion(ctx, 'respaldo-estudio@prueba.invalid');
   D.siembra(uid, 'trades/t1', { id: 't1', type: 'futuros', date: '2026-11-03', instrument: 'MNQ', direction: 'long', entry: 21000, exit: 21010, qty: 1, images: [{ id: 'trade-shot' }] });
   D.siembra(uid, 'research/r1', { id: 'r1', type: 'trade-review', tradeId: 't1', title: 'Revisión con captura propia', scenes: { 'htf:1D': [{ id: 'study-shot', caption: 'Contexto propio' }] } });
+  D.siembra(uid, 'research/r2', { id: 'r2', type: 'brief', title: 'Tesis con tema', topic: 'Energía',
+    thesis: 'Tesis comprobable.', evidence: 'Hecho observado.', evidenceAgainst: 'Dato contrario.',
+    openQuestions: '¿Qué dato falta?', conclusion: 'Interpretación.', speculation: 'Supuesto pendiente.' });
   D.siembra(uid, 'credo/c1', { id: 'c1', title: 'Mi regla' });
   for (const id of ['trade-shot', 'study-shot']) D.e.objetos.set(uid + '/' + id, { tipo: 'image/png', bytes: PNG });
   const p = await ctx.newPage();
@@ -38,7 +41,9 @@ try {
   ok(copia.trades.t1.images[0].data === data, 'el trade conserva los bytes de su imagen');
   ok(copia.research.r1.scenes['htf:1D'][0].data === data, 'la escena de ESTUDIO lleva los bytes, no solo el id remoto');
   ok(copia.imagesInlined.total === 2 && copia.imagesInlined.failed === 0, 'la cobertura de capturas incluye ambas colecciones');
-  ok(copia.counts.research === 1 && copia.counts.credo === 1, 'los sellos cuentan investigación y reglas personales');
+  ok(copia.counts.research === 2 && copia.counts.credo === 1, 'los sellos cuentan investigación y reglas personales');
+  ok(copia.research.r2.topic === 'Energía' && copia.research.r2.speculation === 'Supuesto pendiente.',
+    'el respaldo exporta el tema y la especulación separados');
   ok(!D.filasDe(uid).find(f => f.path === 'research/r1').data.scenes['htf:1D'][0].data, 'exportar no modifica el documento remoto');
 
   const ultimoCompleto = await p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('cabina:last-backup:')).map(k => localStorage.getItem(k)));
@@ -81,6 +86,11 @@ try {
   const restaurada = await q.evaluate(() => JSON.parse(localStorage.getItem('cabina-mnq:v1')));
   ok(restaurada.research.r1.scenes['htf:1D'][0].data === data, 'restaurar y recargar sin cuenta conserva la captura de ESTUDIO');
   ok(restaurada.research.r1.scenes['htf:1D'][0].caption === 'Contexto propio', 'se conserva la nota de la escena');
+  ok(restaurada.research.r2.topic === 'Energía' && restaurada.research.r2.speculation === 'Supuesto pendiente.' &&
+    restaurada.research.r2.evidence === 'Hecho observado.' && restaurada.research.r2.conclusion === 'Interpretación.',
+    'restaurar y recargar conserva tema, hechos, interpretación y especulación');
+  ok(restaurada.research.r2.thesis === 'Tesis comprobable.' && restaurada.research.r2.evidenceAgainst === 'Dato contrario.' &&
+    restaurada.research.r2.openQuestions === '¿Qué dato falta?', 'la restauración conserva las secciones del brief');
   ok(errores.length === 0, 'sin errores de página: ' + errores.join(' | '));
 } finally { await browser.close(); }
 console.log(`\n  fallos: ${fallos.length}`);
