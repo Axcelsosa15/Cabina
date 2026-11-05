@@ -12685,15 +12685,16 @@
 
   function posCalc(p) {
     const l = posLotes(p);
+    const precio = enBlanco(p.current) ? null : p.current;
     if (l && l.ambigua) {
       const cost = (p.qty || 0) * (p.entry || 0) + comisionDe(p.fees);
-      const cur = p.current != null ? (p.qty || 0) * p.current : null;
+      const cur = precio == null ? null : (p.qty || 0) * precio;
       return { cost, cur, qty: p.qty || 0, medio: p.entry === 0 ? 0 : (p.entry || null), derivada: false, ambigua: true, gemelas: l.gemelas,
                pnl: cur == null ? null : cur - cost, pct: cur == null || !cost ? null : (cur - cost) / cost };
     }
     if (l && l.qty > 0) {
       const cost = l.coste;
-      const cur = p.current != null ? l.qty * p.current : null;
+      const cur = precio == null ? null : l.qty * precio;
       return { cost, cur, pnl: cur == null ? null : cur - cost, pct: cur == null || !cost ? null : (cur - cost) / cost,
                qty: l.qty, medio: l.medio, lotes: l, derivada: true };
     }
@@ -12703,7 +12704,11 @@
     if (l && l.qty === 0 && l.nCompras) {
       return { cost: 0, cur: 0, pnl: 0, pct: null, qty: 0, medio: null, lotes: l, derivada: true, cerrada: true };
     }
-    const cost = (p.qty || 0) * (p.entry || 0) + comisionDe(p.fees); const cur = p.current != null ? (p.qty || 0) * p.current : null; return { cost, cur, qty: p.qty || 0, medio: p.entry === 0 ? 0 : (p.entry || null), derivada: false, pnl: cur != null ? cur - cost : null, pct: cur != null && cost ? (cur - cost) / cost : null }; }
+    const cost = (p.qty || 0) * (p.entry || 0) + comisionDe(p.fees);
+    const cur = precio == null ? null : (p.qty || 0) * precio;
+    return { cost, cur, qty: p.qty || 0, medio: p.entry === 0 ? 0 : (p.entry || null), derivada: false,
+             pnl: cur == null ? null : cur - cost, pct: cur != null && cost ? (cur - cost) / cost : null };
+  }
   /* ═══════ LA TABLA DE POSICIONES, CON LAS CINCO PIEZAS ═══════
      Antes la columna P&L enseñaba sólo lo que subió el precio. Una posición
      con dividendos salía con un número más bajo del real, y no había forma de
@@ -12837,6 +12842,25 @@
 
   /* ---------- métricas de la cartera ---------- */
   function monthsBack(n) { const out = []; const d = new Date(state.today + "T12:00:00Z"); d.setUTCDate(1); for (let i = 0; i < n; i++) { out.unshift(d.toISOString().slice(0, 7)); d.setUTCMonth(d.getUTCMonth() - 1); } return out; }
+  function comprasSinPosicion(ps, ops, contadas) {
+    const clave = x => JSON.stringify([String(x.asset || "").trim().toUpperCase(), x.market || "", String(x.accountId || "")]);
+    const posiciones = new Set(ps.map(clave));
+    const cantidades = new Map();
+    for (const t of ops) {
+      if (contadas.has(t.id) || !["compra", "aporte", "venta"].includes(t.op)) continue;
+      const qty = Number(t.qty);
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+      const k = clave(t);
+      if (posiciones.has(k)) continue;
+      const saldo = cantidades.get(k) || { compras: 0, ventas: 0 };
+      if (t.op === "venta") saldo.ventas += qty;
+      else saldo.compras += qty;
+      cantidades.set(k, saldo);
+    }
+    // Una venta total deja cero unidades, incluso con el redondeo de fracciones.
+    return [...cantidades.values()].filter(({ compras, ventas }) =>
+      compras - ventas > Number.EPSILON * Math.max(compras, ventas) * 4).length;
+  }
   function investStats() {
     const ps = coll("positions").items.filter(investmentInScope), ops = tradesOf("inversion").filter(investmentInScope);
     let cost = 0, cur = 0, priced = 0; const byMarket = {}; const rows = [];
@@ -12897,7 +12921,10 @@
       if (t.op === "costo")     return { fecha: t.date, tipo: "costo",     monto: bruto + fe };
       return { fecha: t.date, tipo: "compra", monto: bruto + fe };
     }).filter(f => f.monto > 0 && f.fecha);
-    const carteraR = flujosCartera.length && cur >= 0
+    const sinPosicion = comprasSinPosicion(ps, ops, contadas);
+    const noPrice = ps.length - priced;
+    const faltaValor = sinPosicion || noPrice;
+    const carteraR = !faltaValor && flujosCartera.length && cur >= 0
       ? QE.analizarCartera({ ops: flujosCartera, valorActual: cur, hasta: state.today })
       : null;
     const cartera = carteraR && carteraR.ok ? carteraR.value : null;
@@ -12909,20 +12936,18 @@
 
        Manda el del motor, que es el que mide sobre lo que de verdad pusiste.
        El de la app queda sólo para cuando no hay flujos que analizar. */
-    const totalRet = cartera && cartera.retornoSimple != null
-      ? cartera.retornoSimple
-      : (cost ? (unreal + realized) / cost : null);
+    const totalRet = faltaValor ? null : cartera?.retornoSimple ?? (cost ? (unreal + realized) / cost : null);
     const sorted = rows.slice().sort((a, b) => b.val - a.val);
     const concentration = cur > 0 && sorted.length ? sorted[0].val / cur : null;
     const noPlan = ps.filter(p => !String(p.exitPlan || "").trim()).length;
     /* Un precio de hace más de un mes no es «valor actual»: es un recuerdo. */
-    const viejos = ps.filter(p => p.current != null && (!p.priceAt || Date.now() - p.priceAt > 30 * 86400000)).length;
+    const viejos = ps.filter(p => !enBlanco(p.current) && (!p.priceAt || Date.now() - p.priceAt > 30 * 86400000)).length;
     const mk = Object.keys(byMarket);
     const last6 = monthsBack(6);
     const byMonth = {}; ops.forEach(t => { const k = String(t.date || "").slice(0, 7); if (!k) return; const o = byMonth[k] || (byMonth[k] = { in: 0, inc: 0 }); if (t.op === "compra" || t.op === "aporte") o.in += (t.qty || 0) * (t.price || 0) + comisionDe(t.fees); if (t.op === "dividendo") o.inc += (t.pnl || 0); });
     const monthsWithIn = last6.filter(m => byMonth[m] && byMonth[m].in > 0).length;
     const defensive = ["bonos"].reduce((s, id) => s + (byMarket[id] ? byMarket[id].val : 0), 0);
-    return { ps, ops, rows, sorted, cost, cur, priced, unreal, realized, income, contributed, totalRet, cartera, concentration, noPlan, viejos, noPrice: ps.length - priced, byMarket, markets: mk, ventas, comisiones, invertido, byMonth, last6, monthsWithIn, defensive, defensiveShare: cur ? defensive / cur : null, yieldPct: cost ? income / cost : null, top: sorted[0] || null };
+    return { ps, ops, rows, sorted, cost, cur, priced, unreal, realized, income, contributed, totalRet, cartera, concentration, noPlan, viejos, noPrice, sinPosicion, byMarket, markets: mk, ventas, comisiones, invertido, byMonth, last6, monthsWithIn, defensive, defensiveShare: cur ? defensive / cur : null, yieldPct: cost ? income / cost : null, top: sorted[0] || null };
   }
   function pctSigno(x, dec) { return x == null ? "—" : (x >= 0 ? "+" : "") + (x * 100).toFixed(dec == null ? 1 : dec) + "%"; }
   /* El titular pasa a ser el IRR, que es la cifra correcta; el retorno simple
@@ -12932,9 +12957,12 @@
     const c = s.cartera;
     const irr = c && c.irrAnual != null ? c.irrAnual : null;
     if (irr == null) {
+      const motivo = s.sinPosicion ? "Hay compras abiertas sin posición. Añade sus posiciones y precios actuales."
+        : s.noPrice ? "Falta el precio actual de una o más posiciones."
+        : c?.irrError?.message || "sobre el coste · sin fechas suficientes para anualizar";
       return `<div class="tile"><span class="lab">Rentabilidad total</span>
         <div class="v ${s.totalRet == null ? "" : s.totalRet > 0 ? "good" : s.totalRet < 0 ? "bad" : ""}">${pctSigno(s.totalRet)}</div>
-        <div class="s">${c && c.irrError ? esc(c.irrError.message) : "sobre el coste · sin fechas suficientes para anualizar"}</div></div>`;
+        <div class="s">${esc(motivo)}</div></div>`;
     }
     /* «Difieren 2,5 pts» no dice nada si no dice hacia dónde ni por qué, y las
        dos cifras no se separan siempre por el mismo motivo:
