@@ -3690,6 +3690,9 @@ body { font-size: var(--read-body); line-height: 1.5; -webkit-font-smoothing: an
 .metric-grid { grid-template-columns: repeat(auto-fit,minmax(min(100%,200px),1fr)); }
 :is(.metric-overview,.metric-grid) > :is(.tile,.qec) { min-width: 0; padding: var(--panel-space); border: 0; border-radius: var(--r-md); background: var(--surface-2) !important; box-shadow: none; }
 .metric-overview > :is(.tile,.qec):first-child { border-left: 3px solid var(--accent); }
+#ivPending summary { cursor: pointer; font-weight: 600; padding-block: 8px; }
+#ivPendingList { display: grid; gap: 8px; margin: 8px 0 0; padding: 0; list-style: none; }
+#ivPendingList button { max-width: 100%; min-height: 44px; text-align: left; overflow-wrap: anywhere; }
 .metric-overview :is(.v,.qv) { font-size: clamp(25px,2.5vw,34px); line-height: 1.28; overflow: visible; text-overflow: clip; }
 .metric-grid :is(.v,.qv) { font-size: clamp(21px,2vw,26px); }
 :is(.metric-overview,.metric-grid) :is(.s,.qs) { font: 450 var(--read-meta)/1.55 var(--font-ui); white-space: normal; overflow: visible; text-overflow: clip; }
@@ -6111,6 +6114,10 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
   <section class="panel" id="ivOverview" data-view-key="invest:panel:cartera-todos-los-mercados" hidden>
     <header><h2>Cartera · todos los mercados</h2><span class="meta" id="ivPortfolioScope">todas las cuentas · cartera consolidada · precios los escribes tú</span></header>
     <div class="metric-overview" id="ivTiles"></div>
+    <details id="ivPending" class="body" hidden>
+      <summary id="ivPendingSummary"></summary>
+      <ul id="ivPendingList"></ul>
+    </details>
     <p class="settings-alert" id="ivDataStatus" role="status" hidden></p>
     <div id="ivTocar" hidden></div>
   </section>
