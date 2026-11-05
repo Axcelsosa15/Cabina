@@ -4922,7 +4922,7 @@
     [jResult, jTrades, jNote, jBroke].forEach(el => { el.disabled = d.closed || cargando; });
     $("jClose").disabled = cargando; $("jReopen").disabled = cargando;
     renderDaySync();
-    fillQtDest(); fillQtAccount(); renderQtNote();
+    fillQtDest(); renderQtNote();
     try { paintGateButtons(); } catch (e) { }
   }
   /* ---------- puente Cabina ↔ Journal de futuros ----------
@@ -4996,18 +4996,25 @@
   jBroke.addEventListener("click", () => { state.day.broke = !state.day.broke; persistDay(); renderJournalDay(); });
   $("jClose").addEventListener("click", () => { if (state.day.result == null) { flash("escribe el resultado antes de cerrar"); jResult.focus(); return; } state.day.closed = true; persistDay(); renderJournalDay(); });
   $("jReopen").addEventListener("click", () => { state.day.closed = false; persistDay(); renderJournalDay(); });
-  $("qtSym").addEventListener("input", () => renderQtNote());
+  $("qtSym").addEventListener("input", e => {
+    if (!e.target.value.trim()) qtTouched = false;
+    renderQtNote();
+  });
   $("qtSym").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("qtGo").click(); } });
   $("qtDest").addEventListener("change", () => { qtTouched = true; renderQtNote(); });
+  $("qtAccount").addEventListener("change", e => { qtAccounts[qtType()] = e.target.value; });
   $("qtGo").addEventListener("click", () => {
     const inp = $("qtSym"); const sym = inp.value.trim().toUpperCase();
     if (!sym) { flash("escribe el instrumento y se archiva solo"); inp.focus(); return; }
     const dest = $("qtDest").value;
-    const seed = dest === "futuros"
-      ? { date: state.day.date, instrument: sym, accountId: $("qtAccount").value || "" }
-      : { date: state.day.date, asset: sym, market: dest };
-    openTrade(null, dest === "futuros" ? "futuros" : "inversion", seed);
-    inp.value = ""; qtTouched = false; renderQtNote();
+    const seed = { date: state.day.date, accountId: $("qtAccount").value };
+    if (dest === "futuros") seed.instrument = sym;
+    else Object.assign(seed, { asset: sym, market: dest });
+    openTrade(null, qtType(), seed, () => {
+      inp.value = "";
+      qtTouched = false;
+      renderQtNote();
+    });
   });
 
   // 2026-09-14 -> 14/09/26. Evita leer "26-09-14" como 26 de septiembre.
@@ -5035,38 +5042,45 @@
     return { type: "inversion", market: "acciones", why: "no es un contrato de futuros" };
   }
   let qtTouched = false;
+  const qtAccounts = { futuros: null, inversion: null };
+  function qtType() { return $("qtDest").value === "futuros" ? "futuros" : "inversion"; }
   function fillQtDest() {
     const sel = $("qtDest"); if (!sel) return;
     const prev = sel.value;
     sel.innerHTML = `<option value="futuros">Futuros</option>` + marketsMerged().filter(m => m.id !== "futuros").map(m => `<option value="${esc(m.id)}">Inversiones · ${esc(m.name)}</option>`).join("");
-    if (prev) sel.value = prev;
+    if ([...sel.options].some(option => option.value === prev)) sel.value = prev;
+    else qtTouched = false;
   }
   /* La cuenta se elige por operación, no por sesión. Se muestran también las
      cuentas pausadas, quemadas o archivadas para registrar correctamente datos
      históricos. La selección sólo precarga el editor; guardar sigue siendo explícito. */
   function fillQtAccount() {
     const sel = $("qtAccount"); if (!sel) return;
-    const prev = sel.value;
-    const accounts = Array.isArray(state.settings.accounts) ? state.settings.accounts : [];
-    sel.innerHTML = '<option value="">Sin cuenta asignada</option>' + accounts.map(a => {
+    const type = qtType();
+    const futures = type === "futuros";
+    const accounts = futures ? (state.settings.accounts || []) : investmentAccounts();
+    const preferred = qtAccounts[type] ?? (futures ? defaultAccountId() : defaultInvestmentAccountId());
+    const options = '<option value="">Sin cuenta asignada</option>' + accounts.map(a => {
+      if (!futures) return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>';
       const label = acctLabel(a.id) || a.name || a.firm || "Cuenta";
       const status = estadoDe(a);
       return '<option value="' + esc(a.id) + '">' + esc(label) + (status ? ' · ' + esc(status) : '') + '</option>';
     }).join("");
-    const preferred = prev && accounts.some(a => String(a.id) === prev) ? prev : defaultAccountId();
-    sel.value = preferred && accounts.some(a => String(a.id) === String(preferred)) ? preferred : "";
+    sel.innerHTML = options;
+    sel.value = accounts.some(a => String(a.id) === String(preferred)) ? preferred : "";
+    if (qtAccounts[type] !== null) qtAccounts[type] = sel.value;
   }
   function renderQtNote() {
     const el = $("qtNote"), inp = $("qtSym"), sel = $("qtDest"); if (!el || !inp || !sel) return;
     const sym = inp.value.trim();
-    if (!sym) {
-      qtTouched = false;
-      el.className = "synced";
-      el.innerHTML = `<span class="dotg" style="background:var(--dim)"></span><span>Escribe el instrumento y se archiva solo: los contratos van al journal de Futuros, lo demás a Inversiones.</span>`;
-      return;
-    }
     const r = routeSymbol(sym);
     if (!qtTouched && r) sel.value = r.type === "futuros" ? "futuros" : r.market;
+    fillQtAccount();
+    if (!sym) {
+      el.className = "synced";
+      el.innerHTML = `<span class="dotg" style="background:var(--dim)"></span><span>Escribe el instrumento. Puedes cambiar el mercado y la cuenta antes de guardar.</span>`;
+      return;
+    }
     const dest = sel.value;
     const destTxt = dest === "futuros" ? "el journal de Futuros" : "Inversiones · " + marketName(dest);
     el.className = "synced" + (qtTouched ? " manual" : "");
@@ -11171,6 +11185,7 @@
   }
   function investmentAccountsChanged() {
     renderInvestmentAccountControls();
+    fillQtAccount();
     renderInvestMetrics(); renderInvestOps();
     renderMarketList(); renderMarketDetail();
   }
