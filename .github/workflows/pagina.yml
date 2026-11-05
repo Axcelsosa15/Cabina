@@ -104,12 +104,36 @@ jobs:
       # Se recorre index.html buscando URL absolutas al propio sitio y se exige
       # que cada fichero esté dentro de `sitio/`. Copiar un fichero nuevo al
       # repositorio y olvidarse de copiarlo aquí vuelve a ser imposible.
+      #
+      # EL DOMINIO NO SE ESCRIBE AQUI, Y ESTA ES LA RAZON. Este paso tenia el
+      # host de GitHub Pages incrustado en el `grep`. El dia que index.html pasó
+      # a su dominio propio, el patrón dejó de coincidir con NADA: el bucle no
+      # iteraba una sola vez, `faltan` se quedaba en 0 y el paso salía en verde
+      # habiendo comprobado cero ficheros. Un verde que medía lo que no era,
+      # justo en el guardián escrito para que el 404 de og.png no se repitiera.
+      # Ahora el origen se LEE de `rel=canonical`, que es donde la decisión
+      # existe de verdad, y una lista vacía es ROJO: si este paso no tiene nada
+      # que comprobar, el que falló es el paso, no el despliegue.
       - name: Todo lo que index.html pide del propio sitio está publicado
         run: |
+          base="$(grep -oE 'rel="canonical" href="https?://[^"]+"' index.html \
+                  | head -1 | sed 's|.*href="||;s|"$||')"
+          if [ -z "$base" ]; then
+            echo "::error::index.html no declara rel=canonical: no se puede saber qué URL son del propio sitio"
+            exit 1
+          fi
+          base="${base%/}"
+          echo "Origen propio, leído de rel=canonical: $base"
+          # El `.` del host queda como metacaracter en los dos patrones. Da igual:
+          # sobre-coincidir dentro de una URL del propio sitio no cambia la ruta
+          # extraida, y lo que importa es que una lista VACIA no pase.
+          rutas="$(grep -oE "$base/[A-Za-z0-9_./-]+" index.html | sed "s|^$base/||" | sort -u)"
+          if [ -z "$rutas" ]; then
+            echo "::error::ninguna URL absoluta a $base en index.html: este paso no estaría comprobando nada"
+            exit 1
+          fi
           faltan=0
-          for ruta in $(grep -oE 'https://axcelsosa15\.github\.io/Cabina/[A-Za-z0-9_./-]+' index.html \
-                        | sed 's|https://axcelsosa15.github.io/Cabina/||' | sort -u); do
-            [ -z "$ruta" ] && continue
+          for ruta in $rutas; do
             if [ -f "sitio/$ruta" ]; then
               echo "✅ $ruta publicado"
             else
