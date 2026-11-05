@@ -1430,6 +1430,9 @@ tbody tr:last-child td{border-bottom:0}
   .study-link-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto; gap: 8px; }
   .study-link-fields select { min-width: 0; }
   @media (max-width: 560px) { .study-link-fields { grid-template-columns: minmax(0, 1fr); } }
+  .study-flash-scope { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .study-flash-grade { flex-wrap: wrap; }
+  .study-flash-grade .btn { flex-basis: 120px; }
   .study-library-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 8px; margin-bottom: 12px; }
   .study-library-fields .study-field { min-width: 0; }
   .study-library-fields :is(select, input) { min-width: 0; width: 100%; }
@@ -5439,7 +5442,24 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
 </div>
 <div class="study-grid" id="studyGrid"></div>
 <div class="study-bottom"><details class="study-panel" data-view-key="estudio:study-panel:modulo-11" data-view-label="Protocolo de investigación" style="align-self:start"><summary style="font-size:14px;font-weight:650;cursor:pointer">Protocolo de investigación</summary><div class="study-protocol"><div class="study-step"><i>01</i><span><b style="color:var(--text)">Pregunta.</b> Define qué necesitas descubrir antes de recopilar información.</span></div><div class="study-step"><i>02</i><span><b style="color:var(--text)">Evidencia.</b> Registra fuente, fecha, datos y limitaciones.</span></div><div class="study-step"><i>03</i><span><b style="color:var(--text)">Antítesis.</b> Busca qué invalidaría tu hipótesis.</span></div><div class="study-step"><i>04</i><span><b style="color:var(--text)">Síntesis.</b> Separa hechos, interpretación y especulación.</span></div></div></details>
-<section class="study-panel" id="studyFlashPanel" data-view-key="estudio:study-panel:recuperacion-activa" data-view-label="Recuperación activa" data-view-legacy-heading="h3"><h3>Recuperación activa <span id="studyFlashPos" class="muted"></span></h3><div class="study-flash"><small>FLASHCARD</small><p id="studyFlashPrompt">Crea una flashcard para practicar la recuperación activa.</p><div id="studyFlashAnswer" class="study-flash-answer" hidden></div></div><div class="study-flash-actions"><button type="button" class="btn ghost sm" id="studyReveal">Revelar respuesta</button><button type="button" class="btn ghost sm" id="studyNext">Siguiente ↗</button></div></section></div></section></section></div>
+<section class="study-panel" id="studyFlashPanel" data-view-key="estudio:study-panel:recuperacion-activa" data-view-label="Recuperación activa" data-view-legacy-heading="h3">
+  <h3>Recuperación activa <span id="studyFlashPos" class="muted"></span></h3>
+  <div class="study-flash-scope"><label for="studyFlashAll"><input id="studyFlashAll" type="checkbox"> Todas las flashcards</label><span id="studyFlashPending" class="muted" role="status"></span></div>
+  <div class="study-flash">
+    <small>FLASHCARD</small><p id="studyFlashPrompt" aria-live="polite">Crea una flashcard para practicar la recuperación activa.</p>
+    <small id="studyFlashDue" hidden></small>
+    <div id="studyFlashAnswer" class="study-flash-answer" hidden></div>
+  </div>
+  <div class="study-flash-actions">
+    <button type="button" class="btn ghost sm" id="studyReveal" aria-controls="studyFlashAnswer" aria-expanded="false">Revelar respuesta</button>
+    <button type="button" class="btn ghost sm" id="studyNext">Siguiente ↗</button>
+  </div>
+  <div class="study-flash-actions study-flash-grade" id="studyFlashGrade" role="group" aria-label="Calificar revisión" hidden>
+    <button type="button" class="btn ghost sm" id="studyFlashAgain">Repasar · 1 día</button>
+    <button type="button" class="btn ghost sm" id="studyFlashRecall">Recordé · 3 días</button>
+  </div>
+  <p class="study-note" id="studyFlashStatus" role="status" hidden></p>
+</section></div></section></section></div>
 <div class="study-modal" id="studyModal" role="dialog" aria-modal="true" aria-labelledby="studyModalTitle"><div class="study-dialog"><div class="study-dialog-head"><h3 id="studyModalTitle">Nuevo documento de estudio</h3><button type="button" class="btn ghost sm" id="studyClose" aria-label="Cerrar">✕</button></div><form id="studyForm"><div class="study-dialog-body"><input type="hidden" id="studyId"><div class="study-fields">
 <div class="study-field"><label for="studyType">Tipo</label><select id="studyType"><option value="concept">Concepto</option><option value="brief">Research brief / tesis</option><option value="source">Fuente</option><option value="flashcard">Flashcard</option></select></div><div class="study-field"><label for="studyStatus">Estado</label><select id="studyStatus"><option value="todo">Por estudiar</option><option value="progressing">En curso</option><option value="mastered">Dominado / revisado</option></select></div>
 <h4 class="study-form-heading">Idea</h4><div class="study-field full"><label for="studyTitle">Título *</label><input id="studyTitle" required maxlength="180" placeholder="Ej. Cómo afecta el real yield al oro"></div><div class="study-field full"><label for="studyQuestion">Pregunta o resumen</label><textarea id="studyQuestion" maxlength="4000" placeholder="¿Qué quieres entender? ¿Cuál es la idea principal?"></textarea></div>

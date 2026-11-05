@@ -373,7 +373,11 @@
     const s = sessionState(n);
     $("sessionPill").className = "pill " + s.cls;
     $("sessionLabel").textContent = sessionLabelText(s.label);
-    if (n.date !== state.today) { state.today = n.date; loadDay(); }
+    if (n.date !== state.today) {
+      state.today = n.date;
+      loadDay();
+      queueMicrotask(() => { renderEstudioBiblioteca(); renderEstudioFlash(); });
+    }
     renderSessionNow();
     if (state.tab === "cabina") {
       try { updateGoBox(); } catch (e) { }
@@ -1477,6 +1481,9 @@
     "La operación en una línea": "The trade on one line",
     "Lección y siguiente acción": "Lesson and next action",
     "Leídas": "Read",
+    "Todas las flashcards": "All flashcards",
+    "Repasar · 1 día": "Review again · 1 day",
+    "Recordé · 3 días": "Recalled · 3 days",
     "Tema": "Topic",
     "Etiqueta": "Tag",
     "Especulación": "Speculation",
@@ -17604,7 +17611,8 @@
   /* ESTUDIO: utiliza la colección genérica existente para persistencia, sync y backups. */
   const ESTUDIO_TIPOS={concept:"Concepto",brief:"Research brief",source:"Fuente",flashcard:"Flashcard","trade-review":"Revisión de trade"};
   const ESTUDIO_ESTADOS={todo:"Por estudiar",progressing:"En curso",mastered:"Revisado"};
-  let estudioFiltro="all",estudioFlashIdx=0,estudioFlashRevelada=false,estudioTradeSeleccionado="";
+  let estudioFiltro="all", estudioTradeSeleccionado="";
+  let estudioFlashId="", estudioFlashRevelada=null, estudioFlashGuardando=false;
   const estudioNorm=x=>String(x||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
   function estudioEsc(x){return esc(String(x==null?"":x));}
   function estudioLista(){return coll("research").items.slice().sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));}
@@ -17940,9 +17948,110 @@
     estudioEligeTipo("all");
   });
   $("studyExport").addEventListener("click",()=>{const data={schema:"cabina-research",version:1,exportedAt:new Date().toISOString(),docs:estudioLista()};descarga("cabina-estudio-"+new Date().toISOString().slice(0,10)+".json",JSON.stringify(data,null,2),"application/json");});
-  function estudioFlashcards(){return estudioLista().filter(d=>(d.type==="flashcard"||d.prompt)&&d.prompt&&d.answer);}
-  function renderEstudioFlash(){const fs=estudioFlashcards(),p=$("studyFlashPrompt"),a=$("studyFlashAnswer");$("studyFlashPanel").hidden=!fs.length;if(!fs.length){$("studyFlashPos").textContent="";p.textContent="Crea una flashcard para practicar la recuperación activa.";a.hidden=true;a.textContent="";$("studyReveal").disabled=true;$("studyNext").disabled=true;return;}$("studyReveal").disabled=false;$("studyNext").disabled=fs.length<2;estudioFlashIdx%=fs.length;const d=fs[estudioFlashIdx];$("studyFlashPos").textContent=(estudioFlashIdx+1)+"/"+fs.length;p.textContent=d.prompt;a.textContent=d.answer;a.hidden=!estudioFlashRevelada;$("studyReveal").textContent=estudioFlashRevelada?"Ocultar respuesta":"Revelar respuesta";}
-  $("studyReveal").addEventListener("click",()=>{estudioFlashRevelada=!estudioFlashRevelada;renderEstudioFlash();});$("studyNext").addEventListener("click",()=>{const fs=estudioFlashcards();if(fs.length){estudioFlashIdx=(estudioFlashIdx+1)%fs.length;estudioFlashRevelada=false;renderEstudioFlash();}});
+  function estudioFechaFlash(doc) {
+    const fecha = estudioCadena(doc.nextReview), ms = Date.parse(fecha + "T00:00:00Z");
+    return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 10) === fecha ? fecha : "";
+  }
+  function estudioMazoFlash() {
+    const hoy = todayISO();
+    const tarjetas = estudioLista().filter(d =>
+      d.type !== "trade-review" && estudioCadena(d.prompt) && estudioCadena(d.answer));
+    const todas = tarjetas.map(doc => ({ doc, fecha: estudioFechaFlash(doc) }))
+      .sort((a, b) => (a.fecha || "9999-99-99").localeCompare(b.fecha || "9999-99-99"));
+    const pendientes = todas.filter(card => !card.fecha || card.fecha <= hoy);
+    const scope = $("studyFlashAll");
+    const mazo = !scope || scope.checked ? todas : pendientes;
+    const indice = Math.max(0, mazo.findIndex(card => card.doc.id === estudioFlashId));
+    return { todas, pendientes, mazo, indice, actual: mazo[indice] };
+  }
+  function estudioFlashCoincide(doc) {
+    return !!doc && estudioFlashRevelada?.id === doc.id &&
+      estudioFlashRevelada.prompt === doc.prompt && estudioFlashRevelada.answer === doc.answer;
+  }
+  function renderEstudioFlash() {
+    const { todas, pendientes, mazo, indice, actual } = estudioMazoFlash();
+    const doc = actual?.doc, respuesta = $("studyFlashAnswer"), revelar = $("studyReveal");
+    estudioFlashId = doc?.id || "";
+    const revelada = estudioFlashCoincide(doc);
+    if (!revelada) estudioFlashRevelada = null;
+    $("studyFlashPanel").hidden = !todas.length;
+    $("studyFlashPos").textContent = doc ? `${indice + 1}/${mazo.length}` : "";
+    const contador = $("studyFlashPending"), fecha = $("studyFlashDue"), grade = $("studyFlashGrade");
+    if (contador) contador.textContent = plu(pendientes.length, "pendiente", "pendientes");
+    if (fecha) {
+      fecha.hidden = !doc;
+      fecha.textContent = actual?.fecha ? `Próxima revisión · ${estudioFecha(actual.fecha)}` : "Sin fecha de revisión";
+    }
+    $("studyFlashPrompt").textContent = doc ? doc.prompt
+      : todas.length ? "Estás al día con las flashcards." : "Crea una flashcard para practicar la recuperación activa.";
+    respuesta.hidden = !revelada;
+    respuesta.textContent = revelada ? doc.answer : "";
+    revelar.disabled = !doc || estudioFlashGuardando;
+    revelar.setAttribute("aria-expanded", String(revelada));
+    revelar.textContent = revelada ? "Ocultar respuesta" : "Revelar respuesta";
+    $("studyNext").disabled = mazo.length < 2 || estudioFlashGuardando;
+    if ($("studyFlashAll")) $("studyFlashAll").disabled = estudioFlashGuardando;
+    if (grade) {
+      grade.hidden = !revelada;
+      grade.querySelectorAll("button").forEach(b => { b.disabled = estudioFlashGuardando; });
+    }
+  }
+  function estudioEstadoFlash(mensaje) {
+    const status = $("studyFlashStatus");
+    if (status) {
+      status.textContent = mensaje;
+      status.hidden = !mensaje;
+    }
+  }
+  async function estudioCalificaFlash(dias) {
+    const { actual, mazo, indice } = estudioMazoFlash();
+    const doc = actual?.doc;
+    if (estudioFlashGuardando || !estudioFlashCoincide(doc)) return;
+    const fecha = new Date(todayISO() + "T12:00:00Z");
+    fecha.setUTCDate(fecha.getUTCDate() + dias);
+    const nextReview = fecha.toISOString().slice(0, 10);
+    const clave = "research/" + doc.id;
+    estudioFlashGuardando = true;
+    estudioEstadoFlash("Guardando revisión…");
+    renderEstudioFlash();
+    try {
+      const aceptado = await coll("research").set(doc.id, { ...doc, nextReview });
+      if (aceptado === false || sinGuardar.has(clave) || conflictos.has(clave)) {
+        estudioEstadoFlash("No se pudo confirmar la revisión. Revisa el estado de guardado.");
+        return;
+      }
+      estudioFlashId = mazo[(indice + 1) % mazo.length].doc.id;
+      estudioFlashRevelada = null;
+      estudioEstadoFlash(`Próxima revisión · ${estudioFecha(nextReview)}`);
+    } catch {
+      estudioEstadoFlash("No se pudo guardar la revisión.");
+    } finally {
+      estudioFlashGuardando = false;
+      renderEstudioFlash();
+      const foco = $("studyReveal").disabled ? $("studyFlashAll") : $("studyReveal");
+      if (state.tab === "estudio" && document.activeElement === document.body) foco?.focus();
+    }
+  }
+  $("studyReveal").addEventListener("click", () => {
+    const doc = estudioMazoFlash().actual?.doc;
+    if (!doc || estudioFlashGuardando) return;
+    estudioFlashRevelada = estudioFlashCoincide(doc) ? null : { id: doc.id, prompt: doc.prompt, answer: doc.answer };
+    renderEstudioFlash();
+  });
+  $("studyNext").addEventListener("click", () => {
+    const { mazo, indice } = estudioMazoFlash();
+    if (mazo.length < 2 || estudioFlashGuardando) return;
+    estudioFlashId = mazo[(indice + 1) % mazo.length].doc.id;
+    estudioFlashRevelada = null;
+    renderEstudioFlash();
+  });
+  $("studyFlashAll")?.addEventListener("change", () => {
+    estudioFlashId = "";
+    estudioFlashRevelada = null;
+    renderEstudioFlash();
+  });
+  $("studyFlashAgain")?.addEventListener("click", () => estudioCalificaFlash(1));
+  $("studyFlashRecall")?.addEventListener("click", () => estudioCalificaFlash(3));
   function estudioIrA(id) {
     const ir = () => {
       const heading = $(id);
