@@ -1470,6 +1470,14 @@
     "La operación en una línea": "The trade on one line",
     "Lección y siguiente acción": "Lesson and next action",
     "Leídas": "Read",
+    "Tema": "Topic",
+    "Etiqueta": "Tag",
+    "Especulación": "Speculation",
+    "Todos los temas": "All topics",
+    "Todas las etiquetas": "All tags",
+    "Todos los estados": "All statuses",
+    "Consultada desde": "Consulted from",
+    "Consultada hasta": "Consulted through",
     "Limpiar filtros": "Clear filters",
     "Historial": "History",
     "Todas las operaciones": "All trades",
@@ -1613,7 +1621,7 @@
   /* Dónde puede haber cromo. No decide qué se traduce —eso lo decide la
      coincidencia con el diccionario— sino dónde se busca, para no recorrer el
      árbol entero en cada repintado. */
-  const I18N_SEL = '#tabnav .tabbtn, h1, h2, h3, label, button, option, summary, th';
+  const I18N_SEL = '#tabnav .tabbtn, h1, h2, h3, label, button, option:not([data-study-facet]), summary, th';
   let i18nEscribiendo = false;
   /* EL ESPAÑOL ORIGINAL VIVE EN UN WeakMap, NO EN UN ATRIBUTO, Y ESO ES EL
      ARREGLO DE UN FALLO MEDIDO.
@@ -15704,7 +15712,7 @@
       if (d.type === "trade-review") return;
       const fecha = d.consultedAt || d.publishedAt;
       take("Estudio", "⌕", d.title || "Documento de estudio",
-        [ESTUDIO_TIPOS[d.type], fecha, ESTUDIO_ESTADOS[d.status]].filter(Boolean).join(" · "),
+        [ESTUDIO_TIPOS[d.type], fecha, ESTUDIO_ESTADOS[estudioEstado(d)]].filter(Boolean).join(" · "),
         hit("research", d.id), [d.id, estudioTexto(d), d.prompt, d.answer, d.status, d.type]);
     });
   }
@@ -17593,12 +17601,52 @@
   const estudioNorm=x=>String(x||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
   function estudioEsc(x){return esc(String(x==null?"":x));}
   function estudioLista(){return coll("research").items.slice().sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));}
-  function estudioTexto(d){
-    const tags = Array.isArray(d.tags) ? d.tags.join(" ") : d.tags;
-    const links = Array.isArray(d.links) ? d.links.map(estudioLinkLabel).join(" ") : "";
-    return [d.title,d.question,d.evidence,d.catalysts,d.counter,d.conclusion,d.url,d.author,d.publishedAt,d.consultedAt,d.nextReview,tags,links].join(" ");
+  const estudioCadena = valor => typeof valor === "string" ? valor.trim() : "";
+  const estudioEstado = d => Object.hasOwn(ESTUDIO_ESTADOS, d.status) ? d.status : "todo";
+  function estudioEtiquetas(d) {
+    const etiquetas = Array.isArray(d.tags) ? d.tags : estudioCadena(d.tags).split(",");
+    return etiquetas.map(estudioCadena).filter(Boolean);
   }
-  function estudioVisible(){const q=estudioNorm($("studySearch").value.trim()),hoy=todayISO(),desde=$("studyFrom").value,hasta=$("studyTo").value;return estudioLista().filter(d=>{if(d.type==="trade-review")return false;const ok=estudioFiltro==="all"||(estudioFiltro==="todo"?d.status==="todo":estudioFiltro==="review"?!!d.nextReview&&d.nextReview<=hoy:d.type===estudioFiltro),fecha=d.consultedAt||"";return ok&&(!desde||!!fecha&&fecha>=desde)&&(!hasta||!!fecha&&fecha<=hasta)&&(!q||estudioNorm(estudioTexto(d)).includes(q));});}
+  function estudioTexto(d){
+    const links = Array.isArray(d.links) ? d.links.map(estudioLinkLabel).join(" ") : "";
+    return [d.title,d.question,d.evidence,d.catalysts,d.counter,d.conclusion,d.url,d.author,d.publishedAt,d.consultedAt,d.nextReview,
+      estudioCadena(d.topic),estudioCadena(d.speculation),estudioEtiquetas(d).join(" "),links].join(" ");
+  }
+  const ESTUDIO_FILTROS = ["studyTopicFilter", "studyTagFilter", "studyStatusFilter", "studyFrom", "studyTo"];
+  function estudioOpciones(id, etiquetas) {
+    const select = $(id);
+    if (!select) return;
+    const opcion = select.value, opciones = new Map();
+    for (const etiqueta of etiquetas) {
+      if (!etiqueta) continue;
+      const clave = estudioNorm(etiqueta);
+      if (!opciones.has(clave)) opciones.set(clave, etiqueta);
+    }
+    const ordenadas = [...opciones].sort((a,b) => a[1].localeCompare(b[1], "es"));
+    select.options.length = 1;
+    const fragmento = document.createDocumentFragment();
+    for (const [clave, etiqueta] of ordenadas) {
+      const option = new Option(etiqueta, clave);
+      option.dataset.studyFacet = "";
+      fragmento.append(option);
+    }
+    select.append(fragmento);
+    if (opciones.has(opcion)) select.value = opcion;
+  }
+  function estudioVisible(all, hoy) {
+    const q = estudioNorm($("studySearch").value.trim());
+    const [tema, etiqueta, estado, desde, hasta] = ESTUDIO_FILTROS.map(id => $(id)?.value || "");
+    return all.filter(d => {
+      const actual = estudioEstado(d), fecha = d.consultedAt || "";
+      const tipo = estudioFiltro === "review" ? !!d.nextReview && d.nextReview <= hoy
+        : estudioFiltro === "todo" ? actual === "todo" : estudioFiltro === "all" || d.type === estudioFiltro;
+      return tipo && (!estado || actual === estado) &&
+        (!tema || estudioNorm(estudioCadena(d.topic)) === tema) &&
+        (!etiqueta || estudioEtiquetas(d).some(t => estudioNorm(t) === etiqueta)) &&
+        (!desde || !!fecha && fecha >= desde) && (!hasta || !!fecha && fecha <= hasta) &&
+        (!q || estudioNorm(estudioTexto(d)).includes(q));
+    });
+  }
   function estudioFecha(v){try{if(typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v)){const a=v.split("-").map(Number);return new Intl.DateTimeFormat("es-US",{month:"short",day:"numeric",year:"numeric"}).format(new Date(a[0],a[1]-1,a[2],12));}return new Intl.DateTimeFormat("es-US",{month:"short",day:"numeric",year:"numeric"}).format(new Date(Number(v)||v));}catch{return"Sin fecha";}}
   const VINCULOS_COLECCION = new Map([
     ["trade", "trades"], ["position", "positions"], ["playbook", "playbooks"],
@@ -17684,9 +17732,13 @@
     const el=$("studyLinksList");if(!el)return;
     el.innerHTML=estudioLinksDraft.map((l,i)=>'<span class="study-tag" style="display:inline-flex;align-items:center;gap:5px">'+estudioEsc(l.type)+': '+estudioEsc(estudioLinkLabel(l))+' <button type="button" data-study-link-remove="'+i+'" aria-label="Quitar vínculo" style="border:0;background:transparent;color:inherit;cursor:pointer">×</button></span>').join("");
   }
-  function renderEstudio(){
+  function renderEstudioBiblioteca(){
     if(!$("studyGrid"))return;
-    const docs=estudioVisible(),all=estudioLista().filter(d=>d.type!=="trade-review"),done=all.length?Math.round(all.filter(d=>d.status==="mastered").length/all.length*100):0,hoy=todayISO();
+    const all = estudioLista().filter(d => d.type !== "trade-review");
+    estudioOpciones("studyTopicFilter", all.map(d => estudioCadena(d.topic)));
+    estudioOpciones("studyTagFilter", all.flatMap(estudioEtiquetas));
+    const hoy = todayISO(), docs = estudioVisible(all, hoy);
+    const done = all.length ? Math.round(all.filter(d => d.status === "mastered").length / all.length * 100) : 0;
     $("studyLibraryStatus").hidden=!all.length;
     $("studyTotal").textContent=all.length;$("studyActive").textContent=all.filter(d=>d.status==="progressing").length+" en curso";$("studySources").textContent=all.filter(d=>d.url).length+" fuentes";$("studyCompletion").textContent=done+"% revisado";$("studyProgress").style.width=done+"%";$("studyResults").textContent=docs.length+" resultado"+(docs.length===1?"":"s");$("nResearch").textContent=all.length?String(all.length):"";
     const grid=$("studyGrid");
@@ -17695,22 +17747,26 @@
     } else {
       grid.innerHTML=docs.map(d=>{
         const links=Array.isArray(d.links)?d.links:[],backs=all.filter(x=>x.id!==d.id&&Array.isArray(x.links)&&x.links.some(l=>l&&l.type==="research"&&l.id===d.id));
-        const meta=[d.author,d.publishedAt?"Publicado "+estudioFecha(d.publishedAt):"",d.consultedAt?"Consultado "+estudioFecha(d.consultedAt):"",d.nextReview?(d.nextReview<=hoy?"Revisión pendiente":"Revisar "+estudioFecha(d.nextReview)):""].filter(Boolean).join(" · ");
-        return '<article class="study-card" data-study-doc-id="'+estudioEsc(d.id)+'"><div class="study-card-head"><span class="study-kind">'+estudioEsc(ESTUDIO_TIPOS[d.type]||"Documento")+'</span><span class="study-state '+(d.status==="progressing"?"progressing":d.status==="mastered"?"mastered":"")+'">'+estudioEsc(ESTUDIO_ESTADOS[d.status]||"Por estudiar")+'</span></div><h3>'+estudioEsc(d.title)+'</h3><p>'+estudioEsc(d.question||d.conclusion||d.evidence||"Sin resumen todavía.")+'</p>'+(meta?'<p class="study-meta" style="font-size:11px;color:var(--muted);margin:8px 0">'+estudioEsc(meta)+'</p>':"")+'<div class="study-tags">'+(Array.isArray(d.tags)?d.tags.slice(0,5):[]).map(t=>'<span class="study-tag">'+estudioEsc(t)+'</span>').join("")+'</div>'+(links.length?'<div class="study-related" style="margin-top:8px;font-size:11px"><span class="muted">Relacionado:</span> '+links.map(l=>'<span class="study-tag">'+estudioEsc(estudioLinkLabel(l))+'</span>').join(" ")+'</div>':"")+(backs.length?'<div class="study-related" style="margin-top:8px;font-size:11px"><span class="muted">Referenciado por:</span> '+backs.map(x=>'<button type="button" class="study-tag" data-study-edit="'+estudioEsc(x.id)+'">'+estudioEsc(x.title||"Documento")+'</button>').join(" ")+'</div>':"")+'<div class="study-card-foot"><span>'+estudioEsc(estudioFecha(d.updatedAt||d.createdAt))+(d.url&&urlNavegable(d.url)?' · <a href="'+estudioEsc(d.url)+'" target="_blank" rel="noopener noreferrer">Abrir fuente ↗</a>':'')+'</span><span style="display:flex;gap:6px"><button type="button" data-study-read="'+estudioEsc(d.id)+'">Leer</button><button type="button" data-study-edit="'+estudioEsc(d.id)+'">Editar</button></span></div></article>';
+        const meta=[estudioCadena(d.topic),d.author,d.publishedAt?"Publicado "+estudioFecha(d.publishedAt):"",d.consultedAt?"Consultado "+estudioFecha(d.consultedAt):"",d.nextReview?(d.nextReview<=hoy?"Revisión pendiente":"Revisar "+estudioFecha(d.nextReview)):""].filter(Boolean).join(" · ");
+        return '<article class="study-card" data-study-doc-id="'+estudioEsc(d.id)+'"><div class="study-card-head"><span class="study-kind">'+estudioEsc(ESTUDIO_TIPOS[d.type]||"Documento")+'</span><span class="study-state '+(d.status==="progressing"?"progressing":d.status==="mastered"?"mastered":"")+'">'+estudioEsc(ESTUDIO_ESTADOS[estudioEstado(d)])+'</span></div><h3>'+estudioEsc(d.title)+'</h3><p>'+estudioEsc(d.question||d.conclusion||d.evidence||"Sin resumen todavía.")+'</p>'+(meta?'<p class="study-meta" style="font-size:11px;color:var(--muted);margin:8px 0">'+estudioEsc(meta)+'</p>':"")+'<div class="study-tags">'+estudioEtiquetas(d).slice(0,5).map(t=>'<span class="study-tag">'+estudioEsc(t)+'</span>').join("")+'</div>'+(links.length?'<div class="study-related" style="margin-top:8px;font-size:11px"><span class="muted">Relacionado:</span> '+links.map(l=>'<span class="study-tag">'+estudioEsc(estudioLinkLabel(l))+'</span>').join(" ")+'</div>':"")+(backs.length?'<div class="study-related" style="margin-top:8px;font-size:11px"><span class="muted">Referenciado por:</span> '+backs.map(x=>'<button type="button" class="study-tag" data-study-edit="'+estudioEsc(x.id)+'">'+estudioEsc(x.title||"Documento")+'</button>').join(" ")+'</div>':"")+'<div class="study-card-foot"><span>'+estudioEsc(estudioFecha(d.updatedAt||d.createdAt))+(d.url&&urlNavegable(d.url)?' · <a href="'+estudioEsc(d.url)+'" target="_blank" rel="noopener noreferrer">Abrir fuente ↗</a>':'')+'</span><span style="display:flex;gap:6px"><button type="button" data-study-read="'+estudioEsc(d.id)+'">Leer</button><button type="button" data-study-edit="'+estudioEsc(d.id)+'">Editar</button></span></div></article>';
       }).join("");
       grid.querySelectorAll("[data-study-edit]").forEach(b=>b.addEventListener("click",()=>estudioEditor(b.dataset.studyEdit)));grid.querySelectorAll("[data-study-read]").forEach(b=>b.addEventListener("click",()=>estudioReader(b.dataset.studyRead)));
     }
-    renderEstudioFlash();renderEstudioTrades();
+  }
+  function renderEstudio(){
+    renderEstudioBiblioteca();
+    renderEstudioFlash();
+    renderEstudioTrades();
   }
   let estudioReaderId="", estudioReaderReturnFocus=null, estudioEditorReturnFocus=null;
   function estudioReader(id){
     const d=coll("research").get(id);if(!d)return;
     if(!$("studyReader").classList.contains("open"))estudioReaderReturnFocus=document.activeElement;
     estudioReaderId=id;
-    const sections=[["question","Pregunta / resumen",d.question],["evidence","Evidencia / hechos",d.evidence],["catalysts","Catalizadores",d.catalysts],["counter","Antítesis / riesgos",d.counter],["conclusion","Interpretación / conclusión",d.conclusion],["prompt","Pregunta de recuperación",d.prompt],["answer","Respuesta",d.answer]].filter(x=>String(x[2]||"").trim());
+    const sections=[["question","Pregunta / resumen",d.question],["evidence","Evidencia / hechos",d.evidence],["catalysts","Catalizadores",d.catalysts],["counter","Antítesis / riesgos",d.counter],["conclusion","Interpretación / conclusión",d.conclusion],["speculation","Especulación",estudioCadena(d.speculation)],["prompt","Pregunta de recuperación",d.prompt],["answer","Respuesta",d.answer]].filter(x=>String(x[2]||"").trim());
     const total=sections.reduce((n,x)=>n+String(x[2]).length,0),toc=$("studyReaderToc");
     $("studyReaderTitle").textContent=d.title||"Documento de estudio";
-    $("studyReaderMeta").textContent=[d.author,d.publishedAt?"Publicado "+estudioFecha(d.publishedAt):"",d.consultedAt?"Consultado "+estudioFecha(d.consultedAt):"",d.status||""].filter(Boolean).join(" · ");
+    $("studyReaderMeta").textContent=[d.author,d.publishedAt?"Publicado "+estudioFecha(d.publishedAt):"",d.consultedAt?"Consultado "+estudioFecha(d.consultedAt):"",ESTUDIO_ESTADOS[estudioEstado(d)]].filter(Boolean).join(" · ");
     toc.hidden=total<1200;toc.innerHTML=total<1200?"":'<strong style="display:block;margin-bottom:8px">Contenido</strong>'+sections.map(x=>'<button type="button" data-study-reader-section="'+x[0]+'" style="display:block;border:0;background:transparent;color:var(--text);padding:5px 0;text-align:left;cursor:pointer">'+estudioEsc(x[1])+'</button>').join("");
     $("studyReaderContent").innerHTML=sections.map(x=>'<section id="study-reader-'+x[0]+'" style="margin:0 0 22px"><h4 style="font-size:15px;letter-spacing:-.01em;margin:0 0 8px">'+estudioEsc(x[1])+'</h4><div>'+estudioEsc(x[2]).replace(/\n/g,"<br>")+'</div></section>').join("");
     const links=Array.isArray(d.links)?d.links:[],backs=estudioLista().filter(x=>x.id!==d.id&&Array.isArray(x.links)&&x.links.some(l=>l&&l.type==="research"&&l.id===d.id));
@@ -17719,7 +17775,8 @@
       if (!l || !registroVinculado(l.type, l.id)) return `<li>${label}</li>`;
       return `<li><button type="button" class="study-link" data-study-link-type="${estudioEsc(l.type)}" data-study-link-id="${estudioEsc(l.id)}">${label}</button></li>`;
     }).join("");
-    $("studyReaderContext").innerHTML='<strong style="display:block;margin-bottom:9px">Contexto</strong>'+(d.url&&urlNavegable(d.url)?'<p><a href="'+estudioEsc(d.url)+'" target="_blank" rel="noopener noreferrer">Abrir fuente ↗</a></p>':"")+(d.nextReview?'<p>Próxima revisión: '+estudioEsc(d.nextReview)+'</p>':"")+(Array.isArray(d.tags)&&d.tags.length?'<p>Etiquetas: '+estudioEsc(d.tags.join(", "))+'</p>':"")+(relaciones?'<p><strong>Vinculado a</strong></p><ul>'+relaciones+'</ul>':"")+(backs.length?'<p><strong>Referenciado por</strong></p><ul>'+backs.map(x=>'<li><button type="button" class="study-link" data-study-reader-open="'+estudioEsc(x.id)+'">'+estudioEsc(x.title||"Documento")+'</button></li>').join("")+'</ul>':"");
+    const tema = estudioCadena(d.topic), etiquetas = estudioEtiquetas(d);
+    $("studyReaderContext").innerHTML='<strong style="display:block;margin-bottom:9px">Contexto</strong>'+(tema?'<p><strong>Tema</strong> '+estudioEsc(tema)+'</p>':"")+(d.url&&urlNavegable(d.url)?'<p><a href="'+estudioEsc(d.url)+'" target="_blank" rel="noopener noreferrer">Abrir fuente ↗</a></p>':"")+(d.nextReview?'<p>Próxima revisión: '+estudioEsc(d.nextReview)+'</p>':"")+(etiquetas.length?'<p>Etiquetas: '+estudioEsc(etiquetas.join(", "))+'</p>':"")+(relaciones?'<p><strong>Vinculado a</strong></p><ul>'+relaciones+'</ul>':"")+(backs.length?'<p><strong>Referenciado por</strong></p><ul>'+backs.map(x=>'<li><button type="button" class="study-link" data-study-reader-open="'+estudioEsc(x.id)+'">'+estudioEsc(x.title||"Documento")+'</button></li>').join("")+'</ul>':"");
     $("studyReader").classList.add("open");$("studyReaderClose").focus();
   }
   function estudioReaderCerrar(restore=true){
@@ -17748,7 +17805,38 @@
     }
     abreRegistro(tipo, studyLinkId || studyReaderOpen);
   });
-  function estudioEditor(id,returnFocus){estudioEditorReturnFocus=returnFocus||document.activeElement;const d=estudioLista().find(x=>x.id===id)||{};$("studyForm").reset();$("studyId").value=d.id||"";$("studyType").value=d.type||"concept";$("studyStatus").value=d.status||"todo";$("studyTitle").value=d.title||"";$("studyQuestion").value=d.question||"";$("studyTags").value=(d.tags||[]).join(", ");$("studyUrl").value=d.url||"";$("studyAuthor").value=d.author||"";$("studyPublishedAt").value=d.publishedAt||"";$("studyConsultedAt").value=d.consultedAt||"";$("studyNextReview").value=d.nextReview||"";$("studyEvidence").value=d.evidence||"";$("studyCatalysts").value=d.catalysts||"";$("studyCounter").value=d.counter||"";$("studyConclusion").value=d.conclusion||"";$("studyPrompt").value=d.prompt||"";$("studyAnswer").value=d.answer||"";estudioLinkCurrentId=id||"";estudioLinksDraft=Array.isArray(d.links)?d.links.map(x=>({type:x.type,id:x.id})).filter(x=>x.type&&x.id):[];estudioRenderLinkTargets();estudioRenderLinkList();$("studyModalTitle").textContent=id?"Editar documento":"Nuevo documento de estudio";$("studyDelete").hidden=!id;$("studyModal").classList.add("open");$("studyTitle").focus();}
+  function estudioEditor(id, returnFocus) {
+    estudioEditorReturnFocus = returnFocus || document.activeElement;
+    const d = coll("research").get(id) || {};
+    $("studyForm").reset();
+    $("studyId").value = d.id || "";
+    $("studyType").value = d.type || "concept";
+    $("studyStatus").value = estudioEstado(d);
+    $("studyTitle").value = d.title || "";
+    $("studyQuestion").value = d.question || "";
+    $("studyTags").value = estudioEtiquetas(d).join(", ");
+    $("studyUrl").value = d.url || "";
+    $("studyAuthor").value = d.author || "";
+    $("studyPublishedAt").value = d.publishedAt || "";
+    $("studyConsultedAt").value = d.consultedAt || "";
+    $("studyNextReview").value = d.nextReview || "";
+    $("studyEvidence").value = d.evidence || "";
+    $("studyCatalysts").value = d.catalysts || "";
+    $("studyCounter").value = d.counter || "";
+    $("studyConclusion").value = d.conclusion || "";
+    $("studyPrompt").value = d.prompt || "";
+    $("studyAnswer").value = d.answer || "";
+    if ($("studyTopic")) $("studyTopic").value = estudioCadena(d.topic);
+    if ($("studySpeculation")) $("studySpeculation").value = estudioCadena(d.speculation);
+    estudioLinkCurrentId = id || "";
+    estudioLinksDraft = Array.isArray(d.links) ? d.links.map(x => ({ type: x.type, id: x.id })).filter(x => x.type && x.id) : [];
+    estudioRenderLinkTargets();
+    estudioRenderLinkList();
+    $("studyModalTitle").textContent = id ? "Editar documento" : "Nuevo documento de estudio";
+    $("studyDelete").hidden = !id;
+    $("studyModal").classList.add("open");
+    $("studyTitle").focus();
+  }
   function estudioCerrar(){
     if(!$("studyModal").classList.contains("open"))return;
     $("studyModal").classList.remove("open");
@@ -17773,12 +17861,44 @@
     if(rawUrl){try{const u=new URL(rawUrl);if(!["http:","https:"].includes(u.protocol))throw new Error();url=u.href;}catch{$("studyUrl").setCustomValidity("Introduce una URL http o https válida.");$("studyUrl").reportValidity();$("studyUrl").setCustomValidity("");return;}}
     if(button)button.disabled=true;
     try{
-      const d={id,type:$("studyType").value,status:$("studyStatus").value,title,question:$("studyQuestion").value.trim(),tags:$("studyTags").value.split(",").map(x=>x.trim()).filter(Boolean).slice(0,20),url,author:$("studyAuthor").value.trim(),publishedAt:$("studyPublishedAt").value||"",consultedAt:$("studyConsultedAt").value||"",nextReview:$("studyNextReview").value||"",links:estudioLinksDraft.map(x=>({type:x.type,id:x.id})),evidence:$("studyEvidence").value.trim(),catalysts:$("studyCatalysts").value.trim(),counter:$("studyCounter").value.trim(),conclusion:$("studyConclusion").value.trim(),prompt:$("studyPrompt").value.trim(),answer:$("studyAnswer").value.trim(),createdAt:old?.createdAt||Date.now(),updatedAt:Date.now()};
+      const d = {
+        ...old, id, title, url,
+        type: $("studyType").value, status: $("studyStatus").value,
+        question: $("studyQuestion").value.trim(),
+        tags: $("studyTags").value.split(",").map(t => t.trim()).filter(Boolean).slice(0, 20),
+        author: $("studyAuthor").value.trim(), publishedAt: $("studyPublishedAt").value,
+        consultedAt: $("studyConsultedAt").value, nextReview: $("studyNextReview").value,
+        links: estudioLinksDraft.map(({ type, id }) => ({ type, id })),
+        evidence: $("studyEvidence").value.trim(), catalysts: $("studyCatalysts").value.trim(),
+        counter: $("studyCounter").value.trim(), conclusion: $("studyConclusion").value.trim(),
+        prompt: $("studyPrompt").value.trim(), answer: $("studyAnswer").value.trim(),
+        createdAt: old?.createdAt || Date.now(), updatedAt: Date.now(),
+      };
+      if ($("studyTopic")) d.topic = $("studyTopic").value.trim().slice(0, 120);
+      if ($("studySpeculation")) d.speculation = $("studySpeculation").value.trim().slice(0, 8000);
       await coll("research").set(id,d);estudioCerrar();renderEstudio();
     }finally{if(button)button.disabled=false;}
   });
   $("studyDelete").addEventListener("click",async()=>{const id=$("studyId").value,d=coll("research").get(id);if(!id||!d)return;if(!confirm("¿Eliminar «"+d.title+"»? Esta acción no se puede deshacer."))return;await coll("research").remove(id);estudioCerrar();renderEstudio();});
-  $("studySearch").addEventListener("input",renderEstudio);$("studyFrom").addEventListener("change",renderEstudio);$("studyTo").addEventListener("change",renderEstudio);$("studyFilters").querySelectorAll("[data-study-filter]").forEach(b=>b.addEventListener("click",()=>{estudioFiltro=b.dataset.studyFilter;$("studyFilters").querySelectorAll("[data-study-filter]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderEstudio();}));
+  function estudioEligeTipo(tipo) {
+    estudioFiltro = tipo;
+    $("studyFilters").querySelectorAll("[data-study-filter]").forEach(b =>
+      b.setAttribute("aria-pressed", String(b.dataset.studyFilter === tipo)));
+    renderEstudioBiblioteca();
+  }
+  $("studySearch").addEventListener("input", renderEstudioBiblioteca);
+  ESTUDIO_FILTROS.forEach(id => $(id)?.addEventListener("change", renderEstudioBiblioteca));
+  $("studyFilters").addEventListener("click", e => {
+    const b = e.target.closest("[data-study-filter]");
+    if (b) estudioEligeTipo(b.dataset.studyFilter);
+  });
+  $("studyClearFilters")?.addEventListener("click", () => {
+    for (const id of ["studySearch", ...ESTUDIO_FILTROS]) {
+      const campo = $(id);
+      if (campo) campo.value = "";
+    }
+    estudioEligeTipo("all");
+  });
   $("studyExport").addEventListener("click",()=>{const data={schema:"cabina-research",version:1,exportedAt:new Date().toISOString(),docs:estudioLista()};descarga("cabina-estudio-"+new Date().toISOString().slice(0,10)+".json",JSON.stringify(data,null,2),"application/json");});
   function estudioFlashcards(){return estudioLista().filter(d=>(d.type==="flashcard"||d.prompt)&&d.prompt&&d.answer);}
   function renderEstudioFlash(){const fs=estudioFlashcards(),p=$("studyFlashPrompt"),a=$("studyFlashAnswer");$("studyFlashPanel").hidden=!fs.length;if(!fs.length){$("studyFlashPos").textContent="";p.textContent="Crea una flashcard para practicar la recuperación activa.";a.hidden=true;a.textContent="";$("studyReveal").disabled=true;$("studyNext").disabled=true;return;}$("studyReveal").disabled=false;$("studyNext").disabled=fs.length<2;estudioFlashIdx%=fs.length;const d=fs[estudioFlashIdx];$("studyFlashPos").textContent=(estudioFlashIdx+1)+"/"+fs.length;p.textContent=d.prompt;a.textContent=d.answer;a.hidden=!estudioFlashRevelada;$("studyReveal").textContent=estudioFlashRevelada?"Ocultar respuesta":"Revelar respuesta";}

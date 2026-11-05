@@ -4,6 +4,10 @@ import { SEMILLA, quieto } from './espera.mjs';
 
 const fallos = [], errores = [];
 const SEMILLA_OBJ = JSON.parse(SEMILLA);
+SEMILLA_OBJ.research = {
+  legacy: { id: 'legacy', title: 'Concepto previo', type: 'concept', tags: 'Original, Riesgo', question: 'Texto guardado antes del cambio.' },
+};
+const especulacion = 'Escenario termoclina <img src=x onerror=alert(1)>';
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
 const b = await chromium.launch();
 const p = await (await b.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
@@ -27,6 +31,11 @@ const tradeId = await p.evaluate(() => FUT.createTrade({
 await p.click('#studyNew');
 await p.fill('#studyTitle', 'Research alpha');
 await p.fill('#studyQuestion', 'Hipótesis sobre el rendimiento real');
+await p.fill('#studyTopic', 'Energía');
+await p.fill('#studyTags', 'Inflación, Dólar');
+await p.selectOption('#studyStatus', 'progressing');
+await p.fill('#studyConclusion', 'Mi interpretación provisional.');
+await p.fill('#studySpeculation', especulacion);
 await p.fill('#studyAuthor', 'Research Desk');
 await p.fill('#studyPublishedAt', '2026-10-10');
 await p.fill('#studyConsultedAt', '2026-10-20');
@@ -50,6 +59,11 @@ await p.locator('#studyGrid .study-card').filter({ hasText: 'Research alpha' }).
 await p.waitForFunction(() => document.querySelector('#studyReader').classList.contains('open'));
 ok(!(await p.locator('#studyReaderToc').isHidden()), 'la lectura enfocada crea índice para documentos largos');
 ok((await p.locator('#studyReaderContent').innerText()).includes('Catalizadores'), 'la lectura separa catalizadores y evidencia');
+ok((await p.locator('#study-reader-speculation').innerText()).includes(especulacion) &&
+   (await p.locator('#study-reader-conclusion').innerText()).includes('Mi interpretación provisional.') &&
+   (await p.locator('#study-reader-evidence').innerText()).includes('Hecho observado y fuente.'),
+   'hechos, interpretación y especulación tienen secciones propias');
+ok(await p.locator('#study-reader-speculation img').count() === 0, 'la especulación se muestra como texto');
 await p.click('#studyReaderClose'); await quieto(p);
 await p.fill('#studyFrom', '2026-10-21'); await p.fill('#studyTo', '2026-10-25'); await quieto(p);
 ok(!(await p.locator('#studyGrid').innerText()).includes('Research alpha'), 'filtra por fecha consultada');
@@ -60,6 +74,9 @@ ok((await p.locator('#studyGrid').innerText()).includes('Research alpha') && !(a
 await p.click('#studyNew');
 await p.fill('#studyTitle', 'Research beta');
 await p.fill('#studyQuestion', 'Una nota enlazada');
+await p.fill('#studyTopic', 'ENERGIA');
+await p.fill('#studyTags', 'INFLACION, crudo');
+await p.selectOption('#studyStatus', 'mastered');
 await p.fill('#studyPublishedAt', '2026-10-20');
 await p.selectOption('#studyLinkType', 'research'); await quieto(p);
 await p.selectOption('#studyLinkTarget', doc1Id);
@@ -71,6 +88,40 @@ const alpha = p.locator('#studyGrid .study-card').filter({ hasText: 'Research al
 ok((await alpha.innerText()).includes('Referenciado por') && (await alpha.innerText()).includes('Research beta'), 'muestra backlinks desde otro documento');
 await p.click('[data-study-filter="review"]'); await quieto(p);
 ok((await p.locator('#studyGrid').innerText()).includes('Research alpha'), 'el filtro encuentra documentos cuya revisión venció');
+
+await p.click('#studyClearFilters');
+await p.selectOption('#studyTopicFilter', 'energia');
+await p.selectOption('#studyTagFilter', 'inflacion');
+ok(await p.locator('#studyGrid .study-card').count() === 2 &&
+   await p.locator('#studyTopicFilter option[value="energia"]').count() === 1 &&
+   await p.locator('#studyTagFilter option[value="inflacion"]').count() === 1, 'tema y etiqueta agrupan mayúsculas y acentos');
+await p.selectOption('#studyStatusFilter', 'progressing');
+ok(await alpha.count() === 1 && await p.locator('#studyGrid .study-card').count() === 1, 'tema, etiqueta y estado se combinan');
+await p.fill('#studyFrom', '2026-10-21');
+ok(await p.locator('#studyGrid .study-card').count() === 0, 'la fecha consultada se combina con los demás filtros');
+ok(await p.locator('#studyResults').innerText() === '0 resultados', 'el estado vacío se anuncia');
+await p.fill('#studyFrom', '');
+await p.selectOption('#studyStatusFilter', 'mastered');
+ok((await p.locator('#studyGrid').innerText()).includes('Research beta') &&
+   await p.locator('#studyGrid .study-card').count() === 1, 'Revisado selecciona el documento marcado de forma explícita');
+await p.click('#studyClearFilters');
+ok(await p.locator('#studyGrid .study-card').count() === 3 &&
+   await p.locator('#studyGrid [data-study-doc-id="legacy"]').count() === 1,
+   'limpiar recupera todos los documentos, incluido uno previo sin tema ni estado');
+await p.selectOption('#studyStatusFilter', 'todo');
+await p.selectOption('#studyTagFilter', 'original');
+ok(await p.locator('#studyGrid .study-card').count() === 1 &&
+   await p.locator('#studyGrid [data-study-doc-id="legacy"]').count() === 1,
+   'el documento previo se filtra por etiqueta antigua y estado por defecto');
+await p.click('#studyClearFilters');
+await p.fill('#studySearch', 'termoclina');
+ok(await alpha.count() === 1 && await p.locator('#studyGrid .study-card').count() === 1, 'la búsqueda de biblioteca incluye la especulación');
+await p.keyboard.press('Control+k');
+await p.fill('#cmdQ', 'termoclina');
+await p.locator('#cmdList [role="option"]').filter({ hasText: 'Research alpha' }).click();
+ok(await p.locator('#studyReaderTitle').innerText() === 'Research alpha', 'la búsqueda global encuentra y abre la especulación');
+await p.click('#studyReaderClose');
+
 
 /* Tras la recarga se espera A LA TARJETA, no a que el DOM se quede quieto.
    `#studyNew` es markup estático: existe en cuanto se parsea el HTML, así que
@@ -104,7 +155,14 @@ ok(await editAlpha.count() === 1, 'Editar apunta al documento actual, no al back
 await editAlpha.click();
 ok(await p.inputValue('#studyAuthor') === 'Research Desk', 'autor y metadatos persisten tras recargar');
 ok(await p.inputValue('#studyCatalysts') === 'CPI, FOMC y cambios en los rendimientos reales.', 'los catalizadores persisten tras recargar');
+ok(await p.inputValue('#studyTopic') === 'Energía' && await p.inputValue('#studySpeculation') === especulacion,
+   'tema y especulación persisten tras recargar');
+
 ok(await p.locator('#studyLinksList').innerText().then(t => t.includes('NQ')), 'el vínculo a la operación persiste');
+await p.click('#studyCancel');
+await p.setViewportSize({ width: 390, height: 844 });
+ok(await p.locator('.study-library-fields').evaluate(el => el.scrollWidth <= el.clientWidth + 1),
+   'los cinco filtros caben en el ancho de la biblioteca móvil');
 ok(errores.length === 0, 'sin errores JavaScript', errores.join(' | ') || 'ninguno');
 
 await b.close();
