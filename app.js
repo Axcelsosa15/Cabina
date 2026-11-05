@@ -8393,6 +8393,23 @@
         }
         return null; },
       onSave: v => {
+        /* LA CUENTA TODAVÍA CARGANDO NO PUEDE COMERSE EL BORRADOR. `coll().set()`
+           rechaza la escritura mientras la colección no ha llegado —y hace bien:
+           escribir sobre una lista vacía borraría lo que aún no bajó—, pero
+           devuelve `false` y NADIE de los 65 sitios que la llaman mira ese valor.
+           Aquí eso significaba: rellenas la operación, pulsas Guardar, el diálogo
+           se cierra, no aparece ninguna fila, y el motivo sale por `flash()` →
+           `#jSaved`, que está DENTRO de la pestaña Cabina. Medido: se ve en 1 de
+           las 11 pestañas, y el botón de nueva operación vive en Futuros, que es
+           una de las otras diez. La barra sí avisa («cargando datos», medida
+           visible en las once y en los dos tamaños), pero lo escrito se perdía.
+           Devolver `false` es el mecanismo que este editor ya tiene documentado
+           para «abortar sin perder el borrador», y `flashEd` escribe DENTRO del
+           diálogo, que se ve donde se esté. Se comprueba ANTES de tocar nada. */
+        if (state.nube && !coll("trades").loaded) {
+          flashEd("Las operaciones todavía están cargando. No se guardó nada y tu borrador sigue aquí: vuelve a pulsar Guardar en un momento.");
+          return false;
+        }
         const rec = Object.assign({}, values, v, { type, id: isNew ? uid("t") : t.id });
         if (type === "futuros") rec.instrument = rec.instrument.toUpperCase();
         /* LA AUSENCIA SIGNIFICA ALGO (protocolo 17). El editor escribe "" en todo
