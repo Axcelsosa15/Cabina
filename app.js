@@ -12939,7 +12939,12 @@
 
        Manda el del motor, que es el que mide sobre lo que de verdad pusiste.
        El de la app queda sólo para cuando no hay flujos que analizar. */
-    const totalRet = faltaValor ? null : cartera?.retornoSimple ?? (cost ? (unreal + realized) / cost : null);
+    let totalRet = null;
+    if (!faltaValor) {
+      totalRet = cartera && cartera.retornoSimple != null
+        ? cartera.retornoSimple
+        : (cost ? (unreal + realized) / cost : null);
+    }
     const sorted = rows.slice().sort((a, b) => b.val - a.val);
     const concentration = cur > 0 && sorted.length ? sorted[0].val / cur : null;
     const noPlan = ps.filter(p => !String(p.exitPlan || "").trim()).length;
