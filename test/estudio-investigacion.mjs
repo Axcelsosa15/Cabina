@@ -4,10 +4,16 @@ import { SEMILLA, quieto } from './espera.mjs';
 
 const fallos = [], errores = [];
 const SEMILLA_OBJ = JSON.parse(SEMILLA);
+SEMILLA_OBJ.settings.meta.investAccounts = [
+  { id: 'estudio-broker', name: 'Cartera de prueba', broker: 'Bróker de prueba' },
+];
 SEMILLA_OBJ.research = {
   legacy: { id: 'legacy', title: 'Concepto previo', type: 'concept', tags: 'Original, Riesgo', question: 'Texto guardado antes del cambio.' },
 };
 const especulacion = 'Escenario termoclina <img src=x onerror=alert(1)>';
+const tesis = 'El rebalanceo mensual ampliará el diferencial.';
+const contra = 'La muestra de junio contradice la relación.';
+const preguntas = '¿Qué explica la asimetría nocturna?';
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
 const b = await chromium.launch();
 const p = await (await b.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
@@ -29,6 +35,19 @@ const tradeId = await p.evaluate(() => FUT.createTrade({
   entry: 20000, stop: 19990, exit: 20010, date: '2026-10-20', time: '10:00'
 }));
 await p.click('#studyNew');
+ok(await p.locator('#studyThesis').isHidden() && await p.locator('#studyOpenQuestions').isHidden(),
+   'un concepto nuevo mantiene el formulario breve');
+await p.selectOption('#studyType', 'brief');
+ok(await p.locator('#studyEvidenceLabel').innerText() === 'Evidencia a favor',
+   'el brief distingue la evidencia a favor en el editor');
+await p.fill('#studyThesis', tesis);
+await p.fill('#studyEvidenceAgainst', contra);
+await p.fill('#studyCounter', 'Riesgo de liquidez.');
+await p.fill('#studyOpenQuestions', preguntas);
+await p.selectOption('#studyType', 'concept');
+ok(await p.locator('#studyThesis').isVisible() && await p.inputValue('#studyThesis') === tesis,
+   'cambiar temporalmente el tipo no descarta un borrador');
+await p.selectOption('#studyType', 'brief');
 await p.fill('#studyTitle', 'Research alpha');
 await p.fill('#studyQuestion', 'Hipótesis sobre el rendimiento real');
 await p.fill('#studyTopic', 'Energía');
@@ -47,6 +66,12 @@ await p.selectOption('#studyLinkType', 'trade'); await quieto(p);
 await p.selectOption('#studyLinkTarget', String(tradeId));
 await p.click('#studyLinkAdd');
 ok(await p.locator('#studyLinksList').innerText().then(t => t.includes('NQ')), 'permite vincular una operación existente');
+await p.selectOption('#studyLinkType', 'invest-account');
+await p.selectOption('#studyLinkTarget', 'estudio-broker');
+await p.click('#studyLinkAdd');
+ok((await p.locator('#studyLinksList').innerText()).includes('Cartera de prueba'),
+   'permite vincular la cuenta de inversión existente');
+
 await p.locator('#studyForm').evaluate(form => form.requestSubmit());
 await p.waitForFunction(() => !document.querySelector('#studyModal').classList.contains('open'));
 await quieto(p);
@@ -64,7 +89,18 @@ ok((await p.locator('#study-reader-speculation').innerText()).includes(especulac
    (await p.locator('#study-reader-evidence').innerText()).includes('Hecho observado y fuente.'),
    'hechos, interpretación y especulación tienen secciones propias');
 ok(await p.locator('#study-reader-speculation img').count() === 0, 'la especulación se muestra como texto');
-await p.click('#studyReaderClose'); await quieto(p);
+ok((await p.locator('#study-reader-thesis').innerText()).includes(tesis) &&
+   (await p.locator('#study-reader-evidence-against').innerText()).includes(contra) &&
+   (await p.locator('#study-reader-counter').innerText()).includes('Riesgo de liquidez.') &&
+   (await p.locator('#study-reader-open-questions').innerText()).includes(preguntas),
+   'el lector separa tesis, evidencia contraria, riesgos y preguntas abiertas');
+ok(await p.locator('#studyReaderToc [data-study-reader-section="open-questions"]').count() === 1,
+   'las preguntas abiertas aparecen en el índice de un brief largo');
+await p.locator('#studyReaderContext [data-study-link-type="invest-account"]').click();
+ok(await p.evaluate(() => location.hash) === '#invest' && await p.inputValue('#ef_name') === 'Cartera de prueba',
+   'el vínculo abre la cuenta de inversión original');
+await p.click('#edClose');
+await p.click('.tabbtn[data-tab="estudio"]'); await quieto(p);
 await p.fill('#studyFrom', '2026-10-21'); await p.fill('#studyTo', '2026-10-25'); await quieto(p);
 ok(!(await p.locator('#studyGrid').innerText()).includes('Research alpha'), 'filtra por fecha consultada');
 await p.fill('#studyFrom', ''); await p.fill('#studyTo', '2026-10-25'); await quieto(p);
@@ -114,12 +150,14 @@ ok(await p.locator('#studyGrid .study-card').count() === 1 &&
    await p.locator('#studyGrid [data-study-doc-id="legacy"]').count() === 1,
    'el documento previo se filtra por etiqueta antigua y estado por defecto');
 await p.click('#studyClearFilters');
+await p.fill('#studySearch', 'asimetria nocturna');
+ok(await alpha.count() === 1 && await p.locator('#studyGrid .study-card').count() === 1, 'la búsqueda local encuentra las preguntas del brief');
 await p.fill('#studySearch', 'termoclina');
 ok(await alpha.count() === 1 && await p.locator('#studyGrid .study-card').count() === 1, 'la búsqueda de biblioteca incluye la especulación');
 await p.keyboard.press('Control+k');
-await p.fill('#cmdQ', 'termoclina');
+await p.fill('#cmdQ', 'muestra de junio');
 await p.locator('#cmdList [role="option"]').filter({ hasText: 'Research alpha' }).click();
-ok(await p.locator('#studyReaderTitle').innerText() === 'Research alpha', 'la búsqueda global encuentra y abre la especulación');
+ok(await p.locator('#studyReaderTitle').innerText() === 'Research alpha', 'la búsqueda global encuentra y abre la evidencia contraria');
 await p.click('#studyReaderClose');
 
 
@@ -159,10 +197,19 @@ ok(await p.inputValue('#studyTopic') === 'Energía' && await p.inputValue('#stud
    'tema y especulación persisten tras recargar');
 
 ok(await p.locator('#studyLinksList').innerText().then(t => t.includes('NQ')), 'el vínculo a la operación persiste');
+ok(await p.inputValue('#studyThesis') === tesis && await p.inputValue('#studyEvidenceAgainst') === contra &&
+   await p.inputValue('#studyOpenQuestions') === preguntas, 'los campos del brief persisten tras recargar');
+ok((await p.locator('#studyLinksList').innerText()).includes('Cartera de prueba'), 'el vínculo a la cuenta de inversión persiste');
+
 await p.click('#studyCancel');
 await p.setViewportSize({ width: 390, height: 844 });
 ok(await p.locator('.study-library-fields').evaluate(el => el.scrollWidth <= el.clientWidth + 1),
    'los cinco filtros caben en el ancho de la biblioteca móvil');
+await p.click('#studyNew');
+await p.selectOption('#studyLinkType', 'invest-account');
+ok(await p.locator('.study-link-fields').evaluate(el => el.scrollWidth <= el.clientWidth + 1),
+   'el selector de vínculos cabe en el ancho del editor móvil');
+
 ok(errores.length === 0, 'sin errores JavaScript', errores.join(' | ') || 'ninguno');
 
 await b.close();

@@ -1425,6 +1425,13 @@
     "Estado de revisión": "Review status",
     "Estudio": "Study",
     "Etiquetas (separadas por coma)": "Tags (comma separated)",
+    "Evidencia": "Evidence",
+    "Evidencia a favor": "Supporting evidence",
+    "Evidencia en contra": "Contrary evidence",
+    "Preguntas abiertas": "Open questions",
+    "Tesis del brief": "Brief thesis",
+    "Cuenta de futuros": "Futures account",
+    "Cuenta de inversión": "Investment account",
     "Evidencia a favor / hechos observados": "Supporting evidence / observed facts",
     "Expectativa móvil": "Rolling expectancy",
     "Exportar": "Export",
@@ -17602,6 +17609,10 @@
   function estudioEsc(x){return esc(String(x==null?"":x));}
   function estudioLista(){return coll("research").items.slice().sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));}
   const estudioCadena = valor => typeof valor === "string" ? valor.trim() : "";
+  const ESTUDIO_CAMPOS_OPCIONALES = [
+    ["topic", "studyTopic"], ["speculation", "studySpeculation"], ["thesis", "studyThesis"],
+    ["evidenceAgainst", "studyEvidenceAgainst"], ["openQuestions", "studyOpenQuestions"],
+  ];
   const estudioEstado = d => Object.hasOwn(ESTUDIO_ESTADOS, d.status) ? d.status : "todo";
   function estudioEtiquetas(d) {
     const etiquetas = Array.isArray(d.tags) ? d.tags : estudioCadena(d.tags).split(",");
@@ -17610,7 +17621,7 @@
   function estudioTexto(d){
     const links = Array.isArray(d.links) ? d.links.map(estudioLinkLabel).join(" ") : "";
     return [d.title,d.question,d.evidence,d.catalysts,d.counter,d.conclusion,d.url,d.author,d.publishedAt,d.consultedAt,d.nextReview,
-      estudioCadena(d.topic),estudioCadena(d.speculation),estudioEtiquetas(d).join(" "),links].join(" ");
+      ...ESTUDIO_CAMPOS_OPCIONALES.map(([key]) => estudioCadena(d[key])),estudioEtiquetas(d).join(" "),links].join(" ");
   }
   const ESTUDIO_FILTROS = ["studyTopicFilter", "studyTagFilter", "studyStatusFilter", "studyFrom", "studyTo"];
   function estudioOpciones(id, etiquetas) {
@@ -17701,6 +17712,7 @@
         break;
     }
   }
+  const estudioCuentaInversionLabel = cuenta => [cuenta.broker, cuenta.name].filter(Boolean).join(" · ");
   function estudioLinkLabel(l){
     if(!l||!l.id)return"Vínculo sin destino";
     const x=registroVinculado(l.type,l.id);
@@ -17709,6 +17721,7 @@
     if(l.type==="playbook")return x?(x.name||"Setup"):"Setup eliminado";
     if(l.type==="thesis")return x?(x.name||x.asset||"Tesis"):"Tesis eliminada";
     if(l.type==="account")return x?((x.firm?x.firm+" · ":"")+(x.name||"Cuenta")):"Cuenta eliminada";
+    if(l.type==="invest-account")return x?estudioCuentaInversionLabel(x):"Cuenta de inversión eliminada";
     if(l.type==="research")return x?(x.title||"Documento"):"Documento eliminado";
     return String(l.id);
   }
@@ -17718,6 +17731,7 @@
     if(tipo==="playbook")return coll("playbooks").items.map(x=>({id:x.id,label:x.name||"Setup sin nombre"}));
     if(tipo==="thesis")return coll("tesis").items.map(x=>({id:x.id,label:(x.name||x.asset||"Tesis")+" · "+(x.asset||"sin activo")}));
     if(tipo==="account")return FUT.accounts().map(x=>({id:x.id,label:(x.firm?x.firm+" · ":"")+(x.name||"Cuenta")}));
+    if(tipo==="invest-account")return investmentAccounts().map(x=>({id:x.id,label:estudioCuentaInversionLabel(x)}));
     if(tipo==="research")return estudioLista().filter(x=>x.id!==estudioLinkCurrentId&&x.type!=="trade-review").map(x=>({id:x.id,label:x.title||"Documento de estudio"}));
     return[];
   }
@@ -17748,7 +17762,7 @@
       grid.innerHTML=docs.map(d=>{
         const links=Array.isArray(d.links)?d.links:[],backs=all.filter(x=>x.id!==d.id&&Array.isArray(x.links)&&x.links.some(l=>l&&l.type==="research"&&l.id===d.id));
         const meta=[estudioCadena(d.topic),d.author,d.publishedAt?"Publicado "+estudioFecha(d.publishedAt):"",d.consultedAt?"Consultado "+estudioFecha(d.consultedAt):"",d.nextReview?(d.nextReview<=hoy?"Revisión pendiente":"Revisar "+estudioFecha(d.nextReview)):""].filter(Boolean).join(" · ");
-        return '<article class="study-card" data-study-doc-id="'+estudioEsc(d.id)+'"><div class="study-card-head"><span class="study-kind">'+estudioEsc(ESTUDIO_TIPOS[d.type]||"Documento")+'</span><span class="study-state '+(d.status==="progressing"?"progressing":d.status==="mastered"?"mastered":"")+'">'+estudioEsc(ESTUDIO_ESTADOS[estudioEstado(d)])+'</span></div><h3>'+estudioEsc(d.title)+'</h3><p>'+estudioEsc(d.question||d.conclusion||d.evidence||"Sin resumen todavía.")+'</p>'+(meta?'<p class="study-meta" style="font-size:11px;color:var(--muted);margin:8px 0">'+estudioEsc(meta)+'</p>':"")+'<div class="study-tags">'+estudioEtiquetas(d).slice(0,5).map(t=>'<span class="study-tag">'+estudioEsc(t)+'</span>').join("")+'</div>'+(links.length?'<div class="study-related" style="margin-top:8px;font-size:11px"><span class="muted">Relacionado:</span> '+links.map(l=>'<span class="study-tag">'+estudioEsc(estudioLinkLabel(l))+'</span>').join(" ")+'</div>':"")+(backs.length?'<div class="study-related" style="margin-top:8px;font-size:11px"><span class="muted">Referenciado por:</span> '+backs.map(x=>'<button type="button" class="study-tag" data-study-edit="'+estudioEsc(x.id)+'">'+estudioEsc(x.title||"Documento")+'</button>').join(" ")+'</div>':"")+'<div class="study-card-foot"><span>'+estudioEsc(estudioFecha(d.updatedAt||d.createdAt))+(d.url&&urlNavegable(d.url)?' · <a href="'+estudioEsc(d.url)+'" target="_blank" rel="noopener noreferrer">Abrir fuente ↗</a>':'')+'</span><span style="display:flex;gap:6px"><button type="button" data-study-read="'+estudioEsc(d.id)+'">Leer</button><button type="button" data-study-edit="'+estudioEsc(d.id)+'">Editar</button></span></div></article>';
+        return '<article class="study-card" data-study-doc-id="'+estudioEsc(d.id)+'"><div class="study-card-head"><span class="study-kind">'+estudioEsc(ESTUDIO_TIPOS[d.type]||"Documento")+'</span><span class="study-state '+(d.status==="progressing"?"progressing":d.status==="mastered"?"mastered":"")+'">'+estudioEsc(ESTUDIO_ESTADOS[estudioEstado(d)])+'</span></div><h3>'+estudioEsc(d.title)+'</h3><p>'+estudioEsc(estudioCadena(d.thesis)||d.question||d.conclusion||d.evidence||"Sin resumen todavía.")+'</p>'+(meta?'<p class="study-meta" style="font-size:11px;color:var(--muted);margin:8px 0">'+estudioEsc(meta)+'</p>':"")+'<div class="study-tags">'+estudioEtiquetas(d).slice(0,5).map(t=>'<span class="study-tag">'+estudioEsc(t)+'</span>').join("")+'</div>'+(links.length?'<div class="study-related" style="margin-top:8px;font-size:11px"><span class="muted">Relacionado:</span> '+links.map(l=>'<span class="study-tag">'+estudioEsc(estudioLinkLabel(l))+'</span>').join(" ")+'</div>':"")+(backs.length?'<div class="study-related" style="margin-top:8px;font-size:11px"><span class="muted">Referenciado por:</span> '+backs.map(x=>'<button type="button" class="study-tag" data-study-edit="'+estudioEsc(x.id)+'">'+estudioEsc(x.title||"Documento")+'</button>').join(" ")+'</div>':"")+'<div class="study-card-foot"><span>'+estudioEsc(estudioFecha(d.updatedAt||d.createdAt))+(d.url&&urlNavegable(d.url)?' · <a href="'+estudioEsc(d.url)+'" target="_blank" rel="noopener noreferrer">Abrir fuente ↗</a>':'')+'</span><span style="display:flex;gap:6px"><button type="button" data-study-read="'+estudioEsc(d.id)+'">Leer</button><button type="button" data-study-edit="'+estudioEsc(d.id)+'">Editar</button></span></div></article>';
       }).join("");
       grid.querySelectorAll("[data-study-edit]").forEach(b=>b.addEventListener("click",()=>estudioEditor(b.dataset.studyEdit)));grid.querySelectorAll("[data-study-read]").forEach(b=>b.addEventListener("click",()=>estudioReader(b.dataset.studyRead)));
     }
@@ -17763,7 +17777,19 @@
     const d=coll("research").get(id);if(!d)return;
     if(!$("studyReader").classList.contains("open"))estudioReaderReturnFocus=document.activeElement;
     estudioReaderId=id;
-    const sections=[["question","Pregunta / resumen",d.question],["evidence","Evidencia / hechos",d.evidence],["catalysts","Catalizadores",d.catalysts],["counter","Antítesis / riesgos",d.counter],["conclusion","Interpretación / conclusión",d.conclusion],["speculation","Especulación",estudioCadena(d.speculation)],["prompt","Pregunta de recuperación",d.prompt],["answer","Respuesta",d.answer]].filter(x=>String(x[2]||"").trim());
+    const sections = [
+      ["question", "Pregunta / resumen", d.question],
+      ["thesis", "Tesis del brief", estudioCadena(d.thesis)],
+      ["evidence", d.type === "brief" ? "Evidencia a favor" : "Evidencia / hechos", d.evidence],
+      ["evidence-against", "Evidencia en contra", estudioCadena(d.evidenceAgainst)],
+      ["catalysts", "Catalizadores", d.catalysts],
+      ["counter", "Riesgos y límites", d.counter],
+      ["open-questions", "Preguntas abiertas", estudioCadena(d.openQuestions)],
+      ["conclusion", "Interpretación / conclusión", d.conclusion],
+      ["speculation", "Especulación", estudioCadena(d.speculation)],
+      ["prompt", "Pregunta de recuperación", d.prompt],
+      ["answer", "Respuesta", d.answer],
+    ].filter(([, , texto]) => String(texto || "").trim());
     const total=sections.reduce((n,x)=>n+String(x[2]).length,0),toc=$("studyReaderToc");
     $("studyReaderTitle").textContent=d.title||"Documento de estudio";
     $("studyReaderMeta").textContent=[d.author,d.publishedAt?"Publicado "+estudioFecha(d.publishedAt):"",d.consultedAt?"Consultado "+estudioFecha(d.consultedAt):"",ESTUDIO_ESTADOS[estudioEstado(d)]].filter(Boolean).join(" · ");
@@ -17805,6 +17831,14 @@
     }
     abreRegistro(tipo, studyLinkId || studyReaderOpen);
   });
+  function estudioCamposBrief() {
+    const brief = $("studyType").value === "brief";
+    $("studyForm").querySelectorAll("[data-study-brief]").forEach(campo => {
+      campo.hidden = !brief && !estudioCadena(campo.querySelector("textarea").value);
+    });
+    const evidencia = $("studyEvidenceLabel"), label = brief ? "Evidencia a favor" : "Evidencia";
+    if (evidencia) evidencia.textContent = idioma() === "en" ? I18N_EN[label] : label;
+  }
   function estudioEditor(id, returnFocus) {
     estudioEditorReturnFocus = returnFocus || document.activeElement;
     const d = coll("research").get(id) || {};
@@ -17826,8 +17860,11 @@
     $("studyConclusion").value = d.conclusion || "";
     $("studyPrompt").value = d.prompt || "";
     $("studyAnswer").value = d.answer || "";
-    if ($("studyTopic")) $("studyTopic").value = estudioCadena(d.topic);
-    if ($("studySpeculation")) $("studySpeculation").value = estudioCadena(d.speculation);
+    for (const [key, idCampo] of ESTUDIO_CAMPOS_OPCIONALES) {
+      const campo = $(idCampo);
+      if (campo) campo.value = estudioCadena(d[key]);
+    }
+    estudioCamposBrief();
     estudioLinkCurrentId = id || "";
     estudioLinksDraft = Array.isArray(d.links) ? d.links.map(x => ({ type: x.type, id: x.id })).filter(x => x.type && x.id) : [];
     estudioRenderLinkTargets();
@@ -17847,6 +17884,7 @@
     if(e.key==="Escape"){e.preventDefault();e.stopPropagation();estudioCerrar();}
     else trapDialogFocus(e,$("studyModal"));
   });
+  $("studyType").addEventListener("change", estudioCamposBrief);
   $("studyLinkType").addEventListener("change",estudioRenderLinkTargets);
   $("studyLinkAdd").addEventListener("click",e=>{e.preventDefault();const type=$("studyLinkType").value,id=$("studyLinkTarget").value;if(!id)return;if(estudioLinksDraft.some(x=>x.type===type&&x.id===id))return;estudioLinksDraft.push({type,id});estudioRenderLinkList();});
   $("studyLinksList").addEventListener("click",e=>{const b=e.target.closest("button[data-study-link-remove]");if(!b)return;estudioLinksDraft.splice(Number(b.dataset.studyLinkRemove),1);estudioRenderLinkList();});
@@ -17874,8 +17912,10 @@
         prompt: $("studyPrompt").value.trim(), answer: $("studyAnswer").value.trim(),
         createdAt: old?.createdAt || Date.now(), updatedAt: Date.now(),
       };
-      if ($("studyTopic")) d.topic = $("studyTopic").value.trim().slice(0, 120);
-      if ($("studySpeculation")) d.speculation = $("studySpeculation").value.trim().slice(0, 8000);
+      for (const [key, idCampo] of ESTUDIO_CAMPOS_OPCIONALES) {
+        const campo = $(idCampo);
+        if (campo) d[key] = campo.value.trim().slice(0, campo.maxLength);
+      }
       await coll("research").set(id,d);estudioCerrar();renderEstudio();
     }finally{if(button)button.disabled=false;}
   });

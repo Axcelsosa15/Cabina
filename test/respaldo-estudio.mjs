@@ -17,7 +17,8 @@ try {
   D.siembra(uid, 'trades/t1', { id: 't1', type: 'futuros', date: '2026-11-03', instrument: 'MNQ', direction: 'long', entry: 21000, exit: 21010, qty: 1, images: [{ id: 'trade-shot' }] });
   D.siembra(uid, 'research/r1', { id: 'r1', type: 'trade-review', tradeId: 't1', title: 'Revisión con captura propia', scenes: { 'htf:1D': [{ id: 'study-shot', caption: 'Contexto propio' }] } });
   D.siembra(uid, 'research/r2', { id: 'r2', type: 'brief', title: 'Tesis con tema', topic: 'Energía',
-    evidence: 'Hecho observado.', conclusion: 'Interpretación.', speculation: 'Supuesto pendiente.' });
+    thesis: 'Tesis comprobable.', evidence: 'Hecho observado.', evidenceAgainst: 'Dato contrario.',
+    openQuestions: '¿Qué dato falta?', conclusion: 'Interpretación.', speculation: 'Supuesto pendiente.' });
   D.siembra(uid, 'credo/c1', { id: 'c1', title: 'Mi regla' });
   for (const id of ['trade-shot', 'study-shot']) D.e.objetos.set(uid + '/' + id, { tipo: 'image/png', bytes: PNG });
   const p = await ctx.newPage();
@@ -88,6 +89,8 @@ try {
   ok(restaurada.research.r2.topic === 'Energía' && restaurada.research.r2.speculation === 'Supuesto pendiente.' &&
     restaurada.research.r2.evidence === 'Hecho observado.' && restaurada.research.r2.conclusion === 'Interpretación.',
     'restaurar y recargar conserva tema, hechos, interpretación y especulación');
+  ok(restaurada.research.r2.thesis === 'Tesis comprobable.' && restaurada.research.r2.evidenceAgainst === 'Dato contrario.' &&
+    restaurada.research.r2.openQuestions === '¿Qué dato falta?', 'la restauración conserva las secciones del brief');
   ok(errores.length === 0, 'sin errores de página: ' + errores.join(' | '));
 } finally { await browser.close(); }
 console.log(`\n  fallos: ${fallos.length}`);
