@@ -10430,9 +10430,18 @@
     const s = disciplineTradeScore(t);
     disciplineDialog(dp("Disciplina de este trade", "This trade's discipline"));
     const heading = s.status === "open" ? dp("Pendiente de cierre: la nota se calcula al cerrar", "Awaiting close: the score is calculated when closed") : s.score === null ? dp("Sin datos suficientes para una nota global", "Insufficient evidence for an overall score") : `${s.score}/100 · ${s.stars}/5 ${dp("estrellas", "stars")}`;
-    const statusLabel = st => st === "pass" ? dp("✓ Registrado", "✓ Recorded") : st === "fail" ? dp("✕ Incumplido", "✕ Failed") : dp("? Sin evidencia", "? No evidence");
-    $("disciplineDetailBody").innerHTML = `<strong>${heading}</strong><p class="discipline-note">${dp("Inferencia · registros declarados. Cobertura", "Inference · declared records. Coverage")}: ${Math.round(s.coverage * 100)}%. ${s.confirmedPoints}/100 ${dp("puntos observables; los huecos no se rellenan", "observable points; gaps are not filled in")}.</p>
-      <ul class="discipline-criteria">${s.criteria.map(c => `<li><strong>${statusLabel(c.status)} · ${disciplineCriterion(c.key)} · ${c.points}/20</strong>${esc(idioma() === "es" ? c.reason : c.status === "unknown" ? "The saved record cannot establish this criterion." : c.status === "fail" ? "The record documents a condition that did not meet this criterion." : "The saved declarations support this criterion; this is not independent verification.")}</li>`).join("")}</ul>
+    const statusLabel = st => st === "pass" ? dp("✓ Registrado", "✓ Recorded") : st === "fail" ? dp("✕ Incumplido", "✕ Failed")
+      : st === "na" ? dp("— No aplica", "— Not applicable") : dp("? Sin evidencia", "? No evidence");
+    /* UN CRITERIO NO APLICABLE NO LLEVA MARCADOR. «0/20» se leería como un cero
+       perdido y «0/0» como un error: no es que falte evidencia, es que no hay
+       nada que comprobar, así que sale del denominador y no del recuento. */
+    const puntosDe = c => c.status === "na" ? "" : ` · ${c.points}/${c.weight}`;
+    const razonEn = c => c.status === "na" ? "This entry time is outside the bands Cabina prepares with their own checklist, so there is no prior preparation to check."
+      : c.status === "unknown" ? "The saved record cannot establish this criterion."
+      : c.status === "fail" ? "The record documents a condition that did not meet this criterion."
+      : "The saved declarations support this criterion; this is not independent verification.";
+    $("disciplineDetailBody").innerHTML = `<strong>${heading}</strong><p class="discipline-note">${dp("Inferencia · registros declarados. Cobertura", "Inference · declared records. Coverage")}: ${Math.round(s.coverage * 100)}%. ${s.confirmedPoints}/${s.possiblePoints} ${dp("puntos observables; los huecos no se rellenan", "observable points; gaps are not filled in")}.</p>
+      <ul class="discipline-criteria">${s.criteria.map(c => `<li><strong>${statusLabel(c.status)} · ${disciplineCriterion(c.key)}${puntosDe(c)}</strong>${esc(idioma() === "es" ? c.reason : razonEn(c))}</li>`).join("")}</ul>
       <p class="discipline-note dim">${dp("El stop y las casillas no prueban cuándo se escribieron. Los límites se congelan al crear un registro manual de hoy con una cuenta configurada; no certifican todas las reglas del bróker. No se aplican las reglas actuales a trades antiguos.", "Stops and checkboxes do not prove when they were written. Limits are frozen when creating today's manual record with a configured account; they do not certify all broker rules. Current rules are not applied to old trades.")}</p>`;
   }
   async function openDisciplineShare() {
