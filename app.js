@@ -13114,7 +13114,7 @@
       return item;
     });
     // Una actualización de otras métricas no debe quitar el foco al botón.
-    if (list.innerHTML === items.map(item => item.outerHTML).join("")) return;
+    if (list.children.length === items.length && items.every((item, i) => item.isEqualNode(list.children[i]))) return;
     const focused = list.contains(document.activeElement);
     list.replaceChildren(...items);
     if (focused) focoTrasValorar().focus();
