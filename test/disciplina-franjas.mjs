@@ -71,6 +71,24 @@ for (let m = 0; m < 1440; m++) {
 ok(discrepan.length === 0, 'ningún minuto del día se clasifica distinto',
    discrepan.length ? `${discrepan.length} minutos discrepan, el primero: ${discrepan[0]}` : '1440 minutos, misma franja');
 
+/* §2b · EL CONTRATO DE LA API PUBLICA. `sessionAt` salio a la superficie para que
+   esta prueba pueda comparar minuto a minuto contra app.js, y una API que
+   devuelve un nombre de franja CONFIADO para cualquier basura es justo lo que
+   este modulo no hace en ningun otro sitio: valida con `number`, `validDate` y
+   `minute` antes de afirmar nada. Medido antes de la guarda: sessionAt(undefined)
+   daba 'pausa', sessionAt(1440) y sessionAt(true) daban 'asia', y
+   sessionAt('09:30') —la forma en que la hora se escribe en el resto del
+   fichero— daba 'pausa'. Un minuto del dia es un entero de 0 a 1439. */
+console.log('\n═══ §2b · sessionAt no inventa una franja para una entrada inválida ═══');
+const basura = [undefined, null, NaN, -1, 1440, 99999, '09:30', '570', {}, [], true, false, 1.5, Infinity];
+const inventadas = basura.filter(v => D.sessionAt(v) !== null).map(v => `${JSON.stringify(v)} → ${D.sessionAt(v)}`);
+ok(inventadas.length === 0, 'ninguna entrada inválida recibe un nombre de franja',
+   inventadas.length ? inventadas.join(' · ') : `${basura.length} formas de basura, todas null`);
+const bordes = [[0, 'asia'], [119, 'asia'], [120, 'londres'], [1199, 'pausa'], [1200, 'asia'], [1439, 'asia']];
+const malBorde = bordes.filter(([m, esp]) => D.sessionAt(m) !== esp).map(([m, esp]) => `${m} → ${D.sessionAt(m)}, se esperaba ${esp}`);
+ok(malBorde.length === 0, 'los bordes del día siguen clasificándose igual',
+   malBorde.length ? malBorde.join(' · ') : bordes.map(([m, e]) => `${m}=${e}`).join(' · '));
+
 console.log('\n═══ §3 · una operación impecable puntúa en TODAS las franjas ═══');
 const NOW = Date.parse('2026-11-03T23:30:00Z'), HOY = '2026-11-03';
 /* Una pre-sesión guardada para cada franja preparable, sellada a las 00:05 ET

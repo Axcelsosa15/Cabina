@@ -71,8 +71,16 @@
     if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return null;
     return Number(m[1]) * 60 + Number(m[2]);
   }
+  // VALIDA EN EL LIMITE, porque `session` es API publica desde que
+  // test/disciplina-franjas.mjs necesita comparar franja a franja contra
+  // SESSIONS de app.js. Sin esta guarda devolvia un nombre de franja CONFIADO
+  // para cualquier basura, que es justo lo que este modulo no hace en ningun
+  // otro sitio: medido antes de ponerla, `sessionAt(undefined)` daba 'pausa',
+  // `sessionAt(1440)` y `sessionAt(true)` daban 'asia', y `sessionAt('09:30')`
+  // —la forma en que la hora se escribe en todo el resto del fichero— daba
+  // 'pausa'. Un minuto del dia es un entero de 0 a 1439; lo demas es null.
   function session(m) {
-    if (m === null) return null;
+    if (!Number.isInteger(m) || m < 0 || m > 1439) return null;
     if (m >= 1200 || m < 120) return 'asia';
     if (m < 420) return 'londres';
     if (m < 510) return 'premkt';
