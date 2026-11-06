@@ -207,7 +207,7 @@
     if(!byId('cabAppearanceMode'))return;
     render();apply();
     const fields={Mode:'mode',Accent:'accent',Custom:'custom',Font:'font',Text:'text',Density:'density'};
-    Object.entries(fields).forEach(([id,key])=>byId('cabAppearance'+id).addEventListener(key==='custom'?'input':'change',e=>{draft=parse({...draft,[key]:e.target.value,...(key==='custom'?{accent:'custom'}:{})});render();}));
+    Object.entries(fields).forEach(([id,key])=>byId('cabAppearance'+id).addEventListener(key==='custom'?'input':'change',e=>{draft=parse({...draft,[key]:e.target.value,...(key==='custom'?{accent:'custom'}:{}),...(key==='mode'&&VISUAL_THEMES[draft.atmosphere]?{atmosphere:e.target.value==='dark'?'noche':'calma'}:{})});render();}));
     document.querySelectorAll('[name="cabAtmosphere"]').forEach(el=>el.addEventListener('change',()=>{if(!el.checked)return;draft=parse({...draft,atmosphere:el.value,mode:(el.value==='noche'||VISUAL_THEMES[el.value])?'dark':'light',accent:'default'});render();}));
     document.querySelectorAll('[name="cabAccent"]').forEach(el=>el.addEventListener('change',()=>{if(el.checked){draft.accent=el.value;render();}}));
     byId('cabAppearanceApply').addEventListener('click',commit);
