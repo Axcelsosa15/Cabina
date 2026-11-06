@@ -2920,8 +2920,388 @@
       writeViewPrefs(current);
     });
   }
+  const cabLayoutDefault = [
+    ["panelJournal", "panelAccts"],
+    ["panelCheck", "panelDiscipline", "panelHist"],
+    ["panelRules", "panelLevels"],
+    ["panelCabCal"]
+  ];
+  const cabLayoutPanels = new Map(cabLayoutDefault.flat().map(id => [id, $(id)]));
+  const cabLayoutEditor = $("cabLayoutEditor");
+  const cabLayoutZones = $("cabLayoutZones");
+  let cabLayoutSignature = "";
+  let cabLayoutEditorSignature = "";
+
+  function readCabLayout(prefs) {
+    const saved = prefs.pages.cabina?.workspace;
+    if (!Array.isArray(saved) || saved.length < 3 || saved.length > 6 || !saved.every(Array.isArray)) {
+      return structuredClone(cabLayoutDefault);
+    }
+    const seen = new Set();
+    const zones = saved.map(zone => zone.filter(id => {
+      if (!cabLayoutPanels.has(id) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    }));
+    cabLayoutDefault.forEach((zone, index) => {
+      const target = index === 3 ? zones.at(-1) : zones[Math.min(index, zones.length - 2)];
+      zone.forEach(id => { if (!seen.has(id)) target.push(id); });
+    });
+    return zones;
+  }
+
+  function applyCabLayout(prefs) {
+    const zones = readCabLayout(prefs);
+    const signature = JSON.stringify(zones);
+    if (signature !== cabLayoutSignature) {
+      const columns = $("cabLayoutColumns");
+      const inner = zones.slice(1, -1).map((_, index) => {
+        const column = columns.children[index] || document.createElement("div");
+        column.className = index === 0 ? "cab-workspace-primary" : "cab-workspace-secondary";
+        return column;
+      });
+      const destinations = [$("cabLayoutTop"), ...inner, $("cabLayoutBottom")];
+      zones.forEach((ids, index) => {
+        const destination = destinations[index];
+        ids.forEach((id, position) => {
+          const panel = cabLayoutPanels.get(id);
+          if (destination.children[position] !== panel) destination.insertBefore(panel, destination.children[position] || null);
+        });
+      });
+      inner.forEach(column => { if (column.parentElement !== columns) columns.append(column); });
+      while (columns.children.length > inner.length) columns.lastElementChild.remove();
+      columns.classList.toggle("cab-layout-custom", inner.length !== 2);
+      cabLayoutSignature = signature;
+    }
+    if (!cabLayoutEditor.open) return;
+    const hidden = Array.isArray(prefs.hidden.cabina) ? prefs.hidden.cabina : [];
+    const editorSignature = JSON.stringify([zones, hidden]);
+    if (editorSignature === cabLayoutEditorSignature) return;
+    cabLayoutEditorSignature = editorSignature;
+    const active = document.activeElement?.id;
+    const labels = zones.map((_, index) => index === 0 ? "Ancho completo arriba" : index === zones.length - 1 ? "Ancho completo abajo" : "Columna " + index);
+    const action = (id, name, label, disabled = false) =>
+      `<button type="button" class="btn sm ghost" id="${id}" data-layout-action="${name}"${disabled ? " disabled" : ""}>${esc(label)}</button>`;
+    cabLayoutZones.innerHTML = zones.map((ids, index) => {
+      const column = index > 0 && index < zones.length - 1;
+      const controls = column ? [
+        action("cabLeft" + index, "left", "← Columna", index === 1),
+        action("cabRight" + index, "right", "Columna →", index === zones.length - 2),
+        action("cabRemove" + index, "remove", "Quitar columna", zones.length === 3)
+      ].join("") : "";
+      const rows = ids.map((id, position) => {
+        const title = id === "panelCabCal" ? "Calendario" : viewLabel(cabLayoutPanels.get(id), position);
+        const options = labels.map((label, i) => `<option value="${i}"${i === index ? " selected" : ""}>${label}</option>`).join("");
+        return `<div class="cab-layout-item" data-layout-panel="${id}" draggable="true">
+          <strong>${esc(title)}</strong>
+          <select id="cabMove-${id}" aria-label="Ubicación de ${esc(title)}" data-layout-destination>${options}</select>
+          ${action("cabUp-" + id, "up", "Subir", position === 0)}
+          ${action("cabDown-" + id, "down", "Bajar", position === ids.length - 1)}
+          ${action("cabToggle-" + id, "toggle", hidden.includes(id) ? "Mostrar" : "Ocultar")}
+        </div>`;
+      }).join("");
+      return `<section class="cab-layout-zone" data-layout-zone="${index}"><header><h3>${labels[index]}</h3>${controls}</header>${rows || '<p class="hint">Sin paneles</p>'}</section>`;
+    }).join("");
+    $("cabLayoutAdd").disabled = zones.length === 6;
+    if (active && cabLayoutZones.contains($(active))) {
+      const control = $(active);
+      const fallback = control.closest("[data-layout-panel]")?.querySelector("select");
+      (control.disabled ? fallback || $("cabLayoutAdd") : control).focus({ preventScroll: true });
+    }
+  }
+
+  function saveCabLayout(prefs, zones) {
+    const page = prefs.pages.cabina ||= {};
+    if (zones) page.workspace = zones;
+    else delete page.workspace;
+    const stored = writeViewPrefs(prefs);
+    applyViewPrefs();
+    $("cabLayoutStatus").textContent = stored ? "Distribución guardada en este navegador." : "Distribución aplicada hasta recargar.";
+  }
+
+  function moveCabPanel(id, destination, before) {
+    const prefs = readViewPrefs(), zones = readCabLayout(prefs);
+    const source = zones.find(zone => zone.includes(id));
+    if (!source || !zones[destination] || id === before) return;
+    source.splice(source.indexOf(id), 1);
+    const target = zones[destination];
+    const position = target.indexOf(before);
+    target.splice(position < 0 ? target.length : position, 0, id);
+    saveCabLayout(prefs, zones);
+  }
+
+  cabLayoutEditor.addEventListener("toggle", () => applyCabLayout(readViewPrefs()));
+  $("cabLayoutAdd").addEventListener("click", () => {
+    const prefs = readViewPrefs(), zones = readCabLayout(prefs);
+    if (zones.length >= 6) return;
+    zones.splice(-1, 0, []);
+    saveCabLayout(prefs, zones);
+  });
+  $("cabLayoutReset").addEventListener("click", () => {
+    const prefs = readViewPrefs();
+    if (Array.isArray(prefs.hidden.cabina)) prefs.hidden.cabina = prefs.hidden.cabina.filter(id => !cabLayoutPanels.has(id));
+    saveCabLayout(prefs);
+  });
+  cabLayoutZones.addEventListener("change", event => {
+    if (event.target.matches("[data-layout-destination]")) {
+      moveCabPanel(event.target.closest("[data-layout-panel]").dataset.layoutPanel, Number(event.target.value));
+    }
+  });
+  cabLayoutZones.addEventListener("click", event => {
+    const button = event.target.closest("[data-layout-action]");
+    if (!button) return;
+    const prefs = readViewPrefs(), zones = readCabLayout(prefs);
+    const index = Number(button.closest("[data-layout-zone]").dataset.layoutZone);
+    const id = button.closest("[data-layout-panel]")?.dataset.layoutPanel;
+    const zone = zones[index], position = zone.indexOf(id);
+    switch (button.dataset.layoutAction) {
+      case "left":
+      case "right": {
+        const target = index + (button.dataset.layoutAction === "left" ? -1 : 1);
+        [zones[index], zones[target]] = [zones[target], zones[index]];
+        break;
+      }
+      case "remove":
+        zones.at(-1).unshift(...zones.splice(index, 1)[0]);
+        break;
+      case "up":
+      case "down": {
+        const target = position + (button.dataset.layoutAction === "up" ? -1 : 1);
+        [zone[position], zone[target]] = [zone[target], zone[position]];
+        break;
+      }
+      case "toggle": {
+        const hidden = new Set(Array.isArray(prefs.hidden.cabina) ? prefs.hidden.cabina : []);
+        if (!hidden.delete(id)) hidden.add(id);
+        prefs.hidden.cabina = [...hidden];
+        break;
+      }
+    }
+    saveCabLayout(prefs, zones);
+  });
+
+  let cabDraggedPanel = null;
+  cabLayoutZones.addEventListener("dragstart", event => {
+    const row = event.target.closest("[data-layout-panel]");
+    if (!row) return;
+    cabDraggedPanel = row.dataset.layoutPanel;
+    event.dataTransfer.setData("text/plain", row.querySelector("strong").textContent);
+    event.dataTransfer.effectAllowed = "move";
+  });
+  function clearCabDrop() {
+    cabLayoutZones.querySelector("[data-drop-active]")?.removeAttribute("data-drop-active");
+  }
+  cabLayoutZones.addEventListener("dragover", event => {
+    const zone = event.target.closest("[data-layout-zone]");
+    if (!zone || !cabDraggedPanel) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (!zone.hasAttribute("data-drop-active")) { clearCabDrop(); zone.setAttribute("data-drop-active", ""); }
+  });
+  cabLayoutZones.addEventListener("dragend", () => { cabDraggedPanel = null; clearCabDrop(); });
+  cabLayoutZones.addEventListener("drop", event => {
+    const zone = event.target.closest("[data-layout-zone]");
+    if (!zone || !cabDraggedPanel) return;
+    event.preventDefault();
+    const id = cabDraggedPanel;
+    cabDraggedPanel = null;
+    clearCabDrop();
+    moveCabPanel(id, Number(zone.dataset.layoutZone), event.target.closest("[data-layout-panel]")?.dataset.layoutPanel);
+  });
+
+
+  const cabCanvas = document.querySelector(".cab-workspace");
+  const cabCanvasMedia = matchMedia("(max-width:850px)");
+  let cabCanvasDraft = null;
+  let cabCanvasApplied = false;
+  let cabCanvasPointer = null;
+  const canvasDevice = () => cabCanvasMedia.matches ? "mobile" : "desktop";
+  const canvasCols = () => cabCanvasMedia.matches ? 4 : 12;
+  const canvasOverlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  function validCanvas(items) {
+    if (!Array.isArray(items) || items.length !== cabLayoutPanels.size) return false;
+    const ids = new Set();
+    for (const item of items) {
+      if (!item || typeof item !== "object" || !cabLayoutPanels.has(item.id) || ids.has(item.id) ||
+          !["x", "y", "w", "h"].every(k => Number.isInteger(item[k])) ||
+          item.x < 0 || item.y < 0 || item.y > 500 || item.w < (cabCanvasMedia.matches ? 4 : 3) ||
+          item.x + item.w > canvasCols() || item.h < 4 || item.h > 200) return false;
+      ids.add(item.id);
+    }
+    return items.every((item, i) => items.slice(i + 1).every(other => !canvasOverlap(item, other)));
+  }
+  function captureCanvas() {
+    const bounds = cabCanvas.getBoundingClientRect(), step = (bounds.width + 12) / canvasCols();
+    const items = [...cabLayoutPanels].map(([id, panel]) => {
+      const rect = panel.getBoundingClientRect();
+      return { id, x: Math.max(0, Math.round((rect.left - bounds.left) / step)),
+        y: Math.max(0, Math.round((rect.top - bounds.top) / 52)),
+        w: Math.max(cabCanvasMedia.matches ? 4 : 3, Math.min(canvasCols(), Math.round((rect.width + 12) / step))),
+        hidden: panel.classList.contains("user-view-hidden"),
+        h: Math.max(4, Math.min(200, Math.ceil((Math.max(rect.height, panel.scrollHeight, 260) + 12) / 52))) };
+    }).sort((a,b) => a.y - b.y || a.x - b.x);
+    const placed = [];
+    items.forEach(item => {
+      item.x = Math.min(item.x, canvasCols() - item.w);
+      while (placed.some(other => canvasOverlap(item, other))) item.y++;
+      placed.push(item);
+    });
+    return items;
+  }
+  function paintCanvas(items) {
+    cabCanvas.classList.add("cab-canvas");
+    cabCanvas.classList.toggle("cab-canvas-editing", !!cabCanvasDraft);
+    cabCanvas.style.setProperty("--canvas-columns", canvasCols());
+    items.slice().sort((a,b) => a.y - b.y || a.x - b.x).forEach((item, index) => {
+      const panel = cabLayoutPanels.get(item.id);
+      const current = [...cabCanvas.children].filter(child => child.classList.contains("panel"))[index];
+      if (current !== panel) cabCanvas.insertBefore(panel, current || null);
+      panel.style.gridColumn = (item.x + 1) + " / span " + item.w;
+      panel.style.gridRow = (item.y + 1) + " / span " + item.h;
+      let controls = panel.querySelector(".cab-canvas-handles");
+      if (!controls) {
+        controls = document.createElement("div");
+        controls.className = "cab-canvas-handles";
+        controls.innerHTML = '<button type="button" class="btn sm" data-canvas-drag>Mover</button><button type="button" class="btn sm" data-canvas-resize>Tamaño ↘</button>';
+        panel.prepend(controls);
+      }
+      controls.hidden = !cabCanvasDraft;
+    });
+    cabCanvasApplied = true;
+  }
+  function clearCanvas() {
+    cabCanvas.classList.remove("cab-canvas", "cab-canvas-editing");
+    cabLayoutPanels.forEach(panel => {
+      panel.style.removeProperty("grid-column");
+      panel.style.removeProperty("grid-row");
+      panel.querySelector(".cab-canvas-handles")?.setAttribute("hidden", "");
+    });
+    cabLayoutSignature = "";
+    cabCanvasApplied = false;
+  }
+  function applyCabCanvas(prefs) {
+    const saved = prefs.pages.cabina?.canvas?.[canvasDevice()];
+    const items = cabCanvasDraft || saved;
+    const valid = validCanvas(items);
+    $("cabLayoutEditor").hidden = valid;
+    if (valid) { paintCanvas(items); return true; }
+    if (cabCanvasApplied) clearCanvas();
+    return false;
+  }
+  function canvasMessage(message) { $("cabCanvasStatus").textContent = message; }
+  function updateCanvasFields() {
+    const item = cabCanvasDraft?.find(item => item.id === $("cabCanvasPanel").value);
+    if (!item) return;
+    $("cabCanvasVisible").checked = !item.hidden;
+    for (const key of ["x","y","w","h"]) $("cabCanvas-" + key).value = item[key] + (key === "x" || key === "y" ? 1 : 0);
+  }
+  function canvasBegin() {
+    const saved = readViewPrefs().pages.cabina?.canvas?.[canvasDevice()];
+    cabCanvasDraft = validCanvas(saved) ? structuredClone(saved) : captureCanvas();
+    $("cabCanvasTools").hidden = false;
+    $("cabCanvasEdit").hidden = true;
+    $("cabLayoutEditor").hidden = true;
+    $("cabCanvasPanel").innerHTML = [...cabLayoutPanels].map(([id,panel]) =>
+      '<option value="' + id + '">' + esc(id === "panelCabCal" ? "Calendario" : viewLabel(panel,0)) + '</option>').join("");
+    paintCanvas(cabCanvasDraft);
+    updateCanvasFields();
+    canvasMessage("Editando " + (cabCanvasMedia.matches ? "móvil" : "escritorio") + ". Arrastra Mover o Tamaño. Las zonas ocupadas se rechazan.");
+  }
+  function canvasFinish() {
+    cabCanvasDraft = null;
+    cabCanvasPointer = null;
+    $("cabCanvasTools").hidden = true;
+    $("cabCanvasEdit").hidden = false;
+    applyViewPrefs();
+  }
+  function canvasPropose(id, patch) {
+    const proposed = cabCanvasDraft.map(item => item.id === id ? { ...item, ...patch } : item);
+    if (!validCanvas(proposed)) {
+      canvasMessage("Posición ocupada o tamaño fuera de límites. El panel conserva su última posición válida.");
+      return false;
+    }
+    cabCanvasDraft = proposed;
+    paintCanvas(proposed);
+    updateCanvasFields();
+    canvasMessage("Cambio pendiente de guardar.");
+    return true;
+  }
+  $("cabCanvasEdit").addEventListener("click", canvasBegin);
+  $("cabCanvasPanel").addEventListener("change", updateCanvasFields);
+  $("cabCanvasVisible").addEventListener("change", event => {
+    canvasPropose($("cabCanvasPanel").value, {hidden: !event.target.checked});
+    applyViewPrefs();
+  });
+  $("cabCanvasApply").addEventListener("click", () => {
+    const patch = {};
+    for (const key of ["x","y","w","h"]) patch[key] = Number($("cabCanvas-" + key).value) - (key === "x" || key === "y" ? 1 : 0);
+    canvasPropose($("cabCanvasPanel").value, patch);
+  });
+  $("cabCanvasSave").addEventListener("click", () => {
+    const previous = readViewPrefs();
+    const prefs = structuredClone(previous), page = prefs.pages.cabina ||= {};
+    page.canvas = { ...page.canvas, [canvasDevice()]: structuredClone(cabCanvasDraft) };
+    if (!writeViewPrefs(prefs)) {
+      volatileViewPrefs = previous;
+      canvasMessage("No se pudo guardar en este navegador. Conserva esta pestaña abierta y vuelve a intentarlo.");
+      return;
+    }
+    canvasFinish();
+    canvasMessage("Distribución guardada en este navegador para " + (cabCanvasMedia.matches ? "móvil." : "escritorio."));
+  });
+  $("cabCanvasCancel").addEventListener("click", () => { canvasFinish(); canvasMessage("Edición cancelada."); });
+  $("cabCanvasReset").addEventListener("click", () => {
+    const previous = readViewPrefs();
+    const prefs = structuredClone(previous), page = prefs.pages.cabina ||= {};
+    if (page.canvas) delete page.canvas[canvasDevice()];
+    delete page.workspace;
+    if (!writeViewPrefs(prefs)) { volatileViewPrefs = previous; canvasMessage("No se pudo guardar el restablecimiento."); return; }
+    canvasFinish();
+    canvasMessage("Distribución original restaurada para esta pantalla.");
+  });
+  cabCanvas.addEventListener("pointerdown", event => {
+    const handle = event.target.closest("[data-canvas-drag], [data-canvas-resize]");
+    if (!handle || !cabCanvasDraft || event.button !== 0) return;
+    const panel = handle.closest(".panel");
+    const item = cabCanvasDraft.find(item => item.id === panel.id);
+    $("cabCanvasPanel").value = item.id;
+    updateCanvasFields();
+    cabCanvasPointer = { pointerId: event.pointerId, item: {...item}, x: event.clientX, y: event.clientY,
+      scrollY: window.scrollY, step: (cabCanvas.clientWidth + 12) / canvasCols(), resize: handle.hasAttribute("data-canvas-resize"),
+      original: structuredClone(cabCanvasDraft) };
+    cabCanvas.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  cabCanvas.addEventListener("pointermove", event => {
+    const drag = cabCanvasPointer;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = Math.round((event.clientX - drag.x) / drag.step);
+    const dy = Math.round((event.clientY - drag.y + window.scrollY - drag.scrollY) / 52);
+    const patch = drag.resize ? {w: drag.item.w + dx, h: drag.item.h + dy} : {x: drag.item.x + dx, y: drag.item.y + dy};
+    canvasPropose(drag.item.id, patch);
+  });
+  cabCanvas.addEventListener("pointerup", () => { cabCanvasPointer = null; });
+  cabCanvas.addEventListener("pointercancel", () => {
+    if (cabCanvasPointer) { cabCanvasDraft = cabCanvasPointer.original; paintCanvas(cabCanvasDraft); updateCanvasFields(); }
+    cabCanvasPointer = null;
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && cabCanvasPointer) {
+      cabCanvasDraft = cabCanvasPointer.original;
+      cabCanvasPointer = null;
+      paintCanvas(cabCanvasDraft);
+      updateCanvasFields();
+      canvasMessage("Movimiento cancelado.");
+    }
+  });
+  cabCanvasMedia.addEventListener("change", () => {
+    if (cabCanvasDraft) canvasMessage("Cambió el tamaño de pantalla. La edición pendiente se canceló.");
+    canvasFinish();
+  });
+
   function applyViewPrefs() {
     const prefs = readViewPrefs();
+    if (!applyCabCanvas(prefs)) applyCabLayout(prefs);
     document.body.dataset.density = window.CabinaAppearance.get().density;
     document.body.dataset.help = prefs.help ? "on" : "off";
     const toggle = document.getElementById("mxLearnToggle");
@@ -2973,6 +3353,8 @@
         }
       });
     }
+    const canvasItems = cabCanvasDraft || prefs.pages.cabina?.canvas?.[canvasDevice()];
+    if (validCanvas(canvasItems)) canvasItems.forEach(item => cabLayoutPanels.get(item.id).classList.toggle("user-view-hidden", !!item.hidden));
     applyColumnPrefs();
   }
   function viewTabLabel(tabName) {
