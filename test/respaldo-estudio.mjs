@@ -64,8 +64,30 @@ try {
      condiciones: que haya UNA sola clave y que su valor no haya cambiado. Falló
      dos veces en CI —corridas 42188371037 y 42200130814, las dos sobre
      feature/visual-themes-v2— y el log sólo imprimía el nombre, así que no se
-     podía saber si sobraba una clave o si el sello se había movido. Pasa en
-     local, también bajo carga: 6 de 6. Sin el dato no hay nada que investigar.
+     podía saber si sobraba una clave o si el sello se había movido.
+
+     YA LO DIJO, y la respuesta no era ninguna de las dos: «antes [[clave,
+     sello]] · después []». La clave NO ESTÁ en esa lectura. Ni sobra una ni se
+     movió el valor: no hay ninguna. Medido el 2026-11-06 en la corrida
+     42297093684 y en 3 de 38 corridas locales (≈8 %).
+
+     Y aquí hay que corregir lo que este comentario decía antes. Decía «Pasa en
+     local, también bajo carga: 6 de 6», y es falso: reproduce en local, 1 de 6
+     sobre 6f7fb48 y 1 de 6 sobre 8e2fd1d, 3 de 12 en otra tanda y 0 de 26
+     después. Esa frase se escribió sobre seis corridas, que para un fallo del
+     8 % es no haber mirado: 0.92^6 = 61 % de no verlo nunca.
+
+     Descartado por medición, para que nadie lo vuelva a recorrer: NO es una
+     carrera de identidad tras recargar (`nube.ses` y `state.nube` se asignan
+     sincrónicamente desde localStorage al arrancar, app.js:15953); NO es el
+     orden de escritura (el sello sólo se escribe si la copia es completa, y
+     antes de que el botón se reactive); NO es durabilidad de localStorage en
+     `file://` (escribir y recargar sin pausa: 0 pérdidas de 40); NO la borra la
+     app (4 `removeItem`, ninguno sobre esta clave, y nadie recorre las claves);
+     NO la tira una navegación de la descarga (`bkDownload` tiene un camino).
+     Tampoco es carga: 0 de 8 con la máquina saturada.
+
+     La causa sigue SIN establecer. Sin el dato no había nada que investigar.
      Y se leen las CLAVES además de los valores porque la clave lleva el uid de
      la sesión —`cabina:last-backup:v1:` + uid, o `local` sin nube—: si tras la
      recarga la sesión aún no se ha restablecido, el sello se buscaría bajo otra

@@ -123,3 +123,83 @@ El test hay que correrlo desde `test/`, no desde la raíz: navega a
   del test, es estado perdido.
 - **No tocarlo desde la rama de los temas.** Es anterior a ella y medido sin
   ella; mezclarlo haría ilegibles las dos cosas.
+
+---
+
+## Apéndice del 2026-11-06, por la tarde: medido en las dos ramas, y un segundo flake con el mismo aire
+
+Lo de arriba quedó con la causa sin establecer. Esto no la establece tampoco, pero
+estrecha mucho el sitio donde puede estar y **descarta cinco explicaciones** que
+cualquiera volvería a recorrer.
+
+### 1 · Ninguno de los dos flakes es del PR que los enseñó
+
+La compuerta de `Axcelsosa15/Cabina#145` (rama `feat/resumen-distribucion`, cabeza
+`8e2fd1d`) salió roja por `estudio-investigacion` y `respaldo-estudio`. Se corrieron
+las dos suites en dos árboles de trabajo, uno en la cabeza y otro en **su base**
+`6f7fb48`, que no contiene ese PR:
+
+| suite | base `6f7fb48` | cabeza `8e2fd1d` |
+| --- | --- | --- |
+| `respaldo-estudio` | 1 rojo / 6 | 1 rojo / 6 |
+| `estudio-investigacion` | 1 rojo / 4 | 2 rojos / 4 |
+
+Falla en la base igual que en la cabeza, así que **no es de ese cambio**. La
+diferencia 1 vs 2 con n=4 no es una medición de nada y no se lee como «peor en la
+cabeza».
+
+`estudio-investigacion` reprodujo en la base **el error exacto de CI**:
+`locator.waitFor: Timeout 20000ms exceeded` en la línea 98.
+
+**Un aviso de método, porque costó cinco datos.** Las primeras corridas de
+`estudio-investigacion` en los árboles dieron 4 de 4 y 1 de 1 en rojo, y no era el
+flake: era `page.goto: net::ERR_FILE_NOT_FOUND`. Esa prueba resuelve `index.html`
+contra el **directorio de trabajo**, no contra `import.meta.url`, y se lanzó desde
+la raíz del árbol. `correr.mjs` las lanza con `cwd` en `test/` (`spawn(..., { cwd:
+aqui })`). Lanzada así, pasa. Esos cinco rojos se descartaron en vez de citarlos:
+un error de arnés contado como flake del producto es exactamente la confusión que
+este documento existe para no repetir.
+
+### 2 · `respaldo-estudio`: el síntoma, por fin dicho
+
+La aserción «la copia parcial no actualiza el último respaldo completo» llevaba tres
+rojos de CI en tres ramas distintas sin decir qué veía. Con el tercer argumento de
+`ok` puesto (commit `e078226`), lo dijo, en la corrida `42297093684` y en 3 de 38
+corridas locales:
+
+```
+❌ la copia parcial no actualiza el último respaldo completo
+   antes [["cabina:last-backup:v1:00000000-0000-4000-8000-000000000001","2026-11-06T21:42:04.699Z"]] · después []
+```
+
+**`después` está vacío.** No sobra una clave y el valor no se ha movido: la clave
+del sello **no está** en esa lectura. Las dos hipótesis que el comentario de la
+prueba planteaba eran las dos equivocadas.
+
+### 3 · Lo que ya está descartado por medición
+
+| Hipótesis | Cómo murió |
+| --- | --- |
+| Carrera de identidad tras recargar: el sello se escribiría bajo `:local` por no estar restablecida la sesión | `nube.ses = sesLee()` y `state.nube = true` son **sincrónicos** al arrancar (app.js:15953-15954), leídos de localStorage. No existe esa ventana |
+| Orden de escritura: la lectura «antes» adelantaría a la escritura del sello | El sello se escribe sólo si `!perdidas`, y antes de que `renderBackup()` reactive el botón que `exporta()` espera |
+| Durabilidad de `localStorage` en `file://` al recargar sin pausa | Escribir y recargar 40 veces sin pausa alguna: **0 pérdidas de 40** |
+| La app la borra | 4 `removeItem` en todo el código, ninguno sobre esta clave, y nadie recorre las claves de localStorage |
+| La descarga navega la página y cambia el origen | `bkDownload` tiene **un** camino: `descarga()` con un clic sintético. Siempre devuelve `"descargado"` |
+| Es cuestión de carga de máquina | 0 de 8 con 6 bucles ocupando 4 núcleos |
+
+### 4 · La frecuencia, y una lección sobre n pequeñas
+
+3 de 38 corridas locales ≈ **8 %**. El comentario de la prueba afirmaba «Pasa en
+local, también bajo carga: 6 de 6»; con un fallo del 8 %, seis corridas limpias
+ocurren el 61 % de las veces. Esa frase se corrigió en `test/respaldo-estudio.mjs`.
+
+Y una tanda de 3 de 12 llevó a escribir que observar el fallo lo suprimía, porque
+después vinieron 0 de 26 con una sonda puesta. Con la tasa real del 8 %, 0 de 26
+ocurre el 12 % de las veces: **era un grumo, no una supresión**. Retirado.
+
+### 5 · Lo que NO se hace
+
+No se relaja la aserción, no se le pone una pausa para que pase, y no se marca como
+«flake» para dejarla en verde: `stamp.length === 1` sigue exigiendo una clave y el
+mismo valor. Una prueba que pasa por haber dejado de mirar es el defecto que este
+repositorio persigue, no el arreglo.
