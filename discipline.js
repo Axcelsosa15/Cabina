@@ -4,7 +4,12 @@
  *
  * scoreTrade(trade, { day, rulesSnapshot, now })
  *   Cinco criterios de 20 puntos: preparación, riesgo escrito, condiciones,
- *   reglas documentadas y revisión. Estado pass/fail/unknown; coverage 0..1.
+ *   reglas documentadas y revisión. Estado pass/fail/unknown/na; coverage 0..1.
+ *   `na` es NO APLICABLE, no un hueco: pesa 0 y sale del denominador, así que
+ *   possiblePoints es 100 o 80 y score se normaliza a 0..100. Lo usa preparación
+ *   cuando la hora de entrada cae fuera de las franjas que la app prepara con
+ *   lista propia (PREPARABLES): pedir una pre-sesión que el usuario no puede
+ *   guardar dejaba esas operaciones sin puntuar para siempre.
  *   score/stars son null con datos desconocidos, fuente retrospectiva, o trade
  *   abierto. confirmedPoints informa sólo lo documentado, sin rellenar huecos.
  *   rulesSnapshot: { status:'pass'|'fail'|'unknown' } O
@@ -66,8 +71,16 @@
     if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return null;
     return Number(m[1]) * 60 + Number(m[2]);
   }
+  // VALIDA EN EL LIMITE, porque `session` es API publica desde que
+  // test/disciplina-franjas.mjs necesita comparar franja a franja contra
+  // SESSIONS de app.js. Sin esta guarda devolvia un nombre de franja CONFIADO
+  // para cualquier basura, que es justo lo que este modulo no hace en ningun
+  // otro sitio: medido antes de ponerla, `sessionAt(undefined)` daba 'pausa',
+  // `sessionAt(1440)` y `sessionAt(true)` daban 'asia', y `sessionAt('09:30')`
+  // —la forma en que la hora se escribe en todo el resto del fichero— daba
+  // 'pausa'. Un minuto del dia es un entero de 0 a 1439; lo demas es null.
   function session(m) {
-    if (m === null) return null;
+    if (!Number.isInteger(m) || m < 0 || m > 1439) return null;
     if (m >= 1200 || m < 120) return 'asia';
     if (m < 420) return 'londres';
     if (m < 510) return 'premkt';
@@ -77,6 +90,15 @@
     if (m < 1020) return 'cierre';
     return 'pausa';
   }
+  // LAS FRANJAS QUE LA APLICACION PREPARA CON SU PROPIA LISTA. app.js las marca
+  // con `pre: true` en SESSIONS, y `sesSel()` NUNCA devuelve una que no lo este:
+  // por eso `day.pres` no recibe jamas una clave de las otras tres —`premkt`,
+  // `cierre` y `pausa`—. Esta lista existe porque `preparation()` si calcula esas
+  // franjas, y sin ella pedia una pre-sesion que el usuario no puede guardar.
+  // Que no divergan de SESSIONS lo exige test/disciplina-franjas.mjs contra
+  // app.js, minuto a minuto, no la memoria de nadie.
+  const PREPARABLES = Object.freeze(['asia', 'londres', 'nyam', 'lunch', 'nypm']);
+  const preparable = id => PREPARABLES.includes(id);
   function context(input) {
     const n = number(input && input.now);
     const now = n !== null && n > 0 ? n : Date.now();
@@ -100,13 +122,23 @@
         !pre.items.every(x => x && typeof x === 'object' && typeof x.ok === 'boolean')) return 'unknown';
     return pre.items.every(x => x.ok === true) ? 'pass' : 'fail';
   }
+  // Un criterio NO APLICABLE no es un hueco: no se puede comprobar porque no hay
+  // nada que comprobar. Pesa 0, asi que sale del denominador en vez de restar.
   function criterion(key, status, reason) {
-    return { key, label: LABELS[key], status, reason, weight: 20, points: status === 'pass' ? 20 : 0 };
+    const weight = status === 'na' ? 0 : 20;
+    return { key, label: LABELS[key], status, reason, weight, points: status === 'pass' ? 20 : 0 };
   }
   function preparation(t, day, ctx) {
     const m = minute(t.time);
     if (!validDate(t.date) || m === null) return criterion('preparation', 'unknown', 'Falta fecha u hora de entrada válida en Nueva York.');
-    const candidates = snapshots(day).filter(x => x.id === session(m));
+    const ses = session(m);
+    // Fuera de una franja con lista propia no hay preparacion que comprobar, y
+    // pedirla dejaba la operacion sin puntuar para siempre por una franja que el
+    // usuario no eligio: la app no ofrece checklist para pre-mercado, cierre ni
+    // pausa, asi que el motivo «no hay pre-sesion guardada» era insatisfacible.
+    if (!preparable(ses))
+      return criterion('preparation', 'na', 'La franja de entrada no tiene lista de pre-sesión propia en Cabina, así que no hay preparación previa que comprobar.');
+    const candidates = snapshots(day).filter(x => x.id === ses);
     if (!candidates.length) return criterion('preparation', 'unknown', 'No hay una pre-sesión guardada para esta sesión.');
     const p = candidates[0].value, st = snapshotStatus(p), stamp = etStamp(p && p.at);
     if (st === 'unknown' || !stamp || !stampOnDay(p.at, t.date, ctx))
@@ -161,15 +193,22 @@
     let prep = preparation(t, opts.day, ctx);
     if (retrospective) prep = criterion('preparation', 'unknown', 'Registro retrospectivo: no se puede comprobar la preparación previa de esta operación.');
     const criteria = [prep, risk(t), conditions(t), rules(t, opts.rulesSnapshot || t.processRules), review(t)];
-    const known = criteria.filter(x => x.status !== 'unknown').length;
+    // Solo lo aplicable entra en cobertura y en el denominador. Con los cinco
+    // criterios aplicables esto da exactamente lo de antes —confirmedPoints sobre
+    // 100—, asi que la escala 0..100 no cambia de significado; con cuatro, un
+    // registro impecable sigue siendo 100 y no 80, que seria penalizar la franja.
+    const applicable = criteria.filter(x => x.status !== 'na');
+    const known = applicable.filter(x => x.status !== 'unknown').length;
     const confirmedPoints = criteria.reduce((s, x) => s + x.points, 0);
-    const closed = closedTrade(t), complete = known === criteria.length && closed && !retrospective;
-    const score = complete ? confirmedPoints : null;
+    const possiblePoints = applicable.reduce((s, x) => s + x.weight, 0);
+    const closed = closedTrade(t), complete = known === applicable.length && closed && !retrospective;
+    const score = complete && possiblePoints > 0 ? Math.round(confirmedPoints / possiblePoints * 100) : null;
     return {
       id: typeof t.id === 'string' ? t.id : null, date: validDate(t.date) ? t.date : null,
       status: !closed ? 'open' : complete ? 'scored' : 'insufficient',
-      closed, retrospective, criteria, coverage: known / criteria.length,
-      confirmedPoints, possiblePoints: 100, score,
+      closed, retrospective, criteria,
+      coverage: applicable.length ? known / applicable.length : 1,
+      confirmedPoints, possiblePoints, score,
       stars: score === null ? null : Math.max(1, Math.ceil(score / 20)),
     };
   }
@@ -314,5 +353,6 @@
         ? days.filter(d => d.xp > 0).sort((a, b) => b.xp - a.xp || b.date.localeCompare(a.date))[0].date : null,
     });
   }
-  root.CabinaDiscipline = Object.freeze({ VERSION, scoreTrade, summarize, weekSummary });
+  root.CabinaDiscipline = Object.freeze({ VERSION, PREPARABLES, sessionAt: session,
+    scoreTrade, summarize, weekSummary });
 })(typeof globalThis !== 'undefined' ? globalThis : window);

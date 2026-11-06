@@ -89,6 +89,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Dependencias del sistema para Chromium
+        id: deps
         # 18 min es el TOPE DURO del runner, y no debería dispararse nunca: el
         # presupuesto interno son 15 min y se respeta solo. Si este tope salta,
         # es que el presupuesto dejó de cuadrar otra vez — ver abajo.
@@ -123,8 +124,41 @@ jobs:
           # puede pasarse por construcción. Añadir un cuarto intento no vuelve a
           # romper la aritmética — sencillamente no cabrá, y lo dirá.
           #
-          # Lo que NO cambia es el final: si apt no responde, el paso falla duro
-          # y no se desactiva nada. La suite no corre con dependencias a medias.
+          # LO QUE ESTE PASO INSTALA DE VERDAD, medido en el log de la corrida
+          # 42121784515 sobre ubuntu-24.04:
+          #
+          #     0 upgraded, 9 newly installed, 0 to remove
+          #     fonts-freefont-ttf fonts-ipafont-gothic fonts-tlwg-loma-otf
+          #     fonts-unifont fonts-wqy-zenhei xfonts-cyrillic
+          #     xfonts-encodings xfonts-scalable xfonts-utils
+          #
+          # Nueve paquetes y los nueve son TIPOGRAFÍAS —21,1 MB de CJK, tailandés
+          # y cirílico—. Ni una biblioteca: las que Chromium necesita ya venían en
+          # la imagen del runner. Hoy este paso es un instalador de fuentes que
+          # Cabina, en español e inglés, no usa; y la corrida se perdió entera
+          # esperando `fonts-wqy-zenhei` (7,4 MB, ocho minutos).
+          #
+          # Y POR QUÉ LOS REINTENTOS NO PODÍAN FUNCIONAR, del mismo log: `timeout`
+          # mata a `npx`, pero `install-deps` llama a `sudo apt-get`, y un proceso
+          # sin privilegios NO puede señalar a uno de root. El apt-get del intento
+          # 1 sobrevivió a su propia muerte y siguió bajando fuentes once minutos
+          # más —se le ve en el log DESPUÉS del error final—, reteniendo el lock de
+          # dpkg. De ahí que el intento 2 muriera al instante con «held by process
+          # 2635 (apt-get)» y que el 3 no cupiera. No se arregla matando a root a
+          # ciegas: dejar dpkg a medias es peor. Se arregla no necesitando que apt
+          # conteste, que es lo de abajo.
+          #
+          # Y EL FINAL YA NO ES «dar la corrida por perdida», que es lo que
+          # cambió aquí. Visto lo de arriba, «apt no contestó» y «a Chromium le
+          # falta una biblioteca» no son la misma cosa, y sólo la segunda impide
+          # probar el código; suponerlas iguales costó una corrida entera.
+          #
+          # Así que cuando apt no responde este paso lo DICE y sigue, y el paso
+          # siguiente lanza Chromium de verdad: si arranca, la suite corre y
+          # ella decide; si no, rojo ahí con el motivo en una línea. No se
+          # desactiva nada y la compuerta sigue mandando — lo que ya no se
+          # pierde es la corrida en la que las dependencias sí daban.
+          anota() { echo "apt=$1" >> "${GITHUB_OUTPUT:-/dev/null}"; }
           PRESUPUESTO=900   # 15 min para TODO este paso
           MARGEN=60         # por debajo de esto no se empieza algo que no cabe
           PASO=5            # cada cuánto se pregunta por el lock
@@ -141,23 +175,37 @@ jobs:
             done
             echo "::warning::el lock de dpkg sigue tomado y quedan $(restante) s de presupuesto; se intenta de todos modos"
           }
-          for i in 1 2 3; do
+          INTENTOS=3
+          for i in $(seq "$INTENTOS"); do
             if [ "$(restante)" -le "$MARGEN" ]; then
               echo "::warning::sin presupuesto para el intento $i; no se empieza algo que no cabe"
               break
             fi
             espera_lock
             t=$(restante); [ "$t" -gt "$APT_TOPE" ] && t=$APT_TOPE
-            if timeout "$t" npx playwright install-deps chromium; then exit 0; fi
+            if timeout "$t" npx playwright install-deps chromium; then anota ok; exit 0; fi
+            [ "$i" -eq "$INTENTOS" ] && break   # tras el último intento no hay a qué esperar
             espera=$(( i * 20 )); r=$(( $(restante) - MARGEN ))
             [ "$r" -lt 0 ] && r=0
             [ "$espera" -gt "$r" ] && espera=$r
             echo "::warning::intento $i de apt fallado o colgado; reintento en $espera s"
             sleep "$espera"
           done
-          echo "::error::apt no respondió dentro del presupuesto de $PRESUPUESTO s, y el paso no midió nada."
-          echo "::error::No se desactiva nada: si a Chromium le falta una biblioteca, la suite lo dirá al arrancar."
-          exit 1
+          echo "::warning::apt no respondió dentro del presupuesto de $PRESUPUESTO s."
+          echo "::warning::No se da la corrida por perdida todavía: el paso siguiente lanza Chromium y, si arranca, la suite corre igual."
+          anota caido
+
+      # Cinco segundos que deciden si la corrida sirve. Ver el comentario de
+      # test/chromium-arranca.mjs: separa «el espejo de apt se cayó» de «falta
+      # una biblioteca», que es la diferencia entre una corrida recuperable y
+      # una que no. Corre SIEMPRE, no sólo cuando apt falla: cuando apt va bien
+      # cuesta lo mismo y convierte «la suite entera en rojo» en una línea que
+      # dice qué falta.
+      - name: Comprobar que Chromium arranca
+        timeout-minutes: 3
+        env:
+          APT_CAIDO: ${{ steps.deps.outputs.apt == 'caido' && 'si' || 'no' }}
+        run: node test/chromium-arranca.mjs
 
       # npm run compuerta, no npm test: la compuerta LANZA la suite una sola vez
       # (correr.mjs como proceso hijo) y todas sus filas dependientes de pruebas

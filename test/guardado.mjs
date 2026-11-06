@@ -291,17 +291,26 @@ for (const [w, h, nombre] of [[1440, 900, 'escritorio'], [430, 900, 'telefono']]
        hace que el aviso SE OIGA en un telefono, que es donde mas facil es perder un
        dato sin enterarse. Las dos piezas dependen la una de la otra y ninguna de las
        dos prueba eso por su cuenta. */
-    const arbol = await p.accessibility.snapshot();
-    const busca = (nodo, pred) => {
-      if (!nodo) return null;
-      if (pred(nodo)) return nodo;
-      for (const h of nodo.children || []) { const r = busca(h, pred); if (r) return r; }
-      return null;
-    };
-    const anunciado = busca(arbol, x => /SIN GUARDAR/.test(x.name || ''));
-    ok(!!anunciado, 'y LLEGA AL ARBOL DE ACCESIBILIDAD en el telefono: la region viva puede anunciarlo',
-       anunciado ? `«${anunciado.name}» (${anunciado.role})` : 'no esta en el arbol · display:none lo saca');
-    ok(!busca(arbol, x => /guardado local|sincronizado/.test(x.name || '')),
+    /* POR QUE `ariaSnapshot` Y NO `page.accessibility.snapshot()`. La segunda es
+       la API con la que se escribio esto, y Playwright la RETIRO: con 1.63
+       instalada `p.accessibility` es undefined y esta prueba muere con «Cannot
+       read properties of undefined (reading 'snapshot')». Era el UNICO uso en
+       toda la suite, asi que esta sola linea anclaba el `playwright` del
+       package.json a 1.56.1 y bloqueaba cualquier actualizacion.
+       `locator.ariaSnapshot()` existe desde 1.49 —o sea en las dos— y devuelve
+       el arbol ARIA como YAML; un elemento con `display: none` tampoco aparece
+       ahi, que es justo lo que esta prueba necesita medir.
+       MEDIDO sobre este mismo `#saveState`, en los dos estados y con las dos
+       versiones, ANTES de cambiar la linea:
+         «SIN GUARDAR · 2» (15px)   accessibility.snapshot=SI · ariaSnapshot=SI
+         «guardado local»  ( 0px)   accessibility.snapshot=NO · ariaSnapshot=NO
+       Mismo veredicto en las cuatro casillas, asi que esto sigue midiendo lo
+       mismo que media. */
+    const arbol = await p.locator('body').ariaSnapshot();
+    const anunciado = (arbol.split('\n').find(l => /SIN GUARDAR/.test(l)) || '').trim();
+    ok(/SIN GUARDAR/.test(arbol), 'y LLEGA AL ARBOL DE ACCESIBILIDAD en el telefono: la region viva puede anunciarlo',
+       anunciado ? `«${anunciado}»` : 'no esta en el arbol · display:none lo saca');
+    ok(!/guardado local|sincronizado/.test(arbol),
        'y lo ambiental NO se anuncia: la region viva solo habla cuando hay algo que decir',
        'ningun nodo con el rotulo en reposo');
   }

@@ -341,6 +341,14 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      a buscar cuál — que es justo el diagnóstico a ciegas que la cabecera de
      `detalleDe` cuenta que ya costó una sesión. */
   dice('contraste', 'suite', 'Ningún texto baja de AA en claro ni en oscuro, gráficos incluidos', 'index.html');
+  /* LA TIPOGRAFÍA, POR EL MISMO MOTIVO QUE EL COLOR. La fila global ya cierra
+     la compuerta con esta suite roja, así que esto no añade cobertura: añade
+     que diga QUÉ se rompió. Sin fila propia, una frase que vuelva a la
+     monoespaciada se lee como «116/117 en verde» y hay que ir al log — el
+     diagnóstico a ciegas que esta misma cabecera dice que ya costó una sesión.
+     Y es una regresión fácil de introducir sin notarla: la cascada de este
+     repositorio tiene reglas que pintan dato y texto con el mismo selector. */
+  dice('tipografia-prosa', 'suite', 'Las frases se leen en la tipografía de interfaz; la monoespaciada queda para los datos', 'index.html');
   /* EL MAPEADOR MANUAL, fase 1 de docs/IMPORTAR.md. Vigila dos cosas distintas:
      que el mapeo lea lo que se le dice y pare donde no se puede saber, y que lo
      importado NO se juzgue como si hubiera tenido un plan — sin eso, cada fila

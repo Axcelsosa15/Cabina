@@ -45,9 +45,18 @@ rentabilidad futura. Se mantiene el aviso de que Cabina no es asesoría financie
 La puntuación contiene cinco criterios de 20 puntos: preparación guardada antes
 de la entrada, stop coherente e invalidación escrita, condiciones de entrada,
 reglas registradas al operar y revisión del plan. Cada criterio es correcto,
-incumplido o desconocido. La cobertura expresa cuántos de los cinco se conocen;
-las estrellas aparecen sólo con los cinco criterios conocidos, una operación
-cerrada y una fuente verificable. La presencia actual de un stop o una
+incumplido, desconocido o **no aplicable**. La cobertura expresa cuántos de los
+criterios *aplicables* se conocen; las estrellas aparecen sólo con todos ellos
+conocidos, una operación cerrada y una fuente verificable.
+
+**No aplicable no es desconocido.** La app prepara cinco de las ocho franjas con
+lista propia; pre-mercado, cierre y pausa no tienen. Una operación entrada en
+esas tres no tiene preparación previa que comprobar, así que su criterio sale no
+aplicable, pesa 0 y sale del denominador: un registro impecable puntúa 100 sobre
+80 puntos observables, no 80 sobre 100. Antes pedía una pre-sesión que el usuario
+no puede guardar, y cualquier operación entre 07:00–08:30, 16:00–17:00 o
+17:00–20:00 ET quedaba sin puntuación para siempre por una franja que no eligió.
+Un no aplicable no regala nada: con cuatro criterios, fallar uno da 75. La presencia actual de un stop o una
 invalidación escrita no demuestra por sí sola que existieran antes de operar.
 
 `processRules` congela límites al crear manualmente una operación de hoy, cuando

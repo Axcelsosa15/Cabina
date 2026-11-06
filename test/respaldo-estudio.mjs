@@ -5,7 +5,11 @@ import { nubeDoble } from './nube-doble.mjs';
 import { quieto } from './espera.mjs';
 
 const fallos = [], errores = [];
-const ok = (c, t) => { console.log(`  ${c ? '✅' : '❌'} ${t}`); if (!c) fallos.push(t); };
+/* El tercer argumento es el DATO, y faltaba: este `ok` sólo aceptaba (c, t), así
+   que sus quince aserciones no podían enseñar lo que vieron ni al fallar. El
+   resto de la suite lo imprime —ver contraste.mjs— y por eso un rojo de aquí en
+   CI no se podía diagnosticar. */
+const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
 const url = new URL('../index.html', import.meta.url);
 const D = nubeDoble();
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
@@ -41,7 +45,7 @@ try {
   ok(copia.counts.research === 1 && copia.counts.credo === 1, 'los sellos cuentan investigación y reglas personales');
   ok(!D.filasDe(uid).find(f => f.path === 'research/r1').data.scenes['htf:1D'][0].data, 'exportar no modifica el documento remoto');
 
-  const ultimoCompleto = await p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('cabina:last-backup:')).map(k => localStorage.getItem(k)));
+  const ultimoCompleto = await p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('cabina:last-backup:')).sort().map(k => [k, localStorage.getItem(k)]));
   D.e.objetos.set(uid + '/study-shot', { tipo: 'image/png', bytes: Buffer.alloc(0) });
 
   // Otra sesión no conserva los blobs en memoria: un archivo vacío debe dar un respaldo parcial explícito.
@@ -55,8 +59,43 @@ try {
   ok(parcial.imagesInlined.failed === 1, 'una captura de cero bytes cuenta como fallo');
   ok(await p.locator('#bkExportStatus').evaluate(el => el.classList.contains('bad')), 'la copia parcial se marca como advertencia');
   ok(await p.locator('#bkRetry').isVisible(), 'la copia parcial permite reintentar');
-  const stamp = await p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('cabina:last-backup:')).map(k => localStorage.getItem(k)));
-  ok(stamp.length === 1 && JSON.stringify(stamp) === JSON.stringify(ultimoCompleto), 'la copia parcial no actualiza el último respaldo completo');
+  const stamp = await p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('cabina:last-backup:')).sort().map(k => [k, localStorage.getItem(k)]));
+  /* ESTA FILA SALÍA EN ROJO SIN DECIR QUÉ VIO, y es una conjunción de dos
+     condiciones: que haya UNA sola clave y que su valor no haya cambiado. Falló
+     dos veces en CI —corridas 42188371037 y 42200130814, las dos sobre
+     feature/visual-themes-v2— y el log sólo imprimía el nombre, así que no se
+     podía saber si sobraba una clave o si el sello se había movido.
+
+     YA LO DIJO, y la respuesta no era ninguna de las dos: «antes [[clave,
+     sello]] · después []». La clave NO ESTÁ en esa lectura. Ni sobra una ni se
+     movió el valor: no hay ninguna. Medido el 2026-11-06 en la corrida
+     42297093684 y en 3 de 38 corridas locales (≈8 %).
+
+     Y aquí hay que corregir lo que este comentario decía antes. Decía «Pasa en
+     local, también bajo carga: 6 de 6», y es falso: reproduce en local, 1 de 6
+     sobre 6f7fb48 y 1 de 6 sobre 8e2fd1d, 3 de 12 en otra tanda y 0 de 26
+     después. Esa frase se escribió sobre seis corridas, que para un fallo del
+     8 % es no haber mirado: 0.92^6 = 61 % de no verlo nunca.
+
+     Descartado por medición, para que nadie lo vuelva a recorrer: NO es una
+     carrera de identidad tras recargar (`nube.ses` y `state.nube` se asignan
+     sincrónicamente desde localStorage al arrancar, app.js:15953); NO es el
+     orden de escritura (el sello sólo se escribe si la copia es completa, y
+     antes de que el botón se reactive); NO es durabilidad de localStorage en
+     `file://` (escribir y recargar sin pausa: 0 pérdidas de 40); NO la borra la
+     app (4 `removeItem`, ninguno sobre esta clave, y nadie recorre las claves);
+     NO la tira una navegación de la descarga (`bkDownload` tiene un camino).
+     Tampoco es carga: 0 de 8 con la máquina saturada.
+
+     La causa sigue SIN establecer. Sin el dato no había nada que investigar.
+     Y se leen las CLAVES además de los valores porque la clave lleva el uid de
+     la sesión —`cabina:last-backup:v1:` + uid, o `local` sin nube—: si tras la
+     recarga la sesión aún no se ha restablecido, el sello se buscaría bajo otra
+     clave, y leyendo sólo valores eso es invisible. La condición no se relaja:
+     sigue exigiendo una clave y el mismo valor. */
+  ok(stamp.length === 1 && JSON.stringify(stamp) === JSON.stringify(ultimoCompleto),
+     'la copia parcial no actualiza el último respaldo completo',
+     `antes ${JSON.stringify(ultimoCompleto)} · después ${JSON.stringify(stamp)}`);
   D.e.objetos.set(uid + '/study-shot', { tipo: 'image/png', bytes: PNG });
   const recuperada = await exporta();
   ok(recuperada.imagesInlined.failed === 0 && recuperada.research.r1.scenes['htf:1D'][0].data === data, 'el reintento recupera la captura y completa el respaldo');

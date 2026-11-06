@@ -104,12 +104,36 @@ jobs:
       # Se recorre index.html buscando URL absolutas al propio sitio y se exige
       # que cada fichero esté dentro de `sitio/`. Copiar un fichero nuevo al
       # repositorio y olvidarse de copiarlo aquí vuelve a ser imposible.
+      #
+      # EL DOMINIO NO SE ESCRIBE AQUI, Y ESTA ES LA RAZON. Este paso tenia el
+      # host de GitHub Pages incrustado en el `grep`. El dia que index.html pasó
+      # a su dominio propio, el patrón dejó de coincidir con NADA: el bucle no
+      # iteraba una sola vez, `faltan` se quedaba en 0 y el paso salía en verde
+      # habiendo comprobado cero ficheros. Un verde que medía lo que no era,
+      # justo en el guardián escrito para que el 404 de og.png no se repitiera.
+      # Ahora el origen se LEE de `rel=canonical`, que es donde la decisión
+      # existe de verdad, y una lista vacía es ROJO: si este paso no tiene nada
+      # que comprobar, el que falló es el paso, no el despliegue.
       - name: Todo lo que index.html pide del propio sitio está publicado
         run: |
+          base="$(grep -oE 'rel="canonical" href="https?://[^"]+"' index.html \
+                  | head -1 | sed 's|.*href="||;s|"$||')"
+          if [ -z "$base" ]; then
+            echo "::error::index.html no declara rel=canonical: no se puede saber qué URL son del propio sitio"
+            exit 1
+          fi
+          base="${base%/}"
+          echo "Origen propio, leído de rel=canonical: $base"
+          # El `.` del host queda como metacaracter en los dos patrones. Da igual:
+          # sobre-coincidir dentro de una URL del propio sitio no cambia la ruta
+          # extraida, y lo que importa es que una lista VACIA no pase.
+          rutas="$(grep -oE "$base/[A-Za-z0-9_./-]+" index.html | sed "s|^$base/||" | sort -u)"
+          if [ -z "$rutas" ]; then
+            echo "::error::ninguna URL absoluta a $base en index.html: este paso no estaría comprobando nada"
+            exit 1
+          fi
           faltan=0
-          for ruta in $(grep -oE 'https://axcelsosa15\.github\.io/Cabina/[A-Za-z0-9_./-]+' index.html \
-                        | sed 's|https://axcelsosa15.github.io/Cabina/||' | sort -u); do
-            [ -z "$ruta" ] && continue
+          for ruta in $rutas; do
             if [ -f "sitio/$ruta" ]; then
               echo "✅ $ruta publicado"
             else
@@ -152,6 +176,56 @@ jobs:
             fi
           done
           exit $faltan
+
+      # QUIEN CONTESTA EN EL DOMINIO, ANTES DE AFIRMAR NADA SOBRE EL.
+      # El paso de abajo compara el sha256 de lo servido en `page_url` con el de
+      # `sitio/index.html` y, si coinciden, escribe «lo publicado es lo probado».
+      # Esa frase solo es cierta si quien contesta en esa URL es ESTE
+      # despliegue. Y este repositorio tiene TRES caminos de publicacion
+      # configurados a la vez: Pages por este workflow, un proyecto de Vercel
+      # que publica checks en cada PR, y `netlify.toml`. Los tres servirian el
+      # MISMO index.html byte a byte para el mismo commit, asi que el hash
+      # coincide igual y la comparacion no distingue de quien viene: el verde
+      # mediria a un tercero ponerse al dia, no que lo subido aqui se sirva.
+      #
+      # Ya paso, y esta medido. El 5 de noviembre de 2026 el run 204 fallo tras
+      # 180 s: el dominio servia el index.html de #142 (sha256 87bfb874...)
+      # mientras este workflow acababa de desplegar #143 (99173df2...). Veinte
+      # minutos despues el run 205 salio verde sin que nadie tocara nada.
+      #
+      # Asi que se pregunta por las cabeceras. Si contesta Pages, el paso de
+      # abajo verifica lo que dice verificar. Si contesta otro, esto se pone
+      # ROJO nombrandolo, y «quien sirve el dominio» deja de ser una suposicion.
+      - name: Quien sirve el dominio publicado es este despliegue
+        run: |
+          url="${{ steps.deploy.outputs.page_url }}"
+          case "$url" in
+            http://*) echo "::warning::$url se anuncia por http, no https: Pages no tiene certificado para este dominio, que suele ser la señal de que su DNS no apunta a Pages" ;;
+          esac
+          if ! curl -sS -L --max-time 30 -o /dev/null -D cabeceras.txt \
+                 -H 'Cache-Control: no-cache' "${url}?cabina_host=${GITHUB_RUN_ID}"; then
+            echo "::error::$url no responde: no se puede saber quien lo sirve"
+            exit 1
+          fi
+          # Con -L el fichero lleva las cabeceras de CADA salto. Solo importa
+          # quien contesta al final, asi que se recorta al ultimo bloque: un
+          # redirect desde Pages hacia el dominio propio dejaria sus cabeceras
+          # arriba y daria un «lo sirve Pages» falso.
+          tr -d '\r' < cabeceras.txt | awk 'BEGIN{RS=""} {b=$0} END{print b}' > ultimas.txt
+          echo "--- cabeceras de quien contesta ---"
+          grep -iE '^(HTTP/|server|x-github-request-id|x-vercel-id|x-nf-request-id|via):' ultimas.txt || true
+          quien=desconocido
+          if   grep -qiE '^server:[[:space:]]*github\.com' ultimas.txt || grep -qi '^x-github-request-id:' ultimas.txt; then quien="GitHub Pages"
+          elif grep -qi  '^x-vercel-id:' ultimas.txt || grep -qiE '^server:[[:space:]]*vercel' ultimas.txt; then quien="Vercel"
+          elif grep -qi  '^x-nf-request-id:' ultimas.txt || grep -qiE '^server:[[:space:]]*netlify' ultimas.txt; then quien="Netlify"
+          fi
+          if [ "$quien" = "GitHub Pages" ]; then
+            echo "✅ $url lo sirve GitHub Pages: lo que compara el paso siguiente es este despliegue"
+            echo "✅ $url lo sirve GitHub Pages" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "::error::$url lo sirve $quien, no GitHub Pages. El paso siguiente compararia el HTML de OTRO host, asi que su verde no significaria «lo publicado es lo probado». Elige un solo camino de publicacion (este workflow, el proyecto de Vercel, o netlify.toml) y retira los otros dos."
+          exit 1
 
       - name: La página publicada es exactamente index.html
         run: |
