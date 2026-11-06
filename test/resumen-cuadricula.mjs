@@ -1,0 +1,97 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+import {sirvePublicado} from './publicado.mjs';
+import {arrancada} from './espera.mjs';
+const server = sirvePublicado();
+await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+const origin = 'http://127.0.0.1:' + server.address().port;
+const browser = await chromium.launch();
+try {
+  const context = await browser.newContext({viewport:{width:1500,height:950}});
+  await context.route('**/*', route => route.request().url().startsWith(origin) ? route.continue() : route.abort());
+  const page = await context.newPage(), errors=[];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto(origin);
+  await arrancada(page,null);
+  const edit = () => page.locator('#cabCanvasEdit').click();
+  const field = (key, value) => page.locator('#cabCanvas-'+key).fill(String(value));
+  const place = async (x,y,w,h) => {
+    for (const [key,value] of Object.entries({x,y,w,h})) await field(key,value);
+    await page.locator('#cabCanvasApply').click();
+  };
+  const rect = id => page.locator('#'+id).boundingBox();
+  await edit();
+  await page.locator('#cabCanvasPanel').selectOption('panelRules');
+  await place(1,150,6,8);
+  let r=await rect('panelRules');
+  assert.ok(r.height >= 400 && r.height <= 420);
+  await page.locator('#cabCanvasSave').click();
+  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('cabina-view-prefs:v1')).pages.cabina.canvas.desktop);
+  assert.equal(saved.find(i=>i.id==='panelRules').w,6);
+  await page.reload(); await arrancada(page,null);
+  assert.equal((await rect('panelRules')).height,r.height);
+  await edit();
+  await page.locator('#cabCanvasPanel').selectOption('panelRules');
+  const occupied=saved.find(i=>i.id==='panelJournal');
+  await place(occupied.x+1,occupied.y+1,occupied.w,occupied.h);
+  assert.match(await page.locator('#cabCanvasStatus').textContent(),/ocupada/);
+  await place(7,150,6,9);
+  await page.locator('#cabCanvasCancel').click();
+  assert.equal((await rect('panelRules')).height,r.height);
+  await edit();
+  await page.locator('#cabCanvasPanel').selectOption('panelRules');
+  await page.locator('#cabCanvasVisible').uncheck();
+  assert.equal(await page.locator('#panelRules').isVisible(),false);
+  await page.locator('#cabCanvasCancel').click();
+  assert.equal(await page.locator('#panelRules').isVisible(),true);
+
+  await edit();
+  await page.locator('#panelRules [data-canvas-resize]').scrollIntoViewIfNeeded();
+  const handle=await page.locator('#panelRules [data-canvas-resize]').boundingBox();
+  await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);
+  await page.mouse.down(); await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2+52,{steps:5}); await page.mouse.up();
+  assert.equal(Math.round((await rect('panelRules')).height-r.height),52);
+  await page.locator('#cabCanvasCancel').click();
+
+  await edit();
+  await page.locator('#panelRules [data-canvas-drag]').scrollIntoViewIfNeeded();
+  const mover=await page.locator('#panelRules [data-canvas-drag]').boundingBox();
+  const beforeMove=await page.locator('#panelRules').evaluate(el=>Number(el.style.gridRowStart));
+  await page.mouse.move(mover.x+20,mover.y+15);
+  await page.mouse.down();
+  await page.mouse.move(mover.x+20,mover.y+119,{steps:6});
+  await page.mouse.up();
+  assert.equal(await page.locator('#panelRules').evaluate(el=>Number(el.style.gridRowStart)),beforeMove+2);
+  await page.locator('#cabCanvasCancel').click();
+  await page.locator('#qtSym').fill('MNQ');
+  await page.locator('#qtGo').click();
+  await page.locator('#ov.open').waitFor();
+  assert.equal(await page.locator('#ef_instrument').inputValue(),'MNQ');
+  await page.locator('#edCancel').click();
+
+  await page.setViewportSize({width:390,height:850});
+  await edit();
+  await page.locator('#cabCanvasPanel').selectOption('panelRules');
+  await place(1,150,4,9);
+  await page.locator('#cabCanvasSave').click();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+  const profiles=await page.evaluate(()=>JSON.parse(localStorage.getItem('cabina-view-prefs:v1')).pages.cabina.canvas);
+  assert.equal(profiles.mobile.find(i=>i.id==='panelRules').w,4);
+  assert.deepEqual(profiles.desktop,saved);
+  await page.setViewportSize({width:1500,height:950});
+  assert.equal((await rect('panelRules')).height,r.height);
+  await page.evaluate(() => {
+    const prefs = JSON.parse(localStorage.getItem('cabina-view-prefs:v1'));
+    prefs.pages.cabina.canvas.desktop[0] = null;
+    localStorage.setItem('cabina-view-prefs:v1', JSON.stringify(prefs));
+  });
+  await page.reload(); await arrancada(page,null);
+  assert.equal(await page.locator('.cab-canvas').count(),0);
+  assert.equal(await page.locator('#panelJournal').isVisible(),true);
+  assert.deepEqual(errors,[]);
+  console.log('PASS posiciones, tamaños, colisiones, cancelar, recarga, resize real y perfiles móvil/escritorio');
+  await context.close();
+} finally {
+  await browser.close();
+  await new Promise(resolve=>server.close(resolve));
+}

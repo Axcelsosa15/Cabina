@@ -208,7 +208,6 @@
 #panelAccts .acct{transition:border-color var(--mo),background var(--mo),transform var(--mo),box-shadow var(--mo)}
 #panelAccts .acct:hover{border-color:#3d5963;background:#1a242e;box-shadow:0 8px 22px rgba(0,0,0,.16);transform:translateY(-1px)}
 #panelAccts #addAcct{border-color:rgba(112,224,207,.32)}
-#panelAccts #cabAcct{max-width:230px}
 #panelRules,#panelJournal,#panelLevels,#panelHist,#panelCabCal{transition:border-color var(--mo),box-shadow var(--mo)}
 .jstrip{border-color:#2a3945;box-shadow:inset 0 1px rgba(255,255,255,.018)}
 .jstrip>div{transition:background var(--mo)}
@@ -217,7 +216,7 @@
 #panelCabCal .cal{border-radius:10px}
 #panelHist .tiles{padding:14px}
 #panelHist .twrap{max-width:100%;overflow-x:auto}
-@media(max-width:760px){.tab[data-tab="cabina"] .deck{padding:13px 14px;gap:9px 11px;margin-bottom:15px}.tab[data-tab="cabina"] .deck-parts{flex-basis:100%;margin-left:0}#panelAccts>header{align-items:flex-start}#panelAccts #cabAcct{max-width:none;width:100%}#panelAccts .hgroup{width:100%;flex-wrap:wrap}#panelAccts .acct:hover{transform:none}}
+@media(max-width:760px){.tab[data-tab="cabina"] .deck{padding:13px 14px;gap:9px 11px;margin-bottom:15px}.tab[data-tab="cabina"] .deck-parts{flex-basis:100%;margin-left:0}#panelAccts>header{align-items:flex-start}#panelAccts .hgroup{width:100%;flex-wrap:wrap}#panelAccts .acct:hover{transform:none}}
 @media(prefers-reduced-motion:reduce){#panelAccts .acct,#panelRules,#panelJournal,#panelLevels,#panelHist,#panelCabCal,.jstrip>div{transition:none!important}#panelAccts .acct:hover{transform:none}}
 
 </style>
@@ -1274,7 +1273,6 @@ tbody tr:last-child td{border-bottom:0}
     .panel > header { padding: var(--s3); gap: var(--s2); }
     .panel > header .hgroup { width: 100%; justify-content: flex-start; gap: var(--s2); }
     .panel > header .meta { text-align: left; }
-    #panelAccts > header #cabAcct { flex: 1 1 160px; min-width: 0; }
   }
 
   /* ── CENTRO DE SESIÓN ──────────────────────────────────────────────
@@ -3606,7 +3604,6 @@ body[data-density="comfortable"] { --row-space: 22px; --panel-space: 24px; --lay
     display: grid; width: 100%; min-width: 0;
     grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px;
   }
-  #panelAccts #cabAcct { grid-column: 1 / -1; min-width: 0; width: 100%; }
   #panelAccts #acctsMeta:not(:empty) { grid-column: 1 / -1; }
   #panelAccts .hgroup .btn { min-width: 0; min-height: 44px; width: 100%; }
   .tab .toolbar :is(input,select,textarea) { min-width: 0; }
@@ -3992,7 +3989,7 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
  .rulec .rst { grid-column:3 / 5; grid-row:2; text-align:right; letter-spacing:.035em; }
 }
 #panelAccts .vacio { padding:0; }
-#panelAccts:has(#accts > .vacio) :is(#cabAcct,#acctsMeta,#selbtn-accts) { display:none; }
+#panelAccts:has(#accts > .vacio) :is(#acctsMeta,#selbtn-accts) { display:none; }
 #panelAccts .vacio p { max-width:70ch; }
 #credoVacio:not([hidden]) { display:flex; align-items:center; gap:16px; justify-content:space-between; }
 #credoVacio > p { margin:0; }
@@ -4839,6 +4836,56 @@ body.editing .topbar .clock #editToggle.editbtn {
   overflow: visible;
 }
 .tab[data-tab="cabina"] .jstrip > div:last-child { border-right: 0; }
+.cab-session-account { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin-bottom:12px; }
+.cab-session-account .lab { margin:0; }
+.cab-session-account #cabAcct { min-width:0; max-width:min(100%, 18rem); }
+#jStrip .v { white-space:normal; overflow-wrap:anywhere; }
+#panelJournal .qt { margin-block: 0 16px; }
+.cab-layout-editor { margin-bottom:var(--ledger-gap); }
+.cab-canvas-editor { margin-bottom:16px; }
+.cab-canvas-editor label { display:grid; gap:4px; font-size:13px; }
+.cab-canvas-editor input { width:85px; }
+.cab-canvas-editor select { max-width:100%; }
+.tab[data-tab="cabina"] .cab-workspace.cab-canvas { grid-template-columns:repeat(var(--canvas-columns),minmax(0,1fr)); grid-auto-rows:40px; gap:12px; align-items:stretch; }
+.cab-canvas > .cab-layout-band, .cab-canvas > #cabLayoutColumns { display:none!important; }
+.cab-canvas > .panel { container-type:inline-size; min-height:0; min-width:0; overflow:auto; margin:0!important; }
+@container (max-width:600px) {
+  #panelJournal .qgrid { grid-template-columns:minmax(0,1fr); }
+  #panelJournal .jstrip { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .jgrid { grid-template-columns:minmax(0,1fr); }
+}
+.cab-canvas-handles { display:flex; justify-content:space-between; padding:6px; background:var(--surface); position:sticky; top:0; z-index:2; }
+.cab-canvas-handles button { touch-action:none; }
+.cab-canvas-handles [data-canvas-drag] { cursor:grab; }
+.cab-canvas-handles [data-canvas-resize] { cursor:nwse-resize; }
+html:has(.cab-canvas-editing) { overflow-anchor:none; }
+.cab-canvas-editing { background-image:linear-gradient(var(--line) 1px,transparent 1px); background-size:100% 52px; }
+
+.cab-layout-editor > summary { width:fit-content; cursor:pointer; }
+.cab-layout-tools, .cab-layout-zones { display:flex; flex-wrap:wrap; gap:10px; margin-block:10px; }
+.cab-layout-zone { flex:1 1 260px; min-width:0; padding:10px; border:1px solid var(--line); border-radius:var(--r-md); }
+.cab-layout-zone h3 { margin:0; font-size:14px; }
+.cab-layout-zone > header, .cab-layout-item { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.cab-layout-item { padding-block:8px; border-bottom:1px solid var(--line); }
+.cab-layout-item strong { flex:1 0 100%; }
+.cab-layout-item select { min-width:0; max-width:100%; }
+.cab-layout-item[draggable="true"] strong { cursor:grab; }
+.cab-layout-zone[data-drop-active] { outline:2px solid var(--accent); }
+.cab-workspace > .cab-layout-band { display:grid; gap:var(--ledger-gap); min-width:0; }
+.cab-workspace > .cab-layout-band > *, .cab-workspace-columns > div > * { min-width:0; }
+.tab[data-tab="cabina"] .cab-workspace-columns.cab-layout-custom { grid-template-columns:repeat(auto-fit,minmax(min(100%, 300px),1fr)); }
+@media (max-width: 850px) {
+  .tab[data-tab="cabina"] .cab-workspace-columns.cab-layout-custom { grid-template-columns:minmax(0,1fr); }
+}
+
+@media (min-width: 1000px) {
+  #panelJournal .qgrid { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
+}
+@media (max-width: 640px) {
+  .tab[data-tab="cabina"] .jstrip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tab[data-tab="cabina"] .jstrip > div:nth-child(2) { border-right: 0; }
+  .tab[data-tab="cabina"] .jstrip > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+}
 .cab-checklist-fold > summary,
 .cab-analytics-fold > summary {
   font: 600 12.5px/1.4 var(--font-ui);
@@ -5443,15 +5490,81 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
 <button type="button" class="credo-trace view-only" id="credoTrace" hidden></button>
 
 <section class="deck" aria-label="Resumen de Cabina"><h1 class="deck-t">Resumen</h1></section>
-<!-- Workstation operativa: cuenta completa, ejecución prioritaria, protección al lado. -->
+<div class="cab-canvas-editor">
+<button type="button" class="btn" id="cabCanvasEdit">Editar posición y tamaño</button>
+<div id="cabCanvasTools" hidden>
+<div class="cab-layout-tools">
+<label>Panel <select id="cabCanvasPanel"></select></label>
+<label>Visible <input id="cabCanvasVisible" type="checkbox" checked></label>
+<label>Columna <input id="cabCanvas-x" type="number" min="1" max="12"></label>
+<label>Fila <input id="cabCanvas-y" type="number" min="1" max="501"></label>
+<label>Ancho <input id="cabCanvas-w" type="number" min="3" max="12"></label>
+<label>Alto <input id="cabCanvas-h" type="number" min="4" max="200"></label>
+<button type="button" class="btn" id="cabCanvasApply">Aplicar al panel</button>
+</div>
+<div class="cab-layout-tools">
+<button type="button" class="btn primary" id="cabCanvasSave">Guardar distribución</button>
+<button type="button" class="btn ghost" id="cabCanvasCancel">Cancelar</button>
+<button type="button" class="btn ghost" id="cabCanvasReset">Restablecer distribución</button>
+</div>
+<p class="hint">Ancho en columnas · alto en filas. Móvil y escritorio guardan distribuciones independientes.</p>
+</div>
+<p id="cabCanvasStatus" class="synced" role="status"></p>
+</div>
+<details class="cab-layout-editor" id="cabLayoutEditor">
+  <summary class="btn ghost">Personalizar Resumen</summary>
+  <p class="hint">Arrastra los paneles o usa los controles. En móvil, las columnas se apilan en el mismo orden.</p>
+  <div class="cab-layout-tools">
+    <button type="button" class="btn sm" id="cabLayoutAdd">+ Columna</button>
+    <button type="button" class="btn sm ghost" id="cabLayoutReset">Restablecer distribución</button>
+  </div>
+  <p class="synced" id="cabLayoutStatus" role="status"></p>
+  <div class="cab-layout-zones" id="cabLayoutZones"></div>
+</details>
 <div class="cab-workspace">
+<div class="cab-layout-band" id="cabLayoutTop">
+<section class="panel" id="panelJournal">
+      <header><h2>Sesión de hoy</h2><div class="hgroup"><div class="sesnow off" id="sesNow" aria-live="polite"></div><span class="meta" id="todayLabel">—</span></div></header>
+      <div class="body">
+        <div id="closedBanner" hidden class="closed-banner"></div>
+        <!-- Lo primero de la sesión no es un formulario: es en qué punto estás.
+             Antes lo más grande del panel eran dos campos de texto para cifras
+             que ya vienen calculadas del journal. -->
+        <div class="cab-session-account"><label class="lab" for="cabAcct">Cuenta de trabajo</label><select id="cabAcct"><option value="">todas las cuentas</option></select></div>
+        <div class="jstrip" id="jStrip"></div>
+        <div class="qt">
+          <div class="qgrid">
+            <div><label class="lab" for="qtSym">Instrumento</label><input type="text" id="qtSym" placeholder="MNQ, VTI, BTC, O…" aria-label="Instrumento"></div>
+            <div><label class="lab" for="qtDest">Mercado</label><select id="qtDest" aria-label="Destino"></select></div>
+            <div><label class="lab" for="qtAccount">Cuenta de la operación</label><select id="qtAccount" aria-label="Cuenta de esta operación" title="La cuenta se asigna a esta operación, no a toda la sesión"></select></div>
+            <div><button type="button" class="btn primary" id="qtGo">Registrar operación</button></div>
+          </div>
+          <p class="synced" id="qtNote"></p>
+        </div>
+        <div class="jgrid manual">
+          <div class="jf"><label class="lab" for="jResult">Resultado ($)</label><input type="number" id="jResult" step="1" placeholder="+120 / -80"></div>
+          <div class="jf"><label class="lab" for="jTrades">Operaciones</label><input type="number" id="jTrades" min="0" step="1" placeholder="0"></div>
+          <div class="jf"><span class="lab">Regla rota</span><button type="button" class="toggle" id="jBroke" aria-pressed="false"><span id="jBrokeIcon">○</span><span id="jBrokeText">no</span></button></div>
+        </div>
+        <p class="synced" id="jSync"></p>
+        <div class="jseswrap" id="jSesBreak" hidden></div>
+        <label class="lab" for="jNote">Nota de sesión</label>
+        <textarea id="jNote" placeholder="Qué repetirás o cambiarás en la próxima sesión."></textarea>
+        <div class="jactions">
+          <button type="button" class="btn" id="jClose">Cerrar sesión de hoy</button>
+          <button type="button" class="btn ghost" id="jReopen" hidden>Reabrir</button>
+          <span class="note" id="jSaved"></span>
+        </div>
+      </div>
+    </section>
 <section class="panel" id="panelAccts">
-      <header><h2>Cuentas prop</h2><div class="hgroup"><select id="cabAcct" aria-label="Cuenta de trabajo"><option value="">todas las cuentas</option></select><span class="meta" id="acctsMeta"></span><button type="button" class="btn sm ghost" id="addAcct">+ Añadir cuenta</button><button type="button" class="btn ghost sm selbtn" id="selbtn-accts" title="Selecciona varias cuentas y bórralas de una vez">Seleccionar</button></div></header>
+      <header><h2>Cuentas prop</h2><div class="hgroup"><span class="meta" id="acctsMeta"></span><button type="button" class="btn sm ghost" id="addAcct">+ Añadir cuenta</button><button type="button" class="btn ghost sm selbtn" id="selbtn-accts" title="Selecciona varias cuentas y bórralas de una vez">Seleccionar</button></div></header>
       <div class="body">
         <div class="accts" id="accts"></div>
       </div>
 </section>
-<div class="cab-workspace-columns">
+</div>
+<div class="cab-workspace-columns" id="cabLayoutColumns">
   <div class="cab-workspace-primary">
   <section class="panel" id="panelCheck">
       <header><h2>Pre-sesión</h2><span class="meta" id="checkMeta">0 / 0 · hoy</span></header>
@@ -5469,7 +5582,7 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
           </div>
         </div>
         <div class="seschips view-only" id="sesChips" role="tablist" aria-label="Sesión que se prepara"></div>
-        <details class="cab-checklist-fold" open><summary>Checklist · ocultar o mostrar pasos</summary><ul class="check" id="checkList"></ul></details>
+        <details class="cab-checklist-fold" open><summary>Checklist de pre-sesión</summary><ul class="check" id="checkList"></ul></details>
         <button type="button" class="add edit-only" id="addCheck">+ Añadir paso</button>
         <div class="progress view-only"><i id="checkBar"></i></div>
         <div class="go view-only" id="goBox"><span id="goText">Completa la lista antes de la ventana operativa.</span><span id="goCount">0/0</span></div>
@@ -5478,40 +5591,6 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
           <button type="button" class="btn primary" id="preSave">Guardar pre-sesión</button>
           <button type="button" class="btn ghost" id="preReopen" hidden>Reabrir</button>
           <span class="note" id="preSaved"></span>
-        </div>
-      </div>
-    </section>
-<section class="panel" id="panelJournal">
-      <header><h2>Sesión de hoy</h2><div class="hgroup"><div class="sesnow off" id="sesNow" aria-live="polite"></div><span class="meta" id="todayLabel">—</span></div></header>
-      <div class="body">
-        <div id="closedBanner" hidden class="closed-banner"></div>
-        <!-- Lo primero de la sesión no es un formulario: es en qué punto estás.
-             Antes lo más grande del panel eran dos campos de texto para cifras
-             que ya vienen calculadas del journal. -->
-        <div class="jstrip" id="jStrip"></div>
-        <div class="jgrid manual">
-          <div class="jf"><label class="lab" for="jResult">Resultado ($)</label><input type="number" id="jResult" step="1" placeholder="+120 / -80"></div>
-          <div class="jf"><label class="lab" for="jTrades">Operaciones</label><input type="number" id="jTrades" min="0" step="1" placeholder="0"></div>
-          <div class="jf"><span class="lab">Regla rota</span><button type="button" class="toggle" id="jBroke" aria-pressed="false"><span id="jBrokeIcon">○</span><span id="jBrokeText">no</span></button></div>
-        </div>
-        <p class="synced" id="jSync"></p>
-        <div class="jseswrap" id="jSesBreak" hidden></div>
-        <label class="lab" for="jNote">Nota de sesión</label>
-        <textarea id="jNote" placeholder="Qué repetirás o cambiarás en la próxima sesión."></textarea>
-        <div class="qt">
-          <span class="lab">Registrar operación</span>
-          <div class="qgrid">
-            <div><label class="lab" for="qtSym">Instrumento</label><input type="text" id="qtSym" placeholder="MNQ, VTI, BTC, O…" aria-label="Instrumento"></div>
-            <div><label class="lab" for="qtDest">Mercado</label><select id="qtDest" aria-label="Destino"></select></div>
-            <div><label class="lab" for="qtAccount">Cuenta</label><select id="qtAccount" aria-label="Cuenta de esta operación" title="La cuenta se asigna a esta operación, no a toda la sesión"></select></div>
-            <div><button type="button" class="btn primary" id="qtGo">Registrar operación</button></div>
-          </div>
-          <p class="synced" id="qtNote"></p>
-        </div>
-        <div class="jactions">
-          <button type="button" class="btn" id="jClose">Cerrar sesión de hoy</button>
-          <button type="button" class="btn ghost" id="jReopen" hidden>Reabrir</button>
-          <span class="note" id="jSaved"></span>
         </div>
       </div>
     </section>
@@ -5542,7 +5621,8 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
     </section>
   </div>
 </div>
-<section class="panel" id="panelCabCal" style="margin-top:24px">
+<div class="cab-layout-band" id="cabLayoutBottom">
+<section class="panel" id="panelCabCal">
   <header>
     <div class="tools"><button type="button" class="icon" id="calCabPrev" title="Mes anterior">‹</button><h2 id="calCabTitle" style="margin:0 6px">—</h2><button type="button" class="icon" id="calCabNext" title="Mes siguiente">›</button></div>
     <span class="meta" id="calCabMeta"></span>
@@ -5552,6 +5632,8 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
 
   </div>
 </section>
+</div>
+
 </div>
 
 <div id="migPanel" hidden style="margin-top:24px"></div>
