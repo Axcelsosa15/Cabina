@@ -1,0 +1,28 @@
+name: backend-contract
+on:
+  pull_request:
+    paths:
+      - 'app.js'
+      - 'contracts/backend.json'
+      - 'test/backend-contract.mjs'
+      - 'docs/BACKEND_CONTRACT.md'
+      - '.github/workflows/backend-contract.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Frontend/backend compatibility regression
+        run: node test/backend-contract.mjs
