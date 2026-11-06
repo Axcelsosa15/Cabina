@@ -52,7 +52,28 @@
 .cab-theme-art b{display:block;width:47%;height:60%;background:color-mix(in srgb,#fff 14%,var(--theme-preview-bg));border-radius:3px;border-bottom:3px solid var(--theme-preview-accent)}
 .cab-theme-art b:last-child{width:20%;height:42%;background:var(--theme-preview-accent)}
 
-  /* Fondo de primera pintura: coherente con la elección guardada. */
+  /* Visual themes v2 — dashboard surfaces and responsive selection, scoped to new themes. */
+.atmospheres{grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr))}
+html[data-cabina-visual-theme] .tab[data-tab="cabina"] .deck{
+ background:linear-gradient(135deg,var(--surface),var(--surface-2));
+ border-color:var(--line);box-shadow:none;color:var(--text)
+}
+html[data-cabina-visual-theme] .tab[data-tab="cabina"] .deck::before{background:var(--accent)}
+html[data-cabina-visual-theme] .tab[data-tab="cabina"] .deck-n,
+html[data-cabina-visual-theme] .tab[data-tab="cabina"] .deck-stage{color:var(--accent)}
+html[data-cabina-visual-theme] .tab[data-tab="cabina"] .deck-stage{
+ border-color:var(--line-strong);background:var(--surface-2)
+}
+html[data-cabina-visual-theme] #panelAccts{
+ background:var(--surface);border-color:var(--line)
+}
+html[data-cabina-visual-theme] #panelAccts>header h2{color:var(--text)}
+html[data-cabina-visual-theme] .appearance-preview{
+ background:var(--surface);color:var(--text);border-color:var(--line)
+}
+@media(max-width:600px){.atmospheres{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Fondo de primera pintura: coherente con la elección guardada. */
   :root { color-scheme: light; }
   html { background: #f3f5f8; }
   body { margin: 0; background: #f3f5f8; color: #121a26; }
