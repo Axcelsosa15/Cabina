@@ -170,11 +170,12 @@ demostrablemente segura para una entidad concreta se podría añadir; no en gen�
 
 ### Si la migración no está aplicada
 
-`index.html` se publica solo en cuanto la suite pasa; la migración la aplica el dueño
-**a mano**. En esa ventana la página nueva habla con una base sin columna `version`, y
-`select=data,version` daría 42703: la cabina no cargaría. Así que se detecta una vez,
-se vuelve al upsert anterior, **y el pie lo dice**: deja de prometer protección entre
-dispositivos, porque sin la columna no la hay. Al aplicar la migración vuelve solo.
+Una base sin columna `version` permite **lectura de recuperación**, pero Cabina
+**bloquea INSERT, PATCH y DELETE** mientras el esquema no sea compatible, y muestra
+`BACKEND INCOMPATIBLE` en la barra. No degrada a upsert sin control de concurrencia.
+Las ediciones normales que fallen siguen el sistema de cambios pendientes; antes de
+cerrar o recargar conviene hacer un respaldo. Una lectura posterior con `version`
+válida reactiva la compatibilidad. Ver [BACKEND_CONTRACT.md](BACKEND_CONTRACT.md).
 
 ### Cómo se verifica, en dos niveles que no se confunden
 
