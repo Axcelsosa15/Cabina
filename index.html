@@ -45,6 +45,13 @@
      el script y el evento load hasta que Google responde. Las pide el script
      cuando la pagina ya ha cargado (cargaFuentes). Ver test/lanzamiento.mjs. -->
 <style>
+  
+/* Visual System 2.0: compact theme swatches, no landing-page artwork. */
+.cab-theme-art{display:flex;align-items:flex-end;gap:7px;height:64px;padding:12px;background:var(--theme-preview-bg);border-radius:8px;box-sizing:border-box}
+.cab-theme-art i{display:block;width:21%;height:100%;background:color-mix(in srgb,var(--theme-preview-accent) 16%,var(--theme-preview-bg));border-radius:3px}
+.cab-theme-art b{display:block;width:47%;height:60%;background:color-mix(in srgb,#fff 14%,var(--theme-preview-bg));border-radius:3px;border-bottom:3px solid var(--theme-preview-accent)}
+.cab-theme-art b:last-child{width:20%;height:42%;background:var(--theme-preview-accent)}
+
   /* Fondo de primera pintura: coherente con la elección guardada. */
   :root { color-scheme: light; }
   html { background: #f3f5f8; }
@@ -5573,6 +5580,9 @@ html[data-cabina-theme="dark"] .tab[data-tab="cabina"] .deck::before { display: 
       <label class="atmosphere"><input type="radio" name="cabAtmosphere" value="calma"><span class="atmosphere-art calma" aria-hidden="true"><i></i><span><b></b><b></b><b></b></span></span><span class="atmosphere-name">Calma<span class="atmosphere-check" aria-hidden="true">✓</span></span></label>
       <label class="atmosphere"><input type="radio" name="cabAtmosphere" value="estudio"><span class="atmosphere-art estudio" aria-hidden="true"><i></i><span><b></b><b></b><b></b></span></span><span class="atmosphere-name">Estudio<span class="atmosphere-check" aria-hidden="true">✓</span></span></label>
       <label class="atmosphere"><input type="radio" name="cabAtmosphere" value="precision"><span class="atmosphere-art precision" aria-hidden="true"><i></i><span><b></b><b></b><b></b></span></span><span class="atmosphere-name">Precisión<span class="atmosphere-check" aria-hidden="true">✓</span></span></label>
+      <label class="atmosphere cab-theme-card" style="--theme-preview-bg:#0b0b0c;--theme-preview-accent:#c6f432"><input type="radio" name="cabAtmosphere" value="midnight"><span class="cab-theme-art" aria-hidden="true"><i></i><b></b><b></b></span><span class="atmosphere-name">Midnight Lime<span class="atmosphere-check" aria-hidden="true">✓</span></span></label>
+      <label class="atmosphere cab-theme-card" style="--theme-preview-bg:#14213d;--theme-preview-accent:#ff6b5b"><input type="radio" name="cabAtmosphere" value="navy"><span class="cab-theme-art" aria-hidden="true"><i></i><b></b><b></b></span><span class="atmosphere-name">Navy Coral<span class="atmosphere-check" aria-hidden="true">✓</span></span></label>
+      <label class="atmosphere cab-theme-card" style="--theme-preview-bg:#1f3d2b;--theme-preview-accent:#a78bfa"><input type="radio" name="cabAtmosphere" value="forest"><span class="cab-theme-art" aria-hidden="true"><i></i><b></b><b></b></span><span class="atmosphere-name">Forest Purple<span class="atmosphere-check" aria-hidden="true">✓</span></span></label>
       <label class="atmosphere"><input type="radio" name="cabAtmosphere" value="noche"><span class="atmosphere-art noche" aria-hidden="true"><i></i><span><b></b><b></b><b></b></span></span><span class="atmosphere-name">Noche<span class="atmosphere-check" aria-hidden="true">✓</span></span></label>
 
     </div>
