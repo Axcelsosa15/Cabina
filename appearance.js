@@ -93,7 +93,13 @@
     else if (mq.addListener) mq.addListener(onChange);
   }
   const media = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
-  const ATMOSPHERES = new Set(['calma','estudio','precision','noche']);
+  const ATMOSPHERES = new Set(['calma','estudio','precision','noche','midnight','navy','forest']);
+  // Visual themes only. All financial data and view preferences remain untouched.
+  const VISUAL_THEMES = Object.freeze({
+    midnight: {bg:'#0b0b0c',surface:'#191b1d',surface2:'#25282b',line:'#393d42',text:'#ffffff',muted:'#bfc5cc',accent:'#c6f432',ink:'#0b0b0c'},
+    navy: {bg:'#14213d',surface:'#1d2c49',surface2:'#283955',line:'#44526b',text:'#f4ede0',muted:'#d2d4db',accent:'#ff6b5b',ink:'#14213d'},
+    forest: {bg:'#1f3d2b',surface:'#294b37',surface2:'#345942',line:'#55725e',text:'#f5efdf',muted:'#d0d9ca',accent:'#a78bfa',ink:'#151126'}
+  });
   const FONTS = { system: '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', humanist: '"IBM Plex Sans", "Avenir Next", "Trebuchet MS", sans-serif', serif: 'Georgia, "Times New Roman", serif' };
   const TEXT = { small: [14,12,12.5], normal: [15,12.5,13], large: [17,14,14.5] };
   const DENSITIES = new Set(['compact','balanced','comfortable']);
@@ -133,13 +139,15 @@
     for(let i=1;i<=100;i++){const c=original.map(v=>v*(1-i/100)+towards*i/100);if(contrast(c,bg)>=4.5)return hex(c);}
     return dark?'#ffffff':'#000000';
   }
-  function effectiveMode(choice=prefs) { return choice.mode==='system'?(media&&media.matches?'dark':'light'):choice.mode; }
+  function effectiveMode(choice=prefs) { return VISUAL_THEMES[choice.atmosphere] ? 'dark' : choice.mode==='system'?(media&&media.matches?'dark':'light'):choice.mode; }
   function effectiveAccent(choice,dark) {
+    if (VISUAL_THEMES[choice.atmosphere] && choice.accent==='default') return VISUAL_THEMES[choice.atmosphere].accent;
     const defaults={calma:'#176f65',estudio:'#80582e',precision:'#1d4ed8',noche:'#406da6'};
     const colors={default:dark?'#8dcabd':defaults[choice.atmosphere],blue:dark?'#8cb4ff':'#1d4ed8',teal:dark?'#70e0cf':'#176f65',violet:dark?'#c7a6ff':'#6d28d9',custom:choice.custom};
     return accessibleColor(colors[choice.accent],dark);
   }
   function palette(choice) {
+    if (VISUAL_THEMES[choice.atmosphere]) { const t=VISUAL_THEMES[choice.atmosphere];return {...t,good:'#83d6ac',warn:'#f2bd75',warnBg:'#30261c'}; }
     const dark=effectiveMode(choice)==='dark',warm=choice.atmosphere==='estudio';
     return dark?{bg:'#0b0e13',surface:'#111720',line:'#344253',text:'#e8ecf2',muted:'#b2bdcc',good:'#83d6ac',warn:'#f2bd75',warnBg:'#30261c'}:
       {bg:warm?'#f5f2ec':'#f3f5f8',surface:warm?'#fffdf8':'#ffffff',line:warm?'#ddd6ca':'#dde3ec',text:'#121a26',muted:'#4a5568',good:'#166534',warn:'#92400e',warnBg:'#fff4e5'};
@@ -147,13 +155,21 @@
   function apply() {
     const dark=effectiveMode()==='dark',scheme=dark?'dark':'light',color=effectiveAccent(prefs,dark),channels=rgb(color),p=palette(prefs);
     root.dataset.cabinaTheme=scheme;root.dataset.cabinaAccent=prefs.accent;root.dataset.cabinaAtmosphere=prefs.atmosphere;
+    if (VISUAL_THEMES[prefs.atmosphere]) root.dataset.cabinaVisualTheme=prefs.atmosphere;
+    else delete root.dataset.cabinaVisualTheme;
     const set=(k,v)=>root.style.setProperty(k,v,'important');
     set('--accent',color);set('--accent-ink',contrast(channels,[255,255,255])>=4.5?'#f8fafc':'#0b0e13');
     set('--accent-soft','rgba('+channels.join(',')+',.12)');set('--ui-focus','0 0 0 3px rgba('+channels.join(',')+',.18)');
     set('--font-ui',FONTS[prefs.font]);set('--font-display',FONTS[prefs.font]);
     ['body','meta','label'].forEach((name,i)=>set('--appearance-'+name,TEXT[prefs.text][i]+'px'));
-    if (!dark && prefs.atmosphere==='estudio') {set('--bg',p.bg);set('--surface',p.surface);set('--line',p.line);}
-    else ['--bg','--surface','--line'].forEach(k=>root.style.removeProperty(k));
+    if (VISUAL_THEMES[prefs.atmosphere]) {
+      set('--bg',p.bg);set('--surface',p.surface);set('--surface-2',p.surface2);
+      set('--line',p.line);set('--line-strong',p.line);set('--text',p.text);set('--muted',p.muted);
+      set('--control-bg',p.surface2);set('--control-border',p.line);
+    } else if (!dark && prefs.atmosphere==='estudio') {
+      ['--surface-2','--line-strong','--text','--muted','--control-bg','--control-border'].forEach(k=>root.style.removeProperty(k));
+      set('--bg',p.bg);set('--surface',p.surface);set('--line',p.line);
+    } else ['--bg','--surface','--surface-2','--line','--line-strong','--text','--muted','--control-bg','--control-border'].forEach(k=>root.style.removeProperty(k));
     if(document.body)document.body.dataset.density=prefs.density;
     const metaColor=document.querySelector('meta[name="theme-color"]'),metaScheme=document.querySelector('meta[name="color-scheme"]');
     if(metaColor)metaColor.setAttribute('content',p.bg);if(metaScheme)metaScheme.setAttribute('content',scheme);
@@ -192,7 +208,7 @@
     render();apply();
     const fields={Mode:'mode',Accent:'accent',Custom:'custom',Font:'font',Text:'text',Density:'density'};
     Object.entries(fields).forEach(([id,key])=>byId('cabAppearance'+id).addEventListener(key==='custom'?'input':'change',e=>{draft=parse({...draft,[key]:e.target.value,...(key==='custom'?{accent:'custom'}:{})});render();}));
-    document.querySelectorAll('[name="cabAtmosphere"]').forEach(el=>el.addEventListener('change',()=>{if(!el.checked)return;draft=parse({...draft,atmosphere:el.value,mode:el.value==='noche'?'dark':'light',accent:'default'});render();}));
+    document.querySelectorAll('[name="cabAtmosphere"]').forEach(el=>el.addEventListener('change',()=>{if(!el.checked)return;draft=parse({...draft,atmosphere:el.value,mode:(el.value==='noche'||VISUAL_THEMES[el.value])?'dark':'light',accent:'default'});render();}));
     document.querySelectorAll('[name="cabAccent"]').forEach(el=>el.addEventListener('change',()=>{if(el.checked){draft.accent=el.value;render();}}));
     byId('cabAppearanceApply').addEventListener('click',commit);
     byId('cabAppearanceCancel').addEventListener('click',()=>{if(conflict)prefs=read();draft={...prefs};conflict=false;apply();render('Cambios descartados');});
