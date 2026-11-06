@@ -3112,6 +3112,19 @@
 
   const cabCanvas = document.querySelector(".cab-workspace");
   const cabCanvasMedia = matchMedia("(max-width:850px)");
+  /* UNA SOLA VERDAD PARA LA VISIBILIDAD DE LOS PANELES DE RESUMEN.
+     Había dos: `prefs.hidden.cabina`, que es la que el diálogo de vistas usa
+     para TODAS las pestañas, y un campo `hidden` dentro de cada item del
+     lienzo. El pase final de `applyViewPrefs` aplicaba el segundo encima del
+     primero siempre que hubiera un lienzo válido, así que en cuanto alguien
+     guardaba una distribución el diálogo quedaba MUERTO para los ocho paneles:
+     escribía la preferencia, desmarcaba la casilla y el panel seguía viéndose.
+     Medido: oculto=true sin lienzo, oculto=false con lienzo, y la preferencia
+     guardada diciendo lo contrario de lo pintado.
+     Ahora el lienzo decide POSICIÓN y TAMAÑO, y la visibilidad la decide el
+     almacén de siempre, que los dos editores leen y escriben. */
+  const panelOcultos = (prefs = readViewPrefs()) =>
+    new Set(Array.isArray(prefs.hidden.cabina) ? prefs.hidden.cabina : []);
   let cabCanvasDraft = null;
   let cabCanvasApplied = false;
   let cabCanvasPointer = null;
@@ -3134,10 +3147,10 @@
     const bounds = cabCanvas.getBoundingClientRect(), step = (bounds.width + 12) / canvasCols();
     const items = [...cabLayoutPanels].map(([id, panel]) => {
       const rect = panel.getBoundingClientRect();
-      return { id, x: Math.max(0, Math.round((rect.left - bounds.left) / step)),
+      return { id, hidden: panel.classList.contains("user-view-hidden"),
+        x: Math.max(0, Math.round((rect.left - bounds.left) / step)),
         y: Math.max(0, Math.round((rect.top - bounds.top) / 52)),
         w: Math.max(cabCanvasMedia.matches ? 4 : 3, Math.min(canvasCols(), Math.round((rect.width + 12) / step))),
-        hidden: panel.classList.contains("user-view-hidden"),
         h: Math.max(4, Math.min(200, Math.ceil((Math.max(rect.height, panel.scrollHeight, 260) + 12) / 52))) };
     }).sort((a,b) => a.y - b.y || a.x - b.x);
     const placed = [];
@@ -3198,6 +3211,10 @@
   function canvasBegin() {
     const saved = readViewPrefs().pages.cabina?.canvas?.[canvasDevice()];
     cabCanvasDraft = validCanvas(saved) ? structuredClone(saved) : captureCanvas();
+    /* Lo guardado NO lleva visibilidad: la lleva prefs.hidden.cabina. Se siembra
+       el borrador desde ahí para que la casilla arranque diciendo la verdad. */
+    const yaOcultos = panelOcultos();
+    cabCanvasDraft.forEach(item => { item.hidden = yaOcultos.has(item.id); });
     $("cabCanvasTools").hidden = false;
     $("cabCanvasEdit").hidden = true;
     $("cabLayoutEditor").hidden = true;
@@ -3240,7 +3257,13 @@
   $("cabCanvasSave").addEventListener("click", () => {
     const previous = readViewPrefs();
     const prefs = structuredClone(previous), page = prefs.pages.cabina ||= {};
-    page.canvas = { ...page.canvas, [canvasDevice()]: structuredClone(cabCanvasDraft) };
+    /* La posición va al lienzo; la visibilidad, al almacén que comparte con el
+       diálogo de vistas. Guardarla en los dos sitios es lo que permitía que se
+       contradijeran. */
+    const ocultos = panelOcultos(prefs);
+    cabCanvasDraft.forEach(item => { if (item.hidden) ocultos.add(item.id); else ocultos.delete(item.id); });
+    prefs.hidden.cabina = [...ocultos];
+    page.canvas = { ...page.canvas, [canvasDevice()]: cabCanvasDraft.map(({ hidden, ...resto }) => resto) };
     if (!writeViewPrefs(prefs)) {
       volatileViewPrefs = previous;
       canvasMessage("No se pudo guardar en este navegador. Conserva esta pestaña abierta y vuelve a intentarlo.");
@@ -3353,8 +3376,14 @@
         }
       });
     }
-    const canvasItems = cabCanvasDraft || prefs.pages.cabina?.canvas?.[canvasDevice()];
-    if (validCanvas(canvasItems)) canvasItems.forEach(item => cabLayoutPanels.get(item.id).classList.toggle("user-view-hidden", !!item.hidden));
+    /* SÓLO EL BORRADOR, nunca lo guardado. Aquí estaba el defecto: aplicar
+       también lo guardado dejaba muerto el diálogo de vistas para los ocho
+       paneles en cuanto existía una distribución. Con el editor cerrado manda
+       `prefs.hidden.cabina`, que es de donde el diálogo lee y escribe; con el
+       editor abierto manda el borrador, para que Cancelar pueda deshacerlo.
+       Lo vigila test/resumen-visibilidad.mjs. */
+    if (cabCanvasDraft) cabCanvasDraft.forEach(item =>
+      cabLayoutPanels.get(item.id).classList.toggle("user-view-hidden", !!item.hidden));
     applyColumnPrefs();
   }
   function viewTabLabel(tabName) {
