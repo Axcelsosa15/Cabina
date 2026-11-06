@@ -2310,11 +2310,15 @@
         if (nube.occ === false) throw err("esquema_incompatible", { path: p });
         enVuelo++; setStoreLabel();
         try {
+          /* Validate version BEFORE a create-only restoration; it must never
+             write to a backend whose OCC contract is unknown. */
+          filasValidas(await nubeFetch(`${T}?select=version&limit=0`), ["version"], p);
           await nubeFetch(T, { method: "POST", headers: { prefer: "return=minimal" },
             body: { user_id: uidAhora(), path: p, data: d } });
           vers.delete(p); invalidaLecturas(p);
           return true;
         } catch (e) {
+          if (esSinColumna(e)) { nube.occ = false; setStoreLabel(); throw err("esquema_incompatible", { path: p }); }
           if (e && e.code === "23505") return false;
           throw e;
         } finally { enVuelo--; setStoreLabel(); }
@@ -2328,7 +2332,7 @@
         /* Sin versión conocida no se puede escribir a ciegas: se lee para saber si
            el documento existe. Una ronda más, sólo la primera vez que se toca un
            documento en esta sesión, y a cambio ninguna escritura ciega. */
-        if (esperada == null) { await this.leeDoc(p); esperada = vers.get(p); }
+        if (esperada == null) { await this.leeDoc(p); if (nube.occ === false) throw err("esquema_incompatible", { path: p }); esperada = vers.get(p); }
         if (esperada != null) {
           const fila = await parchea(p, d, esperada);
           if (fila) { vers.set(p, fila.version); invalidaLecturas(p); return; }
@@ -2370,7 +2374,7 @@
         /* A versionless DELETE could erase a newer edit from another device. */
         if (nube.occ === false) throw err("esquema_incompatible", { path: p });
         let esperada = versionBase ?? vers.get(p);
-        if (esperada == null) { await this.leeDoc(p); esperada = vers.get(p); }
+        if (esperada == null) { await this.leeDoc(p); if (nube.occ === false) throw err("esquema_incompatible", { path: p }); esperada = vers.get(p); }
         /* Ya no está: borrar lo que no existe es el resultado que se pedía. */
         if (esperada == null) return;
         /* UN BORRADO TAMPOCO A CIEGAS. Era `DELETE ?path=eq.<p>` y punto, así que
