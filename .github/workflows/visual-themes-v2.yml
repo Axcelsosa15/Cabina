@@ -1,0 +1,27 @@
+name: Visual Themes V2
+on:
+  pull_request:
+    paths:
+      - 'appearance.js'
+      - 'index.html'
+      - 'test/visual-themes-v2.mjs'
+      - '.github/workflows/visual-themes-v2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  visual-themes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Browser smoke tests
+        run: node test/visual-themes-v2.mjs
+      - name: Existing appearance regressions
+        run: node test/apariencia.mjs
