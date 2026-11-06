@@ -29,7 +29,7 @@ check(!adapter.includes('nubeFetch(`${T}?on_conflict='), 'sin upsert incondicion
 check((adapter.match(/if \(nube\.occ === false\) throw err\("esquema_incompatible"/g) || []).length >= 3,
   'crear, editar y borrar fallan cerrados ante esquema incompatible');
 check(adapter.includes('filasValidas('), 'respuestas validadas antes de publicar el snapshot');
-check((adapter.match(/await this\\.leeDoc\\(p\\); if \\(nube\\.occ === false\\) throw err\\("esquema_incompatible"/g) || []).length === 2,
+check((adapter.match(/await this\.leeDoc\(p\); if \(nube\.occ === false\) throw err\("esquema_incompatible"/g) || []).length === 2,
   'crear y borrar/editar no escriben después de una lectura que degradó el contrato');
 check(adapter.includes('select=version&limit=0'), 'recuperación de datos valida el esquema antes de insertar');
 
