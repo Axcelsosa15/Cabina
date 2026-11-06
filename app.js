@@ -3355,9 +3355,11 @@
   function closeEditor() {
     disarm($("edDelete"));
     ov.classList.remove("open");
+    const fallback = edCfg?.returnFocus;
     edCfg = null;
     const back = edReturnFocus; edReturnFocus = null;
-    if (back && back.isConnected && !back.disabled) back.focus();
+    if (fallback) returnDialogFocus(back, fallback());
+    else if (back && back.isConnected && !back.disabled) back.focus();
   }
   // Compartir la misma frontera de teclado entre editores y lectura.
   function trapDialogFocus(event, dialog) {
@@ -12873,22 +12875,27 @@
 
   /* ---------- métricas de la cartera ---------- */
   function monthsBack(n) { const out = []; const d = new Date(state.today + "T12:00:00Z"); d.setUTCDate(1); for (let i = 0; i < n; i++) { out.unshift(d.toISOString().slice(0, 7)); d.setUTCMonth(d.getUTCMonth() - 1); } return out; }
+  function claveValoracion(x) {
+    return JSON.stringify([String(x.asset || "").trim().toUpperCase(), x.market || "", String(x.accountId || "")]);
+  }
   function comprasSinPosicion(ps, ops, contadas) {
-    const clave = x => JSON.stringify([String(x.asset || "").trim().toUpperCase(), x.market || "", String(x.accountId || "")]);
-    const posiciones = new Set(ps.map(clave));
+    const posiciones = new Set(ps.map(claveValoracion));
     const cantidades = new Map();
     for (const t of ops) {
       if (contadas.has(t.id) || !["compra", "aporte", "venta"].includes(t.op)) continue;
       const qty = Number(t.qty);
       if (!Number.isFinite(qty) || qty <= 0) continue;
-      const k = clave(t);
+      const k = claveValoracion(t);
       if (posiciones.has(k)) continue;
-      const saldo = cantidades.get(k) || { compras: 0, ventas: 0 };
+      const saldo = cantidades.get(k) || {
+        asset: String(t.asset || "").trim().toUpperCase(), market: t.market, accountId: t.accountId || "",
+        compras: 0, ventas: 0,
+      };
       if (t.op === "venta") saldo.ventas += qty;
       else saldo.compras += qty;
       cantidades.set(k, saldo);
     }
-    return [...cantidades.values()].filter(({ compras, ventas }) => quedanUnidades(compras, ventas)).length;
+    return [...cantidades.values()].filter(({ compras, ventas }) => quedanUnidades(compras, ventas));
   }
   function investStats() {
     const ps = coll("positions").items.filter(investmentInScope), ops = tradesOf("inversion").filter(investmentInScope);
@@ -12950,7 +12957,8 @@
       if (t.op === "costo")     return { fecha: t.date, tipo: "costo",     monto: bruto + fe };
       return { fecha: t.date, tipo: "compra", monto: bruto + fe };
     }).filter(f => f.monto > 0 && f.fecha);
-    const sinPosicion = comprasSinPosicion(ps, ops, contadas);
+    const comprasPendientes = comprasSinPosicion(ps, ops, contadas);
+    const sinPosicion = comprasPendientes.length;
     const noPrice = ps.length - priced;
     const faltaValor = sinPosicion || noPrice;
     const carteraR = !faltaValor && flujosCartera.length && cur >= 0
@@ -12981,7 +12989,7 @@
     const byMonth = {}; ops.forEach(t => { const k = String(t.date || "").slice(0, 7); if (!k) return; const o = byMonth[k] || (byMonth[k] = { in: 0, inc: 0 }); if (t.op === "compra" || t.op === "aporte") o.in += (t.qty || 0) * (t.price || 0) + comisionDe(t.fees); if (t.op === "dividendo") o.inc += (t.pnl || 0); });
     const monthsWithIn = last6.filter(m => byMonth[m] && byMonth[m].in > 0).length;
     const defensive = ["bonos"].reduce((s, id) => s + (byMarket[id] ? byMarket[id].val : 0), 0);
-    return { ps, ops, rows, sorted, cost, cur, priced, unreal, realized, income, contributed, totalRet, cartera, concentration, noPlan, viejos, noPrice, sinPosicion, byMarket, markets: mk, ventas, comisiones, invertido, byMonth, last6, monthsWithIn, defensive, defensiveShare: cur ? defensive / cur : null, yieldPct: cost ? income / cost : null, top: sorted[0] || null };
+    return { ps, ops, rows, sorted, cost, cur, priced, unreal, realized, income, contributed, totalRet, cartera, concentration, noPlan, viejos, noPrice, sinPosicion, comprasPendientes, byMarket, markets: mk, ventas, comisiones, invertido, byMonth, last6, monthsWithIn, defensive, defensiveShare: cur ? defensive / cur : null, yieldPct: cost ? income / cost : null, top: sorted[0] || null };
   }
   function pctSigno(x, dec) { return x == null ? "—" : (x >= 0 ? "+" : "") + (x * 100).toFixed(dec == null ? 1 : dec) + "%"; }
   /* El titular pasa a ser el IRR, que es la cifra correcta; el retorno simple
@@ -13020,8 +13028,8 @@
   }
 
   function sig2(v) { return (v >= 0 ? "+" : "") + money(v, 2); }
-  function renderInvestTiles() {
-    const s = investStats(); const ps = s.ps;
+  function renderInvestTiles(s) {
+    const ps = s.ps;
     $("ivTiles").innerHTML = `
       <div class="tile"><span class="lab">Valor actual</span><div class="v ${ps.length && s.priced ? (s.cur > s.cost ? "good" : s.cur < s.cost ? "bad" : "") : ""}">${ps.length ? money(s.cur) : "—"}</div><div class="s">${s.noPrice ? `${s.noPrice} sin precio actual` : "según tus precios"}</div></div>
       <div class="tile"><span class="lab">P&amp;L no realizado</span><div class="v ${s.unreal > 0 ? "good" : s.unreal < 0 ? "bad" : ""}">${ps.length && s.priced ? money(s.unreal) : "—"}</div><div class="s">${ps.length && s.cost && s.priced ? (s.unreal >= 0 ? "+" : "") + (s.unreal / s.cost * 100).toFixed(1) + "%" : "faltan precios"}</div></div>
@@ -13100,10 +13108,66 @@
     else { cls = "mid"; head = "Va bien, con cosas pendientes."; body = `${ok} criterios en verde y ${no} en rojo. Empieza por los de mantenimiento: actualizar precios y escribir el plan de salida no dependen del mercado.`; }
     vd.innerHTML = `<div class="verdict ${cls}"><div class="h">Veredicto</div><div class="b">${esc(head)}</div><p>${esc(body)}</p></div>`;
   }
+  function renderValoracionPendiente(s) {
+    const panel = $("ivPending"), list = $("ivPendingList"), summary = $("ivPendingSummary");
+    const pendientes = s.comprasPendientes.map(p => ({ p, nueva: true }))
+      .concat(s.rows.filter(r => r.c.cur == null).map(r => ({ p: r.p, nueva: false })));
+    panel.hidden = pendientes.length === 0;
+    if (panel.hidden) panel.open = false;
+    summary.textContent = `Completar valoración (${pendientes.length})`;
+    const mercados = new Set(marketsMerged().map(m => m.id).filter(id => id !== "futuros"));
+    const cuentas = new Set(investmentAccounts().map(a => a.id));
+    const items = pendientes.map(({ p, nueva }) => {
+      const item = document.createElement("li");
+      item.dataset.key = nueva ? claveValoracion(p) : p.id;
+      const nombre = [p.asset || "Activo sin nombre", marketName(p.market), investmentAccountName(p.accountId)].join(" · ");
+      if (nueva && (!p.asset || !mercados.has(p.market) || (p.accountId && !cuentas.has(String(p.accountId))))) {
+        item.textContent = nombre + " · Revisa el activo, mercado y cuenta en la operación.";
+        return item;
+      }
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn ghost sm";
+      btn.textContent = (nueva ? "Añadir posición" : "Registrar precio") + " · " + nombre;
+      btn.addEventListener("click", () => {
+        if (!nueva) { openPrecioPendiente(p.id); return; }
+        const lotes = posLotes(p);
+        if (!lotes || !quedanUnidades(lotes.qty, 0)) { flash("Revisa las operaciones de este activo."); return; }
+        openPosition(null, p.market, { asset: p.asset, accountId: p.accountId, date: lotes.primera, qty: lotes.qty, entry: lotes.medio });
+        $("ef_current").focus();
+      });
+      item.append(btn);
+      return item;
+    });
+    // Una actualización de otras métricas no debe quitar el foco al botón.
+    if (list.children.length === items.length && items.every((item, i) => item.isEqualNode(list.children[i]))) return;
+    const focused = list.contains(document.activeElement);
+    list.replaceChildren(...items);
+    if (focused) focoTrasValorar().focus();
+  }
+  function focoTrasValorar() { return $("ivPending").hidden ? $("ivAccountFilter") : $("ivPendingSummary"); }
+  function openPrecioPendiente(id) {
+    const p = coll("positions").get(id);
+    if (!p) return;
+    openEditor({
+      title: "Precio actual · " + p.asset,
+      returnFocus: focoTrasValorar,
+      fields: [{ key: "current", label: "Precio actual", type: "number", step: "0.01" }],
+      values: p,
+      validate: v => {
+        if (v.current == null) return { message: "Falta el precio actual", field: "current" };
+        const actual = coll("positions").get(id);
+        if (!actual) return "Esta posición ya no existe.";
+        return spotPriceError(v, actual.market, [["current", "El precio actual"]]);
+      },
+      onSave: v => INV.updatePosition(id, { current: v.current, priceAt: Date.now() }),
+    });
+  }
   function renderInvestMetrics() {
     if (!$("ivTiles")) return;
-    renderInvestTiles();
     const s = investStats(), hasData = !!(s.ps.length || s.ops.length);
+    renderInvestTiles(s);
+    renderValoracionPendiente(s);
     $("ivOverview").hidden = !hasData;
     $("ivAnalysis").hidden = !hasData;
     const warnings = [];
@@ -13198,15 +13262,19 @@
     }
     return null;
   }
-  function openPosition(p, marketId) {
+  function openPosition(p, marketId, seed) {
     const isNew = !p;
     openEditor({ title: isNew ? "Nueva posición · " + marketName(marketId) : "Editar posición",
+      returnFocus: seed ? focoTrasValorar : undefined,
       fields: [{ type: "seccion", n: "01", label: "Lo que compraste", help: "la entrada, tal como fue" }, { key: "asset", label: "Activo", w: 2 }, { key: "accountId", label: "Cuenta de inversión", type: "select", options: [["", "Sin asignar"]].concat(investmentAccounts().map(a => [a.id, a.name])) }, { key: "date", label: "Fecha de entrada", type: "date" }, { key: "qty", label: "Cantidad", type: "number", step: "0.0001" }, { key: "entry", label: "Precio de entrada", type: "number", step: "0.01" }, { key: "fees", label: "Comisiones $", type: "number", step: "0.01" }, { type: "seccion", n: "02", label: "Lo que vale hoy", help: "el precio lo escribes tú" }, { key: "current", label: "Precio actual (lo actualizas tú)", type: "number", step: "0.01" }, { type: "seccion", n: "03", label: "Por qué y hasta cuándo", help: "se escribe sin saber el resultado" }, { key: "thesis", label: "Tesis", type: "textarea", w: 6, rows: 2 }, { key: "exitPlan", label: "Salida planeada · cuándo vendo", type: "textarea", w: 6, rows: 2, ph: "Objetivo, stop mental o fecha. Sin plan de salida no hay posición." }],
-      values: p || { date: todayISO(), qty: 1, accountId: defaultInvestmentAccountId() },
+      values: p || { date: todayISO(), qty: 1, accountId: defaultInvestmentAccountId(), ...seed },
       validate: v => {
         if (!v.asset) return { message: "Falta el activo", field: "asset" };
         if (v.qty == null) return { message: "Falta la cantidad", field: "qty" };
         if (v.entry == null) return { message: "Falta el precio de entrada", field: "entry" };
+        if (seed && coll("positions").items.some(x => claveValoracion(x) === claveValoracion({ ...v, market: marketId }))) {
+          return { message: "Ya hay una posición para este activo, mercado y cuenta.", field: "asset" };
+        }
         return spotPriceError(v, marketId, [["entry", "El precio de entrada"], ["current", "El precio actual"]]);
       },
       onSave: v => {

@@ -31,6 +31,32 @@ try {
   await quieto(page);
   check(await unavailable() && await value() === '—', 'una compra abierta sin posición no muestra -100%');
   check(/sin posición/i.test(await metric.innerText()), 'la tarjeta explica que falta registrar la posición');
+  const pending = page.locator('#ivPending');
+  if (await pending.count()) {
+    await page.locator('#ivPendingSummary').press('Enter');
+    await pending.getByRole('button', { name: 'Añadir posición · VTI · ETFs · Cuenta A' }).click();
+    const inputs = await page.evaluate(() => Object.fromEntries(
+      ['asset', 'accountId', 'qty', 'entry', 'date'].map(key => [key, document.getElementById('ef_' + key).value])
+    ));
+    check(inputs.asset === 'VTI' && inputs.accountId === 'a' && inputs.qty === '1' && inputs.entry === '100' && inputs.date === '2026-01-05',
+      'el pendiente precarga la posición con los datos de la compra y su cuenta');
+    check(await page.locator('#ef_current').evaluate(el => el === document.activeElement), 'el formulario enfoca el precio pendiente');
+    await page.locator('#edSave').click();
+    await quieto(page);
+    check(await unavailable() && (await page.locator('#ivPendingSummary').innerText()).includes('(1)'),
+      'guardar sin precio deja el registro de precio como único pendiente');
+    await pending.getByRole('button', { name: 'Registrar precio · VTI · ETFs · Cuenta A' }).click();
+    await page.locator('#edSave').click();
+    check(await page.locator('#ef_current').getAttribute('aria-invalid') === 'true', 'la edición rápida pide un precio explícito');
+    await page.locator('#ef_current').fill('0');
+    await page.locator('#edSave').click();
+    await quieto(page);
+    check(await pending.isHidden() && await value() === '-100.0%', 'el precio cero resuelve el pendiente y conserva el retorno');
+    await page.evaluate(() => INV.deletePosition(INV.positions()[0].id));
+    await quieto(page);
+  } else {
+    check(false, 'hay un acceso visible a los pendientes de valoración');
+  }
   await page.evaluate(() => {
     INV.createPosition({ id: 'other', asset: 'VTI', market: 'etfs', accountId: 'b', qty: 1, entry: 100, current: 120 });
     INV.createPosition({ id: 'wrong-market', asset: 'VTI', market: 'acciones', accountId: 'a', qty: 1, entry: 100, current: 120 });
@@ -40,6 +66,7 @@ try {
   await page.locator('#ivAccountFilter').selectOption('b');
   await quieto(page);
   check(await value() === '+20.0%', 'una cuenta valorada conserva su rentabilidad aunque otra esté incompleta');
+  check(await pending.count() && await pending.isHidden(), 'los pendientes respetan el filtro de cuenta');
   await page.locator('#ivAccountFilter').selectOption('a');
   await page.evaluate(() => {
     INV.deletePosition('wrong-market');
