@@ -45,11 +45,19 @@ try {
       check(cabina.radius >= 8 && cabina.radius <= 12,
         width + 'px · superficies de Resumen usan radio sobrio', String(cabina.radius));
       const cabOrder = await page.evaluate(() => {
-        const ids=['panelAccts','panelCheck','panelJournal','panelHist','panelRules','panelLevels','panelCabCal'];
+        const ids=['cabAcct','jStrip','qtGo','jNote','panelAccts','panelCheck','panelHist','panelRules','panelLevels','panelCabCal'];
         return ids.map(id => document.getElementById(id)).every(Boolean)
           && ids.every((id,i) => i === 0 || !!(document.getElementById(ids[i-1]).compareDocumentPosition(document.getElementById(id)) & Node.DOCUMENT_POSITION_FOLLOWING));
       });
-      check(cabOrder, width + 'px · cuenta y preparación anteceden al registro y a la revisión');
+      check(cabOrder, width + 'px · estado y registro anteceden a notas, cuentas y preparación');
+      const statusFits = await page.locator('#jStrip > div').nth(2).locator('.v').evaluate(value => {
+        const status = value.textContent;
+        value.textContent = '▲ RESTRINGIDA';
+        const fits = value.scrollWidth <= value.clientWidth + 1;
+        value.textContent = status;
+        return fits;
+      });
+      check(statusFits, width + 'px · el estado RESTRINGIDA cabe dentro de su tarjeta');
       const checkFold = page.locator('.cab-checklist-fold');
       check(await checkFold.count() === 1 && await checkFold.getAttribute('open') !== null,
         width + 'px · checklist accesible y expandida por defecto');
