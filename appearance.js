@@ -141,7 +141,7 @@
   }
   function effectiveMode(choice=prefs) { return VISUAL_THEMES[choice.atmosphere] ? 'dark' : choice.mode==='system'?(media&&media.matches?'dark':'light'):choice.mode; }
   function effectiveAccent(choice,dark) {
-    if (VISUAL_THEMES[choice.atmosphere] && choice.accent==='default') return VISUAL_THEMES[choice.atmosphere].accent;
+    if (VISUAL_THEMES[choice.atmosphere] && choice.accent==='default') return accessibleColor(VISUAL_THEMES[choice.atmosphere].accent,true);
     const defaults={calma:'#176f65',estudio:'#80582e',precision:'#1d4ed8',noche:'#406da6'};
     const colors={default:dark?'#8dcabd':defaults[choice.atmosphere],blue:dark?'#8cb4ff':'#1d4ed8',teal:dark?'#70e0cf':'#176f65',violet:dark?'#c7a6ff':'#6d28d9',custom:choice.custom};
     return accessibleColor(colors[choice.accent],dark);
@@ -163,13 +163,13 @@
     set('--font-ui',FONTS[prefs.font]);set('--font-display',FONTS[prefs.font]);
     ['body','meta','label'].forEach((name,i)=>set('--appearance-'+name,TEXT[prefs.text][i]+'px'));
     if (VISUAL_THEMES[prefs.atmosphere]) {
-      set('--bg',p.bg);set('--surface',p.surface);set('--surface-2',p.surface2);
+      set('--bg',p.bg);set('--surface',p.surface);set('--surface-2',p.surface2);set('--surface-3',p.surface2);
       set('--line',p.line);set('--line-strong',p.line);set('--text',p.text);set('--muted',p.muted);
       set('--control-bg',p.surface2);set('--control-border',p.line);
     } else if (!dark && prefs.atmosphere==='estudio') {
-      ['--surface-2','--line-strong','--text','--muted','--control-bg','--control-border'].forEach(k=>root.style.removeProperty(k));
+      ['--surface-2','--surface-3','--line-strong','--text','--muted','--control-bg','--control-border'].forEach(k=>root.style.removeProperty(k));
       set('--bg',p.bg);set('--surface',p.surface);set('--line',p.line);
-    } else ['--bg','--surface','--surface-2','--line','--line-strong','--text','--muted','--control-bg','--control-border'].forEach(k=>root.style.removeProperty(k));
+    } else ['--bg','--surface','--surface-2','--surface-3','--line','--line-strong','--text','--muted','--control-bg','--control-border'].forEach(k=>root.style.removeProperty(k));
     if(document.body)document.body.dataset.density=prefs.density;
     const metaColor=document.querySelector('meta[name="theme-color"]'),metaScheme=document.querySelector('meta[name="color-scheme"]');
     if(metaColor)metaColor.setAttribute('content',p.bg);if(metaScheme)metaScheme.setAttribute('content',scheme);
