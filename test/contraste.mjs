@@ -54,7 +54,8 @@ const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'pl
 
 /* El fondo de la página en cada tema, para medir el `fill` de los gráficos.
    Son los dos valores que el propio index.html declara, no una suposición. */
-const FONDO = { light: [255, 255, 255], dark: [11, 14, 19] };
+const VISUALES = { midnight: [11, 11, 12], navy: [20, 33, 61], forest: [26, 52, 37] };
+const FONDO = { light: [255, 255, 255], dark: [11, 14, 19], ...VISUALES };
 
 const luminancia = ch => ch.map(v => v / 255)
   .map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))
@@ -70,19 +71,24 @@ await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${srv.address().port}/`;
 const nav = await chromium.launch();
 
-for (const tema of ['light', 'dark']) {
+for (const tema of ['light', 'dark', 'midnight', 'navy', 'forest']) {
+  const visual = !!VISUALES[tema];
   const ctx = await nav.newContext({ viewport: { width: 1500, height: 1000 } });
   const pag = await ctx.newPage();
   await pag.goto(BASE);
-  await pag.evaluate(([semilla, t]) => {
+  await pag.evaluate(([semilla, t, v]) => {
     localStorage.setItem('cabina-mnq:v1', semilla);
-    localStorage.setItem('cabina-appearance:v1', JSON.stringify({ mode: t, accent: 'default', custom: '#1d4ed8' }));
-  }, [SEMILLA, tema]);
+    localStorage.setItem('cabina-appearance:v1', v
+      ? JSON.stringify({ mode: 'dark', accent: 'default', custom: '#1d4ed8', atmosphere: t })
+      : JSON.stringify({ mode: t, accent: 'default', custom: '#1d4ed8' }));
+  }, [SEMILLA, tema, visual]);
   await pag.reload();
   await pag.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 30000 });
 
-  const aplicado = await pag.evaluate(() => document.documentElement.dataset.cabinaTheme);
-  ok(aplicado === tema, `tema «${tema}» realmente aplicado antes de medir`, `data-cabina-theme=${aplicado}`);
+  const aplicado = await pag.evaluate(() => document.documentElement.dataset.cabinaVisualTheme
+    || document.documentElement.dataset.cabinaTheme);
+  ok(aplicado === tema, `tema «${tema}» realmente aplicado antes de medir`,
+     `${visual ? 'data-cabina-visual-theme' : 'data-cabina-theme'}=${aplicado}`);
 
   let bajos = [], nomedibles = 0, medidos = 0;
   const fills = {};

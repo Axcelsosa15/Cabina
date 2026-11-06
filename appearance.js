@@ -100,6 +100,16 @@
     navy: {bg:'#14213d',surface:'#1d2c49',surface2:'#283955',line:'#44526b',text:'#f4ede0',muted:'#d2d4db',accent:'#ff6b5b',ink:'#14213d'},
     forest: {bg:'#1f3d2b',surface:'#294b37',surface2:'#345942',line:'#55725e',text:'#f5efdf',muted:'#d0d9ca',accent:'#a78bfa',ink:'#151126'}
   });
+  /* Los cinco colores semanticos tal y como los define :root en index.html.
+     Estan aqui porque una paleta visual tiene que corregirlos contra SU fondo,
+     y leerlos del documento no sirve: una vez que apply() los sobreescribe con
+     !important, getComputedStyle devuelve el valor corregido y la correccion se
+     compondria sobre si misma en cada recarga.
+     Que esten duplicados es una divergencia a la espera, asi que NO se confia
+     en que alguien se acuerde: test/visual-themes-v2.mjs comprueba que estos
+     cinco valores son EXACTAMENTE los de :root. Si alguien cambia --dim alli y
+     no aqui, sale en rojo. */
+  const SEMANTICOS = Object.freeze({'--dim':'#848EA1','--info':'#6E9BD8','--positive':'#5BC489','--negative':'#E26959','--warning':'#E0A458'});
   const FONTS = { system: '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', humanist: '"IBM Plex Sans", "Avenir Next", "Trebuchet MS", sans-serif', serif: 'Georgia, "Times New Roman", serif' };
   const TEXT = { small: [14,12,12.5], normal: [15,12.5,13], large: [17,14,14.5] };
   const DENSITIES = new Set(['compact','balanced','comfortable']);
@@ -133,18 +143,41 @@
     return .2126*c[0]+.7152*c[1]+.0722*c[2];
   }
   function contrast(a,b) { const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05); }
-  function accessibleColor(wanted,dark) {
-    const bg=rgb(dark?'#0b0e13':'#ffffff'),towards=dark?255:0,original=rgb(wanted);
-    if(contrast(original,bg)>=4.5)return wanted;
-    for(let i=1;i<=100;i++){const c=original.map(v=>v*(1-i/100)+towards*i/100);if(contrast(c,bg)>=4.5)return hex(c);}
+  /* El tercer argumento existe porque sin el el fondo era una SUPOSICION: se
+     corregia contra '#0b0e13' fijo, y las paletas visuales cambian --bg a un
+     oscuro MAS CLARO (forest #1f3d2b, su --surface-2 #345942). O sea que el
+     color se ajustaba contra un fondo que no se pinta. Medido con
+     test/contraste.mjs sobre el texto REAL de las once pestanas: 505 textos
+     por debajo de AA en forest, 426 en navy, 27 en midnight. Omitirlo deja el
+     comportamiento anterior intacto. */
+  function accessibleColor(wanted,dark,fondo,minimo) {
+    const suelo=minimo||4.5;
+    const bg=rgb(fondo||(dark?'#0b0e13':'#ffffff')),towards=dark?255:0,original=rgb(wanted);
+    if(contrast(original,bg)>=suelo)return wanted;
+    for(let i=1;i<=100;i++){const c=original.map(v=>v*(1-i/100)+towards*i/100);if(contrast(c,bg)>=suelo)return hex(c);}
     return dark?'#ffffff':'#000000';
   }
+  /* POR QUE 5.2 Y NO 4.5 EN LAS PALETAS VISUALES, que es lo que pide AA.
+     Porque --surface-2 no es el fondo mas claro que hay debajo del texto: los
+     chips y las etiquetas (.sestag, .seschip, .ui-status) tienen fondo
+     TRANSLUCIDO, asi que lo que se compone encima del verde de forest sale mas
+     claro todavia. Medido con test/contraste.mjs: corrigiendo a 4,5 sobre
+     --surface-2, esos mismos textos daban 4,18:1 sobre el compuesto real — un
+     factor de 1,077. 5,2 absorbe ese margen con holgura y sigue siendo el
+     minimo que deja los cinco temas a cero. No se oscurece la paleta que
+     eligieron: se corrige solo lo que ya era derivado. */
+  const SUELO_VISUAL = 5.2;
   function effectiveMode(choice=prefs) { return VISUAL_THEMES[choice.atmosphere] ? 'dark' : choice.mode==='system'?(media&&media.matches?'dark':'light'):choice.mode; }
   function effectiveAccent(choice,dark) {
-    if (VISUAL_THEMES[choice.atmosphere] && choice.accent==='default') return accessibleColor(VISUAL_THEMES[choice.atmosphere].accent,true);
+    /* Con una paleta visual el acento se corrige contra el fondo MAS CLARO que
+       va a tener debajo, que es --surface-2: si llega a AA sobre ese, llega
+       sobre --surface y sobre --bg, que son mas oscuros. Vale para el acento
+       propio del tema y para el que elija el usuario. */
+    const tema=VISUAL_THEMES[choice.atmosphere],fondo=tema?tema.surface2:undefined;
+    if (tema && choice.accent==='default') return accessibleColor(tema.accent,true,fondo,SUELO_VISUAL);
     const defaults={calma:'#176f65',estudio:'#80582e',precision:'#1d4ed8',noche:'#406da6'};
     const colors={default:dark?'#8dcabd':defaults[choice.atmosphere],blue:dark?'#8cb4ff':'#1d4ed8',teal:dark?'#70e0cf':'#176f65',violet:dark?'#c7a6ff':'#6d28d9',custom:choice.custom};
-    return accessibleColor(colors[choice.accent],dark);
+    return accessibleColor(colors[choice.accent],dark,fondo,fondo?SUELO_VISUAL:undefined);
   }
   function palette(choice) {
     if (VISUAL_THEMES[choice.atmosphere]) { const t=VISUAL_THEMES[choice.atmosphere];return {...t,good:'#83d6ac',warn:'#f2bd75',warnBg:'#30261c'}; }
@@ -166,10 +199,14 @@
       set('--bg',p.bg);set('--surface',p.surface);set('--surface-2',p.surface2);set('--surface-3',p.surface2);
       set('--line',p.line);set('--line-strong',p.line);set('--text',p.text);set('--muted',p.muted);
       set('--control-bg',p.surface2);set('--control-border',p.line);
+      /* Los fondos ya son los del tema; los semanticos seguian siendo los de
+         :root, calculados para #0b0e13. Sobre un oscuro mas claro perdian
+         contraste: --dim daba 2,40:1 sobre el --surface-2 de forest. */
+      Object.keys(SEMANTICOS).forEach(k=>set(k,accessibleColor(SEMANTICOS[k],true,p.surface2,SUELO_VISUAL)));
     } else if (!dark && prefs.atmosphere==='estudio') {
-      ['--surface-2','--surface-3','--line-strong','--text','--muted','--control-bg','--control-border'].forEach(k=>root.style.removeProperty(k));
+      [...Object.keys(SEMANTICOS),'--surface-2','--surface-3','--line-strong','--text','--muted','--control-bg','--control-border'].forEach(k=>root.style.removeProperty(k));
       set('--bg',p.bg);set('--surface',p.surface);set('--line',p.line);
-    } else ['--bg','--surface','--surface-2','--surface-3','--line','--line-strong','--text','--muted','--control-bg','--control-border'].forEach(k=>root.style.removeProperty(k));
+    } else [...Object.keys(SEMANTICOS),'--bg','--surface','--surface-2','--surface-3','--line','--line-strong','--text','--muted','--control-bg','--control-border'].forEach(k=>root.style.removeProperty(k));
     if(document.body)document.body.dataset.density=prefs.density;
     const metaColor=document.querySelector('meta[name="theme-color"]'),metaScheme=document.querySelector('meta[name="color-scheme"]');
     if(metaColor)metaColor.setAttribute('content',p.bg);if(metaScheme)metaScheme.setAttribute('content',scheme);
