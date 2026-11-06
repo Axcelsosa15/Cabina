@@ -82,10 +82,11 @@ try {
     const ctx = await browser.newContext();
     const d = nubeDoble();
     await d.conSesion(ctx,'backend-shape@ejemplo.invalid');
+    let malformed=0;
     await ctx.route('**/rest/v1/cabina_docs?**',async route=>{
       const request=route.request();
       const u=new URL(request.url());
-      if(request.method()==='GET' && (u.searchParams.get('select')||'').split(',').includes('version')){
+      if(request.method()==='GET' && (u.searchParams.get('select')||'').split(',').includes('version') && malformed++ === 0){
         return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({unexpected:'not an array'})});
       }
       return route.fallback();
@@ -96,6 +97,9 @@ try {
     await page.waitForFunction(()=>document.getElementById('saveState')?.textContent.includes('BACKEND INCOMPATIBLE'),null,{timeout:20000});
     check(await page.evaluate(()=>document.getElementById('saveState').textContent!=='sincronizado'),
       'JSON malformado no se representa como sincronización correcta');
+    check(malformed >= 1,'un único HTTP 200 incorrecto bastó para bloquear el contrato');
+    check(await page.evaluate(()=>document.getElementById('saveState').textContent.includes('BACKEND INCOMPATIBLE')),
+      'lecturas correctas posteriores no levantan la cuarentena de la sesión');
     await ctx.close();
   }
   check(exceptions.length===0,'ninguna excepción de JavaScript: '+exceptions.join(' | '));

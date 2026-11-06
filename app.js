@@ -2127,6 +2127,10 @@
     const err = (code, extra) => Object.assign(new Error(code), { code }, extra || {});
     /* PostgREST returning HTTP 200 is not proof that the response shape is
        compatible. A malformed collection must never become an empty journal. */
+    /* A single malformed 200 response puts this session into read-only
+       quarantine. A later good response for another collection cannot
+       authorise writes into the collection that failed validation. */
+    let contratoRoto = false;
     function filasValidas(rows, campos, ruta) {
       const valido = Array.isArray(rows) && rows.every(row => row && typeof row === "object"
         && !Array.isArray(row) && campos.every(k => {
@@ -2136,7 +2140,7 @@
           if (k === "path") return typeof v === "string" && v.includes("/");
           return Object.hasOwn(row,k);
         }));
-      if (!valido) { nube.occ = false; setStoreLabel(); throw err("respuesta_incompatible", { path: ruta }); }
+      if (!valido) { contratoRoto = true; nube.occ = false; setStoreLabel(); throw err("respuesta_incompatible", { path: ruta }); }
       return rows;
     }
 
@@ -2248,7 +2252,7 @@
         let a;
         try {
           a = filasValidas(await nubeFetch(`${T}?select=data,version&path=eq.${enc(p)}`), ["data","version"], p);
-          if (nube.occ === false) { nube.occ = true; setStoreLabel(); }
+          if (nube.occ === false && !contratoRoto) { nube.occ = true; setStoreLabel(); }
         }
         catch (e) {
           if (!esSinColumna(e)) throw e;
@@ -2273,7 +2277,7 @@
           let a;
           try {
             a = filasValidas(await nubeFetch(`${T}?select=path,data,version&coll=eq.${enc(q.coll)}&order=${orden}&limit=${n}&offset=${out.length}`), ["path","data","version"], q.coll);
-            if (nube.occ === false) { nube.occ = true; setStoreLabel(); }
+            if (nube.occ === false && !contratoRoto) { nube.occ = true; setStoreLabel(); }
           }
           catch (e) {
             if (!esSinColumna(e)) throw e;
