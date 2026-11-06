@@ -150,6 +150,12 @@ jobs:
       - id: deploy
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
 
+      - name: Verificar que www apunta a GitHub Pages
+        env:
+          PAGES_URL: ${{ steps.deploy.outputs.page_url }}
+          PAGES_OWNER: ${{ github.repository_owner }}
+        run: node .github/scripts/verifica-dns-pages.mjs
+
       # LO PUBLICADO ES LO PROBADO. Pages/CDN puede tardar en propagar
       # el deployment; se usa una URL sin caché y un hash para evitar falsos rojos
       # y para mostrar qué versión responde realmente.
@@ -166,9 +172,9 @@ jobs:
           for f in sw.js manifest.webmanifest icon-192.png icon-512.png \
                    icon-maskable-512.png apple-touch-icon.png \
                    privacidad.html terminos.html seguridad.html \
-                   robots.txt sitemap.xml .well-known/security.txt; do
-            if curl -fsS -H 'Cache-Control: no-cache' -o /dev/null \
-                 "${url%/}/$f?cabina_verify=${GITHUB_RUN_ID}"; then
+                   robots.txt sitemap.xml .well-known/security.txt og.png; do
+            if status="$(curl -fsSL --max-redirs 5 --max-time 20 -H 'Cache-Control: no-cache' -o /dev/null \
+                 -w '%{http_code}' "${url%/}/$f?cabina_verify=${GITHUB_RUN_ID}")" && [ "$status" = 200 ]; then
               echo "✅ $f responde"
             else
               echo "::error::${url%/}/$f no responde: lo publicado está incompleto"
@@ -253,11 +259,6 @@ jobs:
                   exit 1
                 fi
                 echo "✅ ${url%/}/app.js es exactamente el probado (sha256 $recapp)"
-                if ! curl -fsS -H 'Cache-Control: no-cache' -o /dev/null "${url%/}/og.png?cabina_verify=${GITHUB_RUN_ID}"; then
-                  echo "::error::${url%/}/og.png no responde: el enlace compartido saldrá sin imagen"
-                  exit 1
-                fi
-                echo "✅ ${url%/}/og.png responde"
                 exit 0
               fi
               echo "Propagación pendiente ($i/36): esperado=$esperado servido=$recibido"
