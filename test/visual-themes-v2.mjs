@@ -12,7 +12,7 @@ const legacyStart = html.indexOf('/* Dashboard operativo v1');
 if (!(cascadeEnd > legacyStart && cascadeEnd < html.lastIndexOf('</style>'))) {
   throw new Error('Theme overrides must follow legacy dashboard CSS in final style block');
 }
-if ((html.match(/<style\\b/g) || []).length !== 5) {
+if ((html.match(/<style\b/g) || []).length !== 5) {
   throw new Error('Expected exactly five style blocks');
 }
 if (!['midnight','navy','forest'].every(t => appearance.includes(t+': {'))) {
