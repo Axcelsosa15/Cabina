@@ -73,6 +73,25 @@ html[data-cabina-visual-theme] .appearance-preview{
 }
 @media(max-width:600px){.atmospheres{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
+/* Visual System 2.0 — semantic surfaces, scoped to opt-in themes. */
+html[data-cabina-visual-theme] body{background:var(--bg)!important;color:var(--text)!important}
+html[data-cabina-visual-theme] .tab[data-tab="cabina"] .deck{background:linear-gradient(135deg,var(--surface),var(--surface-2));border-color:var(--line);color:var(--text);box-shadow:none}
+html[data-cabina-visual-theme] #panelAccts{background:var(--surface);border-color:var(--line)}
+html[data-cabina-visual-theme] #panelAccts>header{background:var(--surface-2)}
+html[data-cabina-visual-theme] #panelAccts .acct:hover{background:var(--surface-2);border-color:var(--accent);box-shadow:none}
+html[data-cabina-visual-theme] #panelAccts #addAcct{border-color:var(--accent)}
+html[data-cabina-visual-theme] .jstrip{border-color:var(--line)}
+html[data-cabina-visual-theme] .jstrip>div:hover{background:var(--surface-2)}
+html[data-cabina-visual-theme] .study-kicker,
+html[data-cabina-visual-theme] #tabnav .tabbtn[data-tab="estudio"]::before{color:var(--accent);background:var(--accent)}
+html[data-cabina-visual-theme] #tabnav .tabbtn[data-tab="estudio"]{background:var(--surface);border-color:var(--line);color:var(--text)}
+html[data-cabina-visual-theme] #tabnav .tabbtn[data-tab="estudio"].active{background:var(--surface-2);border-color:var(--accent);color:var(--text)}
+html[data-cabina-visual-theme] .study-progress{background:var(--surface-3)}
+html[data-cabina-visual-theme] .study-progress span{background:var(--accent)}
+html[data-cabina-visual-theme] .study-filter[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--text)}
+html[data-cabina-visual-theme] .study-searchrow:focus-within{border-color:var(--accent);box-shadow:var(--ui-focus)}
+html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)}
+
 /* Fondo de primera pintura: coherente con la elección guardada. */
   :root { color-scheme: light; }
   html { background: #f3f5f8; }
