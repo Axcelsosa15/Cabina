@@ -18,7 +18,7 @@ const TABS = ['cabina','futuros','cuentas','edge','invest','historial','playbook
  * elemento « el primer ancestro con clase. */
 const PERMITIDAS = new Map([
   ['b « vacio',                 'titular de estado vacío; los titulares de sección son mono en toda la app'],
-  ['small « sn',                'línea de reloj: la hora es dato y manda sobre el resto'],
+  ['small « sn',                'línea de sesión: la hora es dato y manda sobre el resto. Su texto depende del estado del mercado, por eso el reloj va congelado arriba'],
   ['span.meta « credo',         'ranura de metadatos de panel; alterna con contadores'],
   ['span.rulesstate.dim « panel', 'insignia en versales; las insignias son mono'],
   ['span.mono « toolbar',       'el autor la marcó .mono y contiene la fórmula N = 0'],
@@ -35,6 +35,16 @@ const nav = await chromium.launch();
 try {
   const ctx = await nav.newContext({ viewport: { width: 1500, height: 1000 } });
   const p = await ctx.newPage();
+  /* EL RELOJ SE CONGELA, y no es cosmética: sin esto esta prueba falla segun la
+     hora del dia. La linea de sesion dice «4:12 PM ET · quedan 48 min → Mercado
+     cerrado» dentro de la cuenta atras y «5:16 PM ET · abre en 2 dias» fuera de
+     ella. La primera tiene palabras largas y la clasifica como FRASE; la segunda
+     no tiene ninguna de cinco letras («abre», «dias») y no la clasifica. Con el
+     reloj libre, la excepcion de esa linea esta viva unas horas y muerta otras,
+     y la compuerta se cerraba por eso —medido: «sobran=small « sn» a las 22:16
+     UTC—. Congelado, la pagina medida es siempre la misma y los recuentos no
+     derivan con el estado del mercado. Viernes 16:12 ET. */
+  await p.clock.setFixedTime(new Date('2026-11-06T21:12:00Z'));
   await p.goto(base);
   await p.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
 
