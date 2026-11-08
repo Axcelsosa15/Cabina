@@ -6,7 +6,7 @@ const check = (ok, name, extra='') => {
   console.log('  ' + (ok ? '✅' : '❌') + ' ' + name + (extra ? ' · '+extra : ''));
   if (!ok) fail.push(name);
 };
-const tabs=['cabina','futuros','cuentas','edge','invest','historial','playbook','ideas','estudio','calc','ajustes'];
+const tabs=['cabina','futuros','cuentas','edge','invest','historial','playbook','ideas','estudio','calc','ajustes','calendario','diario','estadisticas','correlaciones','insights'];
 const server=sirvePublicado();
 await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
 const browser=await chromium.launch();
@@ -31,8 +31,8 @@ try {
         styleCount:document.querySelectorAll('style').length
       };
     });
-    check(init.num===11&&init.numbers===0&&init.stages===0&&init.captions===0&&init.study,
-      width+'px · eleven clean page headings and real Study counters',JSON.stringify(init));
+    check(init.num===16&&init.numbers===0&&init.stages===0&&init.captions===0&&init.study,
+      width+'px · sixteen clean page headings and real Study counters',JSON.stringify(init));
     check(init.guidance&&init.settingsHelp&&init.closed&&init.styleCount===5,
       width+'px · original calculation guidance and Settings help remain available, no extra CSS layer');
     if(width===1440){

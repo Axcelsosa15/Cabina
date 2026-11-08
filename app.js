@@ -40,7 +40,7 @@
     if (document.getElementById("fuentesGoogle")) return;
     const l = document.createElement("link");
     l.id = "fuentesGoogle"; l.rel = "stylesheet";
-    l.href = "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap";
+    l.href = "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap";
     document.head.appendChild(l);
   }
   if (document.readyState === "complete") cargaFuentes(); else window.addEventListener("load", cargaFuentes, { once: true });
@@ -738,7 +738,7 @@
      al arrancar —del respaldo local y de la base— es esta lista. Sin la
      entrada, las reglas se guardan bien, se ven bien, y desaparecen en la
      siguiente recarga sin un solo error en consola. Medido así. */
-  const COLLS = ["trades", "playbooks", "ideas", "markets", "watch", "positions", "scenarios", "risk", "tesis", "credo", "research"];
+  const COLLS = ["trades", "playbooks", "ideas", "markets", "watch", "positions", "scenarios", "risk", "tesis", "credo", "research", "journal"];
 
   const RULE_NUM = ["maxLoss", "maxGain", "maxContracts", "maxLosses", "minDays", "payoutBuffer"];
   function normRules(r) {
@@ -1365,9 +1365,36 @@
     "Analizar": "Analyze",
     "Herramientas": "Tools",
     "Mejorar": "Improve",
+    "Desarrollar": "Develop",
     "Operar": "Trade",
     "Portafolio": "Portfolio",
+    "Capital": "Capital",
     "Sistema": "System",
+    "Inicio": "Home",
+    "Operaciones": "Trades",
+    "Analítica": "Analytics",
+    "Calendario": "Calendar",
+    "Diario": "Journal",
+    "Estadísticas": "Statistics",
+    "Correlaciones": "Correlations",
+    "Insights": "Insights",
+    "Nueva entrada": "New entry",
+    "Nota rápida": "Quick note",
+    "Biblioteca de lecciones": "Lesson library",
+    "Sesión seleccionada": "Selected session",
+    "Qué influye en mi P&L": "What influences my P&L",
+    "Mejor y peor por contexto": "Best and worst by context",
+    "Explorador": "Explorer",
+    "Estabilidad de estrategias": "Strategy stability",
+    "Desglose de rendimiento": "Performance breakdown",
+    "Factor X": "Factor X",
+    "Resultado Y": "Result Y",
+    "Emoción": "Emotion",
+    "Calidad": "Quality",
+    "Etiqueta": "Tag",
+    "Resultado": "Result",
+    "ganadoras": "winners",
+    "perdedoras": "losers",
     "Antes de operar": "Before trading",
     "Dónde está lo demás": "Where everything else lives",
     "Idioma y datos de muestra": "Language and sample data",
@@ -2762,8 +2789,47 @@
     if (!switchingTabScroll && state.tab) tabScrollPositions.set(state.tab, window.scrollY);
   }, { passive: true });
 
+  const TAB_ALIAS = {
+    journal: "futuros", operaciones: "futuros", rendimiento: "edge",
+    analitica: "edge", analytics: "edge", stats: "estadisticas",
+  };
+  let pendingRoute = null;
+  const labFocus = { ids: [] };
+  function parseHash() {
+    const raw = String(location.hash || "").replace(/^#/, "");
+    const i = raw.indexOf("?");
+    return { name: i < 0 ? raw : raw.slice(0, i), search: i < 0 ? "" : raw.slice(i + 1) };
+  }
+  function goTo(tab, params) {
+    pendingRoute = params || {};
+    const q = params && Object.keys(params).length ? "?" + new URLSearchParams(params).toString() : "";
+    try { history.replaceState(null, "", "#" + tab + q); } catch {}
+    showTab(tab);
+  }
+  function consumeRoute() {
+    const fromHash = {};
+    new URLSearchParams(parseHash().search).forEach((v, k) => { fromHash[k] = v; });
+    const p = Object.assign(fromHash, pendingRoute || {});
+    pendingRoute = null;
+    if (p.account && typeof FUT !== "undefined") FUT.setSelectedAccount(p.account);
+    if (typeof ft !== "undefined") {
+      if (p.setup) ft.setup = p.setup;
+      if (p.date && /^\d{4}-\d{2}-\d{2}$/.test(p.date)) { ft.day = p.date; ft.month = p.date.slice(0, 7); }
+      if (p.ids) { labFocus.ids = String(p.ids).split(",").filter(Boolean); ft.ids = String(p.ids); }
+      else if (p.trade) { labFocus.ids = [p.trade]; ft.ids = String(p.trade); }
+      else { labFocus.ids = []; ft.ids = ""; }
+      if ((state.tab === "futuros") && (p.date || p.ids || p.trade || p.view === "diario")) setFtView("diario");
+    }
+    if (p.trade && coll("trades").get(p.trade)) {
+      const tr = coll("trades").get(p.trade);
+      requestAnimationFrame(() => openTrade(tr));
+    }
+    if (state.tab === "diario" && p.date) { const el = $("jrSearch"); if (el) el.value = p.date; }
+  }
   function showTab(name) {
-    if (name === "journal") name = "futuros";
+    const parsed = parseHash();
+    if (!name) name = parsed.name;
+    name = TAB_ALIAS[name] || name;
     if (!document.querySelector(`.tab[data-tab="${name}"]`)) name = "cabina";
     if (state.tab && !switchingTabScroll) tabScrollPositions.set(state.tab, window.scrollY);
     switchingTabScroll = true;
@@ -2777,7 +2843,12 @@
     aLaVista(document.querySelector("#tabnav .tabbtn.active"));
     $("editToggle").hidden = name !== "cabina";
     if (name !== "cabina" && state.editing) setEditing(false);
-    try { if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name); } catch {}
+    try {
+      const keep = parseHash().search;
+      const next = "#" + name + (keep && (TAB_ALIAS[parsed.name] || parsed.name) === name ? "?" + keep : "");
+      if (location.hash !== next) history.replaceState(null, "", next);
+    } catch {}
+    consumeRoute();
     redrawCharts();
     /* El idioma, después de que la pestaña entrante haya pintado: su cromo
        estático acaba de entrar en el layout y aún está en español. */
@@ -2798,11 +2869,14 @@
       else if (state.tab === "edge") renderEdge();
       else if (state.tab === "cuentas") renderCuentas();
       else if (state.tab === "calc") { if (cc.view === "risk") renderRisk(); else renderCalc(); }
+      else if (state.tab === "estadisticas" || state.tab === "correlaciones" || state.tab === "insights" || state.tab === "diario" || state.tab === "calendario") renderLabs();
+      else if (state.tab === "cabina") renderCabKpis();
+      else if (state.tab === "playbook") renderStrategyStability();
     } catch (e) { }
   }
   window.addEventListener("resize", () => debounce("resize", redrawCharts, 220));
-  $("tabnav").addEventListener("click", e => { const b = e.target.closest(".tabbtn"); if (b) showTab(b.dataset.tab); });
-  window.addEventListener("hashchange", () => showTab(location.hash.slice(1)));
+  $("tabnav").addEventListener("click", e => { const b = e.target.closest(".tabbtn"); if (b) goTo(b.dataset.tab); });
+  window.addEventListener("hashchange", () => showTab(parseHash().name));
 
   /* Preferencias de vista: sólo controlan presentación, nunca los datos del journal. */
   const VIEW_PREF_KEY = "cabina-view-prefs:v1";
@@ -7947,7 +8021,7 @@
   /* =============================== FUTUROS (journal estilo TradeZella) =============================== */
   const ft = { view: "resumen", range: "all", setup: "", instr: "", acct: "", ses: "", month: state.today.slice(0, 7), day: null,
     // Búsqueda libre y orden de la tabla del journal.
-    q: "", sortKey: "date", sortDir: "desc" };
+    q: "", result: "", quality: "", tag: "", ids: null, sortKey: "date", sortDir: "desc" };
 
   /* ══════════════════ CAPA DE DATOS — PUERTA ÚNICA ══════════════════
      Cabina y Futuros no son dos sistemas: son dos VISTAS sobre esto.
@@ -8369,6 +8443,9 @@
     const el = $("ftQ"); if (el) { el.focus(); try { el.setSelectionRange(caret, caret); } catch (err) { } }
   });
   $("ftSes").addEventListener("change", e => { ft.ses = e.target.value; renderFutures(); });
+  if ($("ftResult")) $("ftResult").addEventListener("change", e => { ft.result = e.target.value; renderFutures(); });
+  if ($("ftQuality")) $("ftQuality").addEventListener("change", e => { ft.quality = e.target.value; renderFutures(); });
+  if ($("ftTag")) $("ftTag").addEventListener("input", e => { ft.tag = e.target.value; debounce("ftTag", renderFutures, 160); });
   /* Los dos selectores — el de Futuros y el de Cabina — escriben en el MISMO
      sitio. Por eso no hace falta que uno avise al otro: los dos repintan desde
      el mismo estado. */
@@ -9872,6 +9949,17 @@
       // `instrument` en futuros, `asset` en inversiones: la misma pregunta.
       if (s.instr && (t.instrument || t.asset) !== s.instr) return false;
       if (s.ses && (tradeSes(t) || "__sin") !== s.ses) return false;
+      if (s.ids) {
+        const ids = String(s.ids).split(",").filter(Boolean);
+        if (ids.length && !ids.includes(t.id)) return false;
+      }
+      if (s.result === "win" && !(Number(t.pnlEff) > 0)) return false;
+      if (s.result === "loss" && !(Number(t.pnlEff) < 0)) return false;
+      if (s.quality && String(t.quality || t.grade || "") !== s.quality) return false;
+      if (s.tag) {
+        const blob = String(t.tags || t.tag || "").toLowerCase();
+        if (!blob.split(/[,\s]+/).filter(Boolean).includes(String(s.tag).toLowerCase()) && !blob.includes(String(s.tag).toLowerCase())) return false;
+      }
       if (terms.length && !qMatch(t, terms)) return false;
       return true;
     };
@@ -9886,6 +9974,9 @@
     { k: "setup", lb: "Setup", txt: v => { const q = coll("playbooks").get(v); return q ? q.name : v; } },
     { k: "instr", lb: "Instrumento", txt: v => v },
     { k: "ses", lb: "Sesión", txt: v => v === "__sin" ? "sin hora" : sesShort(v) },
+    { k: "result", lb: "Resultado", txt: v => v === "win" ? "ganadoras" : v === "loss" ? "perdedoras" : v },
+    { k: "quality", lb: "Calidad", txt: v => v },
+    { k: "tag", lb: "Etiqueta", txt: v => v },
     { k: "q", lb: "Búsqueda", txt: v => `«${v}»` },
   ];
   function activeFilters() { return FT_FILTROS.filter(f => { const v = ft[f.k]; return v && v !== (f.off || ""); }); }
@@ -9934,7 +10025,7 @@
   }
   function futFiltered() {
     const key = coll("trades").rev + "|" + (autoFeesOn() ? 1 : 0) + "|" +
-      [state.today, ft.range, ft.month, ft.day, ft.setup, ft.instr, ft.ses, ft.acct, ft.q].join("~") +
+      [state.today, ft.range, ft.month, ft.day, ft.setup, ft.instr, ft.ses, ft.acct, ft.q, ft.result, ft.quality, ft.tag, ft.ids].join("~") +
       /* La búsqueda lee NOMBRES que no viven en la operación: el del setup y el
          de la cuenta. Renombrar un setup cambiaba a quién encuentra «breakout»
          sin cambiar ninguna operación ni ningún filtro, así que la memoria
@@ -9957,7 +10048,7 @@
   /* El estado de los filtros de Futuros, dicho como spec de la puerta. Vive
      aquí y no dentro de futFiltered porque lo lee también `FUT.filtered()`. */
   function ftSpec() {
-    return { rango: ft.range, setup: ft.setup, instr: ft.instr, ses: ft.ses, acct: ft.acct, q: ft.q };
+    return { rango: ft.range, setup: ft.setup, instr: ft.instr, ses: ft.ses, acct: ft.acct, q: ft.q, result: ft.result, quality: ft.quality, tag: ft.tag, ids: ft.ids };
   }
   /* futStats hace seis pasadas sobre la lista y dos filtros más dentro de grp().
      Con 1.500 operaciones en el journal, guardar UNA repetía ese trabajo sobre
@@ -15418,29 +15509,24 @@
       tablaCsv(EST_CSV(en), visibles.map(e => estFila(e, a, en))), "text/csv;charset=utf-8");
   });
 
-  function renderEstadisticas(list, c) {
-    const cont = $("mxEstLista"); if (!cont) return;
+  function pintarEstadisticasHost(list, c, ids) {
+    const cont = $(ids.lista); if (!cont) return;
     const en = idioma() === "en";
     const a = estAgrega(list, c);
-
-    const q0 = $("mxEstQ");
+    const q0 = $(ids.q);
     if (q0) {
-      /* El placeholder es un ATRIBUTO, y `traduce()` sólo toca nodos de texto:
-         puesto en el markup se quedaría en español para siempre. */
       const ph = en ? "search a statistic…" : "buscar una estadística…";
       if (q0.placeholder !== ph) q0.placeholder = ph;
+      if (document.activeElement !== q0 && q0.value !== (est.q || "")) q0.value = est.q || "";
     }
-    const cats = $("mxEstCats");
+    const cats = $(ids.cats);
     if (cats) {
       const chips = [{ id: "", es: "todas", en: "all" }].concat(EST_CATS)
         .map(k => `<button type="button" data-cat="${esc(k.id)}" aria-pressed="${est.cat === k.id}">${esc(en ? k.en : k.es)}</button>`).join("");
       if (cats.innerHTML !== chips) cats.innerHTML = chips;
     }
     const visibles = estVisibles(a, en);
-    /* Un botón que descarga un fichero con la cabecera y nada debajo parece
-       una exportación que funcionó. */
-    { const b = $("mxEstExport"); if (b) b.disabled = !a.filas.length || !visibles.length; }
-
+    if (ids.exportId) { const b = $(ids.exportId); if (b) b.disabled = !a.filas.length || !visibles.length; }
     if (!a.filas.length) {
       cont.innerHTML = `<p class="csub" style="padding:12px 0">${en
         ? "No closed futures trades under this filter. Every figure here is measured on closed trades."
@@ -15459,10 +15545,16 @@
       }).join("");
       cont.innerHTML = grupos;
     }
-    const meta = $("mxEstMeta");
-    if (meta) meta.textContent = en
-      ? `${visibles.length} of ${EST.length} statistics · ${a.filas.length} closed trades`
-      : `${visibles.length} de ${EST.length} estadísticas · ${a.filas.length} operaciones cerradas`;
+    if (ids.meta) {
+      const meta = $(ids.meta);
+      if (meta) meta.textContent = en
+        ? `${visibles.length} of ${EST.length} statistics · ${a.filas.length} closed trades`
+        : `${visibles.length} de ${EST.length} estadísticas · ${a.filas.length} operaciones cerradas`;
+    }
+  }
+  function renderEstadisticas(list, c) {
+    pintarEstadisticasHost(list, c, { lista: "mxEstLista", q: "mxEstQ", cats: "mxEstCats", meta: "mxEstMeta", exportId: "mxEstExport" });
+    pintarEstadisticasHost(list, c, { lista: "stEstLista", q: "stEstQ", cats: "stEstCats" });
   }
 
 
@@ -15644,6 +15736,7 @@
        arriba y otra abajo. Una sola lista, un solo cálculo, dos vistas. */
     mxEstC = { lista: mxLista, c };
     renderEstadisticas(mxLista, c);
+    renderMxAnalytics(mxLista);
 
     /* ---------- curva + drawdown por cuenta ---------- */
     mxDibuja(c);
@@ -15999,6 +16092,12 @@
        cambia de qué murió esa cuenta. Sin esta zona, la pestaña se quedaba con
        la autopsia del momento en que se abrió. */
     ciclo:      ["ciclo de vida de cuentas", () => renderCuentas()],
+    labs:       ["labs bitácora", () => {
+      if (state.tab === "estadisticas" || state.tab === "correlaciones" || state.tab === "insights" || state.tab === "diario" || state.tab === "calendario") renderLabs();
+      if (state.tab === "cabina") renderCabKpis();
+      if (state.tab === "playbook") renderStrategyStability();
+      if (state.tab === "edge") renderMxAnalytics(mxOps());
+    }],
   };
   /* Al cambiar la CUENTA SELECCIONADA no cambian los datos, cambia el punto de
      vista: se repinta lo que depende de qué cuenta se está mirando. */
@@ -16007,10 +16106,10 @@
      `deleteAccount`. Crear una cuenta, marcarla quemada o apuntarle lo que
      costó cambia la caja y la tabla del ciclo de vida, y sin esta zona la
      pestaña se quedaba con los números de cuando se abrió. */
-  const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia, Z.edge, Z.ciclo];
+  const FANOUT_SEL = [Z.futuros, Z.cuentas, Z.reglas, Z.riesgo, Z.presesion, Z.dia, Z.edge, Z.ciclo, Z.labs];
   const FANOUT_TRADES = [Z.disciplina, Z.historial, Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.invMetr, Z.dia,
                          Z.historico, Z.cuentas, Z.reglas, Z.riesgo, Z.respaldo, Z.presesion, Z.edge,
-                         Z.estudio, Z.invDetalle, Z.importar, Z.ejecuciones, Z.ciclo];
+                         Z.estudio, Z.invDetalle, Z.importar, Z.ejecuciones, Z.ciclo, Z.labs];
   function pinta(lista) {
     /* Una actualización de datos no debe echar al usuario del campo donde está
        escribiendo ni devolver la página al inicio. Algunos renders reconstruyen
@@ -16179,7 +16278,8 @@
   });
   coll("credo").subscribe(() => fanout([Z.credo, Z.respaldo]));
 
-  coll("playbooks").subscribe(() => fanout([Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.edge, Z.estudio]));
+  coll("playbooks").subscribe(() => fanout([Z.futuros, Z.invOps, Z.playbook, Z.contadores, Z.edge, Z.estudio, Z.labs]));
+  coll("journal").subscribe(() => fanout([Z.labs]));
   coll("ideas").subscribe(() => fanout([Z.ideas, Z.contadores]));
   /* `Z.invOps` EN LAS DOS. La lista de operaciones de inversión no se pintaba
      con ninguna de ellas, y lee las dos: el nombre del mercado por
@@ -16231,14 +16331,19 @@
         openSettingsDialog("settingsExport");
       } },
 
-      { g: "Ir a", i: "▣", t: "Resumen", s: "C", f: ir("cabina") },
-      { g: "Ir a", i: "▤", t: "Futuros · resumen", s: "F", f: ir("futuros", "resumen") },
-      { g: "Ir a", i: "▤", t: "Futuros · cuentas", s: "", f: ir("futuros", "cuentas") },
-      { g: "Ir a", i: "▤", t: "Futuros · análisis", s: "", f: ir("futuros", "analisis") },
-      { g: "Ir a", i: "▤", t: "Futuros · diario", s: "J", f: ir("futuros", "diario") },
-      { g: "Ir a", i: "▤", t: "Futuros · pre-sesión", s: "P", f: ir("futuros", "presesion") },
+      { g: "Ir a", i: "▣", t: "Inicio", s: "C", f: ir("cabina") },
+      { g: "Ir a", i: "▤", t: "Operaciones · resumen", s: "F", f: ir("futuros", "resumen") },
+      { g: "Ir a", i: "▤", t: "Operaciones · cuentas", s: "", f: ir("futuros", "cuentas") },
+      { g: "Ir a", i: "▤", t: "Operaciones · análisis", s: "", f: ir("futuros", "analisis") },
+      { g: "Ir a", i: "▤", t: "Operaciones · diario", s: "J", f: ir("futuros", "diario") },
+      { g: "Ir a", i: "▤", t: "Operaciones · pre-sesión", s: "P", f: ir("futuros", "presesion") },
       { g: "Ir a", i: "◷", t: "Historial", s: "", f: ir("historial") },
-      { g: "Ir a", i: "▥", t: "Rendimiento", s: "", f: ir("edge") },
+      { g: "Ir a", i: "▥", t: "Analítica", s: "", f: ir("edge") },
+      { g: "Ir a", i: "Σ", t: "Estadísticas", s: "", f: ir("estadisticas") },
+      { g: "Ir a", i: "⚭", t: "Correlaciones", s: "", f: ir("correlaciones") },
+      { g: "Ir a", i: "✦", t: "Insights", s: "", f: ir("insights") },
+      { g: "Ir a", i: "✎", t: "Diario", s: "D", f: ir("diario") },
+      { g: "Ir a", i: "▦", t: "Calendario", s: "", f: ir("calendario") },
       { g: "Ir a", i: "◫", t: "Inversiones", s: "", f: ir("invest") },
       { g: "Ir a", i: "◱", t: "Estrategias", s: "", f: ir("playbook") },
       { g: "Ir a", i: "◰", t: "Oportunidades", s: "", f: ir("ideas") },
@@ -19416,6 +19521,310 @@
     window.CABINA_ACTUALIZACION = { comprobar: comprobar, pintaEstado: pintaEstado, huella: huella };
   })();
 
+  /* ═══════════════ LABS · Analítica / Estadísticas / Correlaciones / Insights / Diario / Calendario
+     Una sola puerta de filas valoradas. CabinaLabs no calcula P&L. */
+  function labApi() { return window.CabinaLabs || null; }
+  function labRows(list) {
+    const L = labApi(); if (!L) return [];
+    return (list || FUT.filtered(ftSpec())).map(t => L.adaptTrade(t, {
+      pnl: t.pnlEff, setupName: t.setupId ? (coll("playbooks").get(t.setupId)?.name || "") : "",
+      accountName: acctLabel(t.accountId) || ""
+    }));
+  }
+  function labOpenTrades(ids) {
+    if (!ids || !ids.length) return;
+    goTo("futuros", { ids: ids.filter(Boolean).join(","), view: "diario" });
+  }
+  function labEmpty(msg) { return `<p class="lab-empty">${esc(msg)}</p>`; }
+  function labKpi(k, v, s, cls) {
+    return `<div class="lab-kpi"><div class="k">${esc(k)}</div><div class="v ${cls || ""}">${v}</div>${s ? `<div class="s">${esc(s)}</div>` : ""}</div>`;
+  }
+  function labGroupPanel(title, items, empty) {
+    if (!items || !items.length) return `<div class="lab-block"><h3>${esc(title)}</h3>${labEmpty(empty)}</div>`;
+    const L = labApi();
+    return `<div class="lab-block" data-lab-group="${esc(title)}"><h3>${esc(title)}</h3>${L ? L.barsSvg(items.slice(0, 8), { format: n => money(n) }) : ""}</div>`;
+  }
+
+  function renderMxAnalytics(list) {
+    const el = $("mxAnalytics"); if (!el) return;
+    const L = labApi(); if (!L) { el.innerHTML = labEmpty("Motor de análisis no cargado."); return; }
+    const rows = labRows(list);
+    if (rows.filter(t => t.pnl != null).length < 2) { el.innerHTML = labEmpty("Hacen falta operaciones cerradas para el desglose."); return; }
+    const g = L.analyticsGroups(rows);
+    el.innerHTML = [
+      labGroupPanel("P&L por día de la semana", g.weekday, "sin fechas"),
+      labGroupPanel("P&L por emoción", g.emotion, "ninguna emoción registrada"),
+      labGroupPanel("P&L por sesión", g.session, "sin hora de entrada"),
+      labGroupPanel("P&L por hora", g.hour, "sin hora de entrada"),
+      labGroupPanel("Rendimiento por símbolo", g.symbol, "sin símbolo"),
+      labGroupPanel("Rendimiento por setup", g.setup, "sin setup"),
+      labGroupPanel("Rendimiento por etiqueta", g.tag, "sin etiquetas"),
+      labGroupPanel("Rendimiento por cuenta", g.account, "sin cuenta asignada"),
+    ].join("");
+    el.querySelectorAll("[data-ids]").forEach(node => {
+      node.style.cursor = "pointer";
+      node.addEventListener("click", () => labOpenTrades(String(node.getAttribute("data-ids") || "").split(",")));
+    });
+  }
+
+  function renderCabKpis() {
+    const el = $("cabKpis"); if (!el) return;
+    const acct = FUT.selectedAccountId() || "";
+    let rango = "month", list = FUT.filtered({ rango, acct });
+    let s = futStats(list);
+    if (!(s.closed || 0)) {
+      rango = "all";
+      list = FUT.filtered({ rango, acct });
+      s = futStats(list);
+    }
+    const c = mxCalc(list, mxP());
+    const n = s.closed || 0;
+    const periodo = rango === "month" ? "este mes" : "todo el historial";
+    if (!n) { el.innerHTML = labEmpty("Sin operaciones cerradas todavía."); return; }
+    el.innerHTML = labKpi("P&L neto", money(s.pnl), periodo + " · " + plu(n, "operación", "operaciones"), s.pnl > 0 ? "pos" : s.pnl < 0 ? "neg" : "")
+      + labKpi("Win rate", s.closed ? Math.round(s.wins / s.closed * 100) + "%" : "—", `${s.wins}W · ${s.losses}L`)
+      + labKpi("Profit factor", c.pf == null ? "—" : c.pf.toFixed(2), c.pf == null ? (c.pfRazon || "sin pérdidas") : "bruto / pérdida")
+      + labKpi("Expectancy", money(n ? s.pnl / n : 0), "por operación")
+      + labKpi("Drawdown", money(-c.curva.mdd), c.capital > 0 ? "sobre capital de referencia" : "pico a valle");
+  }
+
+  const labCal = { month: state.today.slice(0, 7), day: state.today };
+  function renderLabCalendar() {
+    if (!$("calLab")) return;
+    const list = tradesOf("futuros");
+    paintCalendar({ month: labCal.month, dm: dayMap(list), title: $("calLabTitle"), grid: $("calLab"), meta: $("calLabMeta"), sel: labCal.day });
+    const date = labCal.day;
+    const dayTrades = list.filter(t => t.date === date);
+    const s = futStats(dayTrades);
+    const jr = coll("journal").items.filter(x => x.date === date);
+    $("calLabDayMeta").textContent = date;
+    $("calLabDay").innerHTML = `<div class="lab-kpis">${labKpi("P&L", s.closed ? money(s.pnl) : "—", plu(dayTrades.length, "operación", "operaciones"), s.pnl > 0 ? "pos" : s.pnl < 0 ? "neg" : "")}</div>`
+      + (dayTrades.length ? `<p class="csub">${dayTrades.map(t => `${esc(t.instrument || "")} ${t.pnlEff == null ? "—" : money(t.pnlEff)}`).join(" · ")}</p>` : labEmpty("Sin operaciones este día."))
+      + `<div class="insight-actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">`
+      + `<button type="button" class="btn sm" data-lab-act="ops">Ver operaciones</button>`
+      + `<button type="button" class="btn sm ghost" data-lab-act="jr">${jr.length ? "Abrir diario" : "Nueva entrada"}</button>`
+      + `<button type="button" class="btn sm ghost" data-lab-act="est">Estudiar el día</button></div>`
+      + (jr.length ? `<p class="csub" style="margin-top:10px">${esc(jr[0].title || jr[0].lesson || jr[0].body || "Entrada sin título")}</p>` : "");
+    $("calLabDay").onclick = e => {
+      const b = e.target.closest("[data-lab-act]"); if (!b) return;
+      if (b.dataset.labAct === "ops") goTo("futuros", { date, view: "diario" });
+      else if (b.dataset.labAct === "jr") { goTo("diario", { date }); if (!jr.length) setTimeout(() => openJournal({ date }), 40); }
+      else if (b.dataset.labAct === "est") { const btn = document.querySelector(`[data-study-day="${date}"]`); goTo("estudio", { date }); if (btn) btn.click(); }
+    };
+  }
+
+  const jrUi = { q: "", mood: "" };
+  function openJournal(row, quick) {
+    const L = labApi(); if (!L) return;
+    const j = L.coerceJournal(row || { date: state.today, mood: "Neutral" });
+    if (quick && !row) { j.title = "Nota rápida"; j.mood = j.mood || "Neutral"; }
+    openEditor({
+      title: row && row.id ? "Editar entrada" : (quick ? "Nota rápida" : "Nueva entrada"),
+      values: j,
+      fields: [
+        { key: "date", label: "Fecha", type: "date", w: 3 },
+        { key: "mood", label: "Emoción", type: "select", options: L.MOODS.map(m => [m, m]), w: 3 },
+        { key: "title", label: "Título", ph: "Qué pasó hoy", w: 6 },
+        { key: "body", label: "Qué hice y qué sentí", type: "textarea", rows: 5, w: 6 },
+        { key: "lesson", label: "Lección", type: "textarea", rows: 3, w: 6 },
+      ],
+      onSave: async vals => {
+        const id = j.id || uid("jr");
+        const next = L.coerceJournal(Object.assign({}, j, vals, { id, createdAt: j.createdAt || Date.now() }));
+        const sameDay = tradesOf("futuros").filter(t => t.date === next.date).map(t => t.id);
+        next.tradeIds = next.tradeIds.length ? next.tradeIds : sameDay;
+        await coll("journal").set(id, next);
+        flash("Entrada guardada");
+        renderLabs();
+      },
+      onDelete: j.id ? async () => { await coll("journal").remove(j.id); flash("Entrada borrada"); renderLabs(); } : null
+    });
+  }
+  function renderDiario() {
+    const L = labApi(); if (!L || !$("jrList")) return;
+    if ($("jrMood") && !$("jrMood").dataset.ready) {
+      $("jrMood").innerHTML = `<option value="">todas</option>` + L.MOODS.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
+      $("jrMood").dataset.ready = "1";
+    }
+    const q = normQ(($("jrSearch") && $("jrSearch").value) || jrUi.q);
+    const mood = ($("jrMood") && $("jrMood").value) || jrUi.mood;
+    const rows = coll("journal").items.map(L.coerceJournal).sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.updatedAt || 0) - (a.updatedAt || 0));
+    const visible = rows.filter(j => {
+      if (mood && j.mood !== mood) return false;
+      if (q && !normQ([j.title, j.body, j.lesson, j.mood, j.date].join(" ")).includes(q)) return false;
+      return true;
+    });
+    const byMood = {};
+    rows.forEach(j => {
+      const ops = tradesOf("futuros").filter(t => t.date === j.date && t.pnlEff != null);
+      const pnl = ops.reduce((s, t) => s + t.pnlEff, 0);
+      if (!byMood[j.mood]) byMood[j.mood] = { n: 0, pnl: 0 };
+      byMood[j.mood].n++; byMood[j.mood].pnl += pnl;
+    });
+    $("jrMoodStats").innerHTML = Object.keys(byMood).length
+      ? Object.keys(byMood).map(m => labKpi(m, money(byMood[m].pnl), plu(byMood[m].n, "entrada", "entradas"), byMood[m].pnl > 0 ? "pos" : byMood[m].pnl < 0 ? "neg" : "")).join("")
+      : labEmpty("Todavía no hay entradas. El P&L por emoción aparece cuando registras cómo te sentiste.");
+    $("jrList").innerHTML = visible.length ? visible.map(j => {
+      const ops = tradesOf("futuros").filter(t => (j.tradeIds || []).includes(t.id) || t.date === j.date);
+      const pnl = ops.filter(t => t.pnlEff != null).reduce((s, t) => s + t.pnlEff, 0);
+      return `<article class="journal-entry" data-jr="${esc(j.id)}">
+        <div class="csub">${esc(j.date)} · ${esc(j.mood || "Neutral")}${ops.length ? ` · ${plu(ops.length, "operación", "operaciones")}` : ""} · <b class="${pnl > 0 ? "pos" : pnl < 0 ? "neg" : ""}">${ops.some(t => t.pnlEff != null) ? money(pnl) : "—"}</b></div>
+        <h3>${esc(j.title || "Sin título")}</h3>
+        <p>${esc((j.body || "").slice(0, 220))}</p>
+        ${j.lesson ? `<p class="csub">Lección: ${esc(j.lesson)}</p>` : ""}
+        <div class="insight-actions"><button type="button" class="btn sm" data-jr-act="edit">Editar</button>
+        <button type="button" class="btn sm ghost" data-jr-act="ops">Ver operaciones</button>
+        <button type="button" class="btn sm ghost" data-jr-act="est">Estudiar</button></div>
+      </article>`;
+    }).join("") : labEmpty("No hay entradas con este filtro.");
+    const lessons = rows.filter(j => j.lesson);
+    $("jrLessonsMeta").textContent = plu(lessons.length, "lección", "lecciones");
+    $("jrLessons").innerHTML = lessons.length ? `<ul class="stack">${lessons.map(j => `<li class="journal-entry"><b>${esc(j.date)}</b> · ${esc(j.lesson)} <button type="button" class="btn sm ghost" data-jr="${esc(j.id)}" data-jr-act="est">Estudio</button></li>`).join("")}</ul>` : labEmpty("Las lecciones aparecen cuando las escribes. No se inventan.");
+    const onAct = e => {
+      const b = e.target.closest("[data-jr-act]"); if (!b) return;
+      const id = (b.closest("[data-jr]") || b).dataset.jr;
+      const j = coll("journal").get(id);
+      if (b.dataset.jrAct === "edit" && j) openJournal(j);
+      else if (b.dataset.jrAct === "ops") goTo("futuros", { date: j ? j.date : "", view: "diario" });
+      else if (b.dataset.jrAct === "est") goTo("estudio", { date: j ? j.date : "" });
+    };
+    $("jrList").onclick = onAct; $("jrLessons").onclick = onAct;
+  }
+
+  const labCorr = { factor: "mae", result: "expectancy" };
+  function renderCorrelaciones() {
+    const L = labApi(); if (!L) return;
+    const rows = labRows(mxOps());
+    const nums = L.numericFactors(rows);
+    const cats = L.categoricalFactors(rows);
+    $("corrNumMeta").textContent = plu(rows.filter(t => t.pnl != null).length, "operación cerrada", "operaciones cerradas");
+    $("corrNumeric").innerHTML = nums.length ? nums.map(f => {
+      if (f.r == null) return `<div class="corr-row"><b>${esc(f.label)}</b><span class="csub">${esc(f.reason)} · n=${f.n}</span><span>—</span></div>`;
+      const w = Math.round(Math.min(100, Math.abs(f.r) * 100));
+      return `<div class="corr-row" data-ids="${esc((f.ids || []).join(","))}"><b>${esc(f.label)}</b><div class="corr-bar"><i style="width:${w}%;background:${f.r >= 0 ? "var(--positive)" : "var(--negative)"}"></i></div><span>${f.r.toFixed(2)} · ${esc(f.strength)} · n=${f.n}</span></div>`;
+    }).join("") : labEmpty("No hay factores numéricos con variación.");
+    $("corrCatMeta").textContent = "expectancy por contexto · n≥2";
+    $("corrContext").innerHTML = cats.map(f => {
+      if (!f.groups || f.groups.length < 2) return `<div class="lab-block"><h3>${esc(f.label)}</h3>${labEmpty(f.reason || "datos insuficientes")}</div>`;
+      return `<div class="lab-block"><h3>${esc(f.label)}</h3><p class="csub">mejor ${esc(f.best.key)} ${money(f.best.expectancy)}/op · peor ${esc(f.worst.key)} ${money(f.worst.expectancy)}/op</p>${L.barsSvg(f.groups.slice(0, 8).map(g => Object.assign({}, g, { value: g.expectancy })), { format: n => money(n) + "/op" })}</div>`;
+    }).join("");
+    const factors = [
+      ...nums.map(f => [f.id, f.label]),
+      ...cats.map(f => [f.id, f.label])
+    ];
+    const sel = $("corrFactor");
+    if (sel && sel.options.length !== factors.length) {
+      sel.innerHTML = factors.map(([id, lb]) => `<option value="${esc(id)}" ${labCorr.factor === id ? "selected" : ""}>${esc(lb)}</option>`).join("");
+    }
+    if ($("corrResult") && $("corrResult").value !== labCorr.result) $("corrResult").value = labCorr.result;
+    const expl = L.exploreFactor(rows, labCorr.factor, labCorr.result);
+    const box = $("corrExplore");
+    if (!box) return;
+    if (expl.reason) box.innerHTML = labEmpty(expl.reason);
+    else if (expl.kind === "numeric") {
+      const pts = expl.points || [];
+      const maxX = Math.max.apply(null, pts.map(p => p.x)) || 1;
+      const maxY = Math.max.apply(null, pts.map(p => Math.abs(p.y))) || 1;
+      box.innerHTML = `<p class="csub">r=${expl.r == null ? "—" : expl.r.toFixed(2)} · ${esc(expl.strength || "")} · n=${expl.n} · no es causalidad</p>`
+        + `<svg class="chart lab-scatter" viewBox="0 0 560 220" role="img">${pts.map(p => {
+          const x = 20 + (p.x / maxX) * 500, y = 200 - ((p.y / maxY) * 90 + 90);
+          return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" class="${p.y > 0 ? "pos" : p.y < 0 ? "neg" : ""}" data-ids="${esc(p.id)}"></circle>`;
+        }).join("")}</svg>`;
+    } else {
+      box.innerHTML = L.barsSvg(expl.bars, { format: v => labCorr.result === "winrate" ? Math.round(v * 100) + "%" : money(v) });
+    }
+    const open = e => {
+      const n = e.target.closest("[data-ids]"); if (!n) return;
+      labOpenTrades(String(n.getAttribute("data-ids") || "").split(","));
+    };
+    $("corrNumeric").onclick = open; $("corrContext").onclick = open; box.onclick = open;
+  }
+
+  function renderInsights() {
+    const L = labApi(); if (!L || !$("insList")) return;
+    const rows = labRows(mxOps());
+    const checklistDays = {};
+    (state.demo ? state.history : state.dias).forEach(d => { if (d && d.date && (d.closed || d.note)) checklistDays[d.date] = true; });
+    coll("journal").items.forEach(j => { if (j.date) checklistDays[j.date] = true; });
+    const out = L.computeInsights(rows, { checklistDays });
+    if (!out.insights.length) {
+      $("insList").innerHTML = labEmpty(out.reason || "No hay evidencia suficiente");
+      return;
+    }
+    const sevLb = { good: "favorable", bad: "desfavorable", warn: "desfavorable", info: "informativo" };
+    $("insList").innerHTML = out.insights.map(x => `<article class="insight-card ${esc(x.sev)}">
+      <div><h3>${esc(x.title)}</h3><p>${esc(x.detail)}</p>
+      <p class="csub">${esc(sevLb[x.sev] || x.sev)} · ${esc(x.metric)} · n=${x.n} · ${esc(x.confidence)}</p>
+      <div class="insight-actions">
+        <button type="button" class="btn sm" data-ids="${esc((x.ids || []).join(","))}" data-ins="ops">Ver operaciones</button>
+        <button type="button" class="btn sm ghost" data-ids="${esc((x.ids || []).join(","))}" data-ins="est">Revisar en Estudio</button>
+        <button type="button" class="btn sm ghost" data-ins="an">Ver análisis</button>
+      </div></div></article>`).join("");
+    $("insList").onclick = e => {
+      const b = e.target.closest("[data-ins]"); if (!b) return;
+      const ids = String(b.getAttribute("data-ids") || "").split(",").filter(Boolean);
+      if (b.dataset.ins === "ops") labOpenTrades(ids);
+      else if (b.dataset.ins === "est") goTo("estudio");
+      else goTo("edge");
+    };
+  }
+
+  function renderStrategyStability() {
+    const el = $("pbStabilityBody"); if (!el) return;
+    const L = labApi(); if (!L) { el.innerHTML = labEmpty("Motor de análisis no cargado."); return; }
+    const pbs = coll("playbooks").items.filter(p => !p.type || p.type === "futuros");
+    if (!pbs.length) { el.innerHTML = labEmpty("Sin estrategias. Cada versión se mide aparte; no se mezclan."); return; }
+    const all = tradesOf("futuros");
+    el.innerHTML = `<div class="twrap"><table class="t"><thead><tr><th>Estrategia</th><th>Versión</th><th>Estado</th><th class="r">n</th><th class="r">Expectancy</th><th class="r">PF</th><th class="r">Max DD</th><th class="r">Avg R</th></tr></thead><tbody>${pbs.map(p => {
+      const m = L.strategyMetrics(labRows(all.filter(t => t.setupId === p.id)));
+      const lim = m.sampleLimited ? " · muestra limitada" : "";
+      return `<tr data-pb="${esc(p.id)}"><td class="ui">${esc(p.name || "sin nombre")}</td><td>${esc(p.version || "v1")}</td><td>${esc(p.status || "—")}</td><td class="r">${m.n}</td><td class="r ${m.expectancy > 0 ? "pos" : m.expectancy < 0 ? "neg" : ""}">${money(m.expectancy)}</td><td class="r">${m.pf === Infinity ? "∞" : m.pf.toFixed(2)}</td><td class="r neg">${money(-m.maxDD)}</td><td class="r">${m.avgR == null ? "—" : m.avgR.toFixed(2)}</td></tr><tr class="csub"><td colspan="8">${m.n ? `${plu(m.n, "operación", "operaciones")} de esta versión${lim}` : "sin operaciones asociadas"}</td></tr>`;
+    }).join("")}</tbody></table></div>`;
+  }
+
+  function renderLabs() {
+    const tab = state.tab;
+    if (tab === "calendario") renderLabCalendar();
+    else if (tab === "diario") renderDiario();
+    else if (tab === "estadisticas") {
+      const list = mxOps();
+      const c = mxCalc(list, mxP());
+      mxEstC = { lista: list, c };
+      renderEstadisticas(list, c);
+    } else if (tab === "correlaciones") renderCorrelaciones();
+    else if (tab === "insights") renderInsights();
+  }
+
+  function labCalKeepDay() {
+    if ((labCal.day || "").startsWith(labCal.month)) return;
+    const hits = tradesOf("futuros").filter(t => (t.date || "").startsWith(labCal.month)).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    labCal.day = hits[0] ? hits[0].date : labCal.month + "-01";
+  }
+  if ($("calLabPrev")) $("calLabPrev").addEventListener("click", () => { labCal.month = shiftMonth(labCal.month, -1); labCalKeepDay(); renderLabCalendar(); });
+  if ($("calLabNext")) $("calLabNext").addEventListener("click", () => { labCal.month = shiftMonth(labCal.month, 1); labCalKeepDay(); renderLabCalendar(); });
+  if ($("calLab")) $("calLab").addEventListener("click", e => {
+    const b = e.target.closest("button.d[data-date]"); if (!b) return;
+    labCal.day = b.dataset.date; labCal.month = b.dataset.date.slice(0, 7);
+    renderLabCalendar();
+  });
+  if ($("jrNew")) $("jrNew").addEventListener("click", () => openJournal(null));
+  if ($("jrQuick")) $("jrQuick").addEventListener("click", () => openJournal(null, true));
+  if ($("jrSearch")) $("jrSearch").addEventListener("input", () => { jrUi.q = $("jrSearch").value; debounce("jrSearch", renderDiario, 160); });
+  if ($("jrMood")) $("jrMood").addEventListener("change", () => { jrUi.mood = $("jrMood").value; renderDiario(); });
+  if ($("corrFactor")) $("corrFactor").addEventListener("change", e => { labCorr.factor = e.target.value; renderCorrelaciones(); });
+  if ($("corrResult")) $("corrResult").addEventListener("change", e => { labCorr.result = e.target.value; renderCorrelaciones(); });
+  if ($("stEstQ")) $("stEstQ").addEventListener("input", e => { est.q = e.target.value; repintaEstadisticas(); });
+  if ($("stEstCats")) $("stEstCats").addEventListener("click", e => {
+    const b = e.target.closest("button[data-cat]"); if (!b) return;
+    est.cat = est.cat === b.dataset.cat ? "" : b.dataset.cat;
+    repintaEstadisticas();
+  });
+  function renderLabsAnalytics() { renderMxAnalytics(mxOps()); }
+  function renderCalendarioTab() { renderLabCalendar(); }
+  function renderLabsEstadisticas() { renderLabs(); }
+
+  showTab(parseHash().name || "cabina");
+
 })();
 
   /* Navegación móvil «Más»: reutiliza los botones originales y showTab(), sin duplicar rutas ni estado. */
@@ -19425,7 +19834,7 @@
     const overlay = document.getElementById("mobileMoreOv");
     const close = document.getElementById("mobileMoreClose");
     if (!nav || !trigger || !overlay || !close) return;
-    const secondary = new Set(["cuentas", "edge", "historial", "playbook", "ideas", "calc", "ajustes"]);
+    const secondary = new Set(["cuentas", "edge", "historial", "playbook", "ideas", "calc", "ajustes", "estadisticas", "correlaciones", "insights", "calendario", "invest"]);
     let previousOverflow = "";
     const sheet = overlay.querySelector(".mobile-more-sheet");
     const menuItems = [...overlay.querySelectorAll("[data-mobile-more-tab]")];

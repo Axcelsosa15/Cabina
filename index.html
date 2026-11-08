@@ -36,7 +36,7 @@
      sistema operativo, no el documento. -->
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="color-scheme" content="light">
-<meta name="theme-color" content="#F3F5F8">
+<meta name="theme-color" content="#FAF8F4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Tema local: cargado antes de CSS y de la primera pintura. -->
@@ -55,8 +55,9 @@
 
   /* Fondo de primera pintura: coherente con la elección guardada. */
   :root { color-scheme: light; }
-  html { background: #f3f5f8; }
-  body { margin: 0; background: #f3f5f8; color: #121a26; }
+  html { background: #faf8f4; }
+  body { margin: 0; background: #faf8f4; color: #16181C; }
+  :root { --bitacora-green: #16915B; --bitacora-red: #D6483B; }
   :root[data-cabina-theme="dark"] { color-scheme: dark; }
   html[data-cabina-theme="dark"], html[data-cabina-theme="dark"] body { background: #0b0e13; color: #e8ecf2; }
   img { max-width: 100%; }
@@ -119,9 +120,12 @@
     #tabnav[data-filter-enabled="true"][data-active-group="operar"] > .tabbtn:not([data-nav-group="operar"]),
     #tabnav[data-filter-enabled="true"][data-active-group="analizar"] > .tabbtn:not([data-nav-group="analizar"]),
     #tabnav[data-filter-enabled="true"][data-active-group="mejorar"] > .tabbtn:not([data-nav-group="mejorar"]),
+    #tabnav[data-filter-enabled="true"][data-active-group="desarrollar"] > .tabbtn:not([data-nav-group="desarrollar"]),
     #tabnav[data-filter-enabled="true"][data-active-group="portafolio"] > .tabbtn:not([data-nav-group="portafolio"]),
+    #tabnav[data-filter-enabled="true"][data-active-group="capital"] > .tabbtn:not([data-nav-group="capital"]),
     #tabnav[data-filter-enabled="true"][data-active-group="herramientas"] > .tabbtn:not([data-nav-group="herramientas"]),
     #tabnav[data-filter-enabled="true"][data-active-group="sistema"] > .tabbtn:not([data-nav-group="sistema"]) { display: none !important; }
+    #tabnav[data-filter-enabled="true"] > .sidebar-section { display: none !important; }
   }
   @media (max-width: 700px) { .cab-nav-groups { display: none !important; } }
   @media (prefers-reduced-motion: reduce) { .cab-nav-group { transition: none; } }
@@ -152,12 +156,51 @@
   .view-page-settings label { flex-basis: 100%; }
 }
 
+/* Bitácora · primitivas de página nuevas. Van en esta capa, no en un sexto bloque. */
+.lab-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 0 0 16px; }
+.lab-kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; min-width: 0; }
+.lab-kpi .k { color: var(--muted); font-size: 11px; letter-spacing: .04em; }
+.lab-kpi .v { font-variant-numeric: tabular-nums lining-nums; font-size: 22px; letter-spacing: -.03em; margin-top: 4px; }
+.lab-kpi .s { color: var(--muted); font-size: 11px; margin-top: 4px; }
+.insight-card { display: flex; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-left-width: 3px; border-radius: 12px; padding: 14px 16px; }
+.insight-card.good { border-left-color: var(--positive); }
+.insight-card.bad { border-left-color: var(--negative); }
+.insight-card.warn { border-left-color: var(--warning); }
+.insight-card.info { border-left-color: var(--info); }
+.insight-card h3 { margin: 0 0 4px; font-size: 14px; }
+.insight-card p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.insight-card .insight-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.journal-entry { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.journal-entry h3 { margin: 0 0 6px; font-size: 15px; }
+.journal-entry + .journal-entry { margin-top: 10px; }
+.corr-row { display: grid; grid-template-columns: 140px 1fr auto; gap: 10px; align-items: center; }
+.corr-bar { height: 8px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+.corr-bar i { display: block; height: 100%; background: var(--positive); }
+.acct-unknown { color: var(--muted); font-style: italic; }
+.lab-empty { border: 1px dashed var(--line-strong); border-radius: 12px; padding: 28px 16px; text-align: center; color: var(--muted); }
+.lab-block { margin: 0 0 18px; }
+.lab-block h3 { margin: 0 0 8px; font-size: 13px; }
+svg.lab-bars, svg.lab-scatter { width: 100%; height: auto; max-width: 100%; }
+svg.lab-bars text, svg.lab-scatter text { fill: var(--muted); font-size: 11px; }
+svg.lab-bars .bar.pos, svg.lab-scatter circle.pos { fill: var(--positive); }
+svg.lab-bars .bar.neg, svg.lab-scatter circle.neg { fill: var(--negative); }
+svg.lab-bars .bar.neu { fill: var(--dim); }
+.stack { display: grid; gap: 10px; }
+:root:not([data-cabina-theme="dark"]) svg.chart text,
+:root:not([data-cabina-theme="dark"]) .chart text {
+  fill: #16181C !important; color: #16181C !important; -webkit-text-fill-color: #16181C !important;
+}
+.topbar .save-state.nosave { color: var(--negative); font-weight: 700; }
+.tab .tile.sin-dato .v { font-weight: 400; }
+.qec .qk { font-size: 12px; }
+
 </style>
+
 <style id="cabina-study-design">
 :root{--study-glow:rgba(79,179,160,.13)}
-#tabnav .tabbtn[data-tab="estudio"]{position:relative;color:#9ce8dc;border-color:#315b59;background:linear-gradient(135deg,#122623,#111923)}
-#tabnav .tabbtn[data-tab="estudio"]::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#70e0cf;box-shadow:0 0 12px #70e0cf88;margin:0 8px 1px 0}
-#tabnav .tabbtn[data-tab="estudio"].active{background:linear-gradient(135deg,#1b3935,#17232c);border-color:#4b9288;color:#d9fff8}
+#tabnav .tabbtn[data-tab="estudio"]{position:relative}
+#tabnav .tabbtn[data-tab="estudio"]::before{content:none}
+#tabnav .tabbtn[data-tab="estudio"].active{background:inherit}
 .study-shell{max-width:100%;padding:4px 0 28px}.study-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,290px);gap:22px;align-items:end;padding:22px 0 24px}.study-kicker{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#78d9ca;font-weight:800}.study-hero h1{font-size:clamp(29px,4vw,46px);letter-spacing:-.055em;line-height:1.06;margin:9px 0 12px}.study-hero p{max-width:700px;color:var(--muted,#a5adbb);font-size:13px;margin:0}.study-stat{border:1px solid var(--line,#28313c);background:var(--surface-2,#181D26);border-radius:8px;padding:15px}.study-stat-top{display:flex;justify-content:space-between;color:var(--muted,#a5adbb);font-size:10px;letter-spacing:.09em}.study-stat-num{font-size:26px;letter-spacing:-.04em;margin:5px 0}.study-progress{height:3px;background:#27343d;border-radius:8px;overflow:hidden;margin-top:10px}.study-progress span{display:block;height:100%;width:0;background:#70e0cf;transition:width .2s}.study-searchrow{display:flex;gap:10px;align-items:center;margin:0 0 14px;padding:10px;border:1px solid var(--line-strong,#2C3442);border-radius:8px;background:var(--surface-2,#181D26);transition:border-color .14s,box-shadow .14s}.study-searchrow:focus-within{border-color:#65c8ba;box-shadow:0 0 0 3px #70e0cf14,0 10px 34px #0003}.study-searchicon{color:var(--accent);font-size:21px}.study-searchrow input{min-width:0;flex:1;background:transparent!important;border:0!important;outline:0!important;box-shadow:none!important;color:var(--text,#e8ecf2);font-size:14px;padding:6px 0!important}.study-searchrow input::placeholder{color:#8492a0}.study-shortcut{border:1px solid #354451;border-radius:5px;color:#a4b1be;padding:2px 6px;font-size:10px;white-space:nowrap}.study-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}.study-filters,.study-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.study-filter{border:1px solid var(--line,#28313c);border-radius:8px;background:var(--surface,#12161d);color:var(--muted,#a5adbb);padding:7px 10px;font-size:11px}.study-filter[aria-pressed="true"]{border-color:#376b65;background:#132622;color:#8fe6d9}.study-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.study-card{min-width:0;border:1px solid var(--line,#28313c);border-radius:8px;background:var(--surface-2,#181D26);padding:16px;transition:border-color .14s}.study-card:hover{border-color:var(--line-strong,#2C3442)}.study-card-head,.study-card-foot{display:flex;justify-content:space-between;align-items:center;gap:10px}.study-card-head{margin-bottom:11px}.study-kind{font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;color:var(--info,#8ebcff)}.study-state{font-size:9px;border:1px solid #31534e;background:#172a27;color:#93e5d8;border-radius:999px;padding:4px 7px;white-space:nowrap}.study-state.progressing{color:#f1d08b;background:#2a251b;border-color:#54452a}.study-state.mastered{color:#bac8d9;background:#202936;border-color:#3a4757}.study-card h3{font-size:16px;line-height:1.32;letter-spacing:-.025em;margin:0 0 8px}.study-card p{font-size:12px;color:var(--muted,#a5adbb);margin:0 0 13px;white-space:pre-line;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.study-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:13px}.study-tag{font-size:9px;color:#aab9c8;background:#1a242e;border:1px solid #2b3946;border-radius:5px;padding:3px 6px}.study-card-foot{border-top:1px solid #222c36;padding-top:11px;font-size:10px;color:var(--dim,#8c9aaa)}.study-card-foot a{color:#85d9cc}.study-card-foot button{border:0;background:transparent;color:#a9b6c3;font-size:10px;padding:0 0 0 8px}.study-card-foot button:hover{color:#8fe6d9}.study-empty{grid-column:1/-1;text-align:center;border:1px dashed var(--line-strong,#2C3442);border-radius:8px;padding:38px 18px;color:var(--muted,#a5adbb)}.study-empty b{display:block;color:var(--text,#e8ecf2);font-size:15px;margin-bottom:6px}.study-bottom{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,310px);gap:14px;margin-top:20px}.study-panel{border:1px solid var(--line,#28313c);border-radius:8px;background:var(--surface,#12161D);padding:16px}.study-panel h3{font-size:12px;margin:0 0 12px}.study-protocol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.study-step{display:flex;gap:9px;font-size:11px;color:var(--muted,#a5adbb)}.study-step i{font-style:normal;display:grid;place-items:center;width:21px;height:21px;flex:0 0 21px;border:1px solid #315b56;border-radius:6px;color:#8fe6d9;background:#142420;font-size:10px}.study-flash{background:radial-gradient(ellipse at top right,#1c4a402b,transparent 70%),#111a1e;border:1px solid #2e4f4b;border-radius:10px;padding:13px;min-height:112px}.study-flash small{color:#83dacc;font-size:9px;letter-spacing:.13em}.study-flash p{font-size:13px;line-height:1.45;margin:10px 0}.study-flash-answer{font-size:12px;color:#b7d8d2;white-space:pre-line}.study-flash-actions{display:flex;gap:7px;margin-top:9px}.study-flash-actions .btn{flex:1}.study-note{font-size:10px;color:var(--dim,#8292a2);margin-top:12px}.study-card:focus-within{outline:1px solid #70e0cf}
 /* Un título de una sola palabra larga —una URL pegada, un término concatenado—
    ensanchaba la celda de la rejilla por encima del ancho de la ventana y hacía
@@ -2895,6 +2938,11 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
     #tabnav .tabbtn[data-tab="futuros"]::before { content: "↗"; }
     #tabnav .tabbtn[data-tab="cuentas"]::before { content: "◷"; }
     #tabnav .tabbtn[data-tab="edge"]::before { content: "◫"; }
+    #tabnav .tabbtn[data-tab="calendario"]::before { content: "▦"; }
+    #tabnav .tabbtn[data-tab="diario"]::before { content: "✎"; }
+    #tabnav .tabbtn[data-tab="estadisticas"]::before { content: "Σ"; }
+    #tabnav .tabbtn[data-tab="correlaciones"]::before { content: "⚭"; }
+    #tabnav .tabbtn[data-tab="insights"]::before { content: "✦"; }
     #tabnav .tabbtn[data-tab="invest"]::before { content: "◈"; }
     #tabnav .tabbtn[data-tab="playbook"]::before { content: "▤"; }
     #tabnav .tabbtn[data-tab="ideas"]::before { content: "✳"; }
@@ -2907,10 +2955,15 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
       background: none; border-radius: 0; box-shadow: none; opacity: 1; transform: none;
       font-size: 10px; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap;
     }
-    #tabnav .tabbtn[data-tab="cabina"]::after { content: "Resumen"; }
-    #tabnav .tabbtn[data-tab="futuros"]::after { content: "Futuros"; }
+    #tabnav .tabbtn[data-tab="cabina"]::after { content: "Inicio"; }
+    #tabnav .tabbtn[data-tab="futuros"]::after { content: "Operaciones"; }
     #tabnav .tabbtn[data-tab="cuentas"]::after { content: "Cuentas"; }
-    #tabnav .tabbtn[data-tab="edge"]::after { content: "Rendimiento"; }
+    #tabnav .tabbtn[data-tab="edge"]::after { content: "Analítica"; }
+    #tabnav .tabbtn[data-tab="calendario"]::after { content: "Calendario"; }
+    #tabnav .tabbtn[data-tab="diario"]::after { content: "Diario"; }
+    #tabnav .tabbtn[data-tab="estadisticas"]::after { content: "Estadísticas"; }
+    #tabnav .tabbtn[data-tab="correlaciones"]::after { content: "Correlaciones"; }
+    #tabnav .tabbtn[data-tab="insights"]::after { content: "Insights"; }
     #tabnav .tabbtn[data-tab="invest"]::after { content: "Inversiones"; }
     #tabnav .tabbtn[data-tab="playbook"]::after { content: "Estrategias"; }
     #tabnav .tabbtn[data-tab="ideas"]::after { content: "Oportunidades"; }
@@ -2982,10 +3035,15 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   #tabnav .tabbtn[data-tab="playbook"],
   #tabnav .tabbtn[data-tab="ideas"],
   #tabnav .tabbtn[data-tab="calc"],
-  #tabnav .tabbtn[data-tab="ajustes"] { display: none !important; }
+  #tabnav .tabbtn[data-tab="ajustes"],
+  #tabnav .tabbtn[data-tab="calendario"],
+  #tabnav .tabbtn[data-tab="estadisticas"],
+  #tabnav .tabbtn[data-tab="correlaciones"],
+  #tabnav .tabbtn[data-tab="insights"],
+  #tabnav .tabbtn[data-tab="invest"] { display: none !important; }
   #tabnav .tabbtn[data-tab="cabina"],
   #tabnav .tabbtn[data-tab="futuros"],
-  #tabnav .tabbtn[data-tab="invest"],
+  #tabnav .tabbtn[data-tab="diario"],
   #tabnav .tabbtn[data-tab="estudio"] { flex: 1 1 0; min-width: 0; }
   #tabnav .tabbtn .n:empty { display: none; }
   /* Los rótulos del dock son ::after; la línea activa de escritorio no puede
@@ -3077,19 +3135,19 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   /* Concepto A: semantic, accessible tokens. The existing dark values are
      legacy fallbacks; these are the effective values of the light experience. */
   /* Cabina Ledger · Concepto A elevado: pizarra fría, cifras claras, acento sobrio. */
-  --bg: #f3f5f8 !important;
+  --bg: #faf8f4 !important;
   --surface: #ffffff !important;
   --surface-2: #f7f9fc !important;
   --surface-3: #eef2f7 !important;
   --line: #dde3ec !important;
   --line-strong: #c5cedb !important;
-  --text: #121a26 !important;
+  --text: #16181C !important;
   --muted: #4a5568 !important;
   --dim: #5b6779 !important;
   --accent: #1d4ed8 !important;
   --accent-ink: #f8fafc !important;
-  --positive: #166534 !important;
-  --negative: #b42318 !important;
+  --positive: #157659 !important;
+  --negative: #c93e3b !important;
   --warning: #92400e !important;
   --info: #1d4ed8 !important;
   --accent-soft: rgba(29,78,216,.08) !important;
@@ -3952,7 +4010,7 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
     border-top-color: var(--line); border-radius: 0;
   }
   /* Raíl contraído: iconos + tooltips; el raíl sigue ocupando sitio (--rail). */
-  html[data-sidebar-collapsed="true"] { --rail: 64px; }
+  html[data-sidebar-collapsed="true"] { --rail: 72px; }
   html[data-sidebar-collapsed="true"] .topbar .brand { display: none !important; }
   html[data-sidebar-collapsed="true"] #sidebarToggle { left: 16px; }
   html[data-sidebar-collapsed="true"] .topbar { padding-left: 0; }
@@ -5399,25 +5457,32 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
 <nav id="navGroupBar" class="cab-nav-groups" aria-label="Áreas de trabajo">
   <button type="button" class="cab-nav-group" data-group="todas" aria-pressed="true">Todas</button>
   <button type="button" class="cab-nav-group" data-group="operar" data-first-tab="cabina" aria-pressed="false">Operar</button>
-  <button type="button" class="cab-nav-group" data-group="analizar" data-first-tab="historial" aria-pressed="false">Analizar</button>
-  <button type="button" class="cab-nav-group" data-group="mejorar" data-first-tab="playbook" aria-pressed="false">Mejorar</button>
-  <button type="button" class="cab-nav-group" data-group="portafolio" data-first-tab="invest" aria-pressed="false">Portafolio</button>
+  <button type="button" class="cab-nav-group" data-group="analizar" data-first-tab="edge" aria-pressed="false">Analizar</button>
+  <button type="button" class="cab-nav-group" data-group="desarrollar" data-first-tab="estudio" aria-pressed="false">Desarrollar</button>
+  <button type="button" class="cab-nav-group" data-group="capital" data-first-tab="cuentas" aria-pressed="false">Capital</button>
   <button type="button" class="cab-nav-group" data-group="herramientas" data-first-tab="ideas" aria-pressed="false">Herramientas</button>
   <button type="button" class="cab-nav-group" data-group="sistema" data-first-tab="ajustes" aria-pressed="false">Sistema</button>
 </nav>
 <nav class="tabnav" id="tabnav" data-active-group="operar" data-filter-enabled="false" aria-label="Secciones">
-  <h2 class="sidebar-section">Operación</h2>
-  <button class="tabbtn active" data-tab="cabina" data-nav-group="operar" title="Resumen"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 3l9 8M5 10v11h14V10M9 21v-7h6v7"/></svg>Resumen</button>
-  <button class="tabbtn" data-tab="futuros" data-nav-group="operar" title="Futuros"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18 10 12l4 3 6-10M14 5h6v6"/></svg>Futuros<span class="n" id="nFut"></span></button>
-  <button class="tabbtn" data-tab="cuentas" data-nav-group="operar" title="Cuentas"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v15H4zM4 9h16M14 14h6"/></svg>Cuentas<span class="n" id="nCuentas"></span></button>
-  <h2 class="sidebar-section">Análisis</h2>
+  <h2 class="sidebar-section">Operar</h2>
+  <button class="tabbtn active" data-tab="cabina" data-nav-group="operar" title="Inicio"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 3l9 8M5 10v11h14V10M9 21v-7h6v7"/></svg>Inicio</button>
+  <button class="tabbtn" data-tab="futuros" data-nav-group="operar" title="Operaciones"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18 10 12l4 3 6-10M14 5h6v6"/></svg>Operaciones<span class="n" id="nFut"></span></button>
+  <button class="tabbtn" data-tab="calendario" data-nav-group="operar" title="Calendario"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendario</button>
+  <button class="tabbtn" data-tab="diario" data-nav-group="operar" title="Diario"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Diario</button>
+  <h2 class="sidebar-section">Analizar</h2>
+  <button class="tabbtn" data-tab="edge" data-nav-group="analizar" title="Analítica"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h17M5 16l5-5 4 3 6-9"/></svg>Analítica</button>
+  <button class="tabbtn" data-tab="estadisticas" data-nav-group="analizar" title="Estadísticas"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10h4v10m4 0V4h4v16m4 0V8"/></svg>Estadísticas</button>
+  <button class="tabbtn" data-tab="correlaciones" data-nav-group="analizar" title="Correlaciones"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="16" r="2"/><circle cx="12" cy="8" r="2"/><circle cx="18" cy="14" r="2"/><path d="M8 15 11 9m2 1 4 4"/></svg>Correlaciones</button>
+  <button class="tabbtn" data-tab="insights" data-nav-group="analizar" title="Insights"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>Insights</button>
   <button class="tabbtn" data-tab="historial" data-nav-group="analizar" title="Historial"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2 7M3 4v7h7m2-4v6l4 2"/></svg>Historial<span class="n" id="nHist"></span></button>
-  <button class="tabbtn" data-tab="edge" data-nav-group="analizar" title="Rendimiento"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h17M5 16l5-5 4 3 6-9"/></svg>Rendimiento</button>
-  <button class="tabbtn" data-tab="playbook" data-nav-group="mejorar" title="Estrategias"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v18H5zM8 8h8M8 12h8M8 16h5"/></svg>Estrategias<span class="n" id="nPlaybook"></span></button>
-  <button class="tabbtn" data-tab="estudio" data-nav-group="mejorar" title="Estudio"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h7l2 2 2-2h7v15h-7l-2 2-2-2H3zM12 6v15"/></svg>Estudio<span class="n" id="nResearch"></span></button>
-  <button class="tabbtn" data-tab="invest" data-nav-group="portafolio" title="Inversiones"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10h4v10m4 0V4h4v16m4 0V8"/></svg>Inversiones<span class="n" id="nInvest"></span></button>
+  <h2 class="sidebar-section">Desarrollar</h2>
+  <button class="tabbtn" data-tab="estudio" data-nav-group="desarrollar" title="Estudio"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h7l2 2 2-2h7v15h-7l-2 2-2-2H3zM12 6v15"/></svg>Estudio<span class="n" id="nResearch"></span></button>
+  <button class="tabbtn" data-tab="playbook" data-nav-group="desarrollar" title="Estrategias"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v18H5zM8 8h8M8 12h8M8 16h5"/></svg>Estrategias<span class="n" id="nPlaybook"></span></button>
+  <h2 class="sidebar-section">Capital</h2>
+  <button class="tabbtn" data-tab="cuentas" data-nav-group="capital" title="Cuentas"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v15H4zM4 9h16M14 14h6"/></svg>Cuentas<span class="n" id="nCuentas"></span></button>
+  <button class="tabbtn" data-tab="invest" data-nav-group="capital" title="Inversiones"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10h4v10m4 0V4h4v16m4 0V8"/></svg>Inversiones<span class="n" id="nInvest"></span></button>
+  <h2 class="sidebar-section">Herramientas</h2>
   <button class="tabbtn" data-tab="ideas" data-nav-group="herramientas" title="Oportunidades"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M9 21h6M8 13a6 6 0 1 1 8 0l-1 2H9z"/></svg>Oportunidades<span class="n" id="nIdeas"></span></button>
-  <h2 class="sidebar-section">Admin</h2>
   <button class="tabbtn" data-tab="calc" data-nav-group="herramientas" title="Calculadora"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v18H5zM8 7h8M8 12h2m4 0h2m-8 4h2m4 0h2"/></svg>Calculadora</button>
   <button class="tabbtn" data-tab="ajustes" data-nav-group="sistema" title="Ajustes"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/></svg>Ajustes</button>
 
@@ -5433,12 +5498,18 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
     </header>
     <div class="mobile-more-grid">
       <h3 class="mobile-more-label">Operar</h3>
-      <button type="button" data-mobile-more-tab="cuentas">Cuentas</button>
+      <button type="button" data-mobile-more-tab="calendario">Calendario</button>
       <h3 class="mobile-more-label">Analizar</h3>
+      <button type="button" data-mobile-more-tab="edge">Analítica</button>
+      <button type="button" data-mobile-more-tab="estadisticas">Estadísticas</button>
+      <button type="button" data-mobile-more-tab="correlaciones">Correlaciones</button>
+      <button type="button" data-mobile-more-tab="insights">Insights</button>
       <button type="button" data-mobile-more-tab="historial">Historial</button>
-      <button type="button" data-mobile-more-tab="edge">Rendimiento</button>
-      <h3 class="mobile-more-label">Mejorar</h3>
+      <h3 class="mobile-more-label">Desarrollar</h3>
       <button type="button" data-mobile-more-tab="playbook">Estrategias</button>
+      <h3 class="mobile-more-label">Capital</h3>
+      <button type="button" data-mobile-more-tab="cuentas">Cuentas</button>
+      <button type="button" data-mobile-more-tab="invest">Inversiones</button>
       <h3 class="mobile-more-label">Herramientas</h3>
       <button type="button" data-mobile-more-tab="ideas">Oportunidades</button>
       <button type="button" data-mobile-more-tab="calc">Calculadora</button>
@@ -5634,38 +5705,9 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
 </section>
 <button type="button" class="credo-trace view-only" id="credoTrace" hidden></button>
 
-<section class="deck" aria-label="Resumen de Cabina"><h1 class="deck-t">Resumen</h1></section>
-<div class="cab-canvas-editor">
-<button type="button" class="btn" id="cabCanvasEdit">Editar posición y tamaño</button>
-<div id="cabCanvasTools" hidden>
-<div class="cab-layout-tools">
-<label>Panel <select id="cabCanvasPanel"></select></label>
-<label>Visible <input id="cabCanvasVisible" type="checkbox" checked></label>
-<label>Columna <input id="cabCanvas-x" type="number" min="1" max="12"></label>
-<label>Fila <input id="cabCanvas-y" type="number" min="1" max="501"></label>
-<label>Ancho <input id="cabCanvas-w" type="number" min="3" max="12"></label>
-<label>Alto <input id="cabCanvas-h" type="number" min="4" max="200"></label>
-<button type="button" class="btn" id="cabCanvasApply">Aplicar al panel</button>
-</div>
-<div class="cab-layout-tools">
-<button type="button" class="btn primary" id="cabCanvasSave">Guardar distribución</button>
-<button type="button" class="btn ghost" id="cabCanvasCancel">Cancelar</button>
-<button type="button" class="btn ghost" id="cabCanvasReset">Restablecer distribución</button>
-</div>
-<p class="hint">Ancho en columnas · alto en filas. Móvil y escritorio guardan distribuciones independientes.</p>
-</div>
-<p id="cabCanvasStatus" class="synced" role="status"></p>
-</div>
-<details class="cab-layout-editor" id="cabLayoutEditor">
-  <summary class="btn ghost">Personalizar Resumen</summary>
-  <p class="hint">Arrastra los paneles o usa los controles. En móvil, las columnas se apilan en el mismo orden.</p>
-  <div class="cab-layout-tools">
-    <button type="button" class="btn sm" id="cabLayoutAdd">+ Columna</button>
-    <button type="button" class="btn sm ghost" id="cabLayoutReset">Restablecer distribución</button>
-  </div>
-  <p class="synced" id="cabLayoutStatus" role="status"></p>
-  <div class="cab-layout-zones" id="cabLayoutZones"></div>
-</details>
+<section class="deck" aria-label="Inicio de Cabina"><h1 class="deck-t">Inicio</h1></section>
+<div class="lab-kpis" id="cabKpis" aria-label="Indicadores de sesión"></div>
+<!-- Workstation operativa: cuenta completa, ejecución prioritaria, protección al lado. -->
 <div class="cab-workspace">
 <div class="cab-layout-band" id="cabLayoutTop">
 <section class="panel" id="panelJournal">
@@ -5904,7 +5946,7 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
 
 <!-- ======================= FUTUROS ======================= -->
 <div class="tab" data-tab="futuros">
-<section class="deck" aria-label="Resumen de Futuros"><h1 class="deck-t">Futuros</h1></section>
+<section class="deck" aria-label="Resumen de Operaciones"><h1 class="deck-t">Operaciones</h1></section>
 
   <div class="toolbar cab-futures-toolbar">
     <div class="cab-futures-nav">
@@ -5930,6 +5972,9 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
         <label class="cab-filter-field"><span class="cab-filter-caption">Setup</span><select id="ftSetup" aria-label="Filtrar por setup"><option value="">todos los setups</option></select></label>
         <label class="cab-filter-field"><span class="cab-filter-caption">Instrumento</span><select id="ftInstr" aria-label="Instrumento"><option value="">todos los instrumentos</option></select></label>
         <label class="cab-filter-field"><span class="cab-filter-caption">Sesión</span><select id="ftSes" aria-label="Sesión"><option value="">todas las sesiones</option></select></label>
+        <label class="cab-filter-field"><span class="cab-filter-caption">Resultado</span><select id="ftResult" aria-label="Resultado"><option value="">todas</option><option value="win">ganadoras</option><option value="loss">perdedoras</option></select></label>
+        <label class="cab-filter-field"><span class="cab-filter-caption">Calidad</span><select id="ftQuality" aria-label="Calidad"><option value="">todas</option><option value="A">A</option><option value="B">B</option><option value="C">C</option></select></label>
+        <label class="cab-filter-field"><span class="cab-filter-caption">Etiqueta</span><input id="ftTag" type="search" aria-label="Etiqueta" placeholder="etiqueta" autocomplete="off"></label>
         <label class="cab-filter-field"><span class="cab-filter-caption">Buscar operaciones</span><input id="ftQ" type="search" aria-label="Buscar operaciones" placeholder="buscar instrumento, etiqueta, lección…" autocomplete="off"></label>
       </div>
     </details>
@@ -6171,7 +6216,7 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
 </div>
 
 <div class="tab" data-tab="edge">
-<section class="deck" aria-label="Resumen de Métricas y Edge"><h1 class="deck-t">Rendimiento</h1></section>
+<section class="deck" aria-label="Resumen de Analítica"><h1 class="deck-t">Analítica</h1></section>
 
   <div class="toolbar">
     <label class="cab-filter-field"><span class="cab-filter-caption">Cuenta</span><select id="mxAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select></label>
@@ -6247,6 +6292,10 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
       <header><h2>Curva de equity y drawdown</h2><span class="meta" id="mxCurvaMeta"></span></header>
       <div class="body"><div class="chartwrap" id="mxCurva"></div><div id="mxDD"></div></div>
     </section>
+    <section class="panel">
+      <header><h2>Desglose de rendimiento</h2><span class="meta">mismos filtros que la curva</span></header>
+      <div class="body" id="mxAnalytics"></div>
+    </section>
     <div class="grid eq">
       <section class="panel">
         <header><h2>Tamaño de posición</h2><span class="meta">Futuros · incluye comisión</span></header>
@@ -6306,6 +6355,10 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
 <input type="file" id="tradeFile" accept="image/*" hidden>
 <input type="file" id="tradeCameraFile" accept="image/*" capture="environment" hidden>
   <details class="ui-disclosure"><summary>Sobre esta categoría</summary><p class="note-p" id="pbKindNote"></p></details>
+  <section class="panel" id="pbStability">
+    <header><h2>Estabilidad de estrategias</h2><span class="meta">mismo P&amp;L que Operaciones · no certifica con muestras pequeñas</span></header>
+    <div class="body" id="pbStabilityBody"></div>
+  </section>
   <div class="cards" id="pbCards"></div>
 </div>
 
@@ -6532,6 +6585,80 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
   </div>
 </div>
 
+<div class="tab" data-tab="calendario">
+  <section class="deck" aria-label="Calendario"><h1 class="deck-t">Calendario</h1></section>
+  <div class="toolbar">
+    <button type="button" class="btn ghost" id="calLabPrev" aria-label="Mes anterior">‹</button>
+    <strong id="calLabTitle">—</strong>
+    <button type="button" class="btn ghost" id="calLabNext" aria-label="Mes siguiente">›</button>
+    <span class="sp"></span>
+    <span class="meta" id="calLabMeta"></span>
+  </div>
+  <section class="panel">
+    <div class="body"><div class="cal" id="calLab"></div></div>
+  </section>
+  <section class="panel">
+    <header><h2>Sesión seleccionada</h2><span class="meta" id="calLabDayMeta"></span></header>
+    <div class="body" id="calLabDay"></div>
+  </section>
+</div>
+
+<div class="tab" data-tab="diario">
+  <section class="deck" aria-label="Diario"><h1 class="deck-t">Diario</h1></section>
+  <div class="toolbar">
+    <label class="cab-filter-field"><span class="cab-filter-caption">Buscar</span><input id="jrSearch" type="search" placeholder="título, lección, emoción" aria-label="Buscar en el diario"></label>
+    <label class="cab-filter-field"><span class="cab-filter-caption">Emoción</span><select id="jrMood" aria-label="Emoción"><option value="">todas</option></select></label>
+    <span class="sp"></span>
+    <button type="button" class="btn" id="jrQuick">Nota rápida</button>
+    <button type="button" class="btn primary" id="jrNew">Nueva entrada</button>
+  </div>
+  <div class="lab-kpis" id="jrMoodStats"></div>
+  <div class="stack" id="jrList"></div>
+  <section class="panel">
+    <header><h2>Biblioteca de lecciones</h2><span class="meta" id="jrLessonsMeta"></span></header>
+    <div class="body" id="jrLessons"></div>
+  </section>
+</div>
+
+<div class="tab" data-tab="estadisticas">
+  <section class="deck" aria-label="Estadísticas"><h1 class="deck-t">Estadísticas</h1></section>
+  <p class="csub">Mismo catálogo y mismo P&amp;L neto que Analítica. No hay un segundo motor.</p>
+  <div class="esttools">
+    <input type="search" id="stEstQ" placeholder="buscar una estadística…" aria-label="Buscar una estadística">
+    <div class="estcats" id="stEstCats" role="group" aria-label="Categorías"></div>
+  </div>
+  <div id="stEstLista"></div>
+</div>
+
+<div class="tab" data-tab="correlaciones">
+  <section class="deck" aria-label="Correlaciones"><h1 class="deck-t">Correlaciones</h1></section>
+  <p class="csub">Asociación, no causalidad. Un factor categórico no se trata como número.</p>
+  <section class="panel">
+    <header><h2>Qué influye en mi P&amp;L</h2><span class="meta" id="corrNumMeta"></span></header>
+    <div class="body" id="corrNumeric"></div>
+  </section>
+  <section class="panel">
+    <header><h2>Mejor y peor por contexto</h2><span class="meta" id="corrCatMeta"></span></header>
+    <div class="body" id="corrContext"></div>
+  </section>
+  <section class="panel">
+    <header><h2>Explorador</h2></header>
+    <div class="body">
+      <div class="toolbar">
+        <label class="cab-filter-field"><span class="cab-filter-caption">Factor X</span><select id="corrFactor" aria-label="Factor"></select></label>
+        <label class="cab-filter-field"><span class="cab-filter-caption">Resultado Y</span><select id="corrResult" aria-label="Resultado"><option value="expectancy">expectancy</option><option value="net">P&amp;L neto</option><option value="winrate">win rate</option></select></label>
+      </div>
+      <div id="corrExplore"></div>
+    </div>
+  </section>
+</div>
+
+<div class="tab" data-tab="insights">
+  <section class="deck" aria-label="Insights"><h1 class="deck-t">Insights</h1></section>
+  <p class="csub">Patrones reproducibles a partir de operaciones reales. Si no se registró, no se inventa.</p>
+  <div class="stack" id="insList"></div>
+</div>
+
 <footer>
   <!-- Se escriben desde renderWindow(): la ventana es configurable. -->
   <span id="footerWindow">Ventana operativa: 8:30–11:00 AM ET</span>
@@ -6701,6 +6828,7 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
 <script src="./discipline.js"></script>
 <script src="./session-break.js"></script>
 <script src="./experience.js"></script>
+<script src="./labs.js"></script>
 <script src="./app.js"></script>
 
 

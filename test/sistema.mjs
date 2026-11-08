@@ -64,7 +64,7 @@ const html = readFileSync(join(raiz, 'index.html'), 'utf8');
    desde que se creó, `cuentas` desde el ciclo de vida, `historial` desde que
    las dos familias se juntaron en una tabla. Añadir una pestaña es venir a las
    cuatro; que haya que venir es la señal, no la molestia. */
-const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc', 'ajustes'];
+const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc', 'ajustes', 'calendario', 'diario', 'estadisticas', 'correlaciones', 'insights'];
 
 /* nombre → [selector, propiedades]. El selector excluye las variantes
    semánticas; `.panel .body` excluye los calendarios por su contenedor. */

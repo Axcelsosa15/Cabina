@@ -87,7 +87,12 @@ try {
       mode + ': futures contracts use the integer keyboard, prices keep decimals', JSON.stringify(futKb));
     await page.locator('#edCancel').click();
 
-    await page.locator('.tabbtn[data-tab="invest"]').click();
+    const investBtn = page.locator('.tabbtn[data-tab="invest"]');
+    if (await investBtn.isVisible()) await investBtn.click();
+    else {
+      await page.locator('#mobileMoreBtn').click();
+      await page.locator('[data-mobile-more-tab="invest"]').click();
+    }
     await page.locator('#ivNew').click();
     const invKb = await page.evaluate(() => {
       const el = document.getElementById('ef_qty');
