@@ -50,7 +50,9 @@ async function pagina(s) {
   pg.on('pageerror', e => errs.push(e.message));
   await pg.goto(BASE, { waitUntil: 'load' });
   await pg.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
-  await pg.click('.tabbtn[data-tab="futuros"]'); await quieto(pg, 60, 2500);
+  await pg.click('.tabbtn[data-tab="futuros"]');
+  await pg.click('#ftSeg [data-v="resumen"]');
+  await quieto(pg, 60, 2500);
   return pg;
 }
 const panel = pg => pg.evaluate(() => (document.getElementById('qePanel') || {}).textContent || '');

@@ -68,6 +68,7 @@ try {
       await checkFold.locator('summary').click();
 
       await page.locator('#tabnav .tabbtn[data-tab="futuros"]').click();
+      await page.locator('#ftSeg [data-v="resumen"]').click();
       await page.locator('#ftTiles .tile').first().waitFor({ timeout: 15000 });
       const metrics = page.locator('#ftTiles > details');
       check(!(await metrics.evaluate(el => el.open)) && await page.locator('#ftTiles .metric-overview > .tile').count() === 3,

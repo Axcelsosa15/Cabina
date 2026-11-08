@@ -579,13 +579,29 @@
       }).join('') + '</svg>';
   }
 
+  function equitySvg(points, opts) {
+    const pts = points || [];
+    if (pts.length < 2) return '';
+    const o = opts || {};
+    const W = o.width || 560, H = o.height || 160;
+    const ys = pts.map(p => p.v);
+    const min = Math.min.apply(null, ys), max = Math.max.apply(null, ys);
+    const span = (max - min) || 1;
+    const d = pts.map((p, i) => {
+      const x = 8 + (i / (pts.length - 1)) * (W - 16);
+      const y = H - 12 - ((p.v - min) / span) * (H - 24);
+      return (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+    }).join(' ');
+    return '<svg class="chart lab-equity" viewBox="0 0 ' + W + ' ' + H + '" role="img"><path d="' + d + '" fill="none" stroke="currentColor" stroke-width="2"></path></svg>';
+  }
+
   const api = {
     VERSION, INSIGHTS_MIN, WD, SESSIONS, MOODS,
     mean, stdev, pearson, corrStrength, sessionOf, weekdayOf, hourOf,
     qualityToRating, parseTags, adaptTrade, group,
     numericFactors, categoricalFactors, exploreFactor,
     computeInsights, analyticsGroups, strategyMetrics,
-    coerceJournal, barsSvg, signed, byDateAsc,
+    coerceJournal, barsSvg, equitySvg, signed, byDateAsc,
   };
   if (typeof Object.freeze === 'function') Object.freeze(api);
   root.CabinaLabs = api;

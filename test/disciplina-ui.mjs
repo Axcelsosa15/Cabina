@@ -100,6 +100,7 @@ try {
     ok((await p.locator('#panelDiscipline').innerText()).includes('Disciplina de proceso'),
       `${width}px · vuelve a español sin modificar los registros`);
     await p.locator('#tabnav [data-tab="futuros"]').click();
+    await p.locator('#ftSeg [data-v="resumen"]').click();
     await quieto(p);
     ok(await p.locator('#disciplineFutures').isVisible(),
       `${width}px · la misma disciplina aparece en el resumen de Futuros`);
