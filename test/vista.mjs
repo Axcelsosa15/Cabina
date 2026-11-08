@@ -43,7 +43,7 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
    vacia tiene tres tablas que en 430px son justo lo que se desborda si alguien
    les quita el `.twrap`. `historial` tambien: su barra lleva siete controles y
    su tabla diez columnas, que es lo que se sale si pierde el suyo. */
-const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc', 'ajustes'];
+const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc', 'ajustes', 'calendario', 'diario', 'estadisticas', 'correlaciones', 'insights'];
 const ANCHOS = [[1440, 900, 'escritorio'], [834, 1000, 'tableta'], [430, 900, 'telefono'], [390, 844, 'iPhone 390'], [375, 812, 'iPhone 375'], [360, 780, 'telefono 360'], [320, 700, 'telefono 320']];
 
 const mide = p => p.evaluate(() => {

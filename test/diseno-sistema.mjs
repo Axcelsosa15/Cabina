@@ -39,21 +39,23 @@ exige(html.includes('scroll-padding-top'),
   'scroll-padding-top: con barra fija, un ancla sin él aterriza debajo de ella');
 
 /* ---------- lo que la capa visual NO puede haberse llevado ---------- */
-for (const tab of ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc', 'ajustes']) {
+for (const tab of ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc', 'ajustes', 'calendario', 'diario', 'estadisticas', 'correlaciones', 'insights']) {
   exige(html.includes('data-tab="' + tab + '"'), 'la pestaña debe conservarse: ' + tab);
 }
 exige(/<script[^>]+src=["'](\.\/)?app\.js["']/.test(html),
   'la aplicación vive en app.js: la CSP declara script-src \'self\' sin unsafe-inline');
 
 /* ---------- la paleta descartada no debe volver de tapadillo ---------- */
-for (const hex of ['#FAF8F4', '#16915B', '#D6483B', '#3D6FB0']) {
-  exige(!html.includes(hex),
-    'vuelve un color de la paleta descartada de la PR #75 (' + hex + '): lo tapa el !important de 744c1a3 y sería CSS muerto — ver docs/DISENO.md');
+for (const hex of ['#FAF8F4', '#16915B', '#D6483B', '#16181C']) {
+  exige(html.toUpperCase().includes(hex),
+    'falta el token de Bitácora (' + hex + ') en la identidad clara');
 }
+exige(/<script[^>]+src=["'](\.\/)?labs\.js["']/.test(html),
+  'labs.js carga antes de la aplicación');
 
 if (fallos.length) {
   console.error('❌ diseno-sistema · ' + fallos.length + ' fallo(s):');
   for (const f of fallos) console.error('   · ' + f);
   process.exit(1);
 }
-console.log('PASS diseno-sistema: ergonomía, cinco capas, once pestañas, app.js y la paleta descartada sin volver');
+console.log('PASS diseno-sistema: ergonomía, cinco capas, dieciséis pestañas, app.js, labs.js y paleta de Bitácora');

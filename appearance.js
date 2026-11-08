@@ -110,7 +110,7 @@
      cinco valores son EXACTAMENTE los de :root. Si alguien cambia --dim alli y
      no aqui, sale en rojo. */
   const SEMANTICOS = Object.freeze({'--dim':'#848EA1','--info':'#6E9BD8','--positive':'#5BC489','--negative':'#E26959','--warning':'#E0A458'});
-  const FONTS = { system: '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', humanist: '"IBM Plex Sans", "Avenir Next", "Trebuchet MS", sans-serif', serif: 'Georgia, "Times New Roman", serif' };
+  const FONTS = { system: 'Geist, "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', humanist: 'Geist, "IBM Plex Sans", "Avenir Next", "Trebuchet MS", sans-serif', serif: 'Georgia, "Times New Roman", serif' };
   const TEXT = { small: [14,12,12.5], normal: [15,12.5,13], large: [17,14,14.5] };
   const DENSITIES = new Set(['compact','balanced','comfortable']);
   const parse = value => {
@@ -183,7 +183,7 @@
     if (VISUAL_THEMES[choice.atmosphere]) { const t=VISUAL_THEMES[choice.atmosphere];return {...t,good:'#83d6ac',warn:'#f2bd75',warnBg:'#30261c'}; }
     const dark=effectiveMode(choice)==='dark',warm=choice.atmosphere==='estudio';
     return dark?{bg:'#0b0e13',surface:'#111720',line:'#344253',text:'#e8ecf2',muted:'#b2bdcc',good:'#83d6ac',warn:'#f2bd75',warnBg:'#30261c'}:
-      {bg:warm?'#f5f2ec':'#f3f5f8',surface:warm?'#fffdf8':'#ffffff',line:warm?'#ddd6ca':'#dde3ec',text:'#121a26',muted:'#4a5568',good:'#166534',warn:'#92400e',warnBg:'#fff4e5'};
+      {bg:warm?'#f5f2ec':'#faf8f4',surface:warm?'#fffdf8':'#ffffff',line:warm?'#ddd6ca':'#dde3ec',text:'#16181C',muted:'#4a5568',good:'#157659',warn:'#92400e',warnBg:'#fff4e5'};
   }
   function apply() {
     const dark=effectiveMode()==='dark',scheme=dark?'dark':'light',color=effectiveAccent(prefs,dark),channels=rgb(color),p=palette(prefs);
