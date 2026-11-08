@@ -42,6 +42,56 @@ const tabla = await page.evaluate(() => {
 });
 ok(tabla.view === 'diario' && tabla.visible && tabla.rows >= 1, 'Operaciones abre en la tabla', JSON.stringify(tabla));
 
+const rowLinks = await page.evaluate(() => ({
+  jr: document.querySelectorAll('#jrTable [data-act="jr"]').length,
+  est: document.querySelectorAll('#jrTable [data-act="est"]').length
+}));
+ok(rowLinks.jr >= 1 && rowLinks.est >= 1, 'cada fila enlaza Diario y Estudio', JSON.stringify(rowLinks));
+
+await page.locator('#jrTable [data-act="edit"]').first().click();
+await page.waitForSelector('#ov.open');
+const editorLinks = await page.evaluate(() => ({
+  diario: !!document.querySelector('#edFields [data-trade-go="diario"]'),
+  estudio: !!document.querySelector('#edFields [data-trade-go="estudio"]')
+}));
+ok(editorLinks.diario && editorLinks.estudio, 'el editor enlaza Diario y Estudio');
+await page.click('#edCancel');
+await page.waitForFunction(() => !document.getElementById('ov')?.classList.contains('open'));
+
+await page.locator('#jrTable [data-act="est"]').first().click();
+await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'estudio', null, { timeout: 15000 });
+const estudio = await page.evaluate(() => ({
+  from: document.getElementById('studyTradeFrom')?.value || '',
+  hash: location.hash
+}));
+ok(/^\d{4}-\d{2}-\d{2}$/.test(estudio.from) && /date=/.test(estudio.hash),
+  'Estudio abre el día de la operación', JSON.stringify(estudio));
+
+await page.click('#tabnav .tabbtn[data-tab="futuros"]');
+await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros');
+await page.locator('#jrTable [data-act="jr"]').first().click();
+await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'diario', null, { timeout: 15000 });
+ok(true, 'Diario abre desde la fila');
+await page.waitForSelector('#ov.open', { timeout: 3000 }).catch(() => {});
+if (await page.locator('#ov.open').count()) {
+  await page.locator('#edCancel').click();
+  await page.waitForFunction(() => !document.getElementById('ov')?.classList.contains('open'));
+}
+
+await page.click('#tabnav .tabbtn[data-tab="cabina"]');
+const inicio = await page.evaluate(() => {
+  const band = document.getElementById('credoBand');
+  const trace = document.getElementById('credoTrace');
+  const kpis = document.getElementById('cabKpis');
+  return {
+    bandHidden: !!(band && band.hidden),
+    traceVisible: !!(trace && !trace.hidden && trace.offsetParent),
+    kpis: (kpis?.innerText || '').length
+  };
+});
+ok(inicio.bandHidden && inicio.traceVisible && inicio.kpis > 0,
+  'Inicio sin reglas: huella compacta y KPIs visibles', JSON.stringify(inicio));
+
 await page.click('#tabnav .tabbtn[data-tab="diario"]');
 await page.click('#jrNew');
 await page.waitForSelector('#ov.open, #ov.edopen, #ov[class*="open"]');
@@ -78,6 +128,30 @@ ok(true, 'alias #operaciones → futuros');
 await page.goto('http://127.0.0.1:' + srv.address().port + '/#rendimiento', { waitUntil: 'load' });
 await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'edge', null, { timeout: 15000 });
 ok(true, 'alias #rendimiento → edge');
+
+{
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const p2 = await phone.newPage();
+  p2.on('pageerror', e => js.push('phone: ' + e.message));
+  await p2.addInitScript(seed => {
+    try { localStorage.setItem('cabina-mnq:v1', seed); } catch (e) {}
+  }, SEMILLA);
+  await p2.goto('http://127.0.0.1:' + srv.address().port + '/', { waitUntil: 'load' });
+  await p2.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
+  await p2.evaluate(() => {
+    const btn = document.querySelector('#tabnav .tabbtn[data-tab="futuros"]');
+    if (btn) btn.click();
+  });
+  await p2.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros', null, { timeout: 15000 });
+  const fold = await p2.evaluate(() => {
+    const wrap = document.getElementById('jrTable');
+    const r = wrap && wrap.getBoundingClientRect();
+    return { tableTop: r ? Math.round(r.top) : null, visible: !!(wrap && wrap.offsetParent) };
+  });
+  ok(fold.visible && fold.tableTop != null && fold.tableTop < 560,
+    'en teléfono la tabla queda cerca del fold', JSON.stringify(fold));
+  await phone.close();
+}
 
 ok(js.length === 0, 'sin errores de página', js.join(' | '));
 

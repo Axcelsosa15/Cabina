@@ -2825,6 +2825,18 @@
       requestAnimationFrame(() => openTrade(tr));
     }
     if (state.tab === "diario" && p.date) { const el = $("jrSearch"); if (el) el.value = p.date; }
+    if (state.tab === "estudio" && p.date) estudioEnfocarDia(p.date);
+  }
+  function tradeGo(kind, date) {
+    const dia = String(date || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return;
+    const ovEl = $("ov"); if (ovEl) ovEl.classList.remove("open");
+    if (kind === "estudio") { goTo("estudio", { date: dia }); return; }
+    if (kind === "diario") {
+      const jr = coll("journal").items.filter(x => x.date === dia);
+      goTo("diario", { date: dia });
+      if (!jr.length) openJournal({ date: dia });
+    }
   }
   function showTab(name) {
     const parsed = parseHash();
@@ -8935,6 +8947,17 @@
           if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(box, anchor.nextSibling); else fieldsEl.appendChild(box);
         }
         shots = attachShots(fieldsEl, vals.images, type);
+        if (!isNew && type === "futuros" && vals.date) {
+          const nav = document.createElement("div");
+          nav.className = "fld w6 trade-links";
+          nav.innerHTML = `<button type="button" class="btn sm ghost" data-trade-go="diario">Diario de esa sesión</button>`
+            + `<button type="button" class="btn sm ghost" data-trade-go="estudio">Revisar en Estudio</button>`;
+          nav.addEventListener("click", e => {
+            const b = e.target.closest("[data-trade-go]"); if (!b) return;
+            tradeGo(b.dataset.tradeGo === "estudio" ? "estudio" : "diario", vals.date);
+          });
+          fieldsEl.insertBefore(nav, fieldsEl.firstChild);
+        }
       },
       read: (out, fieldsEl) => {
         const boxes = fieldsEl.querySelectorAll("#setupConds input[data-sc]"); if (boxes.length) { out.setupChecks = {}; boxes.forEach(b => { out.setupChecks[b.dataset.sc] = b.checked; }); } else out.setupChecks = null;
@@ -10601,7 +10624,7 @@
        de un vistazo en qué franja se ganó y en cuál se devolvió. */
     const porSes = {}; list.forEach(t => { const k = tradeSes(t) || "__sin"; (porSes[k] || (porSes[k] = [])).push(t); });
     const ordenSes = SESSIONS.map(x => x.id).concat(["__sin"]).filter(k => porSes[k]);
-    const filaOp = t => `<tr data-id="${t.id}"><td>${esc(t.time ? h12(t.time) : "—")}</td><td>${esc(t.instrument)}${disciplineTradeBadge(t)}</td><td class="ui">${esc(pbName(t.setupId)) || '<span class="dim">—</span>'}</td><td class="${t.direction === "short" ? "neg" : "pos"}">${t.direction === "short" ? "S" : "L"}</td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.entry ?? "—"}</td><td class="r">${t.exit ?? `<button type="button" class="hitstop" data-act="hitstop" title="Marcar que tocó el stop"${t.stop == null ? " disabled" : ""}>abierta${t.stop != null ? " · tocó el stop" : ""}</button>`}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="r ${t.pnlEff > 0 ? "pos" : t.pnlEff < 0 ? "neg" : ""}">${t.pnlEff == null ? (t.multUnknown ? `<span class="chip warn" title="No hay valor de punto para ${esc(String(t.instrument || ""))}. Escribe el resultado a mano en «Resultado $» o usa un instrumento conocido.">falta $/punto</span>` : "—") : money(t.pnlEff)}</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.tags || "")}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button></td></tr>`;
+    const filaOp = t => `<tr data-id="${t.id}"><td>${esc(t.time ? h12(t.time) : "—")}</td><td>${esc(t.instrument)}${disciplineTradeBadge(t)}</td><td class="ui">${esc(pbName(t.setupId)) || '<span class="dim">—</span>'}</td><td class="${t.direction === "short" ? "neg" : "pos"}">${t.direction === "short" ? "S" : "L"}</td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.entry ?? "—"}</td><td class="r">${t.exit ?? `<button type="button" class="hitstop" data-act="hitstop" title="Marcar que tocó el stop"${t.stop == null ? " disabled" : ""}>abierta${t.stop != null ? " · tocó el stop" : ""}</button>`}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="r ${t.pnlEff > 0 ? "pos" : t.pnlEff < 0 ? "neg" : ""}">${t.pnlEff == null ? (t.multUnknown ? `<span class="chip warn" title="No hay valor de punto para ${esc(String(t.instrument || ""))}. Escribe el resultado a mano en «Resultado $» o usa un instrumento conocido.">falta $/punto</span>` : "—") : money(t.pnlEff)}</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.tags || "")}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button><button type="button" class="btn ghost sm" data-act="jr" title="Diario de esa sesión">Diario</button><button type="button" class="btn ghost sm" data-act="est" title="Revisar el día en Estudio">Estudio</button></td></tr>`;
     const grupo = k => {
       const ops = porSes[k].slice().sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
       const cerradas = ops.filter(t => t.pnlEff != null);
@@ -10625,8 +10648,13 @@
     $("dayAdd").addEventListener("click", () => openTrade(null, "futuros"));
     $("dayNote").addEventListener("input", e => queueDayNote(date, { note: e.target.value.slice(0, 2000) }));
     $("dayBroke").addEventListener("change", e => queueDayNote(date, { broke: e.target.checked }, 0));
-    $("dayBody").querySelectorAll("button[data-act='edit']").forEach(b => b.addEventListener("click", () => { const t = coll("trades").get(b.closest("tr").dataset.id); if (t) openTrade(t); }));
-    $("dayBody").querySelectorAll("button[data-act='hitstop']").forEach(b => b.addEventListener("click", () => hitStop(b.closest("tr").dataset.id)));
+    $("dayBody").querySelectorAll("button[data-act]").forEach(b => b.addEventListener("click", () => {
+      const t = coll("trades").get(b.closest("tr").dataset.id); if (!t) return;
+      if (b.dataset.act === "edit") openTrade(t);
+      else if (b.dataset.act === "jr") tradeGo("diario", t.date);
+      else if (b.dataset.act === "est") tradeGo("estudio", t.date);
+      else if (b.dataset.act === "hitstop") hitStop(t.id);
+    }));
     $("dayBody").addEventListener("click", e => { if (e.target.tagName === "IMG" && (e.target.classList.contains("thumb") || e.target.closest("figure.pbimg"))) openLightbox(e.target.src, e.target.alt, e.target); });
     if (!dd) { state.db.doc("days/" + date).get().then(snap => { if (!snap.exists || ft.day !== date) return; const d = snap.data(); const ta = $("dayNote"), cb = $("dayBroke"); if (ta && document.activeElement !== ta) ta.value = d.note || ""; if (cb) cb.checked = !!d.broke; }).catch(() => {}); }
   }
@@ -10881,7 +10909,7 @@
     }).join("");
     wrap.innerHTML = `<table class="t"><thead><tr>${th}<th></th></tr></thead><tbody>${list.map(t => {
       const proto = [t.cStruct, t.cPull, t.cWindow, t.cSize].filter(Boolean).length;
-      return `<tr data-id="${t.id}"><td><span class="dim">${dowOf(t.date)}</span> ${(t.date || "").slice(5)}</td><td>${esc(t.time ? h12(t.time) : "—")}</td><td>${sesTag(t)}</td><td class="ui">${esc(acctLabel(t.accountId)) || '<span class="dim">—</span>'}</td><td>${esc(t.instrument)}</td><td class="ui">${esc(pbName(t.setupId)) || '<span class="dim">—</span>'}</td><td class="${t.direction === "short" ? "neg" : "pos"}">${t.direction === "short" ? "S" : "L"}</td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.entry ?? "—"}</td><td class="r">${t.stop ?? "—"}</td><td class="r">${t.exit ?? `<button type="button" class="hitstop" data-act="hitstop" title="Marcar que tocó el stop"${t.stop == null ? " disabled" : ""}>abierta${t.stop != null ? " · tocó el stop" : ""}</button>`}</td><td class="r dim">${t.rPlanned == null ? "—" : t.rPlanned.toFixed(1)}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="r ${t.pnlEff > 0 ? "pos" : t.pnlEff < 0 ? "neg" : ""}">${t.pnlEff == null ? (t.multUnknown ? `<span class="chip warn" title="No hay valor de punto para ${esc(String(t.instrument || ""))}. Escribe el resultado a mano en «Resultado $» o usa un instrumento conocido.">falta $/punto</span>` : "—") : money(t.pnlEff)}</td><td>${esc(t.quality || "")}</td><td class="${proto === 4 ? "pos" : proto <= 2 ? "neg" : ""}">${proto}/4</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.tags || "")}</td><td class="notes">${esc(t.lesson || "")}</td><td class="execs">${Array.isArray(t.executionLedger) && t.executionLedger.length ? `<details><summary>${plu(t.executionLedger.length, "fill", "fills")}</summary><div style="min-width:230px;max-width:330px;max-height:220px;overflow:auto;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)"><ol style="margin:0;padding-left:20px">${t.executionLedger.map(x => `<li style="margin:5px 0"><strong>${x.role === "entry" ? "Entrada" : "Salida"}</strong> · ${esc(x.date || t.date || "")} ${esc(x.time || "")}<br><span class="mono">${esc(String(x.qty ?? "—"))} × ${esc(String(x.price ?? "—"))}</span> · ${x.side === "buy" ? "buy" : x.side === "sell" ? "sell" : esc(String(x.side || "—"))}<br><span class="dim">Comisión ${money(Number(x.fees) || 0)} · ID ${esc(String(x.executionId || x.fingerprint || "sin ID").slice(0, 48))}</span></li>`).join("")}</ol></div></details>` : '<span class="dim">—</span>'}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button></td></tr>`;
+      return `<tr data-id="${t.id}"><td><span class="dim">${dowOf(t.date)}</span> ${(t.date || "").slice(5)}</td><td>${esc(t.time ? h12(t.time) : "—")}</td><td>${sesTag(t)}</td><td class="ui">${esc(acctLabel(t.accountId)) || '<span class="dim">—</span>'}</td><td>${esc(t.instrument)}</td><td class="ui">${esc(pbName(t.setupId)) || '<span class="dim">—</span>'}</td><td class="${t.direction === "short" ? "neg" : "pos"}">${t.direction === "short" ? "S" : "L"}</td><td class="r">${t.qty ?? "—"}</td><td class="r">${t.entry ?? "—"}</td><td class="r">${t.stop ?? "—"}</td><td class="r">${t.exit ?? `<button type="button" class="hitstop" data-act="hitstop" title="Marcar que tocó el stop"${t.stop == null ? " disabled" : ""}>abierta${t.stop != null ? " · tocó el stop" : ""}</button>`}</td><td class="r dim">${t.rPlanned == null ? "—" : t.rPlanned.toFixed(1)}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="r ${t.pnlEff > 0 ? "pos" : t.pnlEff < 0 ? "neg" : ""}">${t.pnlEff == null ? (t.multUnknown ? `<span class="chip warn" title="No hay valor de punto para ${esc(String(t.instrument || ""))}. Escribe el resultado a mano en «Resultado $» o usa un instrumento conocido.">falta $/punto</span>` : "—") : money(t.pnlEff)}</td><td>${esc(t.quality || "")}</td><td class="${proto === 4 ? "pos" : proto <= 2 ? "neg" : ""}">${proto}/4</td><td>${thumbCell(t)}</td><td class="notes">${esc(t.tags || "")}</td><td class="notes">${esc(t.lesson || "")}</td><td class="execs">${Array.isArray(t.executionLedger) && t.executionLedger.length ? `<details><summary>${plu(t.executionLedger.length, "fill", "fills")}</summary><div style="min-width:230px;max-width:330px;max-height:220px;overflow:auto;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)"><ol style="margin:0;padding-left:20px">${t.executionLedger.map(x => `<li style="margin:5px 0"><strong>${x.role === "entry" ? "Entrada" : "Salida"}</strong> · ${esc(x.date || t.date || "")} ${esc(x.time || "")}<br><span class="mono">${esc(String(x.qty ?? "—"))} × ${esc(String(x.price ?? "—"))}</span> · ${x.side === "buy" ? "buy" : x.side === "sell" ? "sell" : esc(String(x.side || "—"))}<br><span class="dim">Comisión ${money(Number(x.fees) || 0)} · ID ${esc(String(x.executionId || x.fingerprint || "sin ID").slice(0, 48))}</span></li>`).join("")}</ol></div></details>` : '<span class="dim">—</span>'}</td><td class="act"><button type="button" class="icon" data-act="edit" title="Editar">✎</button><button type="button" class="btn ghost sm" data-act="jr" title="Diario de esa sesión">Diario</button><button type="button" class="btn ghost sm" data-act="est" title="Revisar el día en Estudio">Estudio</button></td></tr>`;
     }).join("")}</tbody></table>${total > visibles.length
       ? `<div style="padding:12px 0;text-align:center"><button type="button" class="btn ghost" id="jrMas">Mostrar ${Math.min(JR_TRAMO, total - visibles.length)} más · quedan ${total - visibles.length}</button></div>`
       : ""}`;
@@ -10901,14 +10929,18 @@
   }
   $("jrSoloIncompletas").addEventListener("click", () => { jrSoloIncompletas = !jrSoloIncompletas; jrTope = JR_TRAMO; renderFutures(); });
   $("jrCompletarSig").addEventListener("click", jrCompletarSiguiente);
-  $("jrTable").addEventListener("click", e => {
+    $("jrTable").addEventListener("click", e => {
     if (e.target.closest("#jrMas")) { jrTope += JR_TRAMO; renderFutures(); return; }
     const so = e.target.closest("button[data-sort]");
     if (so) { jrSetOrden(so.dataset.sort); return; }
     if (e.target.classList.contains("thumb")) { openLightbox(e.target.src, e.target.alt, e.target); return; }
     const hs = e.target.closest("button[data-act='hitstop']");
     if (hs) { hitStop(hs.closest("tr").dataset.id); return; }
-    const btn = e.target.closest("button[data-act='edit']"); if (!btn) return; const t = coll("trades").get(btn.closest("tr").dataset.id); if (t) openTrade(t);
+    const act = e.target.closest("button[data-act]"); if (!act) return;
+    const t = coll("trades").get(act.closest("tr").dataset.id); if (!t) return;
+    if (act.dataset.act === "edit") openTrade(t);
+    else if (act.dataset.act === "jr") tradeGo("diario", t.date);
+    else if (act.dataset.act === "est") tradeGo("estudio", t.date);
   });
 
   /* ===================== DISCIPLINA DE PROCESO =====================
@@ -11409,7 +11441,7 @@
      siguiente, siempre: «¿y qué operé ahí?». */
   $("cuTabla").addEventListener("click", e => {
     const tr = e.target.closest("tr[data-cu]"); if (!tr) return;
-    FUT.setSelectedAccount(tr.dataset.cu); showTab("futuros");
+    FUT.setSelectedAccount(tr.dataset.cu); goTo("futuros", { account: tr.dataset.cu, view: "diario" });
   });
 
   function renderProto(s) {
@@ -16236,11 +16268,9 @@
   function renderCredo() {
     const items = credoItems(), hay = items.length, visto = credoVistoHoy();
     const editando = !$("credoEdBox").hidden;
-    /* Sin reglas escritas no se enseña un bloque vacío pidiendo trabajo: se
-       enseña la huella, que invita sin estorbar. */
-    /* Sin reglas la banda NO se pliega nunca: no hay nada que acusar todavía,
-       y una invitación que no se ve no invita a nada. */
-    const abierto = editando || !hay || !visto;
+    /* Sin reglas se enseña la huella, no un bloque vacío encima de los KPIs.
+       Con reglas, la banda del día sigue hasta «Leídas». */
+    const abierto = editando || (hay && !visto);
     $("credoBand").hidden = !abierto;
     $("credoTrace").hidden = abierto;
     $("credoVacio").hidden = hay || editando;
@@ -18840,21 +18870,27 @@
   let estudioSoloSinRevisar = false;
 
   let estudioDiaEnfoque = "";
-  function estudioAbrirDia(date){
+  function estudioEnfocarDia(date){
     const dia = String(date || "").slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dia) || !Number.isFinite(Date.parse(dia + "T12:00:00Z"))) return;
     estudioDiaEnfoque = dia;
     ["studyTradeAccount","studyTradeInstrument","studyTradeDirection","studyTradeSearch"].forEach(id => {
       const el = $(id); if (el) el.value = "";
     });
-    $("studyTradeFrom").value = dia;
-    $("studyTradeTo").value = dia;
+    const from = $("studyTradeFrom"), to = $("studyTradeTo");
+    if (from) from.value = dia;
+    if (to) to.value = dia;
     estudioSoloSinRevisar = false;
-    const tab = document.querySelector('.tabbtn[data-tab="estudio"]');
-    if (tab) tab.click(); else showTab("estudio");
     /* Navegar no dispara por si solo un cambio de datos. Renderizar ahora
        evita que un dia sin trades deje el contexto anterior u oculto. */
-    renderEstudioTrades();
+    if ($("studyTradeList")) renderEstudioTrades();
+  }
+  function estudioAbrirDia(date){
+    estudioEnfocarDia(date);
+    if (state.tab !== "estudio") {
+      const tab = document.querySelector('.tabbtn[data-tab="estudio"]');
+      if (tab) tab.click(); else showTab("estudio");
+    }
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
   }
   function estudioRenderDiaContexto(){
@@ -19636,8 +19672,8 @@
     $("calLabDay").onclick = e => {
       const b = e.target.closest("[data-lab-act]"); if (!b) return;
       if (b.dataset.labAct === "ops") goTo("futuros", { date, view: "diario" });
-      else if (b.dataset.labAct === "jr") { goTo("diario", { date }); if (!jr.length) setTimeout(() => openJournal({ date }), 40); }
-      else if (b.dataset.labAct === "est") { const btn = document.querySelector(`[data-study-day="${date}"]`); goTo("estudio", { date }); if (btn) btn.click(); }
+      else if (b.dataset.labAct === "jr") tradeGo("diario", date);
+      else if (b.dataset.labAct === "est") tradeGo("estudio", date);
     };
   }
 
