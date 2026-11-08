@@ -193,6 +193,15 @@ svg.lab-bars .bar.neu { fill: var(--dim); }
 .topbar .save-state.nosave { color: var(--negative); font-weight: 700; }
 .tab .tile.sin-dato .v { font-weight: 400; }
 .qec .qk { font-size: 12px; }
+.trade-links { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 10px; }
+#jrTable td.act .btn, #dayBody td.act .btn { padding:4px 8px; font-size:12px; }
+#jrTable table.t th:last-child,
+#jrTable table.t td.act {
+  position:sticky; right:0; z-index:1;
+  background:var(--surface);
+  box-shadow:-8px 0 10px -8px rgba(22,24,28,.18);
+  white-space:nowrap;
+}
 
 </style>
 
@@ -4104,17 +4113,28 @@ body:not([data-help="on"]) #mxLearnPanel { display: none !important; }
  .cuentabar { gap:10px; padding:12px; }
  .account-notice-actions { width:100%; justify-content:flex-end; }
  .account-notice-actions .editbtn { min-height:44px; }
- .tab[data-tab="futuros"] .toolbar.cab-futures-toolbar { grid-template-columns:minmax(0,1fr); gap:10px; padding:10px; }
+ .tab.active[data-tab="futuros"] { display:flex; flex-direction:column; }
+ .tab[data-tab="futuros"] > * { order:10; }
+ .tab[data-tab="futuros"] > .toolbar { order:1; }
+ .tab[data-tab="futuros"] > .ftview { order:2; }
+ .tab[data-tab="futuros"] > #ftFilters,
+ .tab[data-tab="futuros"] > #ftSync,
+ .tab[data-tab="futuros"] > #ftSampleNote { order:3; }
+ .tab[data-tab="futuros"] > section.deck { display:none !important; }
+ .tab[data-tab="futuros"] .toolbar.cab-futures-toolbar { grid-template-columns:minmax(0,1fr); gap:8px; padding:8px 10px; }
  .cab-futures-toolbar > * { grid-column:1; }
  .cab-futures-nav { grid-row:2; }
  .cab-futures-actions { grid-row:1; }
  .cab-futures-actions #ftNew { flex:1; }
  .cab-futures-nav .seg { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); width:100%; }
  .cab-futures-nav .seg button { min-width:0; padding:8px 3px; font-size:12px; line-height:1.25; white-space:normal; }
- .cab-futures-scope { grid-template-columns:minmax(0,1fr); gap:8px; }
+ .cab-futures-scope { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
  .cab-futures-toolbar .cab-filter-field { gap:3px; }
  .cab-futures-toolbar .cab-filter-field > :is(input,select) { font-size:16px; }
  .cab-futures-filter-grid { grid-template-columns:minmax(0,1fr); gap:10px; }
+ #ftResultSeg, #ftExport, #ftSync { display:none; }
+ #ftSampleNote { margin:4px 0; font-size:12px; }
+ #jrTable td.act .btn, #dayBody td.act .btn { display:none; }
  #credoVacio:not([hidden]) { align-items:flex-start; flex-direction:column; gap:10px; }
 }
 
@@ -5668,11 +5688,9 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
      ¿puedo operar? ¿cuánto tengo? ¿cuánto llevo hoy? ¿cuánto riesgo queda?
      Todas viven en la cuenta, así que la cuenta va primero y a lo ancho.
      La pre-sesión es un ritual de una vez al día; la cuenta se mira cada hora. -->
-<!-- ANTES DE OPERAR · lo primero que se ve, una vez al día y no más.
-     Va ARRIBA DEL TODO y por encima de las cuentas a propósito: su trabajo es
-     leerse antes de mirar un número, no competir con ellos. Y desaparece al
-     pulsar «Leídas»: una lista permanente deja de leerse a la semana, que es
-     exactamente lo que no se quería.
+<!-- ANTES DE OPERAR · con reglas escritas es lo primero que se ve, una vez
+     al día. Sin reglas, sólo una huella compacta: los KPIs no se esconden
+     detrás de un bloque vacío. Desaparece al pulsar «Leídas».
 
      LAS REGLAS SON DATOS DEL USUARIO, NO DEL CÓDIGO. test/lanzamiento.mjs
      recorre cada fichero versionado para que no vuelva la configuración
