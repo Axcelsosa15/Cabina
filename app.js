@@ -7999,7 +7999,7 @@
   function marketName(id) { const m = marketsMerged().find(x => x.id === id); return m ? m.name : (id || "—"); }
 
   /* =============================== FUTUROS (journal estilo TradeZella) =============================== */
-  const ft = { view: "resumen", range: "all", setup: "", instr: "", acct: "", ses: "", month: state.today.slice(0, 7), day: null,
+  const ft = { view: "diario", range: "all", setup: "", instr: "", acct: "", ses: "", month: state.today.slice(0, 7), day: null,
     // Búsqueda libre y orden de la tabla del journal.
     q: "", result: "", quality: "", tag: "", ids: null, sortKey: "date", sortDir: "desc" };
 
@@ -8405,14 +8405,14 @@
   function invalidatePre() { prf.loaded = false; if (ft.view === "presesion") loadPreRows(); }
 
   function setFtView(v) {
-    ft.view = ["resumen", "cuentas", "analisis", "diario", "presesion"].includes(v) ? v : "resumen";
+    ft.view = ["resumen", "cuentas", "analisis", "diario", "presesion"].includes(v) ? v : "diario";
     document.querySelectorAll(".ftview").forEach(x => x.classList.toggle("active", x.dataset.v === ft.view));
     $("ftSeg").querySelectorAll("button").forEach(b => { b.classList.toggle("active", b.dataset.v === ft.view); b.setAttribute("aria-pressed", String(b.dataset.v === ft.view)); });
     // los gráficos se dibujan al ancho real del panel: hay que rehacerlos al mostrarse
     try { renderFutures(); } catch (e) { }
     if (ft.view === "presesion") { if (prf.loaded) renderPre(); else loadPreRows(); }
   }
-  if (matchMedia("(max-width: 700px)").matches) $("ftMoreFilters").open = false;
+  if ($("ftMoreFilters")) $("ftMoreFilters").open = false;
   $("ftSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; setFtView(b.dataset.v); });
   $("ftRange").addEventListener("change", e => { ft.range = e.target.value; renderFutures(); });
   $("ftSetup").addEventListener("change", e => { ft.setup = e.target.value; renderFutures(); });
@@ -8424,6 +8424,34 @@
   });
   $("ftSes").addEventListener("change", e => { ft.ses = e.target.value; renderFutures(); });
   if ($("ftResult")) $("ftResult").addEventListener("change", e => { ft.result = e.target.value; renderFutures(); });
+  if ($("ftResultSeg")) $("ftResultSeg").addEventListener("click", e => {
+    const b = e.target.closest("button[data-result]"); if (!b) return;
+    ft.result = b.dataset.result || "";
+    if ($("ftResult")) $("ftResult").value = ft.result;
+    renderFutures();
+  });
+  if ($("ftExport")) $("ftExport").addEventListener("click", () => {
+    const list = futFiltered();
+    if (!list.length) { flash("No hay operaciones para exportar."); return; }
+    const cols = [
+      ["Fecha", t => t.date || ""],
+      ["Hora", t => t.time || ""],
+      ["Cuenta", t => acctLabel(t.accountId) || ""],
+      ["Instrumento", t => t.instrument || ""],
+      ["Dirección", t => t.direction || ""],
+      ["Contratos", t => t.qty ?? ""],
+      ["Entrada", t => t.entry ?? ""],
+      ["Salida", t => t.exit ?? ""],
+      ["Stop", t => t.stop ?? ""],
+      ["P&L neto", t => t.pnlEff ?? ""],
+      ["R", t => t.rReal ?? ""],
+      ["Setup", t => { const p = coll("playbooks").get(t.setupId); return p ? p.name : ""; }],
+      ["Calidad", t => t.quality || ""],
+      ["Etiquetas", t => t.tags || ""],
+      ["Lección", t => t.lesson || ""],
+    ];
+    descarga("cabina-operaciones-" + new Date().toISOString().slice(0, 10) + ".csv", tablaCsv(cols, list), "text/csv;charset=utf-8");
+  });
   if ($("ftQuality")) $("ftQuality").addEventListener("change", e => { ft.quality = e.target.value; renderFutures(); });
   if ($("ftTag")) $("ftTag").addEventListener("input", e => { ft.tag = e.target.value; debounce("ftTag", renderFutures, 160); });
   /* Los dos selectores — el de Futuros y el de Cabina — escriben en el MISMO
@@ -10397,6 +10425,11 @@
     const opsSes = SESSIONS.filter(x => conOps.has(x.id)).map(x => [x.id, x.short]).concat(conOps.has("__sin") ? [["__sin", "sin hora"]] : []);
     $("ftSes").innerHTML = `<option value="">todas las sesiones</option>` + opsSes.map(([v, l]) => `<option value="${esc(v)}" ${ft.ses === v ? "selected" : ""}>${esc(l)}</option>`).join("");
     renderFtFilters();
+    if ($("ftResultSeg")) $("ftResultSeg").querySelectorAll("button[data-result]").forEach(b => {
+      const on = (b.dataset.result || "") === (ft.result || "");
+      b.classList.toggle("active", on); b.setAttribute("aria-pressed", String(on));
+    });
+    if ($("ftResult") && $("ftResult").value !== (ft.result || "")) $("ftResult").value = ft.result || "";
     const list = futFiltered(); const s = futStats(list);
     const pfTxt = s.pf == null ? "—" : s.pf.toFixed(2);
     const wl = s.avgWin != null && s.avgLoss ? (s.avgWin / s.avgLoss).toFixed(2) : "—";
@@ -14515,7 +14548,7 @@
       btn.textContent = sel.lista === L.id ? "Salir de selección" : "Seleccionar";
       btn.title = hay
         ? `Selecciona varias y bórralas de una vez (${hay} a la vista)`
-        : (L.id === "jrTable" ? "El journal está en la sub-vista Diario" : "No hay nada que seleccionar aquí");
+        : (L.id === "jrTable" ? "El journal está en la tabla de Operaciones" : "No hay nada que seleccionar aquí");
     }
   }
 
@@ -19531,7 +19564,9 @@
     const rows = labRows(list);
     if (rows.filter(t => t.pnl != null).length < 2) { el.innerHTML = labEmpty("Hacen falta operaciones cerradas para el desglose."); return; }
     const g = L.analyticsGroups(rows);
+    const eqSvg = (g.equity && g.equity.length > 1 && L.equitySvg) ? `<div class="lab-block"><h3>Evolución del equity</h3>${L.equitySvg(g.equity)}</div>` : "";
     el.innerHTML = [
+      eqSvg,
       labGroupPanel("P&L por día de la semana", g.weekday, "sin fechas"),
       labGroupPanel("P&L por emoción", g.emotion, "ninguna emoción registrada"),
       labGroupPanel("P&L por sesión", g.session, "sin hora de entrada"),
@@ -19566,6 +19601,19 @@
       + labKpi("Profit factor", c.pf == null ? "—" : c.pf.toFixed(2), c.pf == null ? (c.pfRazon || "sin pérdidas") : "bruto / pérdida")
       + labKpi("Expectancy", money(n ? s.pnl / n : 0), "por operación")
       + labKpi("Drawdown", money(-c.curva.mdd), c.capital > 0 ? "sobre capital de referencia" : "pico a valle");
+    const rec = $("cabRecent");
+    if (rec) {
+      const recent = FUT.filtered({ rango: "all", acct }).slice().sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.time || "").localeCompare(a.time || "")).slice(0, 6);
+      rec.innerHTML = recent.length
+        ? `<div class="twrap"><table class="t"><thead><tr><th>Fecha</th><th>Instr.</th><th>Dir</th><th class="r">P&amp;L</th></tr></thead><tbody>${recent.map(t => `<tr data-id="${esc(t.id)}"><td>${esc(t.date || "")}</td><td>${esc(t.instrument || "")}</td><td>${t.direction === "short" ? "S" : "L"}</td><td class="r ${t.pnlEff > 0 ? "pos" : t.pnlEff < 0 ? "neg" : ""}">${t.pnlEff == null ? "—" : money(t.pnlEff)}</td></tr>`).join("")}</tbody></table></div><p class="csub"><button type="button" class="btn sm" data-cab-go="futuros">Ver operaciones</button> <button type="button" class="btn sm ghost" data-cab-go="edge">Ver analítica</button></p>`
+        : labEmpty("Sin operaciones todavía.");
+      rec.onclick = e => {
+        const go = e.target.closest("[data-cab-go]");
+        if (go) { goTo(go.dataset.cabGo, go.dataset.cabGo === "futuros" ? { view: "diario" } : {}); return; }
+        const tr = e.target.closest("tr[data-id]"); if (!tr) return;
+        const t = coll("trades").get(tr.dataset.id); if (t) goTo("futuros", { trade: t.id, view: "diario" });
+      };
+    }
   }
 
   const labCal = { month: state.today.slice(0, 7), day: state.today };

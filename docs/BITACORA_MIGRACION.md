@@ -59,7 +59,7 @@ No hay un segundo motor de P&L ni un backend de Bitácora.
 
 ## Traslados desde tabs antiguos
 
-- Futuros → se llama Operaciones; sigue siendo el journal canónico.
+- Futuros → se llama Operaciones; abre en la tabla (Todas / Ganadoras / Perdedoras + CSV). El resumen cuantitativo queda a un clic.
 - Rendimiento → Analítica. El catálogo profundo vive en Estadísticas; Edge conserva curva, tamaño y ruina.
 - Historial permanece como consulta unificada, no como segundo editor.
 - Diario de sesión de Futuros (subvista) sigue para el día operativo; el tab Diario guarda emoción y lecciones.

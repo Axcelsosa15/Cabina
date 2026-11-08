@@ -104,6 +104,9 @@ const leerTiles = async (p) => { await asentado(p); return p.evaluate(() => [...
 
 const irA = async (p, tab) => {
   await p.evaluate(n => document.querySelector(`.tabbtn[data-tab="${n}"]`)?.click(), tab);
+  if (tab === 'futuros') {
+    await p.evaluate(() => document.querySelector('#ftSeg [data-v="resumen"]')?.click());
+  }
   await quieto(p, 60, 2500);
 };
 

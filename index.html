@@ -5707,6 +5707,10 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
 
 <section class="deck" aria-label="Inicio de Cabina"><h1 class="deck-t">Inicio</h1></section>
 <div class="lab-kpis" id="cabKpis" aria-label="Indicadores de sesión"></div>
+<section class="panel" id="cabRecentPanel">
+  <header><h2>Operaciones recientes</h2><span class="meta">mismas filas que Operaciones</span></header>
+  <div class="body" id="cabRecent"></div>
+</section>
 <!-- Workstation operativa: cuenta completa, ejecución prioritaria, protección al lado. -->
 <div class="cab-workspace">
 <div class="cab-layout-band" id="cabLayoutTop">
@@ -5951,14 +5955,20 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
   <div class="toolbar cab-futures-toolbar">
     <div class="cab-futures-nav">
     <div class="seg" id="ftSeg">
-      <button data-v="resumen" class="active" aria-pressed="true">Resumen</button>
+      <button data-v="diario" class="active" aria-pressed="true">Tabla</button>
+      <button data-v="resumen" aria-pressed="false">Resumen</button>
       <button data-v="cuentas" aria-pressed="false">Cuentas</button>
       <button data-v="analisis" aria-pressed="false">Análisis</button>
-      <button data-v="diario" aria-pressed="false">Diario</button>
       <button data-v="presesion" aria-pressed="false">Pre-sesión</button>
     </div>
     </div>
     <div class="cab-futures-actions">
+      <div class="seg" id="ftResultSeg" role="group" aria-label="Resultado">
+        <button type="button" data-result="" class="active" aria-pressed="true">Todas</button>
+        <button type="button" data-result="win" aria-pressed="false">Ganadoras</button>
+        <button type="button" data-result="loss" aria-pressed="false">Perdedoras</button>
+      </div>
+      <button type="button" class="btn ghost sm" id="ftExport" title="Exporta las operaciones filtradas a CSV">CSV</button>
       <button type="button" class="btn ghost sm selbtn" id="selbtn-jrTable" title="Selecciona varias operaciones y bórralas de una vez">Seleccionar</button>
       <button type="button" class="btn primary" id="ftNew">Registrar operación</button>
     </div>
@@ -5966,7 +5976,7 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
       <label class="cab-filter-field"><span class="cab-filter-caption">Cuenta</span><select id="ftAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select></label>
       <label class="cab-filter-field"><span class="cab-filter-caption">Período</span><select id="ftRange" aria-label="Rango"><option value="all">todo el historial</option><option value="month">este mes</option><option value="30">últimos 30 días</option><option value="90">últimos 90 días</option><option value="year">este año</option></select></label>
     </div>
-    <details class="cab-futures-filters" id="ftMoreFilters" open>
+    <details class="cab-futures-filters" id="ftMoreFilters">
       <summary>Más filtros <span id="ftMoreCount" hidden></span></summary>
       <div class="cab-futures-filter-grid">
         <label class="cab-filter-field"><span class="cab-filter-caption">Setup</span><select id="ftSetup" aria-label="Filtrar por setup"><option value="">todos los setups</option></select></label>
@@ -5981,12 +5991,13 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
   </div>
   <div class="ftfilt" id="ftFilters" hidden></div>
   <p class="synced" id="ftSync"></p>
+  <p class="ui-status warn" id="ftSampleNote" role="status"></p>
 
   <!-- ---------- resumen: resultados primero, estadística profunda después ---------- -->
-  <div class="ftview active" data-v="resumen">
+  <div class="ftview" data-v="resumen">
     <div class="stack cab-futures-workspace">
       <section class="panel">
-        <p class="ui-status warn" id="ftSampleNote" role="status"></p><div class="tiles five metric-group" id="ftTiles"></div>
+        <div class="tiles five metric-group" id="ftTiles"></div>
       </section>
       <div class="grid eq cab-futures-charts-primary">
       <section class="panel">
@@ -6105,22 +6116,9 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
     </div>
   </div>
 
-  <!-- ---------- diario ---------- -->
-  <div class="ftview" data-v="diario">
+  <!-- ---------- tabla canónica de operaciones (antes «Diario» de Futuros) ---------- -->
+  <div class="ftview active" data-v="diario">
     <div class="stack">
-      <section class="panel">
-        <header>
-          <div class="tools"><button type="button" class="icon" id="calPrev" title="Mes anterior">‹</button><h2 id="calTitle" style="margin:0 6px">—</h2><button type="button" class="icon" id="calNext" title="Mes siguiente">›</button></div>
-          <span class="meta" id="calMeta"></span>
-        </header>
-        <div class="body" style="padding:12px">
-          <div class="cal" id="cal"></div>
-        </div>
-      </section>
-      <section class="panel" id="dayPanel">
-        <header><h2 id="dayTitle">Día</h2><span class="meta" id="dayMeta"></span></header>
-        <div class="body" id="dayBody"></div>
-      </section>
       <section class="panel">
         <header><h2>Operaciones</h2><span class="meta" id="jrMeta"></span></header>
         <div class="body">
@@ -6154,6 +6152,22 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
           <input type="file" id="impFile" accept="text/csv,.csv,.txt,text/plain" hidden aria-hidden="true">
         </div>
       </section>
+      <details class="ui-disclosure" id="jrCalFold" open>
+        <summary>Calendario del journal</summary>
+      <section class="panel">
+        <header>
+          <div class="tools"><button type="button" class="icon" id="calPrev" title="Mes anterior">‹</button><h2 id="calTitle" style="margin:0 6px">—</h2><button type="button" class="icon" id="calNext" title="Mes siguiente">›</button></div>
+          <span class="meta" id="calMeta"></span>
+        </header>
+        <div class="body" style="padding:12px">
+          <div class="cal" id="cal"></div>
+        </div>
+      </section>
+      <section class="panel" id="dayPanel">
+        <header><h2 id="dayTitle">Día</h2><span class="meta" id="dayMeta"></span></header>
+        <div class="body" id="dayBody"></div>
+      </section>
+      </details>
     </div>
   </div>
   <section class="panel" id="panelExecHistory">
@@ -6228,6 +6242,14 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
   </div>
   <div id="mxAviso"></div>
   <div class="stack">
+    <section class="panel">
+      <header><h2>Curva de equity y drawdown</h2><span class="meta" id="mxCurvaMeta"></span></header>
+      <div class="body"><div class="chartwrap" id="mxCurva"></div><div id="mxDD"></div></div>
+    </section>
+    <section class="panel">
+      <header><h2>Desglose de rendimiento</h2><span class="meta">mismos filtros que la curva</span></header>
+      <div class="body" id="mxAnalytics"></div>
+    </section>
     <section class="panel mx-learn" id="mxLearnPanel" aria-labelledby="mxLearnHeading">
       <header>
         <div class="mx-learn-head">
@@ -6287,14 +6309,6 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
         <div id="mxEstLista"></div>
         <details class="cab-why"><summary>Cómo leerlo</summary><p class="csub" style="margin:14px 0 0">Todas salen de las mismas operaciones que la expectativa y la curva de arriba, con el mismo P&amp;L neto. Una cifra que no se puede medir sale con &laquo;&mdash;&raquo; y la raz&oacute;n al lado, nunca como cero.</p></details>
       </details></div>
-    </section>
-    <section class="panel">
-      <header><h2>Curva de equity y drawdown</h2><span class="meta" id="mxCurvaMeta"></span></header>
-      <div class="body"><div class="chartwrap" id="mxCurva"></div><div id="mxDD"></div></div>
-    </section>
-    <section class="panel">
-      <header><h2>Desglose de rendimiento</h2><span class="meta">mismos filtros que la curva</span></header>
-      <div class="body" id="mxAnalytics"></div>
     </section>
     <div class="grid eq">
       <section class="panel">

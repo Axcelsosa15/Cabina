@@ -34,6 +34,14 @@ for (const tab of tabs) {
   ok(state.active === tab && state.hash === tab, 'navega a ' + tab, state.hash);
 }
 
+await page.click('#tabnav .tabbtn[data-tab="futuros"]');
+const tabla = await page.evaluate(() => {
+  const wrap = document.getElementById('jrTable');
+  const view = document.querySelector('.ftview.active')?.dataset.v;
+  return { view, rows: wrap ? wrap.querySelectorAll('tr[data-id]').length : 0, visible: !!(wrap && wrap.offsetParent) };
+});
+ok(tabla.view === 'diario' && tabla.visible && tabla.rows >= 1, 'Operaciones abre en la tabla', JSON.stringify(tabla));
+
 await page.click('#tabnav .tabbtn[data-tab="diario"]');
 await page.click('#jrNew');
 await page.waitForSelector('#ov.open, #ov.edopen, #ov[class*="open"]');

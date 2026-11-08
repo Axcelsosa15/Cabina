@@ -65,6 +65,7 @@ try {
     check(await page.evaluate(() => document.body.dataset.help === 'on'),
       width+'px · one-click education is available');
     await page.locator('#tabnav .tabbtn[data-tab="futuros"]').click();
+    await page.locator('#ftSeg [data-v="resumen"]').click();
     const why=page.locator('.tab[data-tab="futuros"] details.cab-why').first();
     const ancestors=why.locator('xpath=ancestor::details');
     for(let i=0;i<await ancestors.count();i++){const detail=ancestors.nth(i);if(!(await detail.evaluate(el=>el.open)))await detail.locator(':scope > summary').click();}

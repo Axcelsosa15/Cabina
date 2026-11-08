@@ -89,6 +89,7 @@ console.log('\n═══ Analítica y estrategias ═══');
 const an = L.analyticsGroups(trades);
 ok(an.n === 12 && an.equity.length === 12 && an.weekday.length === 5, 'grupos de analítica');
 ok(an.setup.some(s => s.key === 'Ruptura' && s.pnl > 0), 'P&L por setup');
+ok(/lab-equity/.test(L.equitySvg(an.equity)) && !L.equitySvg([{ v: 1 }]), 'curva de equity SVG');
 const st = L.strategyMetrics(trades.filter(t => t.setup === 'Ruptura'));
 ok(st.n === 6 && st.expectancy === 80 && st.pf === Infinity, 'métricas de estrategia sobre el mismo P&L');
 
