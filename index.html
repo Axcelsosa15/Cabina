@@ -180,8 +180,10 @@
 .lab-empty { border: 1px dashed var(--line-strong); border-radius: 12px; padding: 28px 16px; text-align: center; color: var(--muted); }
 .lab-block { margin: 0 0 18px; }
 .lab-block h3 { margin: 0 0 8px; font-size: 13px; }
-svg.lab-bars, svg.lab-scatter { width: 100%; height: auto; max-width: 100%; }
+svg.lab-bars, svg.lab-scatter, svg.lab-equity { width: 100%; height: auto; max-width: 100%; }
 svg.lab-bars text, svg.lab-scatter text { fill: var(--muted); font-size: 11px; }
+svg.lab-equity { color: var(--text); }
+.session-note { border-left: 3px solid var(--line-strong); padding: 8px 12px; margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 svg.lab-bars .bar.pos, svg.lab-scatter circle.pos { fill: var(--positive); }
 svg.lab-bars .bar.neg, svg.lab-scatter circle.neg { fill: var(--negative); }
 svg.lab-bars .bar.neu { fill: var(--dim); }
@@ -5725,6 +5727,10 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
 
 <section class="deck" aria-label="Inicio de Cabina"><h1 class="deck-t">Inicio</h1></section>
 <div class="lab-kpis" id="cabKpis" aria-label="Indicadores de sesión"></div>
+<section class="panel" id="cabEquityPanel">
+  <header><h2>Curva de equity</h2><span class="meta" id="cabEquityMeta">mismas operaciones que Analítica</span></header>
+  <div class="body" id="cabEquity"></div>
+</section>
 <section class="panel" id="cabRecentPanel">
   <header><h2>Operaciones recientes</h2><span class="meta">mismas filas que Operaciones</span></header>
   <div class="body" id="cabRecent"></div>
@@ -6220,6 +6226,7 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
     </select>
     <span class="sp"></span>
     <span class="mono" id="cuN" style="font-size:12.5px;color:var(--muted)"></span>
+    <button type="button" class="btn sm" id="cuVerOps">Ver operaciones</button>
   </div>
   <div class="stack">
     <section class="panel">
@@ -6646,6 +6653,10 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
   </div>
   <div class="lab-kpis" id="jrMoodStats"></div>
   <div class="stack" id="jrList"></div>
+  <section class="panel" id="jrCabinaDays">
+    <header><h2>Notas de sesión de Operaciones</h2><span class="meta" id="jrCabinaDaysMeta"></span></header>
+    <div class="body" id="jrCabinaDaysBody"></div>
+  </section>
   <section class="panel">
     <header><h2>Biblioteca de lecciones</h2><span class="meta" id="jrLessonsMeta"></span></header>
     <div class="body" id="jrLessons"></div>
