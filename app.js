@@ -40,7 +40,7 @@
     if (document.getElementById("fuentesGoogle")) return;
     const l = document.createElement("link");
     l.id = "fuentesGoogle"; l.rel = "stylesheet";
-    l.href = "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap";
+    l.href = "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap";
     document.head.appendChild(l);
   }
   if (document.readyState === "complete") cargaFuentes(); else window.addEventListener("load", cargaFuentes, { once: true });
@@ -1348,6 +1348,14 @@
     "Ajustes": "Settings",
     "Admin": "Admin",
     "Analizar": "Analyze",
+    "Analítica": "Analytics",
+    "Calendario": "Calendar",
+    "Capital": "Capital",
+    "Correlaciones": "Correlations",
+    "Desarrollar": "Develop",
+    "Inicio": "Home",
+    "Insights": "Insights",
+    "Perfil": "Profile",
     "Herramientas": "Tools",
     "Mejorar": "Improve",
     "Operar": "Trade",
@@ -2714,7 +2722,10 @@
   }, { passive: true });
 
   function showTab(name) {
+    name = String(name || "").split(/[?#&]/)[0];
     if (name === "journal") name = "futuros";
+    const alias = { rendimiento: "analitica", analytics: "analitica", estadisticas: "edge", stats: "edge", trades: "operaciones", calendar: "calendario", correlations: "correlaciones" };
+    if (alias[name]) name = alias[name];
     if (!document.querySelector(`.tab[data-tab="${name}"]`)) name = "cabina";
     if (state.tab && !switchingTabScroll) tabScrollPositions.set(state.tab, window.scrollY);
     switchingTabScroll = true;
@@ -2728,8 +2739,12 @@
     aLaVista(document.querySelector("#tabnav .tabbtn.active"));
     $("editToggle").hidden = name !== "cabina";
     if (name !== "cabina" && state.editing) setEditing(false);
-    try { if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name); } catch {}
+    try {
+      const next = location.pathname + location.search + "#" + name;
+      if (location.pathname + location.search + location.hash !== next) history.replaceState(null, "", next);
+    } catch {}
     redrawCharts();
+    try { if (globalThis.CabinaAtlas) CabinaAtlas.sync(name); } catch (e) { /* la vista no puede tumbar el router */ }
     /* El idioma, después de que la pestaña entrante haya pintado: su cromo
        estático acaba de entrar en el layout y aún está en español. */
     if (typeof traduce === "function") traduce(idioma());
@@ -15522,6 +15537,7 @@
     for (const [nombre, fn] of lista) {
       try { fn(); } catch (e) { rotos.push(nombre); try { console.error("render «" + nombre + "» falló:", e); } catch (x) { } }
     }
+    try { if (globalThis.CabinaAtlas) CabinaAtlas.sync(); } catch (e) { /* un repintado de vista no bloquea el resto */ }
     if (rotos.length) {
       try { flash(`No se pudieron actualizar: ${rotos.join(", ")}. Los números de esa zona pueden estar viejos — recarga la página.`); } catch (x) { }
     }
@@ -15724,14 +15740,21 @@
         openSettingsDialog("settingsExport");
       } },
 
-      { g: "Ir a", i: "▣", t: "Resumen", s: "C", f: ir("cabina") },
+      { g: "Ir a", i: "▣", t: "Inicio", s: "C", f: ir("cabina") },
+      { g: "Ir a", i: "▣", t: "Resumen", s: "", f: ir("cabina") },
+      { g: "Ir a", i: "▤", t: "Operaciones", s: "", f: ir("operaciones") },
+      { g: "Ir a", i: "▤", t: "Calendario", s: "", f: ir("calendario") },
+      { g: "Ir a", i: "▤", t: "Diario", s: "", f: ir("diario") },
+      { g: "Ir a", i: "▥", t: "Analítica", s: "", f: ir("analitica") },
       { g: "Ir a", i: "▤", t: "Futuros · resumen", s: "F", f: ir("futuros", "resumen") },
       { g: "Ir a", i: "▤", t: "Futuros · cuentas", s: "", f: ir("futuros", "cuentas") },
       { g: "Ir a", i: "▤", t: "Futuros · análisis", s: "", f: ir("futuros", "analisis") },
       { g: "Ir a", i: "▤", t: "Futuros · diario", s: "J", f: ir("futuros", "diario") },
       { g: "Ir a", i: "▤", t: "Futuros · pre-sesión", s: "P", f: ir("futuros", "presesion") },
       { g: "Ir a", i: "◷", t: "Historial", s: "", f: ir("historial") },
-      { g: "Ir a", i: "▥", t: "Rendimiento", s: "", f: ir("edge") },
+      { g: "Ir a", i: "▥", t: "Estadísticas", s: "", f: ir("edge") },
+      { g: "Ir a", i: "▥", t: "Correlaciones", s: "", f: ir("correlaciones") },
+      { g: "Ir a", i: "▥", t: "Insights", s: "", f: ir("insights") },
       { g: "Ir a", i: "◫", t: "Inversiones", s: "", f: ir("invest") },
       { g: "Ir a", i: "◱", t: "Estrategias", s: "", f: ir("playbook") },
       { g: "Ir a", i: "◰", t: "Oportunidades", s: "", f: ir("ideas") },
@@ -18482,6 +18505,122 @@
     window.CABINA_ACTUALIZACION = { comprobar: comprobar, pintaEstado: pintaEstado, huella: huella };
   })();
 
+  /* Atlas consulta el registro por esta puerta. No calcula P&L por su cuenta. */
+  window.CabinaBridge = {
+    trades(spec) { return FUT.filtered(spec || { tipo: "futuros" }); },
+    accounts() { return (state.settings.accounts || []).slice(); },
+    playbooks() { return coll("playbooks").items.slice(); },
+    setupName(id) { const p = coll("playbooks").get(id); return p ? p.name : ""; },
+    accountName(id) { return acctLabel(id); },
+    sessionOf(t) { return tradeSes(t); },
+    sessionLabel(id) { return sesShort(id); },
+    journalList() {
+      const m = state.settings.meta;
+      return (m && Array.isArray(m.diario) ? m.diario : []).map(x => Object.assign({}, x, { tradeIds: (x.tradeIds || []).slice() }));
+    },
+    journalUpsert(entry) {
+      if (!entry || !entry.id) return null;
+      state.settings.meta = state.settings.meta || {};
+      const list = Array.isArray(state.settings.meta.diario) ? state.settings.meta.diario.slice() : [];
+      const i = list.findIndex(x => x.id === entry.id);
+      const rec = Object.assign({}, i >= 0 ? list[i] : {}, entry, { updatedAt: Date.now() });
+      if (i >= 0) list[i] = rec; else list.push(rec);
+      state.settings.meta.diario = list;
+      persistSettings(true);
+      return rec.id;
+    },
+    journalDelete(id) {
+      const m = state.settings.meta;
+      if (!m || !Array.isArray(m.diario)) return false;
+      const next = m.diario.filter(x => x.id !== id);
+      if (next.length === m.diario.length) return false;
+      m.diario = next;
+      persistSettings(true);
+      return true;
+    },
+    thesisNotes() {
+      const out = [];
+      coll("tesis").items.forEach(t => {
+        (Array.isArray(t.diario) ? t.diario : []).forEach(d => {
+          out.push({ id: t.id, date: d.fecha || d.date || "", mood: d.emocion || "", body: d.obs || d.accion || "", title: t.titulo || t.title || t.name || "Tesis" });
+        });
+      });
+      return out;
+    },
+    uid(p) { return uid(p || "dj"); },
+    newTrade() { openTrade(null, "futuros"); },
+    openTrade(id) { const t = coll("trades").get(id); if (t) openTrade(t); },
+    openStudy(id, lesson, diaryId) {
+      const t = coll("trades").get(id);
+      showTab("estudio");
+      if ($("studyTradeSearch")) $("studyTradeSearch").value = "";
+      if ($("studyTradeFrom")) $("studyTradeFrom").value = "";
+      if ($("studyTradeTo")) $("studyTradeTo").value = "";
+      if ($("studyTradeInstrument")) $("studyTradeInstrument").value = "";
+      if ($("studyTradeDirection")) $("studyTradeDirection").value = "";
+      if ($("studyTradeAccount") && t) $("studyTradeAccount").value = t.accountId || "";
+      estudioTradeSeleccionado = String(id);
+      try { renderEstudio(); renderEstudioTrades(); estudioCargarReview(String(id)); } catch (e) { /* el formulario sigue siendo el de Estudio */ }
+      const ta = $("studyTradeLesson");
+      if (ta && lesson && !String(ta.value || "").trim()) {
+        ta.value = lesson;
+        const st = $("studyTradeSaveState");
+        if (st) st.textContent = "Lección traída del diario" + (diaryId ? " (" + diaryId + ")" : "") + ". Guarda la revisión para conservarla en Estudio.";
+      }
+    },
+    openImport() { showTab("futuros"); setFtView("diario"); const p = $("panelImportar"); if (p && p.scrollIntoView) p.scrollIntoView({ block: "start" }); },
+    openBackup() { showTab("ajustes"); const p = $("panelDatos"); if (p && p.scrollIntoView) p.scrollIntoView({ block: "start" }); },
+    openSession(date) { if (date) ft.day = date; showTab("futuros"); setFtView("diario"); },
+    exportCsv(rows) {
+      const lista = rows || [];
+      if (!lista.length) return;
+      descarga("cabina-operaciones-" + new Date().toISOString().slice(0, 10) + ".csv", tablaCsv(HS_CSV, lista), "text/csv;charset=utf-8");
+    },
+    deleteIds(ids) {
+      let n = 0;
+      (ids || []).forEach(id => {
+        const prev = coll("trades").get(id);
+        if (prev && prev.type !== "inversion" && FUT.deleteTrade(id)) n++;
+      });
+      return n;
+    },
+    bulkPatch(ids, patch) {
+      const p = patch || {};
+      let n = 0;
+      (ids || []).forEach(id => {
+        const prev = coll("trades").get(id);
+        if (!prev || prev.type === "inversion") return;
+        const next = {};
+        if (p.quality === "A" || p.quality === "B" || p.quality === "C") next.quality = p.quality;
+        if (p.addTag) {
+          const have = String(prev.tags || "").split(",").map(s => s.trim()).filter(Boolean);
+          const tag = String(p.addTag).trim().slice(0, 40);
+          if (tag && !have.includes(tag)) have.push(tag);
+          next.tags = have.join(", ");
+        }
+        if (Object.keys(next).length && FUT.updateTrade(id, next)) n++;
+      });
+      return n;
+    },
+    goto(tab) { showTab(tab); },
+    economia() { return FUT.economia(); },
+    ciclos() { return FUT.ciclos(); },
+    edgeSeries() {
+      const P = mxP();
+      return mxOps().map(t => {
+        const n = mxNeto(t, P);
+        return n ? { id: t.id, date: t.date, time: t.time, pnl: n.neto } : null;
+      }).filter(Boolean);
+    },
+    riskLine() {
+      try {
+        const ev = FUT.evaluateRules(FUT.selectedAccountId() || null);
+        return ev && ev.status ? ev.status : "";
+      } catch (e) { return ""; }
+    },
+    traduce() { if (typeof traduce === "function") traduce(idioma()); }
+  };
+
 })();
 
   /* Navegación móvil «Más»: reutiliza los botones originales y showTab(), sin duplicar rutas ni estado. */
@@ -18491,13 +18630,13 @@
     const overlay = document.getElementById("mobileMoreOv");
     const close = document.getElementById("mobileMoreClose");
     if (!nav || !trigger || !overlay || !close) return;
-    const secondary = new Set(["cuentas", "edge", "historial", "playbook", "ideas", "calc", "ajustes"]);
+    const dock = new Set(["cabina", "futuros", "invest", "estudio"]);
     let previousOverflow = "";
     const sheet = overlay.querySelector(".mobile-more-sheet");
     const menuItems = [...overlay.querySelectorAll("[data-mobile-more-tab]")];
     function syncMoreActive() {
       const active = nav.querySelector(".tabbtn.active");
-      const isSecondary = !!(active && secondary.has(active.dataset.tab));
+      const isSecondary = !!(active && !dock.has(active.dataset.tab));
       trigger.classList.toggle("active", isSecondary);
       if (isSecondary) trigger.setAttribute("aria-current", "page");
       else trigger.removeAttribute("aria-current");

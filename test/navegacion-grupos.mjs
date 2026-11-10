@@ -4,10 +4,10 @@ import { chromium } from 'playwright';
 import { sirvePublicado } from './publicado.mjs';
 
 const groups = {
-  operar: { first: 'cabina', tabs: ['cabina', 'futuros', 'cuentas'] },
-  analizar: { first: 'historial', tabs: ['historial', 'edge'] },
-  mejorar: { first: 'playbook', tabs: ['playbook', 'estudio'] },
-  portafolio: { first: 'invest', tabs: ['invest'] },
+  operar: { first: 'cabina', tabs: ['cabina', 'operaciones', 'calendario', 'diario', 'futuros'] },
+  analizar: { first: 'analitica', tabs: ['analitica', 'edge', 'correlaciones', 'insights', 'historial'] },
+  desarrollar: { first: 'estudio', tabs: ['estudio', 'playbook'] },
+  capital: { first: 'cuentas', tabs: ['cuentas', 'invest'] },
   herramientas: { first: 'ideas', tabs: ['ideas', 'calc'] },
   sistema: { first: 'ajustes', tabs: ['ajustes'] }
 };
@@ -40,8 +40,8 @@ try {
       allVisible: [...document.querySelectorAll('#tabnav .tabbtn')].every(b => getComputedStyle(b).display !== 'none'),
       groupLabel: document.querySelector('#navGroupBar [data-group="operar"]')?.textContent.trim()
     }));
-    check(allTabs.length === 11 && initial.routes.length === 11 &&
-      allTabs.every(tab => initial.routes.includes(tab)), theme + ': all original 11 routes retained');
+    check(allTabs.length === 17 && initial.routes.length === 17 &&
+      allTabs.every(tab => initial.routes.includes(tab)), theme + ': seventeen routes, including the original eleven');
     check(initial.groups.length === 7 && initial.shown && initial.groups.includes('todas') && initial.allVisible,
       theme + ': six task groups plus All keep legacy direct routes accessible');
     check(initial.groupLabel === (theme === 'dark' ? 'Trade' : 'Operar'),
@@ -100,9 +100,9 @@ try {
       firstHeading: document.querySelector('.mobile-more-label')?.textContent.trim(),
       overflow: document.documentElement.scrollWidth > innerWidth + 1
     }));
-    check(mobile.barHidden && mobile.dock && mobile.headings === 5 && mobile.firstHeading === 'Trade',
+    check(mobile.barHidden && mobile.dock && mobile.headings === 6 && mobile.firstHeading === 'Trade',
       width + 'px: mobile dock intact and More translated');
-    check(mobile.menuItems.length === 7 && mobile.menuItems.includes('historial') && mobile.menuItems.includes('ajustes'),
+    check(mobile.menuItems.length === 13 && mobile.menuItems.includes('operaciones') && mobile.menuItems.includes('historial') && mobile.menuItems.includes('ajustes'),
       width + 'px: every secondary route remains in More');
     check(!mobile.overflow, width + 'px: no page-wide horizontal overflow');
     for (const target of ['historial', 'ajustes']) {

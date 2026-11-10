@@ -21,7 +21,7 @@
 
    Vigilado por test/pwa.mjs. */
 
-var CACHE = 'cabina-v4';
+var CACHE = 'cabina-v5';
 
 /* El casco: lo mínimo para que la página pinte sin red. Es exactamente lo que
    publica `pagina.yml`; si divergen, test/pwa.mjs se pone rojo. */
@@ -29,6 +29,7 @@ var CASCO = [
   './',
   './index.html',
   './app.js',
+  './atlas.js',
   './appearance.js',
   './discipline.js',
   './session-break.js',

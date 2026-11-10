@@ -74,6 +74,7 @@ jobs:
           # cascaron: pinta la cabecera y nada mas. Se verifica byte a byte
           # abajo, igual que el HTML.
           cp app.js sitio/app.js
+          cp atlas.js sitio/atlas.js
           cp appearance.js sitio/appearance.js
           cp discipline.js sitio/discipline.js
           cp session-break.js sitio/session-break.js

@@ -55,8 +55,8 @@
 
   /* Fondo de primera pintura: coherente con la elección guardada. */
   :root { color-scheme: light; }
-  html { background: #f3f5f8; }
-  body { margin: 0; background: #f3f5f8; color: #121a26; }
+  html { background: #FAF8F4; }
+  body { margin: 0; background: #FAF8F4; color: #16181C; }
   :root[data-cabina-theme="dark"] { color-scheme: dark; }
   html[data-cabina-theme="dark"], html[data-cabina-theme="dark"] body { background: #0b0e13; color: #e8ecf2; }
   img { max-width: 100%; }
@@ -119,7 +119,9 @@
     #tabnav[data-filter-enabled="true"][data-active-group="operar"] > .tabbtn:not([data-nav-group="operar"]),
     #tabnav[data-filter-enabled="true"][data-active-group="analizar"] > .tabbtn:not([data-nav-group="analizar"]),
     #tabnav[data-filter-enabled="true"][data-active-group="mejorar"] > .tabbtn:not([data-nav-group="mejorar"]),
+    #tabnav[data-filter-enabled="true"][data-active-group="desarrollar"] > .tabbtn:not([data-nav-group="desarrollar"]),
     #tabnav[data-filter-enabled="true"][data-active-group="portafolio"] > .tabbtn:not([data-nav-group="portafolio"]),
+    #tabnav[data-filter-enabled="true"][data-active-group="capital"] > .tabbtn:not([data-nav-group="capital"]),
     #tabnav[data-filter-enabled="true"][data-active-group="herramientas"] > .tabbtn:not([data-nav-group="herramientas"]),
     #tabnav[data-filter-enabled="true"][data-active-group="sistema"] > .tabbtn:not([data-nav-group="sistema"]) { display: none !important; }
   }
@@ -417,7 +419,7 @@ tbody tr:last-child td{border-bottom:0}
        La jerarquía guía el ojo; si todo pesa igual, nada pesa. Los números
        financieros van SIEMPRE en tabular: una columna de cifras que baila
        al actualizarse se lee peor y se compara mal. */
-    --font-ui:   "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", sans-serif;
+    --font-ui:   "Geist", "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", sans-serif;
     --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
     --t-display: 34px;   /* el balance: un número por pantalla */
     --t-primary: 21px;   /* la métrica de una sección */
@@ -2869,7 +2871,7 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
       background: none; border-radius: 0; box-shadow: none; opacity: 1; transform: none;
       font-size: 10px; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap;
     }
-    #tabnav .tabbtn[data-tab="cabina"]::after { content: "Resumen"; }
+    #tabnav .tabbtn[data-tab="cabina"]::after { content: "Inicio"; }
     #tabnav .tabbtn[data-tab="futuros"]::after { content: "Futuros"; }
     #tabnav .tabbtn[data-tab="cuentas"]::after { content: "Cuentas"; }
     #tabnav .tabbtn[data-tab="edge"]::after { content: "Rendimiento"; }
@@ -2944,7 +2946,13 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   #tabnav .tabbtn[data-tab="playbook"],
   #tabnav .tabbtn[data-tab="ideas"],
   #tabnav .tabbtn[data-tab="calc"],
-  #tabnav .tabbtn[data-tab="ajustes"] { display: none !important; }
+  #tabnav .tabbtn[data-tab="ajustes"],
+  #tabnav .tabbtn[data-tab="operaciones"],
+  #tabnav .tabbtn[data-tab="calendario"],
+  #tabnav .tabbtn[data-tab="diario"],
+  #tabnav .tabbtn[data-tab="analitica"],
+  #tabnav .tabbtn[data-tab="correlaciones"],
+  #tabnav .tabbtn[data-tab="insights"] { display: none !important; }
   #tabnav .tabbtn[data-tab="cabina"],
   #tabnav .tabbtn[data-tab="futuros"],
   #tabnav .tabbtn[data-tab="invest"],
@@ -3039,19 +3047,19 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   /* Concepto A: semantic, accessible tokens. The existing dark values are
      legacy fallbacks; these are the effective values of the light experience. */
   /* Cabina Ledger · Concepto A elevado: pizarra fría, cifras claras, acento sobrio. */
-  --bg: #f3f5f8 !important;
+  --bg: #FAF8F4 !important;
   --surface: #ffffff !important;
-  --surface-2: #f7f9fc !important;
+  --surface-2: #f6f3ec !important;
   --surface-3: #eef2f7 !important;
-  --line: #dde3ec !important;
+  --line: #ECE7DD !important;
   --line-strong: #c5cedb !important;
-  --text: #121a26 !important;
+  --text: #16181C !important;
   --muted: #4a5568 !important;
   --dim: #5b6779 !important;
   --accent: #1d4ed8 !important;
   --accent-ink: #f8fafc !important;
-  --positive: #166534 !important;
-  --negative: #b42318 !important;
+  --positive: #127A4B !important;
+  --negative: #B8382C !important;
   --warning: #92400e !important;
   --info: #1d4ed8 !important;
   --accent-soft: rgba(29,78,216,.08) !important;
@@ -5261,6 +5269,73 @@ html[data-cabina-visual-theme] .study-searchrow:focus-within{border-color:var(--
 html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)}
 
 
+/* Atlas · superficies de Bitácora sobre los tokens de Cabina. */
+:root:not([data-cabina-theme="dark"]) nav.tabnav#tabnav > .tabbtn[data-tab].active {
+  background: #16181C !important; color: #fff !important; border-color: transparent !important; box-shadow: none !important;
+}
+:root:not([data-cabina-theme="dark"]) #tabnav .tabbtn.active .sidebar-icon { color: #fff; opacity: 1; }
+@media (min-width: 1100px) {
+  #atlasRailFoot { margin-top: auto; display: grid; gap: 4px; padding-top: 12px; }
+  nav.tabnav#tabnav > .tabbtn[data-tab="ajustes"] { margin-top: 0; }
+  #atlasSync { margin: 0; color: var(--muted); font: 500 11px/1.4 var(--font-ui); }
+  #atlasCuenta {
+    min-height: 40px; border: 1px solid transparent; border-radius: 6px; background: transparent;
+    color: var(--muted); font: 500 13px/1.4 var(--font-ui); text-align: left; padding: 8px 12px; cursor: pointer;
+  }
+  #atlasCuenta:hover, #atlasCuenta:focus-visible { background: var(--surface-2); color: var(--text); outline: 2px solid var(--accent); }
+}
+@media (max-width: 1099px) { #atlasRailFoot { display: none; } }
+.atlas-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 0 0 14px; }
+.atlas-kpi, .atlas-card { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 1px 2px rgba(22,24,28,.04); }
+.atlas-kpi { padding: 12px 14px; display: grid; gap: 4px; }
+.atlas-kpi span, .atlas-meta, .atlas-note { color: var(--muted); font: 500 12px/1.45 var(--font-ui); }
+.atlas-kpi strong, .atlas-metric { font: 650 22px/1.2 var(--font-ui); font-variant-numeric: tabular-nums lining-nums; letter-spacing: -.03em; }
+.atlas-card { padding: 14px 16px; margin: 0 0 12px; }
+.atlas-card h3, .atlas-h { margin: 0 0 8px; font: 650 15px/1.3 var(--font-ui); }
+.atlas-bar, .atlas-actions, .atlas-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; }
+.atlas-bar input, .atlas-bar select, .atlas-card input, .atlas-card select, .atlas-card textarea {
+  min-height: 40px; border: 1px solid var(--control-border, var(--line-strong)); border-radius: var(--r-sm); background: var(--control-bg, var(--surface));
+  color: var(--control-text, var(--text)); font: 500 14px/1.3 var(--font-ui); padding: 6px 8px;
+}
+.atlas-card textarea { width: 100%; min-height: 88px; }
+.atlas-card label { display: grid; gap: 4px; font: 600 12px/1.3 var(--font-ui); color: var(--text); }
+.atlas-bar button, .atlas-actions button, .atlas-row-actions button, .atlas-chips button, .atlas-cols summary, .atlas-table td button, .atlas-version button {
+  min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text);
+  font: 600 13px/1.2 var(--font-ui); padding: 6px 10px; cursor: pointer;
+}
+.atlas-bar button[aria-pressed="true"], .atlas-primary { background: var(--text); color: var(--surface); border-color: var(--text); }
+.atlas-table { width: 100%; border-collapse: collapse; font: 500 12.5px/1.35 var(--font-ui); font-variant-numeric: tabular-nums lining-nums; }
+.atlas-table th, .atlas-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.atlas-table th { font-size: 11.5px; font-weight: 500; letter-spacing: .03em; color: var(--muted); }
+.atlas-table th button { border: 0; background: transparent; color: var(--muted); font: inherit; cursor: pointer; padding: 0; }
+.atlas-table tr:hover td { background: var(--surface-2); }
+.atlas-scroll { overflow-x: auto; max-width: 100%; }
+.atlas-eq { width: 100%; height: auto; color: var(--text); }
+.atlas-eq circle { fill: var(--text); }
+.atlas-bars { display: grid; gap: 6px; }
+.atlas-bar-row { display: grid; grid-template-columns: minmax(72px, 140px) 1fr auto; gap: 8px; align-items: center; width: 100%; border: 0; background: transparent; color: var(--text); text-align: left; cursor: pointer; padding: 4px 0; font: 500 12.5px/1.3 var(--font-ui); }
+.atlas-bar-row i { display: block; height: 8px; border-radius: 99px; background: var(--line-strong); }
+.atlas-bar-row i.pos { background: var(--positive); } .atlas-bar-row i.neg { background: var(--negative); }
+.pos { color: var(--positive); } .neg { color: var(--negative); }
+.atlas-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.atlas-dow { color: var(--muted); font: 600 11px/1 var(--font-ui); text-align: center; }
+.atlas-day { min-height: 64px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px; cursor: pointer; }
+.atlas-day.mute { visibility: hidden; }
+.atlas-day.pos { box-shadow: inset 3px 0 0 var(--positive); } .atlas-day.neg { box-shadow: inset 3px 0 0 var(--negative); }
+.atlas-empty { margin: 8px 0; color: var(--muted); }
+.atlas-desfavorable { border-left: 3px solid var(--negative); }
+.atlas-favorable { border-left: 3px solid var(--positive); }
+.atlas-informativo { border-left: 3px solid var(--line-strong); }
+.atlas-modal { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(22,24,28,.28); padding: 16px; }
+.atlas-modal[hidden] { display: none; }
+.atlas-dialog { width: min(440px, 100%); background: var(--surface); color: var(--text); border-radius: 12px; padding: 16px; border: 1px solid var(--line); }
+.atlas-cols { position: relative; }
+.atlas-colgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+@media (max-width: 700px) {
+  .atlas-bar input, .atlas-bar select, .atlas-card input, .atlas-card select, .atlas-card textarea { font-size: 16px; }
+  .atlas-kpi strong { font-size: 20px; }
+}
+
 </style>
 </head>
 <body>
@@ -5304,26 +5379,35 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
 <nav id="navGroupBar" class="cab-nav-groups" aria-label="Áreas de trabajo">
   <button type="button" class="cab-nav-group" data-group="todas" aria-pressed="true">Todas</button>
   <button type="button" class="cab-nav-group" data-group="operar" data-first-tab="cabina" aria-pressed="false">Operar</button>
-  <button type="button" class="cab-nav-group" data-group="analizar" data-first-tab="historial" aria-pressed="false">Analizar</button>
-  <button type="button" class="cab-nav-group" data-group="mejorar" data-first-tab="playbook" aria-pressed="false">Mejorar</button>
-  <button type="button" class="cab-nav-group" data-group="portafolio" data-first-tab="invest" aria-pressed="false">Portafolio</button>
+  <button type="button" class="cab-nav-group" data-group="analizar" data-first-tab="analitica" aria-pressed="false">Analizar</button>
+  <button type="button" class="cab-nav-group" data-group="desarrollar" data-first-tab="estudio" aria-pressed="false">Desarrollar</button>
+  <button type="button" class="cab-nav-group" data-group="capital" data-first-tab="cuentas" aria-pressed="false">Capital</button>
   <button type="button" class="cab-nav-group" data-group="herramientas" data-first-tab="ideas" aria-pressed="false">Herramientas</button>
   <button type="button" class="cab-nav-group" data-group="sistema" data-first-tab="ajustes" aria-pressed="false">Sistema</button>
 </nav>
 <nav class="tabnav" id="tabnav" data-active-group="operar" data-filter-enabled="false" aria-label="Secciones">
-  <h2 class="sidebar-section">Operación</h2>
-  <button class="tabbtn active" data-tab="cabina" data-nav-group="operar" title="Resumen"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 3l9 8M5 10v11h14V10M9 21v-7h6v7"/></svg>Resumen</button>
+  <h2 class="sidebar-section">Operar</h2>
+  <button class="tabbtn active" data-tab="cabina" data-nav-group="operar" title="Inicio"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 3l9 8M5 10v11h14V10M9 21v-7h6v7"/></svg>Inicio</button>
+  <button class="tabbtn" data-tab="operaciones" data-nav-group="operar" title="Operaciones"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Operaciones</button>
+  <button class="tabbtn" data-tab="calendario" data-nav-group="operar" title="Calendario"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v15H4zM4 9h16M8 3v4M16 3v4"/></svg>Calendario</button>
+  <button class="tabbtn" data-tab="diario" data-nav-group="operar" title="Diario"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg>Diario</button>
   <button class="tabbtn" data-tab="futuros" data-nav-group="operar" title="Futuros"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18 10 12l4 3 6-10M14 5h6v6"/></svg>Futuros<span class="n" id="nFut"></span></button>
-  <button class="tabbtn" data-tab="cuentas" data-nav-group="operar" title="Cuentas"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v15H4zM4 9h16M14 14h6"/></svg>Cuentas<span class="n" id="nCuentas"></span></button>
-  <h2 class="sidebar-section">Análisis</h2>
+  <h2 class="sidebar-section">Analizar</h2>
+  <button class="tabbtn" data-tab="analitica" data-nav-group="analizar" title="Analítica"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h16M6 16V9m6 7V5m6 11v-4"/></svg>Analítica</button>
+  <button class="tabbtn" data-tab="edge" data-nav-group="analizar" title="Estadísticas"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h17M5 16l5-5 4 3 6-9"/></svg>Estadísticas</button>
+  <button class="tabbtn" data-tab="correlaciones" data-nav-group="analizar" title="Correlaciones"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18 10 8l4 6 6-10"/></svg>Correlaciones</button>
+  <button class="tabbtn" data-tab="insights" data-nav-group="analizar" title="Insights"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M9 21h6M8 13a6 6 0 1 1 8 0l-1 2H9z"/></svg>Insights</button>
   <button class="tabbtn" data-tab="historial" data-nav-group="analizar" title="Historial"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2 7M3 4v7h7m2-4v6l4 2"/></svg>Historial<span class="n" id="nHist"></span></button>
-  <button class="tabbtn" data-tab="edge" data-nav-group="analizar" title="Rendimiento"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h17M5 16l5-5 4 3 6-9"/></svg>Rendimiento</button>
-  <button class="tabbtn" data-tab="playbook" data-nav-group="mejorar" title="Estrategias"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v18H5zM8 8h8M8 12h8M8 16h5"/></svg>Estrategias<span class="n" id="nPlaybook"></span></button>
-  <button class="tabbtn" data-tab="estudio" data-nav-group="mejorar" title="Estudio"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h7l2 2 2-2h7v15h-7l-2 2-2-2H3zM12 6v15"/></svg>Estudio<span class="n" id="nResearch"></span></button>
-  <button class="tabbtn" data-tab="invest" data-nav-group="portafolio" title="Inversiones"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10h4v10m4 0V4h4v16m4 0V8"/></svg>Inversiones<span class="n" id="nInvest"></span></button>
-  <button class="tabbtn" data-tab="ideas" data-nav-group="herramientas" title="Oportunidades"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M9 21h6M8 13a6 6 0 1 1 8 0l-1 2H9z"/></svg>Oportunidades<span class="n" id="nIdeas"></span></button>
-  <h2 class="sidebar-section">Admin</h2>
+  <h2 class="sidebar-section">Desarrollar</h2>
+  <button class="tabbtn" data-tab="estudio" data-nav-group="desarrollar" title="Estudio"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h7l2 2 2-2h7v15h-7l-2 2-2-2H3zM12 6v15"/></svg>Estudio<span class="n" id="nResearch"></span></button>
+  <button class="tabbtn" data-tab="playbook" data-nav-group="desarrollar" title="Estrategias"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v18H5zM8 8h8M8 12h8M8 16h5"/></svg>Estrategias<span class="n" id="nPlaybook"></span></button>
+  <h2 class="sidebar-section">Capital</h2>
+  <button class="tabbtn" data-tab="cuentas" data-nav-group="capital" title="Cuentas"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v15H4zM4 9h16M14 14h6"/></svg>Cuentas<span class="n" id="nCuentas"></span></button>
+  <button class="tabbtn" data-tab="invest" data-nav-group="capital" title="Inversiones"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10h4v10m4 0V4h4v16m4 0V8"/></svg>Inversiones<span class="n" id="nInvest"></span></button>
+  <h2 class="sidebar-section">Herramientas</h2>
+  <button class="tabbtn" data-tab="ideas" data-nav-group="herramientas" title="Oportunidades"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M5 8l2 2m10-2 2-2M8 13a6 6 0 1 1 8 0l-1 2H9z"/></svg>Oportunidades<span class="n" id="nIdeas"></span></button>
   <button class="tabbtn" data-tab="calc" data-nav-group="herramientas" title="Calculadora"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v18H5zM8 7h8M8 12h2m4 0h2m-8 4h2m4 0h2"/></svg>Calculadora</button>
+  <div class="atlas-rail-foot" id="atlasRailFoot"><p class="atlas-sync" id="atlasSync" aria-hidden="true"></p><button type="button" id="atlasCuenta">Perfil</button></div>
   <button class="tabbtn" data-tab="ajustes" data-nav-group="sistema" title="Ajustes"><svg class="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/></svg>Ajustes</button>
 
   <button type="button" id="mobileMoreBtn" aria-label="Más secciones" aria-haspopup="dialog" aria-expanded="false" aria-controls="mobileMoreOv">Más</button>
@@ -5338,12 +5422,19 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
     </header>
     <div class="mobile-more-grid">
       <h3 class="mobile-more-label">Operar</h3>
-      <button type="button" data-mobile-more-tab="cuentas">Cuentas</button>
+      <button type="button" data-mobile-more-tab="operaciones">Operaciones</button>
+      <button type="button" data-mobile-more-tab="calendario">Calendario</button>
+      <button type="button" data-mobile-more-tab="diario">Diario</button>
       <h3 class="mobile-more-label">Analizar</h3>
+      <button type="button" data-mobile-more-tab="analitica">Analítica</button>
+      <button type="button" data-mobile-more-tab="edge">Estadísticas</button>
+      <button type="button" data-mobile-more-tab="correlaciones">Correlaciones</button>
+      <button type="button" data-mobile-more-tab="insights">Insights</button>
       <button type="button" data-mobile-more-tab="historial">Historial</button>
-      <button type="button" data-mobile-more-tab="edge">Rendimiento</button>
-      <h3 class="mobile-more-label">Mejorar</h3>
+      <h3 class="mobile-more-label">Desarrollar</h3>
       <button type="button" data-mobile-more-tab="playbook">Estrategias</button>
+      <h3 class="mobile-more-label">Capital</h3>
+      <button type="button" data-mobile-more-tab="cuentas">Cuentas</button>
       <h3 class="mobile-more-label">Herramientas</h3>
       <button type="button" data-mobile-more-tab="ideas">Oportunidades</button>
       <button type="button" data-mobile-more-tab="calc">Calculadora</button>
@@ -5452,6 +5543,7 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
 <div class="study-modal" id="studyReader" role="dialog" aria-modal="true" aria-labelledby="studyReaderTitle"><div class="study-dialog" style="max-width:1180px"><div class="study-dialog-head"><h3 id="studyReaderTitle">Lectura</h3><button type="button" class="btn ghost sm" id="studyReaderClose" aria-label="Cerrar lectura">✕</button></div><div class="study-dialog-body" style="display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:22px"><div><div id="studyReaderMeta" class="muted" style="font-size:11px;margin-bottom:12px"></div><nav id="studyReaderToc" aria-label="Contenido del documento" hidden style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px"></nav><article id="studyReaderContent" style="max-width:72ch;font-size:14px;line-height:1.75"></article></div><aside id="studyReaderContext" style="border-left:1px solid var(--line);padding-left:16px;font-size:12px"></aside></div><div class="study-dialog-foot"><span style="flex:1"></span><button type="button" class="btn ghost sm" id="studyReaderCloseBottom">Cerrar</button><button type="button" class="btn primary sm" id="studyReaderEdit">Editar documento</button></div></div></div>
 <!-- ======================= CABINA ======================= -->
 <div class="tab active" data-tab="cabina">
+<div id="atlasInicio"></div>
 <!-- ORDEN VISUAL. Las preguntas se responden en el orden en que se hacen:
      ¿puedo operar? ¿cuánto tengo? ¿cuánto llevo hoy? ¿cuánto riesgo queda?
      Todas viven en la cuenta, así que la cuenta va primero y a lo ancho.
@@ -5958,6 +6050,7 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
      Las inversiones no entran nunca: tradesOf("futuros") las deja fuera por tipo. -->
 <div class="tab" data-tab="cuentas">
 <section class="deck" aria-label="Resumen de Cuentas"><h1 class="deck-t">Cuentas</h1></section>
+<div id="atlasCuentas"></div>
 
   <div class="toolbar">
     <select id="cuFiltro" aria-label="Qué cuentas se ven">
@@ -5994,8 +6087,15 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
   </div>
 </div>
 
+<div class="tab" data-tab="operaciones"><section class="deck" aria-label="Operaciones"><h1 class="deck-t">Operaciones</h1></section><div id="opsBody"></div></div>
+<div class="tab" data-tab="calendario"><section class="deck" aria-label="Calendario"><h1 class="deck-t">Calendario</h1></section><div id="calBody"></div></div>
+<div class="tab" data-tab="diario"><section class="deck" aria-label="Diario"><h1 class="deck-t">Diario</h1></section><div id="diaBody"></div></div>
+<div class="tab" data-tab="analitica"><section class="deck" aria-label="Analítica"><h1 class="deck-t">Analítica</h1></section><div id="anaBody"></div></div>
+<div class="tab" data-tab="correlaciones"><section class="deck" aria-label="Correlaciones"><h1 class="deck-t">Correlaciones</h1></section><div id="corrBody"></div></div>
+<div class="tab" data-tab="insights"><section class="deck" aria-label="Insights"><h1 class="deck-t">Insights</h1></section><div id="insBody"></div></div>
 <div class="tab" data-tab="edge">
-<section class="deck" aria-label="Resumen de Métricas y Edge"><h1 class="deck-t">Rendimiento</h1></section>
+<section class="deck" aria-label="Resumen de Métricas y Edge"><h1 class="deck-t">Estadísticas</h1></section>
+<div id="atlasEdge"></div>
 
   <div class="toolbar">
     <label class="cab-filter-field"><span class="cab-filter-caption">Cuenta</span><select id="mxAcct" aria-label="Cuenta"><option value="">todas las cuentas</option></select></label>
@@ -6109,6 +6209,7 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
 
 <div class="tab" data-tab="playbook">
 <section class="deck" aria-label="Resumen del Playbook"><h1 class="deck-t">Estrategias</h1></section>
+<div id="atlasEstrategias"></div>
 
   <nav class="tabnav sub" id="pbNav" aria-label="Tipo de inversión o trading"></nav>
   <div class="toolbar">
@@ -6525,6 +6626,7 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
 <script src="./session-break.js"></script>
 <script src="./experience.js"></script>
 <script src="./app.js"></script>
+<script src="./atlas.js"></script>
 
 
 

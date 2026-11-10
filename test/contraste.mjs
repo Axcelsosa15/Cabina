@@ -50,7 +50,7 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(raiz, 'index.html'), 'utf8');
-const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc', 'ajustes'];
+const TABS = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc', 'ajustes', 'operaciones', 'calendario', 'diario', 'analitica', 'correlaciones', 'insights'];
 
 /* El fondo de la página en cada tema, para medir el `fill` de los gráficos.
    Son los dos valores que el propio index.html declara, no una suposición. */

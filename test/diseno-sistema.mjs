@@ -39,16 +39,21 @@ exige(html.includes('scroll-padding-top'),
   'scroll-padding-top: con barra fija, un ancla sin él aterriza debajo de ella');
 
 /* ---------- lo que la capa visual NO puede haberse llevado ---------- */
-for (const tab of ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc', 'ajustes']) {
+for (const tab of ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc', 'ajustes', 'operaciones', 'calendario', 'diario', 'analitica', 'correlaciones', 'insights']) {
   exige(html.includes('data-tab="' + tab + '"'), 'la pestaña debe conservarse: ' + tab);
 }
 exige(/<script[^>]+src=["'](\.\/)?app\.js["']/.test(html),
   'la aplicación vive en app.js: la CSP declara script-src \'self\' sin unsafe-inline');
 
-/* ---------- la paleta descartada no debe volver de tapadillo ---------- */
-for (const hex of ['#FAF8F4', '#16915B', '#D6483B', '#3D6FB0']) {
-  exige(!html.includes(hex),
-    'vuelve un color de la paleta descartada de la PR #75 (' + hex + '): lo tapa el !important de 744c1a3 y sería CSS muerto — ver docs/DISENO.md');
+/* El fondo cálido de Bitácora es el token vivo del tema claro. El verde y el
+   rojo de marca (#16915B, #D6483B) no llegan a AA, así que la tinta es
+   #127A4B y #B8382C. Esos hex, y el azul descartado, no vuelven como texto. */
+exige(/#faf8f4/i.test(html), 'el fondo claro es el crema de Bitácora (#FAF8F4)');
+exige(html.includes('#127A4B') && html.includes('#B8382C'),
+  'la tinta positiva y negativa del tema claro es la pareja accesible');
+for (const hex of ['#16915B', '#D6483B', '#3D6FB0']) {
+  exige(!html.toLowerCase().includes(hex.toLowerCase()),
+    'vuelve un color que no cumple contraste o que la PR #75 descartó (' + hex + ')');
 }
 
 if (fallos.length) {
@@ -56,4 +61,4 @@ if (fallos.length) {
   for (const f of fallos) console.error('   · ' + f);
   process.exit(1);
 }
-console.log('PASS diseno-sistema: ergonomía, cinco capas, once pestañas, app.js y la paleta descartada sin volver');
+console.log('PASS diseno-sistema: ergonomía, cinco capas, diecisiete pestañas, app.js y tinta accesible');

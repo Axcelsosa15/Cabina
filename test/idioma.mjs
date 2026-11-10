@@ -126,8 +126,8 @@ console.log('\n═══ 2 · traducir no se lleva por delante lo que había den
      más fácil de dar por traducida. */
   const pend = await p.evaluate(() => [...document.querySelectorAll('#tabnav .tabbtn')]
     .map(b => { const n = [...b.childNodes].find(x => x.nodeType === 3 && x.data.trim()); return n ? n.data.trim() : ''; })
-    .filter(t => /[áéíóúñÁÉÍÓÚÑ]/.test(t) || t === 'Futuros' || t === 'Inversiones' || t === 'Calculadora' || t === 'Cuentas' || t === 'Historial' || t === 'Ajustes'));
-  ok(pend.length === 0, 'ninguna de las once pestañas se queda en español', pend.join(' | ') || 'ninguna');
+    .filter(t => /[áéíóúñÁÉÍÓÚÑ]/.test(t) || t === 'Futuros' || t === 'Inversiones' || t === 'Calculadora' || t === 'Cuentas' || t === 'Historial' || t === 'Ajustes' || t === 'Inicio' || t === 'Operaciones' || t === 'Calendario' || t === 'Diario' || t === 'Correlaciones' || t === 'Oportunidades'));
+  ok(pend.length === 0, 'ninguna pestaña se queda en español', pend.join(' | ') || 'ninguna');
   await ctx.close();
 }
 
