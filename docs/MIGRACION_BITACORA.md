@@ -9,6 +9,7 @@ Bitácora es la referencia de navegación y de presentación. Cabina sigue siend
 - El diario vive en `settings.meta.diario` y viaja con la configuración que ya se guarda. Una nota de tesis se muestra en solo lectura; no se copia.
 - Las versiones de una estrategia son playbooks de futuros unidos por `parentId`. Cada versión cuenta solo las operaciones con su `setupId`. Menos de 30 no certifica estabilidad.
 - Los enlaces entre módulos son la query de la URL más el hash. `showTab` conserva la query. `#rendimiento` abre Analítica. `#estadisticas` abre Estadísticas. `#journal` sigue abriendo la sesión de Futuros.
+- Cuenta, setup y fechas de Estadísticas se escriben en esa misma query. Al abrir Estadísticas se leen de la URL, y «Ver operaciones» abre Operaciones con el mismo recorte.
 
 ## Navegación
 

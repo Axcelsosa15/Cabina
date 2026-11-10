@@ -1133,7 +1133,12 @@
     const host = document.getElementById("atlasEdge");
     if (!host || !bridge()) return;
     const series = bridge().edgeSeries();
-    if (!series.length) { host.innerHTML = `<p class="atlas-note">Sin serie de Estadísticas en el filtro actual.</p>`; return; }
+    const link = `<div class="atlas-actions"><button type="button" id="edgeVerOps">Ver operaciones</button></div>`;
+    if (!series.length) {
+      host.innerHTML = link + `<p class="atlas-note">Sin serie de Estadísticas en el filtro actual.</p>`;
+      host.querySelector("#edgeVerOps").addEventListener("click", () => bridge().goto("operaciones"));
+      return;
+    }
     const pnls = series.map(x => x.pnl);
     const st = statsOf(pnls);
     const dd = drawdownOf(pnls);
@@ -1141,9 +1146,10 @@
     const step = (max - min) / 8 || 1;
     const buckets = Array.from({ length: 8 }, (_, i) => ({ lo: min + i * step, n: 0 }));
     pnls.forEach(p => { const i = Math.min(7, Math.floor((p - min) / step)); buckets[i].n++; });
-    host.innerHTML = `<section class="atlas-card"><h3>Histograma de P&amp;L</h3><p class="atlas-note">Serie de Estadísticas (neto de esa pestaña), no una fórmula nueva.</p>${bars(buckets.map(b => [money(b.lo), b.n]), "hist")}</section>
+    host.innerHTML = link + `<section class="atlas-card"><h3>Histograma de P&amp;L</h3><p class="atlas-note">Serie de Estadísticas (neto de esa pestaña), no una fórmula nueva.</p>${bars(buckets.map(b => [money(b.lo), b.n]), "hist")}</section>
       <section class="atlas-card"><h3>Underwater</h3><p class="atlas-metric">Máximo ${esc(money(dd.max))} · duración ${dd.duration} operaciones</p>${equitySvg(dd.underwater)}</section>
       <p class="atlas-note">Mediana ${esc(money(st.median))} · P25 ${esc(money(st.p25))} · P75 ${esc(money(st.p75))}. El catálogo completo sigue en esta pestaña.</p>`;
+    host.querySelector("#edgeVerOps").addEventListener("click", () => bridge().goto("operaciones"));
   }
 
   function confirmDialog(text) {

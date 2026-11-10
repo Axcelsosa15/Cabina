@@ -1349,6 +1349,7 @@
     "Admin": "Admin",
     "Analizar": "Analyze",
     "Analítica": "Analytics",
+    "Ver operaciones": "View trades",
     "Calendario": "Calendar",
     "Capital": "Capital",
     "Correlaciones": "Correlations",
@@ -2743,6 +2744,7 @@
       const next = location.pathname + location.search + "#" + name;
       if (location.pathname + location.search + location.hash !== next) history.replaceState(null, "", next);
     } catch {}
+    if (name === "edge") aplicaFiltroCompartido();
     redrawCharts();
     try { if (globalThis.CabinaAtlas) CabinaAtlas.sync(name); } catch (e) { /* la vista no puede tumbar el router */ }
     /* El idioma, después de que la pestaña entrante haya pintado: su cromo
@@ -15246,10 +15248,31 @@
       <div class="qnote${c.N < 30 ? " warn" : ""}">${c.N < 30 ? "<b>Con menos de 30 operaciones esta simulación remuestrea ruido.</b> " : ""}${esc(sup)}. 10.000 caminos, semilla fija. ${esc(v.nota)}</div>`;
   }
 
-  $("mxAcct").addEventListener("change", e => { mx.acct = e.target.value; renderEdge(); });
-  $("mxSetup").addEventListener("change", e => { mx.setup = e.target.value; renderEdge(); });
-  $("mxDesde").addEventListener("change", e => { mx.desde = e.target.value; renderEdge(); });
-  $("mxHasta").addEventListener("change", e => { mx.hasta = e.target.value; renderEdge(); });
+  function publicaFiltroMx() {
+    try {
+      const p = new URLSearchParams(location.search);
+      const put = (k, v) => { if (v) p.set(k, v); else p.delete(k); };
+      put("acct", mx.acct);
+      put("setup", mx.setup);
+      put("desde", mx.desde);
+      put("hasta", mx.hasta);
+      const search = p.toString();
+      const next = location.pathname + (search ? "?" + search : "") + location.hash;
+      if (location.pathname + location.search + location.hash !== next) history.replaceState(null, "", next);
+    } catch (e) { /* la URL no puede tumbar el cálculo */ }
+  }
+  function aplicaFiltroCompartido() {
+    const p = new URLSearchParams(location.search);
+    mx.acct = p.get("acct") || "";
+    mx.setup = p.get("setup") || "";
+    mx.desde = p.get("desde") || "";
+    mx.hasta = p.get("hasta") || "";
+    if ($("mxEdge")) renderEdge();
+  }
+  $("mxAcct").addEventListener("change", e => { mx.acct = e.target.value; publicaFiltroMx(); renderEdge(); });
+  $("mxSetup").addEventListener("change", e => { mx.setup = e.target.value; publicaFiltroMx(); renderEdge(); });
+  $("mxDesde").addEventListener("change", e => { mx.desde = e.target.value; publicaFiltroMx(); renderEdge(); });
+  $("mxHasta").addEventListener("change", e => { mx.hasta = e.target.value; publicaFiltroMx(); renderEdge(); });
   [["mxCom", "com"], ["mxRf", "rf"], ["mxCap", "cap"], ["mxRiesgo", "riesgo"], ["mxStop", "stop"]].forEach(([id, k]) =>
     $(id).addEventListener("input", e => { const v = mxNum(e.target.value); mxGuarda({ [k]: k === "cap" ? (v > 0 ? v : null) : (v == null ? 0 : Math.max(k === "rf" ? -100 : 0, v)) }); renderEdge(); }));
   $("mxManualNeto").addEventListener("change", e => { mxGuarda({ manualNeto: e.target.checked }); renderEdge(); });

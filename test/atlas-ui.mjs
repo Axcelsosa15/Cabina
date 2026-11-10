@@ -123,6 +123,24 @@ try {
   }));
   ok(collapsed.title === "Diario" && collapsed.toggle, "cada destino tiene tooltip y el sidebar se puede cerrar");
 
+  await page.evaluate(() => {
+    FUT.createTrade({ instrument: "MES", date: "2026-09-19", time: "12:00", stop: 5000, entry: 5000, exit: 5010, qty: 1, direction: "long" });
+  });
+  await page.waitForFunction(() => (localStorage.getItem("cabina-mnq:v1") || "").includes("2026-09-19"), null, { timeout: 4000 });
+  await page.goto(base + "?acct=atlas1#edge", { waitUntil: "load" });
+  await page.waitForFunction(() => window.FUT && document.querySelector("#mxAcct") && document.querySelector("#mxAcct").value === "atlas1");
+  const muestra = await page.locator("#mxN").innerText();
+  ok(/N = 2 /.test(muestra), "Estadísticas abre con la cuenta de la URL", muestra);
+  await page.locator("#mxAcct").selectOption("");
+  await page.waitForFunction(() => !location.search.includes("acct="));
+  ok(true, "quitar la cuenta en Estadísticas limpia la URL");
+  await page.locator("#mxAcct").selectOption("atlas1");
+  await page.waitForFunction(() => location.search.includes("acct=atlas1"));
+  await page.locator("#edgeVerOps").click();
+  await page.waitForFunction(() => location.hash === "#operaciones" && location.search.includes("acct=atlas1"));
+  await page.waitForFunction(() => document.querySelectorAll("#opsBody tbody tr").length === 2);
+  ok(true, "Ver operaciones abre el mismo recorte de cuenta");
+
   await ctx.close();
 
   const dark = await browser.newContext({ viewport: { width: 1440, height: 900 } });
