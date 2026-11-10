@@ -92,6 +92,12 @@ const inicio = await page.evaluate(() => {
 ok(inicio.bandHidden && inicio.traceVisible && inicio.kpis > 0,
   'Inicio sin reglas: huella compacta y KPIs visibles', JSON.stringify(inicio));
 
+const curva = await page.evaluate(() => {
+  const svg = document.querySelector('#cabEquity svg.lab-equity, #cabEquity svg.chart');
+  return { svg: !!svg, empty: !!(document.querySelector('#cabEquity .lab-empty')) };
+});
+ok(curva.svg || curva.empty, 'Inicio pinta la curva de equity o el vacío honesto', JSON.stringify(curva));
+
 await page.click('#tabnav .tabbtn[data-tab="diario"]');
 await page.click('#jrNew');
 await page.waitForSelector('#ov.open, #ov.edopen, #ov[class*="open"]');
@@ -112,6 +118,13 @@ const saved = await page.evaluate(() => {
 ok(saved.n >= 1 && /Lección de prueba|Esperar confirmación/.test(saved.cards),
   'la entrada de diario se pinta', saved.cards.slice(0, 120));
 
+const sesPanel = await page.evaluate(() => {
+  const body = document.getElementById('jrCabinaDaysBody');
+  return { exists: !!body, text: body ? body.innerText : '' };
+});
+ok(sesPanel.exists && /no se copian|notas del día|Operaciones/i.test(sesPanel.text),
+  'Diario enseña notas de sesión sin copiarlas', sesPanel.text.slice(0, 140));
+
 await page.click('#tabnav .tabbtn[data-tab="estadisticas"]');
 const stats = await page.evaluate(() => document.getElementById('stEstLista')?.innerText || '');
 ok(stats.length > 0, 'Estadísticas usa el catálogo real', stats.slice(0, 80));
@@ -120,6 +133,16 @@ await page.click('#tabnav .tabbtn[data-tab="insights"]');
 const ins = await page.evaluate(() => document.getElementById('insList')?.innerText || '');
 ok(/evidencia|insight|operacion|operación|muestra|suficiente/i.test(ins),
   'Insights habla de evidencia real, no de frases vacías', ins.slice(0, 120));
+
+await page.click('#tabnav .tabbtn[data-tab="cuentas"]');
+await page.click('#cuVerOps');
+await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros', null, { timeout: 15000 });
+ok(true, 'Cuentas abre Operaciones');
+
+await page.click('#tabnav .tabbtn[data-tab="edge"]');
+await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'edge');
+const estLink = await page.evaluate(() => !!document.querySelector('#mxAnalytics [data-lab-est]'));
+ok(estLink, 'Analítica enlaza el catálogo de Estadísticas');
 
 await page.goto('http://127.0.0.1:' + srv.address().port + '/#operaciones', { waitUntil: 'load' });
 await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros', null, { timeout: 15000 });
