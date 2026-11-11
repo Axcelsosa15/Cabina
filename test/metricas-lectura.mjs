@@ -27,10 +27,8 @@ try {
     await page.goto('http://127.0.0.1:' + server.address().port + '/', {waitUntil:'load'});
     await page.waitForFunction(()=>typeof window.FUT !== 'undefined',null,{timeout:20000});
     const gotoEdge = async () => {
-      if (scenario.width < 701) {
-        await page.locator('#mobileMoreBtn').click();
-        await page.locator('#mobileMoreOv [data-mobile-more-tab="edge"]').click();
-      } else await page.locator('#tabnav .tabbtn[data-tab="edge"]').click();
+      /* Analítica está en el dock en móvil; no abrir Más buscando edge. */
+      await page.locator('#tabnav .tabbtn[data-tab="edge"]').click();
     };
     await gotoEdge();
     const defaultHelp = await page.evaluate(() => ({

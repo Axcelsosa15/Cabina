@@ -54,8 +54,8 @@ try {
         viewport:innerWidth
       }));
       check(!info.overflow&&info.deck<=info.viewport,width+'px · compact header without horizontal overflow');
-      await page.locator('#mobileMoreBtn').click();
-      await page.locator('#mobileMoreOv [data-mobile-more-tab="edge"]').click();
+      /* Analítica vive en el dock primario Bitácora, no en Más. */
+      await page.locator('#tabnav .tabbtn[data-tab="edge"]').click();
     }
     // First-use education is opt-in; the user can hide it permanently afterward.
     if (width===1440) await page.locator('#tabnav .tabbtn[data-tab="edge"]').click();
