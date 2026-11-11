@@ -297,7 +297,15 @@ for (const [w, h, nombre] of ANCHOS) {
      1440px y a 834px este defecto es invisible. Un título más largo rompería
      también los anchos grandes; no se persigue el peor caso posible, se fija el
      que una persona puede escribir y que hoy desborda. */
-  await p.click('[data-tab="estudio"]');
+  /* Estudio ya no va en el dock Bitácora: en móvil está en Más. El click al
+     tabbtn oculto cuelga Playwright (visible/enabled/stable) y tumbaba CI. */
+  if (porMas.includes('estudio')) {
+    await p.click('#mobileMoreBtn');
+    await p.click('#mobileMoreOv [data-mobile-more-tab="estudio"]');
+    await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });
+  } else {
+    await p.click('[data-tab="estudio"]');
+  }
   await p.click('#studyNew');
   await p.fill('#studyTitle', 'ElPrecioDeUnContratoDeMicroNasdaqEnLaRejillaDeTicksDeCuartoDePunto');
   await p.fill('#studyQuestion', 'Una palabra larga en el titulo no puede desplazar la pagina.');
