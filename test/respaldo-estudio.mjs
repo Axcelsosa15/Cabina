@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 import { nubeDoble } from './nube-doble.mjs';
 import { quieto } from './espera.mjs';
+import { sirvePublicado } from './publicado.mjs';
 
 const fallos = [], errores = [];
 /* El tercer argumento es el DATO, y faltaba: este `ok` sólo aceptaba (c, t), así
@@ -10,7 +11,17 @@ const fallos = [], errores = [];
    resto de la suite lo imprime —ver contraste.mjs— y por eso un rojo de aquí en
    CI no se podía diagnosticar. */
 const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? '   ' + d : ''}`); if (!c) fallos.push(t); };
-const url = new URL('../index.html', import.meta.url);
+/* SE SIRVE POR HTTP, no por file://. Medido el 2026-11-11, 50 corridas de cada
+   forma intercaladas en la misma maquina: por file:// esta suite falla 9 veces,
+   por HTTP ninguna (Fisher exacto, una cola, p = 0,0013). Con file:// la pagina
+   recibe a veces un localStorage VACIO tras recargar —solo sobrevive la clave
+   que el doble de nube replanta en cada carga— y la aplicacion arranca sin
+   sesion: nube.ses null y state.nube false con el token presente y valido.
+   Las otras 87 suites ya usan este servidor. */
+const servidor = sirvePublicado();
+await new Promise(r => servidor.listen(0, '127.0.0.1', r));
+servidor.unref();
+const url = new URL('http://127.0.0.1:' + servidor.address().port + '/');
 const D = nubeDoble();
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 const data = 'data:image/png;base64,' + PNG.toString('base64');
@@ -131,6 +142,6 @@ try {
   ok(restaurada.research.r2.thesis === 'Tesis comprobable.' && restaurada.research.r2.evidenceAgainst === 'Dato contrario.' &&
     restaurada.research.r2.openQuestions === '¿Qué dato falta?', 'la restauración conserva las secciones del brief');
   ok(errores.length === 0, 'sin errores de página: ' + errores.join(' | '));
-} finally { await browser.close(); }
+} finally { await browser.close(); servidor.close(); }
 console.log(`\n  fallos: ${fallos.length}`);
 process.exitCode = fallos.length ? 1 : 0;

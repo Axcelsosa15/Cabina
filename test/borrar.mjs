@@ -9,6 +9,18 @@
      · en masa sólo se borra lo que está EN PANTALLA. */
 import { chromium } from 'playwright';
 import { quieto, arrancada, trasGuardar, enDisco, abreCabOps } from './espera.mjs';
+import { sirvePublicado } from './publicado.mjs';
+
+/* SE SIRVE POR HTTP, no por file://. Medido el 2026-11-11: bajo file:// la
+   pagina recibe a veces un localStorage VACIO tras recargar —9 rojos de 50
+   contra 0 de 50 por HTTP en respaldo-estudio, Fisher exacto una cola
+   p = 0,0013—. De las 21 suites que navegaban a file://, solo cuatro ademas
+   RECARGABAN, que es lo que destapa el almacen vacio: las dos que fallaban de
+   forma conocida y esta. Se convierte por prevencion, con la causa ya medida. */
+const servidorHttp = sirvePublicado();
+await new Promise(r => servidorHttp.listen(0, '127.0.0.1', r));
+servidorHttp.unref();
+const URL_APP = 'http://127.0.0.1:' + servidorHttp.address().port + '/';
 const errs = [], fallos = [];
 const F = new Date('2026-09-17T14:00:00Z').getTime();
 const b = await chromium.launch();
@@ -20,7 +32,7 @@ async function pagina(semilla) {
   p.on('pageerror', e => errs.push('PAGEERROR: ' + e.message));
   await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
   await p.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(JSON.stringify(semilla))});}catch(e){}`);
-  await p.goto('file://' + process.cwd() + '/../index.html'); await arrancada(p, '.tabbtn');
+  await p.goto(URL_APP); await arrancada(p, '.tabbtn');
   return p;
 }
 const base = extra => Object.assign({ settings: { meta: {}, accounts: [CUENTA], rules: [] } }, extra || {});
@@ -92,7 +104,7 @@ console.log('\n═══ el clic selecciona; borrar dice qué cambia ═══')
   q.on('pageerror', e => errs.push('PAGEERROR(reapertura): ' + e.message));
   await q.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
   await q.addInitScript(`try{const g=${JSON.stringify(enDiscoAhora)};if(g.datos)localStorage.setItem('cabina-mnq:v1',g.datos);if(g.papelera)localStorage.setItem('cabina-mnq:v1:papelera',g.papelera);}catch(e){}`);
-  await q.goto('file://' + process.cwd() + '/../index.html'); await arrancada(q, '.tabbtn');
+  await q.goto(URL_APP); await arrancada(q, '.tabbtn');
   /* Que el borrado siguiera hecho al reabrir es la mitad que faltaba: con la
      semilla re-sembrándose en cada navegación, las 2 operaciones volvían solas y
      «vuelven las 6» pasaba sin que «Deshacer» hiciera nada. Medido: 6 en disco

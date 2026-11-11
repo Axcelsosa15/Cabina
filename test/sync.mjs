@@ -6,6 +6,18 @@ import { abreCabOps } from './espera.mjs';
    se escribe por las puertas que usa una persona (el editor de operaciones, los
    botones de la tarjeta, los selectores) y se lee del DOM de las dos pestañas. */
 import { chromium } from 'playwright';
+import { sirvePublicado } from './publicado.mjs';
+
+/* SE SIRVE POR HTTP, no por file://. Medido el 2026-11-11: bajo file:// la
+   pagina recibe a veces un localStorage VACIO tras recargar —9 rojos de 50
+   contra 0 de 50 por HTTP en respaldo-estudio, Fisher exacto una cola
+   p = 0,0013—. De las 21 suites que navegaban a file://, solo cuatro ademas
+   RECARGABAN, que es lo que destapa el almacen vacio: las dos que fallaban de
+   forma conocida y esta. Se convierte por prevencion, con la causa ya medida. */
+const servidorHttp = sirvePublicado();
+await new Promise(r => servidorHttp.listen(0, '127.0.0.1', r));
+servidorHttp.unref();
+const URL_APP = 'http://127.0.0.1:' + servidorHttp.address().port + '/';
 
 const errs = [], fallos = [];
 const F = new Date('2026-09-18T14:00:00Z').getTime();
@@ -32,7 +44,7 @@ await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(
    que sin la guarda el refresh del test 10 restauraría el estado inicial y la
    prueba de persistencia se aprobaría a sí misma sin probar nada. */
 await p.addInitScript(`try{if(!localStorage.getItem('cabina-mnq:v1'))localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(JSON.stringify(SEM))});}catch(e){}`);
-await p.goto('file://' + process.cwd() + '/../index.html');
+await p.goto(URL_APP);
 await p.waitForTimeout(1200);
 
 /* ---------- utilidades ---------- */
@@ -262,7 +274,7 @@ const p2 = await ctx.newPage();
 p2.on('pageerror', e => errs.push('PAGEERROR(recarga): ' + e.message));
 await p2.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
 await p2.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(guardado)});}catch(e){}`);
-await p2.goto('file://' + process.cwd() + '/../index.html'); await p2.waitForTimeout(1400);
+await p2.goto(URL_APP); await p2.waitForTimeout(1400);
 const post = await foto(p2);
 /* ANCLAJE. Comparar una foto de la app contra otra foto de la app no distingue
    «todo sobrevive» de «todo está vacío en los dos lados»: si foto() devolviera

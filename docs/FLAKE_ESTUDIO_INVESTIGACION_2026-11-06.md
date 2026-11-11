@@ -1,4 +1,51 @@
-# `estudio-investigacion` no es un flake de test · 6 de noviembre de 2026
+# `estudio-investigacion` y `respaldo-estudio` · investigación y causa
+
+> ## RESUELTO el 11 de noviembre de 2026 — y el título de este documento era falso
+>
+> Este documento se tituló **«no es un flake de test»**. Lo era: la causa está
+> en CÓMO la prueba carga la página, no en el producto. Se deja escrito entero
+> —incluidas las hipótesis equivocadas— porque el recorrido vale, pero su
+> conclusión original estaba mal y quien lo lea debe saberlo desde la primera
+> línea.
+>
+> **La causa.** Las dos suites navegaban a `file://`. Bajo ese esquema la página
+> recibe a veces un `localStorage` **vacío** tras recargar, y la aplicación
+> arranca sin sesión con el token presente y válido. Medido con 50 corridas de
+> cada forma intercaladas en la misma máquina, mismo código salvo el esquema:
+>
+> | forma de cargar | rojos |
+> | --- | --- |
+> | `file://` | **9 de 50** (18 %) |
+> | `http` | **0 de 50** |
+>
+> Fisher exacto, una cola: **p = 0,0013**.
+>
+> **CORRECCIÓN, la misma tarde:** escribí primero que «sólo tres suites navegan
+> a `file://`». Era falso, y por un error de método que este documento ya
+> denuncia en otro sitio: busqué una sola forma de escribirlo. De 131 ficheros
+> en `test/`, **89 usan el servidor y 21 navegan a `file://`** — la mayoría con
+> `'file://' + process.cwd()`, que mi primer grep no veía.
+>
+> Y eso obliga a afinar la causa, porque si bastara `file://` fallarían 21 y no
+> dos. El ingrediente que faltaba es **recargar después de escribir**: de las 21,
+> sólo cuatro hacían las dos cosas —`respaldo-estudio`, `estudio-investigacion`,
+> `borrar.mjs` y `sync.mjs`—, y dos de esas cuatro son justo los flakes
+> conocidos. `file://` habilita el almacén vacío; la recarga es lo que lo
+> destapa.
+>
+> **El arreglo**, en `d678e0a`: las dos se sirven por HTTP como las demás. No se
+> tocó ninguna aserción. Verificado con 20 corridas de cada una: **0 rojos**,
+> cuando a sus tasas anteriores lo esperable eran ~4 y ~5.
+>
+> **Y una corrección al apartado «Por qué esto importa más que un rojo
+> intermitente», más abajo:** decía que un usuario podía perder investigación
+> guardada. **No es así.** El almacén vacío sólo se ha observado bajo `file://`,
+> que es como lo cargaba la prueba y no como lo usa nadie. Ningún usuario sobre
+> `https` estuvo expuesto a esto. Esa advertencia la escribí yo y exageraba el
+> riesgo; se mantiene abajo tachada en vez de borrada.
+
+---
+
 
 ## El síntoma
 
@@ -51,9 +98,13 @@ escritura** (`saves: []`), así que el culpable no está en el arranque.
 
 ## Por qué esto importa más que un rojo intermitente
 
-Si una escritura con estado viejo puede sobreescribir un snapshot que ya tenía
+> **CORREGIDO el 11/11/2026: este apartado es falso.** Se deja por honestidad
+> del registro. El almacén vacío sólo ocurre bajo `file://`, que es como cargaba
+> la prueba; ningún usuario sobre `https` estuvo expuesto. Ver la cabecera.
+
+~~Si una escritura con estado viejo puede sobreescribir un snapshot que ya tenía
 los documentos, **un usuario puede perder investigación guardada**. La pantalla
-diría «guardado» y el documento no estaría. Es la otra mitad de la regla que
+diría «guardado» y el documento no estaría.~~ Es la otra mitad de la regla que
 este repositorio ya escribió —«un cambio que no se guardó no puede parecer
 guardado»—: un cambio que SÍ se guardó tampoco puede desguardarse solo.
 
