@@ -2865,6 +2865,11 @@
     if (p.trade) {
       pendingTradeOpen = p.trade;
       tryOpenPendingTrade();
+    } else if (pendingTradeOpen) {
+      /* Sin trade= en esta ruta: cancela lo pendiente. Si no, un id que nunca
+         llega (o que el usuario ya abandonó) queda armado y el próximo
+         subscribe de trades puede abrir el editor encima de otra edición. */
+      pendingTradeOpen = null;
     }
     if (state.tab === "diario" && p.date) { const el = $("jrSearch"); if (el) el.value = p.date; }
     if (state.tab === "estudio" && p.date) {
