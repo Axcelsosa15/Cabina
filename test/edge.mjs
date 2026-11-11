@@ -132,6 +132,7 @@ console.log('\n═══ MUESTRA ═══');
 ok(/Muestra insuficiente, no confiar en las métricas/.test(await txt(pg, '#mxAviso')), 'con N = 8 < 30 aparece el aviso');
 
 console.log('\n═══ TAMAÑO DE POSICIÓN ═══');
+await pg.evaluate(() => { const d = document.getElementById('mxRiskTools'); if (d) d.open = true; });
 await pg.selectOption('#mxFuente', 'mano'); await pg.fill('#mxRiesgo', '200'); await pg.fill('#mxStop', '20'); await quieto(pg);
 ok(await v(pg, 'contratos') === '4', 'floor(200 ÷ (20 × $2 + $2)) = floor(200 ÷ 42) = 4', await v(pg, 'contratos'));
 ok(await v(pg, 'usado') === '168.00', 'riesgo real 4 × 42 = $168', await v(pg, 'usado'));

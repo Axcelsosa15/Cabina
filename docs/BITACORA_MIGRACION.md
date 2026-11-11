@@ -83,15 +83,15 @@ No hay un segundo motor de P&L ni un backend de Bitácora.
 
 ## Limitaciones pendientes
 
-- Analítica conserva los paneles de Edge (curva, tamaño, ruina) encima del
-  desglose Bitácora. No hay una segunda página de Rendimiento.
-- Inicio muestra KPIs del mes y, si no hay cierres, de todo el historial. La
-  pre-sesión y las cuentas prop siguen debajo, no se copió el dashboard de
-  Bitácora entero.
+- Analítica abre en curva + desglose. Tamaño y ruina viven en un disclosure;
+  no hay una segunda página de Rendimiento.
+- Inicio muestra KPIs, curva y recientes; cuentas/pre-sesión van en un
+  disclosure. No se copió el dashboard de Bitácora entero.
 - Cuentas fusiona caja/payouts/«sin dato» de Bitácora sobre el motor prop de
   Cabina. La UI de tarjetas no es un clon pixel a pixel.
-- Diario usa `coll("journal")`. Las notas de sesión de Futuros no se migran
-  automáticamente a entradas emocionales.
+- Diario usa `coll("journal")`. Las notas de sesión de Operaciones se listan
+  en solo lectura; no se copian al journal emocional hasta que el usuario
+  escribe una entrada.
 - MAE/MFE y emoción correlacionan sólo si el trade las trae. La semilla de
   Cabina no rellena MAE/MFE: se muestra «sin variación».
 - Bitácora exige login: las capturas comparativas usan su pantalla de acceso

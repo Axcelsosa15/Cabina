@@ -24,6 +24,10 @@ try {
     try {
       await page.goto('http://127.0.0.1:' + server.address().port + '/');
       await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
+      const opsFold = page.locator('#cabOpsFold');
+      check(await opsFold.count() === 1 && await opsFold.getAttribute('open') === null,
+        width + 'px · workstation de Inicio plegada debajo del dashboard');
+      await page.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
       const cabina = await page.evaluate(() => {
         const tab = document.querySelector('.tab[data-tab="cabina"]');
         const accts = document.getElementById('panelAccts');

@@ -15,6 +15,7 @@ try {
     page.on('pageerror', e => errors.push(e.message));
     await page.goto(`http://127.0.0.1:${server.address().port}/`);
     await page.waitForFunction(() => !!window.FUT);
+    await page.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
     const rule = await page.locator('#rules .rulec').nth(1).evaluate(el => {
       const input = el.querySelector('input.rvin').getBoundingClientRect();
       const note = el.querySelector('.rnow');
