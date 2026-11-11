@@ -3033,6 +3033,12 @@
   const cabLayoutZones = $("cabLayoutZones");
   let cabLayoutSignature = "";
   let cabLayoutEditorSignature = "";
+  function openCabOpsFold() {
+    /* Los paneles del lienzo viven dentro de #cabOpsFold (cerrado por defecto).
+       Sin abrirlo, getBoundingClientRect/offsetParent miden 0 y los asas no se ven. */
+    const fold = $("cabOpsFold");
+    if (fold && !fold.open) fold.open = true;
+  }
 
   function readCabLayout(prefs) {
     const saved = prefs.pages.cabina?.workspace;
@@ -3134,7 +3140,10 @@
 
   /* El rediseño Bitácora puede omitir el editor de columnas; no tumbar el boot. */
   if (cabLayoutEditor && cabLayoutZones && $("cabLayoutAdd") && $("cabLayoutReset")) {
-  cabLayoutEditor.addEventListener("toggle", () => applyCabLayout(readViewPrefs()));
+  cabLayoutEditor.addEventListener("toggle", () => {
+    if (cabLayoutEditor.open) openCabOpsFold();
+    applyCabLayout(readViewPrefs());
+  });
   $("cabLayoutAdd").addEventListener("click", () => {
     const prefs = readViewPrefs(), zones = readCabLayout(prefs);
     if (zones.length >= 6) return;
@@ -3315,6 +3324,7 @@
   }
   function canvasBegin() {
     if (!$("cabCanvasTools")) return;
+    openCabOpsFold();
     const saved = readViewPrefs().pages.cabina?.canvas?.[canvasDevice()];
     cabCanvasDraft = validCanvas(saved) ? structuredClone(saved) : captureCanvas();
     /* Lo guardado NO lleva visibilidad: la lleva prefs.hidden.cabina. Se siembra

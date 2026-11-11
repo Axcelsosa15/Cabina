@@ -20,7 +20,11 @@ try {
     await page.locator('#cabCanvasApply').click();
   };
   const rect = id => page.locator('#'+id).boundingBox();
+  /* Con fold cerrado (estado real al cargar), Editar debe abrirlo antes de medir. */
+  await page.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = false; });
   await edit();
+  assert.equal(await page.evaluate(() => !!document.getElementById('cabOpsFold')?.open), true);
+  assert.ok(await page.locator('#panelJournal [data-canvas-drag]').isVisible());
   await page.locator('#cabCanvasPanel').selectOption('panelRules');
   await place(1,150,6,8);
   let r=await rect('panelRules');
