@@ -261,6 +261,20 @@ await page.click('#tabnav .tabbtn[data-tab="futuros"]');
 await page.waitForTimeout(200);
 const qKept = await page.inputValue('#ftQ');
 ok(qKept === 'keep-me', 'ids residuales no limpian filtros al reentrar showTab', qKept);
+
+/* Misma query, otra pestaña: la clave de ruta incluye el tab. */
+await page.goto('http://127.0.0.1:' + srv.address().port + '/#futuros?date=2026-09-08', { waitUntil: 'load' });
+await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros', null, { timeout: 15000 });
+await page.evaluate(() => { location.hash = '#estudio?date=2026-09-08'; });
+await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'estudio', null, { timeout: 15000 });
+const sameQ = await page.evaluate(() => ({
+  tab: document.querySelector('.tab.active')?.dataset.tab,
+  from: document.getElementById('studyTradeFrom')?.value || '',
+  hash: location.hash
+}));
+ok(sameQ.tab === 'estudio' && sameQ.from === '2026-09-08',
+  'cambiar de pestaña con la misma query reaplica la ruta', JSON.stringify(sameQ));
+
 await page.goto('http://127.0.0.1:' + srv.address().port + '/#estudio?date=2026-09-08', { waitUntil: 'load' });
 await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'estudio', null, { timeout: 15000 });
 const estDeep = await page.evaluate(() => ({

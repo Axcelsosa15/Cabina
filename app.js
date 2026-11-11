@@ -2813,8 +2813,10 @@
     showTab(tab);
   }
   /* Evita reaplicar ?trade=/ids= en cada showTab (boot doble, paleta, etc.).
-     Sólo se vuelve a leer el hash cuando cambia o cuando goTo dejó pending. */
-  let appliedRouteSearch = null;
+     La clave incluye pestaña+query: `#futuros?date=` → `#estudio?date=` debe
+     volver a consumirse aunque el search coincida. */
+  let appliedRouteKey = null;
+  function routeKey(tab, search) { return String(tab || "") + "?" + String(search || ""); }
   function scrubHashParam(key) {
     const { name, search } = parseHash();
     const sp = new URLSearchParams(search);
@@ -2822,17 +2824,18 @@
     sp.delete(key);
     const q = sp.toString();
     try { history.replaceState(null, "", "#" + name + (q ? "?" + q : "")); } catch {}
-    appliedRouteSearch = q;
+    appliedRouteKey = routeKey(name, q);
   }
   function consumeRoute() {
     const search = parseHash().search;
     const pending = pendingRoute && Object.keys(pendingRoute).length ? pendingRoute : null;
     pendingRoute = null;
-    if (!pending && search === appliedRouteSearch) return;
+    const key = routeKey(state.tab, search);
+    if (!pending && key === appliedRouteKey) return;
     const fromHash = {};
     new URLSearchParams(search).forEach((v, k) => { fromHash[k] = v; });
     const p = Object.assign(fromHash, pending || {});
-    appliedRouteSearch = search;
+    appliedRouteKey = key;
     if (p.account && typeof FUT !== "undefined") FUT.setSelectedAccount(p.account);
     if (typeof ft !== "undefined") {
       if (p.setup) ft.setup = p.setup;
