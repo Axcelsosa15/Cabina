@@ -3153,12 +3153,25 @@
         w: Math.max(cabCanvasMedia.matches ? 4 : 3, Math.min(canvasCols(), Math.round((rect.width + 12) / step))),
         h: Math.max(4, Math.min(200, Math.ceil((Math.max(rect.height, panel.scrollHeight, 260) + 12) / 52))) };
     }).sort((a,b) => a.y - b.y || a.x - b.x);
+    /* UN PANEL OCULTO NO OCUPA SITIO, y antes sí lo ocupaba. Con display:none
+       getBoundingClientRect devuelve ceros y scrollHeight también, así que la
+       medida de arriba no da una caja vacía: da una de 3x6 plantada en (0,0)
+       —w cae a su mínimo de 3, y h sale de Math.max(0, 0, 260)—. Y como el
+       sort es por `y`, esos fantasmas se ordenaban los PRIMEROS y el bucle de
+       solape empujaba hacia abajo a los paneles de verdad. Bastaba ocultar UN
+       panel para que abrir el editor reescribiera posiciones que nadie eligió.
+       Se empaquetan primero los visibles, que es lo único que se midió de
+       verdad; los ocultos van después y debajo, para que al volver a
+       mostrarlos tengan hueco propio en vez de pisar a otro. */
     const placed = [];
-    items.forEach(item => {
+    const coloca = item => {
       item.x = Math.min(item.x, canvasCols() - item.w);
       while (placed.some(other => canvasOverlap(item, other))) item.y++;
       placed.push(item);
-    });
+    };
+    items.filter(item => !item.hidden).forEach(coloca);
+    const fondo = placed.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+    items.filter(item => item.hidden).forEach(item => { item.y = Math.max(item.y, fondo); coloca(item); });
     return items;
   }
   function paintCanvas(items) {
@@ -3276,11 +3289,18 @@
   $("cabCanvasReset").addEventListener("click", () => {
     const previous = readViewPrefs();
     const prefs = structuredClone(previous), page = prefs.pages.cabina ||= {};
+    /* ESTE BOTÓN DICE «esta pantalla» Y HAY QUE CUMPLIRLO. Borraba además
+       `page.workspace`, que es la distribución por zonas y es COMPARTIDA entre
+       móvil y escritorio: restablecer el lienzo del portátil se llevaba por
+       delante lo montado en el teléfono, mientras el mensaje decía que sólo
+       había tocado esta pantalla. Un control que informa de un alcance que no
+       respeta es el mismo defecto que el diálogo de vistas tenía con los
+       paneles ocultos. Para volver a cero del todo ya existe «Restaurar esta
+       pestaña» en el diálogo de vistas. */
     if (page.canvas) delete page.canvas[canvasDevice()];
-    delete page.workspace;
     if (!writeViewPrefs(prefs)) { volatileViewPrefs = previous; canvasMessage("No se pudo guardar el restablecimiento."); return; }
     canvasFinish();
-    canvasMessage("Distribución original restaurada para esta pantalla.");
+    canvasMessage("Lienzo restablecido para " + (cabCanvasMedia.matches ? "móvil" : "escritorio") + ". La distribución por zonas no se toca.");
   });
   cabCanvas.addEventListener("pointerdown", event => {
     const handle = event.target.closest("[data-canvas-drag], [data-canvas-resize]");
