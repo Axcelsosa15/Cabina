@@ -2795,6 +2795,10 @@
   };
   let pendingRoute = null;
   const labFocus = { ids: [] };
+  /* Declarados aquí para que un deep link `#estudio?date=` en el primer
+     showTab no caiga en TDZ al enfocar el día (las lets vivían más abajo). */
+  let estudioDiaEnfoque = "";
+  let estudioSoloSinRevisar = false;
   function parseHash() {
     const raw = String(location.hash || "").replace(/^#/, "");
     const i = raw.indexOf("?");
@@ -2816,12 +2820,11 @@
       if (p.setup) ft.setup = p.setup;
       if (p.date && /^\d{4}-\d{2}-\d{2}$/.test(p.date)) { ft.day = p.date; ft.month = p.date.slice(0, 7); }
       if (p.ids || p.trade) {
-        /* Evidencia puntual: limpia filtros que pueden ocultar esas filas. */
+        /* Evidencia puntual: limpia filtros que pueden ocultar esas filas.
+           No se borra al cambiar de pestaña: Ver todo / × del chip lo hacen. */
         ft.setup = ""; ft.result = ""; ft.quality = ""; ft.tag = ""; ft.q = "";
         if (p.ids) { labFocus.ids = String(p.ids).split(",").filter(Boolean); ft.ids = String(p.ids); }
         else { labFocus.ids = [p.trade]; ft.ids = String(p.trade); }
-      } else {
-        labFocus.ids = []; ft.ids = "";
       }
       if ((state.tab === "futuros") && (p.date || p.ids || p.trade || p.view === "diario")) setFtView("diario");
     }
@@ -3067,7 +3070,7 @@
       columns.classList.toggle("cab-layout-custom", inner.length !== 2);
       cabLayoutSignature = signature;
     }
-    if (!cabLayoutEditor.open) return;
+    if (!cabLayoutEditor || !cabLayoutEditor.open) return;
     const hidden = Array.isArray(prefs.hidden.cabina) ? prefs.hidden.cabina : [];
     const editorSignature = JSON.stringify([zones, hidden]);
     if (editorSignature === cabLayoutEditorSignature) return;
@@ -3110,7 +3113,7 @@
     else delete page.workspace;
     const stored = writeViewPrefs(prefs);
     applyViewPrefs();
-    $("cabLayoutStatus").textContent = stored ? "Distribución guardada en este navegador." : "Distribución aplicada hasta recargar.";
+    if ($("cabLayoutStatus")) $("cabLayoutStatus").textContent = stored ? "Distribución guardada en este navegador." : "Distribución aplicada hasta recargar.";
   }
 
   function moveCabPanel(id, destination, before) {
@@ -3124,6 +3127,8 @@
     saveCabLayout(prefs, zones);
   }
 
+  /* El rediseño Bitácora puede omitir el editor de columnas; no tumbar el boot. */
+  if (cabLayoutEditor && cabLayoutZones && $("cabLayoutAdd") && $("cabLayoutReset")) {
   cabLayoutEditor.addEventListener("toggle", () => applyCabLayout(readViewPrefs()));
   $("cabLayoutAdd").addEventListener("click", () => {
     const prefs = readViewPrefs(), zones = readCabLayout(prefs);
@@ -3202,7 +3207,7 @@
     clearCabDrop();
     moveCabPanel(id, Number(zone.dataset.layoutZone), event.target.closest("[data-layout-panel]")?.dataset.layoutPanel);
   });
-
+  }
 
   const cabCanvas = document.querySelector(".cab-workspace");
   const cabCanvasMedia = matchMedia("(max-width:850px)");
@@ -3303,19 +3308,21 @@
     const saved = prefs.pages.cabina?.canvas?.[canvasDevice()];
     const items = cabCanvasDraft || saved;
     const valid = validCanvas(items);
-    $("cabLayoutEditor").hidden = valid;
+    if (cabLayoutEditor) cabLayoutEditor.hidden = valid;
     if (valid) { paintCanvas(items); return true; }
     if (cabCanvasApplied) clearCanvas();
     return false;
   }
-  function canvasMessage(message) { $("cabCanvasStatus").textContent = message; }
+  function canvasMessage(message) { if ($("cabCanvasStatus")) $("cabCanvasStatus").textContent = message; }
   function updateCanvasFields() {
-    const item = cabCanvasDraft?.find(item => item.id === $("cabCanvasPanel").value);
+    const panel = $("cabCanvasPanel"); if (!panel) return;
+    const item = cabCanvasDraft?.find(item => item.id === panel.value);
     if (!item) return;
-    $("cabCanvasVisible").checked = !item.hidden;
-    for (const key of ["x","y","w","h"]) $("cabCanvas-" + key).value = item[key] + (key === "x" || key === "y" ? 1 : 0);
+    if ($("cabCanvasVisible")) $("cabCanvasVisible").checked = !item.hidden;
+    for (const key of ["x","y","w","h"]) { const el = $("cabCanvas-" + key); if (el) el.value = item[key] + (key === "x" || key === "y" ? 1 : 0); }
   }
   function canvasBegin() {
+    if (!$("cabCanvasTools")) return;
     const saved = readViewPrefs().pages.cabina?.canvas?.[canvasDevice()];
     cabCanvasDraft = validCanvas(saved) ? structuredClone(saved) : captureCanvas();
     /* Lo guardado NO lleva visibilidad: la lleva prefs.hidden.cabina. Se siembra
@@ -3323,9 +3330,9 @@
     const yaOcultos = panelOcultos();
     cabCanvasDraft.forEach(item => { item.hidden = yaOcultos.has(item.id); });
     $("cabCanvasTools").hidden = false;
-    $("cabCanvasEdit").hidden = true;
-    $("cabLayoutEditor").hidden = true;
-    $("cabCanvasPanel").innerHTML = [...cabLayoutPanels].map(([id,panel]) =>
+    if ($("cabCanvasEdit")) $("cabCanvasEdit").hidden = true;
+    if (cabLayoutEditor) cabLayoutEditor.hidden = true;
+    if ($("cabCanvasPanel")) $("cabCanvasPanel").innerHTML = [...cabLayoutPanels].map(([id,panel]) =>
       '<option value="' + id + '">' + esc(id === "panelCabCal" ? "Calendario" : viewLabel(panel,0)) + '</option>').join("");
     paintCanvas(cabCanvasDraft);
     updateCanvasFields();
@@ -3334,8 +3341,8 @@
   function canvasFinish() {
     cabCanvasDraft = null;
     cabCanvasPointer = null;
-    $("cabCanvasTools").hidden = true;
-    $("cabCanvasEdit").hidden = false;
+    if ($("cabCanvasTools")) $("cabCanvasTools").hidden = true;
+    if ($("cabCanvasEdit")) $("cabCanvasEdit").hidden = false;
     applyViewPrefs();
   }
   function canvasPropose(id, patch) {
@@ -3350,6 +3357,8 @@
     canvasMessage("Cambio pendiente de guardar.");
     return true;
   }
+  /* Controles de lienzo opcionales: el rediseño Bitácora puede no montarlos. */
+  if ($("cabCanvasEdit") && $("cabCanvasPanel") && $("cabCanvasSave")) {
   $("cabCanvasEdit").addEventListener("click", canvasBegin);
   $("cabCanvasPanel").addEventListener("change", updateCanvasFields);
   $("cabCanvasVisible").addEventListener("change", event => {
@@ -3396,12 +3405,14 @@
     canvasFinish();
     canvasMessage("Lienzo restablecido para " + (cabCanvasMedia.matches ? "móvil" : "escritorio") + ". La distribución por zonas no se toca.");
   });
+  }
+  if (cabCanvas) {
   cabCanvas.addEventListener("pointerdown", event => {
     const handle = event.target.closest("[data-canvas-drag], [data-canvas-resize]");
     if (!handle || !cabCanvasDraft || event.button !== 0) return;
     const panel = handle.closest(".panel");
     const item = cabCanvasDraft.find(item => item.id === panel.id);
-    $("cabCanvasPanel").value = item.id;
+    if ($("cabCanvasPanel")) $("cabCanvasPanel").value = item.id;
     updateCanvasFields();
     cabCanvasPointer = { pointerId: event.pointerId, item: {...item}, x: event.clientX, y: event.clientY,
       scrollY: window.scrollY, step: (cabCanvas.clientWidth + 12) / canvasCols(), resize: handle.hasAttribute("data-canvas-resize"),
@@ -3435,6 +3446,7 @@
     if (cabCanvasDraft) canvasMessage("Cambió el tamaño de pantalla. La edición pendiente se canceló.");
     canvasFinish();
   });
+  }
 
   function applyViewPrefs() {
     const prefs = readViewPrefs();
@@ -18910,9 +18922,6 @@
   const estudioRevisada = id => coll("research").items
     .some(d => d && d.type === "trade-review" && String(d.tradeId) === String(id));
   const estudioSinRevisar = t => t && t.pnlEff != null && !estudioRevisada(t.id);
-  let estudioSoloSinRevisar = false;
-
-  let estudioDiaEnfoque = "";
   function estudioEnfocarDia(date){
     const dia = String(date || "").slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dia) || !Number.isFinite(Date.parse(dia + "T12:00:00Z"))) return;
