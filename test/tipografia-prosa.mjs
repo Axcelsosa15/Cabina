@@ -19,7 +19,6 @@ const TABS = ['cabina','futuros','cuentas','edge','invest','historial','playbook
 const PERMITIDAS = new Map([
   ['b « vacio',                 'titular de estado vacío; los titulares de sección son mono en toda la app'],
   ['small « sn',                'línea de sesión: la hora es dato y manda sobre el resto. Su texto depende del estado del mercado, por eso el reloj va congelado arriba'],
-  ['span.meta « credo',         'ranura de metadatos de panel; alterna con contadores'],
   ['span.rulesstate.dim « panel', 'insignia en versales; las insignias son mono'],
   ['span.mono « toolbar',       'el autor la marcó .mono y contiene la fórmula N = 0'],
   ['span « srcrow',             'fila de procedencia: etiquetas y estados, no prosa de lectura'],

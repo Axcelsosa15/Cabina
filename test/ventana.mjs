@@ -80,6 +80,8 @@ ok(/Ventana operativa: 8:30 AM–11:00 AM ET/.test(await pie()), 'y el pie dice 
 ok(/ventana abierta/i.test(await permiso()), 'viernes 10:20 ET: la ventana está abierta', (await permiso()).slice(0, 70));
 
 console.log('\n═══ SE EDITA, Y SÓLO EN MODO EDICIÓN ═══');
+/* winStart vive en pre-sesión dentro de #cabOpsFold (cerrado por defecto). */
+await p.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
 ok(!(await p.isVisible('#winStart')), 'las casillas no están a la vista por defecto');
 await p.click('#editToggle'); await p.waitForTimeout(350);
 ok(await p.isVisible('#winStart') && await p.isVisible('#winDays'), 'Editar las muestra');
