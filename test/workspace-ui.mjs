@@ -3,6 +3,7 @@
  * Incluido automáticamente en test/correr.mjs y la compuerta de CI. */
 import { chromium } from 'playwright';
 import { sirvePublicado } from './publicado.mjs';
+import { conCuentas } from './espera.mjs';
 
 const fallos = [];
 const check = (ok, label, detail = '') => {
@@ -22,6 +23,9 @@ try {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     try {
+      /* Con cuentas, el fold queda cerrado (dashboard-first). Sin cuentas la
+         app lo abre para poder crear la primera — eso no es esta regresión. */
+      await conCuentas(page);
       await page.goto('http://127.0.0.1:' + server.address().port + '/');
       await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
       const opsFold = page.locator('#cabOpsFold');

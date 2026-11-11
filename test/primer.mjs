@@ -78,6 +78,8 @@ console.log('\n═══ UN DESCONOCIDO ═══');
     await p.click(`[data-tab="${t}"]`); await p.waitForTimeout(200);
   }
   await p.click('[data-tab="cabina"]'); await p.waitForTimeout(300);
+  /* #accts vive dentro de #cabOpsFold; innerText no incluye <details> cerrado. */
+  await p.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
   const texto = await p.evaluate(() => document.body.innerText);
   const hallado = (texto.match(PERSONAL) || [])[0];
   ok(!hallado, 'ni una cadena de la configuracion personal en la pagina', hallado ? `aparece «${hallado}»` : 'ninguna');

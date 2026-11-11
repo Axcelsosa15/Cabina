@@ -3038,6 +3038,12 @@
   const cabLayoutZones = $("cabLayoutZones");
   let cabLayoutSignature = "";
   let cabLayoutEditorSignature = "";
+  function openCabOpsFold() {
+    /* Los paneles del lienzo viven dentro de #cabOpsFold (cerrado por defecto).
+       Sin abrirlo, getBoundingClientRect/offsetParent miden 0 y los asas no se ven. */
+    const fold = $("cabOpsFold");
+    if (fold && !fold.open) fold.open = true;
+  }
 
   function readCabLayout(prefs) {
     const saved = prefs.pages.cabina?.workspace;
@@ -3139,7 +3145,10 @@
 
   /* El rediseño Bitácora puede omitir el editor de columnas; no tumbar el boot. */
   if (cabLayoutEditor && cabLayoutZones && $("cabLayoutAdd") && $("cabLayoutReset")) {
-  cabLayoutEditor.addEventListener("toggle", () => applyCabLayout(readViewPrefs()));
+  cabLayoutEditor.addEventListener("toggle", () => {
+    if (cabLayoutEditor.open) openCabOpsFold();
+    applyCabLayout(readViewPrefs());
+  });
   $("cabLayoutAdd").addEventListener("click", () => {
     const prefs = readViewPrefs(), zones = readCabLayout(prefs);
     if (zones.length >= 6) return;
@@ -3333,6 +3342,7 @@
   }
   function canvasBegin() {
     if (!$("cabCanvasTools")) return;
+    openCabOpsFold();
     const saved = readViewPrefs().pages.cabina?.canvas?.[canvasDevice()];
     cabCanvasDraft = validCanvas(saved) ? structuredClone(saved) : captureCanvas();
     /* Lo guardado NO lleva visibilidad: la lleva prefs.hidden.cabina. Se siembra
@@ -10702,7 +10712,7 @@
       ${lessons.length ? `<div class="twrap" style="margin-top:16px"><table class="t"><thead><tr><th>Hora</th><th class="r">R</th><th>Lección</th></tr></thead><tbody>${lessons.slice().reverse().map(t => `<tr><td>${esc(t.time ? h12(t.time) : "—")}</td><td class="r ${t.rReal > 0 ? "pos" : t.rReal < 0 ? "neg" : ""}">${t.rReal == null ? "—" : (t.rReal >= 0 ? "+" : "") + t.rReal.toFixed(2)}</td><td class="ui">${esc(t.lesson)}</td></tr>`).join("")}</tbody></table></div>` : ""}
     </div></section>`;
     $("dayBody").innerHTML = `<div class="daygrid"><div>${rows}<button type="button" class="add" id="dayAdd">+ Añadir operación en ${date}</button></div>
-      <div class="daynote">${cab}<label class="lab" for="dayNote">Nota del día · qué pasó, qué cambia</label><textarea id="dayNote" placeholder="Contexto del día, estado mental, qué haría distinto.">${esc(dd && dd.note ? dd.note : "")}</textarea><div class="jactions" style="margin-top:8px"><label style="display:flex;gap:8px;align-items:center;font-family:var(--font-mono);font-size:12px;color:var(--muted)"><input type="checkbox" id="dayBroke" ${dd && dd.broke ? "checked" : ""} style="margin:0"> regla rota este día</label></div></div></div>` + review;
+      <div class="daynote">${cab}<label class="lab" for="dayNote">Nota del día · qué pasó, qué cambia</label><textarea id="dayNote" placeholder="Contexto del día, estado mental, qué haría distinto.">${esc(dd && dd.note ? dd.note : "")}</textarea><div class="jactions" style="margin-top:8px"><label style="display:flex;gap:8px;align-items:center;font-family:var(--font-ui);font-size:12px;color:var(--muted)"><input type="checkbox" id="dayBroke" ${dd && dd.broke ? "checked" : ""} style="margin:0"> regla rota este día</label></div></div></div>` + review;
     $("dayAdd").addEventListener("click", () => openTrade(null, "futuros"));
     $("dayNote").addEventListener("input", e => queueDayNote(date, { note: e.target.value.slice(0, 2000) }));
     $("dayBroke").addEventListener("change", e => queueDayNote(date, { broke: e.target.checked }, 0));

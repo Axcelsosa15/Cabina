@@ -62,6 +62,8 @@ await p.selectOption('#ftAcct', '');
 await p.waitForFunction(() => document.querySelectorAll('#ftAccts .facct').length === 2);
 ok(await p.locator('#ftAccts .facct').count() === 2, 'quitar el filtro devuelve ambas tarjetas', await p.locator('#ftAccts .facct').evaluateAll(es => es.map(e => e.dataset.id).join(',')));
 await p.click('#ftSeg button[data-v="diario"]'); await quieto(p);
+/* Buscar vive en «Más filtros» (cerrado por defecto en el rediseño). */
+await p.evaluate(() => { const d = document.getElementById('ftMoreFilters'); if (d) d.open = true; });
 
 const ids = () => p.$$eval('#jrTable tbody tr[data-id]', n => n.map(x => x.dataset.id));
 const n = async () => (await ids()).length;

@@ -9,6 +9,7 @@ p.on('pageerror',e=>errs.push('PAGEERROR: '+e.message));
 await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(...a){if(!a.length)super(F);else super(...a);}static now(){return F;}}window.Date=D;}`);
 await p.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(sem)});}catch(e){}`);
 await p.goto('file://'+process.cwd()+'/../index.html'); await p.waitForTimeout(1400);
+await p.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
 const ok=(c,t,d)=>console.log(`  ${c?'✅':'❌'} ${t}${d!=null?'   '+d:''}`);
 
 console.log('\n═══ DIVULGACIÓN PROGRESIVA ═══');
@@ -34,6 +35,7 @@ ok(/sin operaciones/i.test(v) && /registrar/i.test(v), 'el vacío dice qué falt
 const q=await (await b.newContext({viewport:{width:1200,height:900}})).newPage();
 await q.addInitScript(`try{localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(JSON.stringify({settings:{accounts:[],rules:[],meta:{}}}))});}catch(e){}`);
 await q.goto('file://'+process.cwd()+'/../index.html'); await q.waitForTimeout(1200);
+await q.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
 const v2 = await q.evaluate(()=>{const e=document.querySelector('#accts .vacio'); return e?e.innerText.replace(/\s+/g,' '):'(no)';});
 ok(/sin cuentas/i.test(v2), 'sin cuentas también', v2);
 await q.click('#addAcct'); await q.waitForTimeout(400);
