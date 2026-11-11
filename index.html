@@ -3053,8 +3053,9 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
 @media (max-width: 700px) {
   .tabnav#tabnav { overflow-x: hidden; justify-content: space-between; }
   #tabnav .tabbtn { position: relative; }
+  /* Dock Bitácora: Inicio · Operaciones · Analítica · Diario · Más.
+     Estudio y el resto viven en el sheet «Más». */
   #tabnav .tabbtn[data-tab="cuentas"],
-  #tabnav .tabbtn[data-tab="edge"],
   #tabnav .tabbtn[data-tab="historial"],
   #tabnav .tabbtn[data-tab="playbook"],
   #tabnav .tabbtn[data-tab="ideas"],
@@ -3064,11 +3065,17 @@ body.editing .check li > .tools button { min-width: 34px; min-height: 34px; }
   #tabnav .tabbtn[data-tab="estadisticas"],
   #tabnav .tabbtn[data-tab="correlaciones"],
   #tabnav .tabbtn[data-tab="insights"],
-  #tabnav .tabbtn[data-tab="invest"] { display: none !important; }
+  #tabnav .tabbtn[data-tab="invest"],
+  #tabnav .tabbtn[data-tab="estudio"] { display: none !important; }
   #tabnav .tabbtn[data-tab="cabina"],
   #tabnav .tabbtn[data-tab="futuros"],
-  #tabnav .tabbtn[data-tab="diario"],
-  #tabnav .tabbtn[data-tab="estudio"] { flex: 1 1 0; min-width: 0; }
+  #tabnav .tabbtn[data-tab="edge"],
+  #tabnav .tabbtn[data-tab="diario"] { flex: 1 1 0; min-width: 0; }
+  #tabnav .tabbtn[data-tab="cabina"] { order: 1; }
+  #tabnav .tabbtn[data-tab="futuros"] { order: 2; }
+  #tabnav .tabbtn[data-tab="edge"] { order: 3; }
+  #tabnav .tabbtn[data-tab="diario"] { order: 4; }
+  #tabnav #mobileMoreBtn { order: 5; }
   #tabnav .tabbtn .n:empty { display: none; }
   /* Los rótulos del dock son ::after; la línea activa de escritorio no puede
      convertirse aquí en una banda de color que tape las letras. */
@@ -5535,12 +5542,12 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
       <h3 class="mobile-more-label">Operar</h3>
       <button type="button" data-mobile-more-tab="calendario">Calendario</button>
       <h3 class="mobile-more-label">Analizar</h3>
-      <button type="button" data-mobile-more-tab="edge">Analítica</button>
       <button type="button" data-mobile-more-tab="estadisticas">Estadísticas</button>
       <button type="button" data-mobile-more-tab="correlaciones">Correlaciones</button>
       <button type="button" data-mobile-more-tab="insights">Insights</button>
       <button type="button" data-mobile-more-tab="historial">Historial</button>
       <h3 class="mobile-more-label">Desarrollar</h3>
+      <button type="button" data-mobile-more-tab="estudio">Estudio</button>
       <button type="button" data-mobile-more-tab="playbook">Estrategias</button>
       <h3 class="mobile-more-label">Capital</h3>
       <button type="button" data-mobile-more-tab="cuentas">Cuentas</button>

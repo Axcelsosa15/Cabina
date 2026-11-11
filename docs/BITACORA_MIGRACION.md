@@ -63,6 +63,7 @@ No hay un segundo motor de P&L ni un backend de Bitácora.
 - Rendimiento → Analítica. El catálogo profundo vive en Estadísticas; Edge conserva curva, tamaño y ruina.
 - Historial permanece como consulta unificada, no como segundo editor.
 - Diario de sesión de Futuros (subvista) sigue para el día operativo; el tab Diario guarda emoción y lecciones.
+- Móvil · dock primario: Inicio · Operaciones · Analítica · Diario · Más. Estudio queda en «Más» (Desarrollar).
 
 ## Duplicaciones evitadas
 
