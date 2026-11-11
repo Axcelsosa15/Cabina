@@ -2833,6 +2833,13 @@
     if (!pendingTradeOpen) return;
     const tr = coll("trades").get(pendingTradeOpen);
     if (!tr) return;
+    /* Si el editor ya está abierto (alta nueva u otra ficha), no lo pisamos:
+       el deep link cede y se limpia para no reintentar en cada emit de trades. */
+    if (ov.classList.contains("open")) {
+      pendingTradeOpen = null;
+      scrubHashParam("trade");
+      return;
+    }
     pendingTradeOpen = null;
     scrubHashParam("trade");
     requestAnimationFrame(() => openTrade(tr));

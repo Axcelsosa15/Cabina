@@ -294,6 +294,36 @@ await page.waitForTimeout(400);
 ok(!(await page.evaluate(() => document.getElementById('ov')?.classList.contains('open'))),
   'al quitar trade= del hash, hidratar ya no abre el editor pendiente');
 
+/* Con el editor ya abierto, hidratar trade= no sustituye la ficha en curso. */
+await page.evaluate(() => { FUT.deleteTrade('t0'); });
+await page.evaluate(() => { location.hash = '#futuros?trade=t0'; });
+await page.waitForFunction(() => /trade=t0/.test(location.hash));
+await page.waitForTimeout(200);
+await page.click('#ftNew');
+await page.waitForFunction(() => document.getElementById('ov')?.classList.contains('open'));
+const beforeHydrate = await page.evaluate(() => ({
+  title: document.getElementById('edTitle')?.textContent || '',
+  open: document.getElementById('ov')?.classList.contains('open')
+}));
+await page.evaluate(() => {
+  FUT.createTrade({
+    id: 't0', type: 'futuros', date: '2026-09-08', time: '09:30',
+    instrument: 'MNQ', direction: 'long', qty: 1, entry: 21000, stop: 20990, exit: 21010
+  });
+});
+await page.waitForTimeout(400);
+const afterHydrate = await page.evaluate(() => ({
+  title: document.getElementById('edTitle')?.textContent || '',
+  open: document.getElementById('ov')?.classList.contains('open'),
+  hash: location.hash
+}));
+ok(beforeHydrate.open && /Nueva operación/i.test(beforeHydrate.title),
+  'editor de alta abierta mientras trade= sigue pendiente', JSON.stringify(beforeHydrate));
+ok(afterHydrate.open && afterHydrate.title === beforeHydrate.title && !/trade=/.test(afterHydrate.hash),
+  'hidratar con editor abierto no pisa la ficha ni reabre trade=', JSON.stringify(afterHydrate));
+await page.click('#edCancel');
+await page.waitForFunction(() => !document.getElementById('ov')?.classList.contains('open'));
+
 /* ids residuales no deben volver a limpiar filtros en cada showTab. */
 await page.goto('http://127.0.0.1:' + srv.address().port + '/#futuros?ids=t0&view=diario', { waitUntil: 'load' });
 await page.waitForFunction(() => document.querySelector('#ftFilters .fchip'), null, { timeout: 15000 });
