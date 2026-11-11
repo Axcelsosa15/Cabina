@@ -16,7 +16,11 @@ const aqui = dirname(fileURLToPath(import.meta.url));
    una prueba mas y se llamaria a si mismo sin fondo. Se detecto antes de ejecutarla. */
 /* qa-flujos.mjs es un agregador de matriz (como compuerta): si se descubriera
    como prueba, re-lanzaría correr.mjs en bucle sobre media suite. */
-const NO_SON_TESTS = new Set(['espera.mjs', 'nube-doble.mjs', 'correr.mjs', 'compuerta.mjs', 'publicado.mjs', 'qa-flujos.mjs']);
+const NO_SON_TESTS = new Set(['espera.mjs', 'nube-doble.mjs', 'correr.mjs', 'compuerta.mjs', 'publicado.mjs', 'qa-flujos.mjs',
+  // Mide la MÁQUINA, no Cabina: comprueba que el Chromium que la suite va a
+  // usar arranca. Lo lanza el workflow antes de la compuerta; contarlo como
+  // prueba inflaría el recuento con un archivo que no prueba el producto.
+  'chromium-arranca.mjs']);
 const SIN_BASELINE = new Set();
 
 /* Las pruebas del motor viven fuera de test/, y por eso no se ejecutaban NUNCA:

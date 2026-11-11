@@ -25,7 +25,23 @@ try {
   }, { ...structuredClone(CONFIG_PRUEBA), accounts: [] });
   const p = await ctx.newPage();
   await p.goto(base);
-  await p.waitForFunction(async () => navigator.serviceWorker.controller && await caches.match('./index.html'));
+  /* LA PRECONDICION, Y POR QUE NO BASTA `caches.match('./index.html')`.
+     A partir de aqui el test MUTA lo que el servidor publica, asi que la copia
+     guardada tiene que haber dejado de moverse. Y se mueve por DOS caminos a la
+     vez: el `fetch` de la pagina, que cachea index.html y sus cinco scripts al
+     cargar, y el `install` del trabajador, que hace su propio `c.add()` de los
+     16 ficheros del casco en paralelo. Esperar a que index.html «este» lo
+     satisface el primer camino mientras el `c.add('./index.html')` del segundo
+     sigue en vuelo: aterriza DESPUES de `version = 2`, guarda la v2 y entonces
+     cache y red coinciden. El veredicto correcto pasa a ser «al dia» y la
+     prueba se pone roja por el reloj, no por la aplicacion.
+     Medido en main, sin ningun otro cambio: 1 de cada 4 ejecuciones en rojo.
+     `serviceWorker.ready` resuelve con un trabajador ACTIVO, o sea cuando
+     `install` ya termino: es el unico momento en que la copia esta quieta. */
+  await p.waitForFunction(async () => {
+    const reg = await navigator.serviceWorker.ready;
+    return !!reg.active && !!navigator.serviceWorker.controller && !!(await caches.match('./index.html'));
+  });
   const records = await p.evaluate(() => localStorage.getItem('cabina-mnq:v1'));
   async function check() {
     await p.locator('#tabnav [data-tab="ajustes"]').click();

@@ -503,6 +503,9 @@ tbody tr:last-child td{border-bottom:0}
   .tabbtn:hover { color: var(--text); }
   .tabbtn.active { color: var(--text); border-bottom-color: var(--accent); }
   .tabbtn .n { color: var(--dim); margin-left:8px; font-weight: 400; }
+  /* La nav principal se queda en mono: es identidad. Las sub-pestanas llevan
+     frases en castellano y se leen mejor en la de interfaz. */
+  nav.tabnav.sub .tabbtn { font-family: var(--font-ui); letter-spacing: .02em; }
   .tab { display: none; }
   .tab.active { display: block; }
   .editbar { display: none; align-items: center; gap:12px; padding:12px 16px; margin: -8px 0 24px; border: 1px dashed var(--accent); border-radius: var(--r-sm); background: var(--accent-soft); font-family: var(--font-mono); font-size: 12.5px; color: var(--accent); }
@@ -570,7 +573,7 @@ tbody tr:last-child td{border-bottom:0}
   .icon:hover { color: var(--text); border-color: var(--line-strong); }
   .icon.del:hover { color: var(--bad); }
   .icon[data-armed="1"] { color: var(--bad); border-color: var(--bad); font-family: var(--font-mono); font-size: 10.5px; width: auto; padding: 0 8px; }
-  .add { display: flex; align-items: center; justify-content: center; gap:8px; width: 100%; margin-top:12px; padding:8px; border: 1px dashed var(--line-strong); border-radius: var(--r-sm); background: transparent; color: var(--muted); font-family: var(--font-mono); font-size: 12.5px; }
+  .add { display: flex; align-items: center; justify-content: center; gap:8px; width: 100%; margin-top:12px; padding:8px; border: 1px dashed var(--line-strong); border-radius: var(--r-sm); background: transparent; color: var(--muted); font-family: var(--font-ui); font-size: 12.5px; }
   .add:hover { color: var(--accent); border-color: var(--accent); }
   .tools { display: flex; gap:2px; align-items: center; }
   .tin { background: var(--bg); border: 1px dashed var(--line-strong); border-radius: var(--r-sm); padding:4px 8px; width: 100%; font-family: var(--font-ui); font-size: 13.5px; }
@@ -979,6 +982,10 @@ tbody tr:last-child td{border-bottom:0}
   .rulec.unset .rname, .rulec.unset .rv { color: var(--dim); }
   .rulec.unset .rst { color: var(--muted); }
   .rulec.unset .rnow { color: var(--dim); font-style: italic; }
+  /* El valor de una regla es dato y se queda en mono (.rulec .rnow). Cuando no
+     hay valor, el hueco lo ocupa una frase ("sin valor en el protocolo"), y una
+     frase se lee en la tipografia de interfaz. */
+  .rulec.unset .rnow, .rulec.dim .rnow { font-family: var(--font-ui); }
 
   /* nº · nombre · dónde vas · límite · veredicto */
   .rulec .rh { display: grid; align-items: baseline; gap: var(--s2) var(--s3);
@@ -1633,7 +1640,7 @@ tbody tr:last-child td{border-bottom:0}
   .strip .q .p { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .strip .q .c { font-size: 11px; font-variant-numeric: tabular-nums; }
   .strip .q.err .p { color: var(--dim); font-size: 12.5px; }
-  .mdmsg { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); padding:4px 0; }
+  .mdmsg { font-family: var(--font-ui); font-size: 12.5px; color: var(--muted); padding:4px 0; }
   .mdmsg.bad { color: var(--warn); }
   .news { display: grid; gap: 0; }
   .news .ev { display: grid; grid-template-columns: 58px 1fr auto; gap:12px; align-items: baseline; padding:8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
@@ -1645,7 +1652,7 @@ tbody tr:last-child td{border-bottom:0}
   .news .ev.high .n::before { content: "●"; color: var(--bad); margin-right:8px; font-size: 10.5px; }
   .news .ev.medium .n::before { content: "●"; color: var(--warn); margin-right:8px; font-size: 10.5px; }
   .news .ev .v { font-family: var(--font-mono); font-size: 12.5px; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .stale { color: var(--dim); font-size: 10.5px; font-family: var(--font-mono); }
+  .stale { color: var(--dim); font-size: 10.5px; font-family: var(--font-ui); }
 
   .conds { margin: 0; padding-left:16px; font-size: 13.5px; color: var(--text); }
   .conds li { margin:1px 0; }
@@ -1712,7 +1719,7 @@ tbody tr:last-child td{border-bottom:0}
   .grid > *, .col > *, .stack > *, .daygrid > *, .twocol > *, .cards > * { min-width: 0; }
   .tiles.three { grid-template-columns: repeat(3, minmax(0,1fr)); }
   @media (max-width: 640px) { .tiles.three { grid-template-columns: 1fr 1fr; } }
-  .synced { font-family: var(--font-mono); font-size: 11px; color: var(--muted); display: flex; align-items: center; gap:8px; flex-wrap: wrap; margin: -4px 0 12px; }
+  .synced { font-family: var(--font-ui); font-size: 11px; color: var(--muted); display: flex; align-items: center; gap:8px; flex-wrap: wrap; margin: -4px 0 12px; }
   .synced .dotg { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
   .synced.manual .dotg { background: var(--warn); }
   .synced button { background: none; border: 1px solid var(--line-strong); border-radius: var(--r-sm); color: var(--muted); font-family: var(--font-mono); font-size: 11px; padding:2px 8px; }
@@ -4772,6 +4779,11 @@ body.editing .topbar .clock #editToggle.editbtn {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums lining-nums;
 }
+/* La cabecera de una columna numerica se alinea con sus cifras, pero no es una
+   cifra: es una etiqueta. Quien gana la cascada aqui es ".tab table.t .r", que
+   tambien casa con th.r, asi que no basta con sacar th.r de la lista de arriba:
+   hace falta decirlo para thead. La alineacion y las tabular-nums se quedan. */
+.tab table.t thead th.r { font-family: var(--font-ui); }
 
 /* Resumen · retícula de referencia del nuevo estándar. */
 .tab[data-tab="cabina"] .cab-workspace {

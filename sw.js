@@ -138,7 +138,16 @@ function fnvDe(txt) {
   return ('0000000' + h.toString(16)).slice(-8);
 }
 function comparaPublicado() {
-  var ARCH = ['./index.html', './app.js', './appearance.js'];
+  /* TODO el codigo que la pagina carga, no una parte. Esta lista nacio con tres
+     ficheros porque entonces eran tres; al salir `discipline.js`,
+     `session-break.js` y `experience.js` de index.html se añadieron al CASCO y
+     al despliegue, y aqui no. Resultado medible: un despliegue que solo cambiara
+     esos tres respondia «al dia · estas en la version publicada», que es
+     exactamente la mentira que esta pantalla existe para no decir. La lista
+     tiene que ser la misma que la de los `<script src>` del documento, y eso
+     lo exige test/pwa.mjs §1 contra index.html, no la memoria de nadie. */
+  var ARCH = ['./index.html', './app.js', './appearance.js',
+              './discipline.js', './session-break.js', './experience.js'];
   return caches.open(CACHE).then(function (c) {
     var distintos = [], comprobados = 0, sinCache = [], fallidos = [];
     return ARCH.reduce(function (cad, f) {

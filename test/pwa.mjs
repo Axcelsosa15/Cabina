@@ -94,6 +94,27 @@ const huerfanos = Array.from(new Set(publicados)).filter(f => !FUERA_DEL_CASCO.h
 ok(huerfanos.length === 0, 'nada se publica como parte de la página sin entrar en el casco',
    huerfanos.length ? `publicado y no cacheado: ${huerfanos.join(' · ')}` : 'ninguno');
 
+/* LO QUE EL BOTON DE «¿HAY VERSION NUEVA?» COMPARA, frente a lo que la pagina
+   carga de verdad. `comparaPublicado` en sw.js lleva su propia lista (ARCH) y
+   nacio con tres ficheros; el dia que el script salio de index.html en cinco
+   trozos, el CASCO y `pagina.yml` crecieron y ARCH no. El sintoma es el peor
+   posible: un despliegue que solo cambie `discipline.js`, `session-break.js` o
+   `experience.js` se compara en verde y la pantalla dice «al dia · estas en la
+   version publicada». No es un aviso que falta: es una afirmacion falsa, en la
+   unica pantalla que existe para no mentir sobre la version cargada. */
+const arch = Array.from((sw.match(/var ARCH = \[([\s\S]*?)\];/) || ['', ''])[1].matchAll(/'\.\/([^']*)'/g)).map(m => m[1]);
+const cargados = Array.from(html.matchAll(/<script src="\.\/([^"]+)"/g)).map(m => m[1]);
+ok(arch.length > 0, 'sw.js declara qué compara el botón de versión', arch.join(' · '));
+const sinComparar = ['index.html', ...cargados].filter(f => !arch.includes(f));
+ok(sinComparar.length === 0, 'el botón de versión compara index.html y TODOS sus <script src>',
+   sinComparar.length ? `la página lo carga y el botón NO lo compara: ${sinComparar.join(' · ')}` : `${arch.length} ficheros`);
+const comparaFantasma = arch.filter(f => !existsSync(join(raiz, f)));
+ok(comparaFantasma.length === 0, 'el botón de versión no compara ficheros que no existen',
+   comparaFantasma.length ? comparaFantasma.join(' · ') : 'ninguno');
+const fueraDelCasco = arch.filter(f => !ficheros.includes(f));
+ok(fueraDelCasco.length === 0, 'cada fichero que compara está en el casco (si no, no hay copia local que comparar)',
+   fueraDelCasco.length ? fueraDelCasco.join(' · ') : `${arch.length} ficheros`);
+
 /* ═══ §2 · LA POLITICA PERMITE EL TRABAJADOR Y EL MANIFIESTO ══════════════ */
 console.log('\n═══ §2 · LA CSP DECLARA worker-src Y manifest-src ═══');
 const csp = (html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/) || [])[1] || '';
