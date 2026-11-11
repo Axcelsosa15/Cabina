@@ -114,15 +114,16 @@
       time: raw.time || '',
       symbol: raw.instrument || raw.symbol || raw.asset || '',
       side: raw.direction || raw.side || '',
-      contracts: num(raw.qty != null ? raw.qty : raw.contracts),
+      contracts: h.qty != null ? num(h.qty) : num(raw.qty != null ? raw.qty : raw.contracts),
       setup: h.setupName || raw.setup || '',
       setupId: raw.setupId || '',
       emotion: raw.emotion || raw.mood || '',
       rating: qualityToRating(raw.quality != null ? raw.quality : raw.rating),
       quality: raw.quality || '',
       pnl: pnl,
-      mae: num(raw.mae),
-      mfe: num(raw.mfe),
+      /* helpers.mae/mfe son distancias de excursión; raw sigue aceptando el valor ya convertido. */
+      mae: h.mae != null ? num(h.mae) : num(raw.mae),
+      mfe: h.mfe != null ? num(h.mfe) : num(raw.mfe),
       tags: tags,
       account: h.accountName || '',
       accountId: raw.accountId || raw.account_id || '',
@@ -133,14 +134,14 @@
   }
 
   function group(rows, keyFn) {
-    const m = {};
+    const m = Object.create(null);
     closed(rows).forEach(t => {
       const keys = keyFn(t);
       const list = Array.isArray(keys) ? keys : [keys];
       list.forEach(k => {
         if (k == null || k === '') return;
         const id = String(k);
-        if (!m[id]) m[id] = { key: id, pnl: 0, count: 0, wins: 0, ids: [] };
+        if (!Object.prototype.hasOwnProperty.call(m, id)) m[id] = { key: id, pnl: 0, count: 0, wins: 0, ids: [] };
         m[id].pnl += t.pnl;
         m[id].count++;
         if (t.pnl > 0) m[id].wins++;
