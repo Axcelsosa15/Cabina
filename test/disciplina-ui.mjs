@@ -5,7 +5,7 @@
 import { chromium } from 'playwright';
 import { readFile } from 'node:fs/promises';
 import { sirvePublicado } from './publicado.mjs';
-import { CONFIG_PRUEBA, arrancada, quieto, siembra, enDisco } from './espera.mjs';
+import { CONFIG_PRUEBA, arrancada, quieto, siembra, enDisco, abreCabOps } from './espera.mjs';
 
 const HOY = '2026-09-17';
 const AHORA = Date.parse(HOY + 'T14:00:00Z');
@@ -70,6 +70,7 @@ async function idioma(p) {
   const language = await p.locator('#idiomaBtn').inputValue();
   await p.locator('#idiomaBtn').selectOption(language === 'en' ? 'es' : 'en');
   await p.locator('#tabnav [data-tab="cabina"]').click();
+  await abreCabOps(p);
   await quieto(p);
 }
 
@@ -100,6 +101,7 @@ try {
     ok((await p.locator('#panelDiscipline').innerText()).includes('Disciplina de proceso'),
       `${width}px · vuelve a español sin modificar los registros`);
     await p.locator('#tabnav [data-tab="futuros"]').click();
+    await p.locator('#ftSeg [data-v="resumen"]').click();
     await quieto(p);
     ok(await p.locator('#disciplineFutures').isVisible(),
       `${width}px · la misma disciplina aparece en el resumen de Futuros`);
@@ -230,6 +232,7 @@ try {
   await p.locator('#settingsDemoEnter').click();
   await p.locator('#demoBar').waitFor({ state: 'visible' });
   await p.locator('#tabnav [data-tab="cabina"]').click();
+  await abreCabOps(p);
   await quieto(p);
   const despuesDemo = await p.evaluate(k => localStorage.getItem(k), CLAVE);
   ok(antesDemo === despuesDemo, 'entrar en demo no escribe datos personales');

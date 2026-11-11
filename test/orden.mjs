@@ -20,7 +20,7 @@
      · varios términos son un AND, no un OR;
      · la búsqueda aparece como chip y «Ver todo» la quita. */
 import { chromium } from 'playwright';
-import { quieto, arrancada, trasGuardar } from './espera.mjs';
+import { quieto, arrancada, trasGuardar, abreCabOps } from './espera.mjs';
 const errs = [], fallos = [];
 const F = new Date('2026-09-17T14:00:00Z').getTime();
 const b = await chromium.launch();
@@ -62,6 +62,8 @@ await p.selectOption('#ftAcct', '');
 await p.waitForFunction(() => document.querySelectorAll('#ftAccts .facct').length === 2);
 ok(await p.locator('#ftAccts .facct').count() === 2, 'quitar el filtro devuelve ambas tarjetas', await p.locator('#ftAccts .facct').evaluateAll(es => es.map(e => e.dataset.id).join(',')));
 await p.click('#ftSeg button[data-v="diario"]'); await quieto(p);
+/* Buscar vive en «Más filtros» (cerrado por defecto en el rediseño). */
+await p.evaluate(() => { const d = document.getElementById('ftMoreFilters'); if (d) d.open = true; });
 
 const ids = () => p.$$eval('#jrTable tbody tr[data-id]', n => n.map(x => x.dataset.id));
 const n = async () => (await ids()).length;
@@ -175,6 +177,7 @@ await buscar('MNQ');
 const antesN = await n();
 // El registro rápido vive en la pestaña Cabina.
 await p.click('.tabbtn[data-tab="cabina"]'); await quieto(p);
+await abreCabOps(p);
 await p.fill('#qtSym', 'CL');
 ok(await p.locator('#qtAccount option').count() === 3, 'el registro rápido ofrece las dos cuentas y «sin cuenta»', await p.locator('#qtAccount option').count());
 await p.selectOption('#qtAccount', 'b2');

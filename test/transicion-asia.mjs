@@ -24,6 +24,7 @@ try {
     }, { now: Date.parse(stamp), lang });
     const p = await ctx.newPage(); await p.goto(base);
     await p.waitForFunction(() => window.FUT && document.querySelector('#sesNow b')); await quieto(p);
+    await p.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
     const label = await p.locator('#sessionLabel').innerText(), body = await p.locator('#sesNow b').innerText();
     const expected = phase === 'asia' ? 'Sesión Asia' : lang === 'en' ? 'Before Asia' : 'Antes de Asia';
     ok(label === expected, `${stamp} · ${lang}: etiqueta de franja correcta (${label})`);

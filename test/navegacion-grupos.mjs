@@ -3,11 +3,12 @@
 import { chromium } from 'playwright';
 import { sirvePublicado } from './publicado.mjs';
 
+const original = ['cabina', 'futuros', 'cuentas', 'edge', 'invest', 'historial', 'playbook', 'ideas', 'estudio', 'calc', 'ajustes'];
 const groups = {
-  operar: { first: 'cabina', tabs: ['cabina', 'futuros', 'cuentas'] },
-  analizar: { first: 'historial', tabs: ['historial', 'edge'] },
-  mejorar: { first: 'playbook', tabs: ['playbook', 'estudio'] },
-  portafolio: { first: 'invest', tabs: ['invest'] },
+  operar: { first: 'cabina', tabs: ['cabina', 'futuros', 'calendario', 'diario'] },
+  analizar: { first: 'edge', tabs: ['edge', 'estadisticas', 'correlaciones', 'insights', 'historial'] },
+  desarrollar: { first: 'estudio', tabs: ['estudio', 'playbook'] },
+  capital: { first: 'cuentas', tabs: ['cuentas', 'invest'] },
   herramientas: { first: 'ideas', tabs: ['ideas', 'calc'] },
   sistema: { first: 'ajustes', tabs: ['ajustes'] }
 };
@@ -40,8 +41,9 @@ try {
       allVisible: [...document.querySelectorAll('#tabnav .tabbtn')].every(b => getComputedStyle(b).display !== 'none'),
       groupLabel: document.querySelector('#navGroupBar [data-group="operar"]')?.textContent.trim()
     }));
-    check(allTabs.length === 11 && initial.routes.length === 11 &&
-      allTabs.every(tab => initial.routes.includes(tab)), theme + ': all original 11 routes retained');
+    check(original.every(tab => initial.routes.includes(tab)) &&
+      allTabs.length === 16 && initial.routes.length === 16 &&
+      allTabs.every(tab => initial.routes.includes(tab)), theme + ': original 11 routes retained and new labs routes added');
     check(initial.groups.length === 7 && initial.shown && initial.groups.includes('todas') && initial.allVisible,
       theme + ': six task groups plus All keep legacy direct routes accessible');
     check(initial.groupLabel === (theme === 'dark' ? 'Trade' : 'Operar'),
@@ -94,15 +96,15 @@ try {
     await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
     const mobile = await page.evaluate(() => ({
       barHidden: getComputedStyle(document.getElementById('navGroupBar')).display === 'none',
-      dock: ['cabina','futuros','invest','estudio'].every(tab => getComputedStyle(document.querySelector('#tabnav .tabbtn[data-tab="'+tab+'"]')).display !== 'none'),
+      dock: ['cabina','futuros','diario','estudio'].every(tab => getComputedStyle(document.querySelector('#tabnav .tabbtn[data-tab="'+tab+'"]')).display !== 'none'),
       menuItems: [...document.querySelectorAll('[data-mobile-more-tab]')].map(el=>el.dataset.mobileMoreTab),
       headings: document.querySelectorAll('.mobile-more-label').length,
       firstHeading: document.querySelector('.mobile-more-label')?.textContent.trim(),
       overflow: document.documentElement.scrollWidth > innerWidth + 1
     }));
-    check(mobile.barHidden && mobile.dock && mobile.headings === 5 && mobile.firstHeading === 'Trade',
+    check(mobile.barHidden && mobile.dock && mobile.headings === 6 && mobile.firstHeading === 'Trade',
       width + 'px: mobile dock intact and More translated');
-    check(mobile.menuItems.length === 7 && mobile.menuItems.includes('historial') && mobile.menuItems.includes('ajustes'),
+    check(mobile.menuItems.includes('historial') && mobile.menuItems.includes('ajustes') && mobile.menuItems.includes('estadisticas') && mobile.menuItems.includes('invest'),
       width + 'px: every secondary route remains in More');
     check(!mobile.overflow, width + 'px: no page-wide horizontal overflow');
     for (const target of ['historial', 'ajustes']) {

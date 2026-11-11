@@ -21,7 +21,7 @@ import { sirvePublicado } from './publicado.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { quieto, conCuentas } from './espera.mjs';
+import { quieto, conCuentas, abreCabOps } from './espera.mjs';
 import { nubeDoble } from './nube-doble.mjs';
 
 const fallos = [];
@@ -220,6 +220,8 @@ console.log('\n═══ OTRA PERSONA EN EL MISMO NAVEGADOR ═══');
   nube.filas.set(idB + '|days/2026-09-10', { user_id: idB, path: 'days/2026-09-10', data: { date: '2026-09-10', result: 120, trades: 2, closed: true } });
   nube.filas.set(idB + '|days/2026-09-11', { user_id: idB, path: 'days/2026-09-11', data: { date: '2026-09-11', result: -40, trades: 1, closed: true } });
   await p.reload({ waitUntil: 'load' }); await p.waitForFunction(() => typeof window.FUT !== 'undefined');
+  await p.click('.tabbtn[data-tab="cabina"]'); await quieto(p);
+  await abreCabOps(p);
   const filas = () => p.$$eval('#histWrap tr[data-date]:not(.sintetica)', n => n.length);
   ok(await esperaNube(p, () => document.querySelectorAll('#histWrap tr[data-date]').length === 2), 'las dos sesiones de la nube aparecen en el historial');
   await p.click('#selbtn-histWrap'); await quieto(p);

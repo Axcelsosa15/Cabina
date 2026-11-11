@@ -1,5 +1,6 @@
 /* PREFERENCIAS DE VISTA · la densidad y los módulos visibles no deben alterar datos. */
 import { chromium } from 'playwright';
+import { abreCabOps } from './espera.mjs';
 import { createServer } from 'node:http';
 import { sirvePublicado } from './publicado.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
@@ -63,6 +64,7 @@ if (await calcColumnToggles.count() > 0) {
 }
 await page.locator('#viewPrefsDone').click();
 await page.click('.tabbtn[data-tab="cabina"]');
+await abreCabOps(page);
 await page.click('#viewPrefsOpen');
 ok(await page.locator('#viewPrefsList .view-prefs-table-group[data-view-tab="calc"] input[aria-label^="Mostrar columna"]').count() > 0, 'desde Cabina se pueden configurar las columnas de Calculadora sin cambiar de pestaña');
 
@@ -85,6 +87,7 @@ const tabStored = await page.evaluate(() => JSON.parse(localStorage.getItem('cab
 ok(Array.isArray(tabStored.hidden.futuros) && tabStored.hidden.futuros.includes('panelImportar'), 'las preferencias de Futuros se guardan por separado');
 await page.locator('#viewPrefsDone').click();
 await page.click('.tabbtn[data-tab="cabina"]');
+await abreCabOps(page);
 ok(!(await page.locator('#panelHist').evaluate(el => el.classList.contains('user-view-hidden'))), 'la configuración de Futuros no oculta módulos de Cabina');
 await page.click('.tabbtn[data-tab="futuros"]');
 await page.click('#viewPrefsOpen');
@@ -109,6 +112,7 @@ for (const [tab, label] of [
   await page.locator('#viewPrefsDone').click();
 }
 await page.click('.tabbtn[data-tab="cabina"]');
+await abreCabOps(page);
 await page.waitForFunction(() => localStorage.getItem('cabina:migracion:mathengine:v1'));
 const journalBefore = await page.evaluate(() => Object.fromEntries(Object.entries(localStorage).filter(([key]) => !key.startsWith('cabina-view'))));
 await page.locator('#panelHist .view-fold-toggle').click();

@@ -15,6 +15,7 @@ try {
     page.on('pageerror', e => errors.push(e.message));
     await page.goto(`http://127.0.0.1:${server.address().port}/`);
     await page.waitForFunction(() => !!window.FUT);
+    await page.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
     const rule = await page.locator('#rules .rulec').nth(1).evaluate(el => {
       const input = el.querySelector('input.rvin').getBoundingClientRect();
       const note = el.querySelector('.rnow');
@@ -29,9 +30,9 @@ try {
     check(cta.y < filter.y && cta.y + cta.height < 740,
       `${width}px · Nueva operación aparece antes de los filtros y dentro de la primera pantalla`);
     const details = page.locator('#ftMoreFilters');
-    check((await details.getAttribute('open') !== null) === (width > 700),
-      `${width}px · filtros secundarios plegados sólo al iniciar en móvil`);
-    if (width <= 700) await details.locator('summary').click();
+    check(await details.getAttribute('open') === null,
+      `${width}px · filtros secundarios plegados al iniciar`);
+    await details.locator('summary').click();
     await page.locator('#ftQ').fill('prueba sin coincidencias');
     await page.locator('#ftMoreCount').waitFor({ state: 'visible' });
     await details.locator('summary').click();

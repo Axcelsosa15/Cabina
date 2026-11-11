@@ -50,7 +50,9 @@ async function pagina(s) {
   pg.on('pageerror', e => errs.push(e.message));
   await pg.goto(BASE, { waitUntil: 'load' });
   await pg.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
-  await pg.click('.tabbtn[data-tab="futuros"]'); await quieto(pg, 60, 2500);
+  await pg.click('.tabbtn[data-tab="futuros"]');
+  await pg.click('#ftSeg [data-v="resumen"]');
+  await quieto(pg, 60, 2500);
   return pg;
 }
 const panel = pg => pg.evaluate(() => (document.getElementById('qePanel') || {}).textContent || '');
@@ -65,7 +67,7 @@ console.log('\n═══ CON CUENTA · capital real, sin tarjetas repetidas ═�
   const k = await tarjetas(pg);
   ok(!k.some(x => /Sharpe/.test(x)), 'Sharpe ya NO se repite aquí', k.join(' · '));
   ok(!k.includes('Caída máxima'), 'caída máxima tampoco');
-  ok(/están en (?:Métricas \/ Edge|Rendimiento)/.test(t), 'y la pantalla dice dónde están');
+  ok(/están en (?:Métricas \/ Edge|Rendimiento|Analítica)/.test(t), 'y la pantalla dice dónde están');
   ok(/Días bajo el agua/.test(t) && /Factor de recuperación/.test(t), 'lo que no depende del capital sigue: días bajo el agua y factor de recuperación');
   ok(/Sortino/.test(t) && /Índice de úlcera/.test(t), 'úlcera y Sortino salen: hay capital');
   ok(/sobre \$50,000/.test(t), 'y se miden sobre los $50.000 de la cuenta, no sobre $25.000 fijos', (t.match(/sobre \$[\d,]+/) || [''])[0]);

@@ -64,6 +64,16 @@ export const quieto = (pg, calma = 30, tope = 1500) => pg.evaluate(([c, t]) => n
    app carga en fases (localStorage, normalize, renders) y entre dos fases cabe
    un hueco mayor que la calma, así que el observador se rendiría a mitad. Se
    espera a que EXISTA lo que el test va a usar, y sólo después a que se calme. */
+/** Abre el fold de Cuentas/pre-sesión/historial. Cerrado por defecto para
+ *  dashboard-first; Playwright no ve :visible ni innerText dentro de <details>
+ *  cerrado, así que los tests que tocan #accts / #cabSession / #cabHist lo abren. */
+export const abreCabOps = async (pg) => {
+  await pg.evaluate(() => {
+    const d = document.getElementById('cabOpsFold');
+    if (d) d.open = true;
+  });
+};
+
 export const arrancada = async (pg, sel = '.acct') => {
   /* Primero el motor: `window.FUT` se asigna durante el arranque, así que su
      existencia es la señal de que la app corrió, no de que el HTML llegó.
@@ -79,6 +89,10 @@ export const arrancada = async (pg, sel = '.acct') => {
      pasa. Cambiar un sleep fijo por una condición sondeada con rAF es cambiar
      una fragilidad por otra — me pasó, y falló 2 de cada 6 veces. */
   await pg.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 15000, polling: 100 });
+  /* La workstation (cuentas, pre-sesión, historial, disciplina, ventana) vive
+     dentro de #cabOpsFold, cerrado por defecto en el rediseño. Abrir siempre
+     aquí: los tests de UX que exigen el fold cerrado no pasan por arrancada. */
+  await abreCabOps(pg);
   if (sel) await pg.waitForSelector(sel, { timeout: 15000 }).catch(() => {});
   await quieto(pg, 120, 4000);
 };
@@ -259,3 +273,4 @@ export async function despliegaAncestros(locator) {
     if (!(await detail.evaluate(el => el.open))) await detail.locator(':scope > summary').click();
   }
 }
+

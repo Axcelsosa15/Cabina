@@ -44,7 +44,7 @@ for (const [w, nom] of [[1440, 'escritorio'], [430, 'telefono']]) {
   await p.waitForTimeout(1200);
   const vistos = [];
   for (const t of ['cabina', 'futuros', 'invest', 'playbook', 'ideas', 'calc']) {
-    if (w <= 430 && ['playbook', 'ideas', 'calc'].includes(t)) {
+    if (w <= 430 && ['playbook', 'ideas', 'calc', 'invest'].includes(t)) {
       await p.click('#mobileMoreBtn');
       await p.click('#mobileMoreOv [data-mobile-more-tab="' + t + '"]');
       await p.waitForFunction(() => document.getElementById('mobileMoreOv')?.hidden, null, { timeout: 5000 });

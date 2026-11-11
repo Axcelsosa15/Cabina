@@ -35,6 +35,18 @@ try {
   const arranca = async () => {
     await page.goto(origin);
     await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
+    /* Bitácora pinta KPIs/curva arriba y abre el fold sin cuentas: sin calmar
+       el layout, getBoundingClientRect del workstation oscila 1 fila y el
+       desplazamiento captura−medida deja de cancelarse entre corridas. */
+    await page.evaluate(() => {
+      const d = document.getElementById('cabOpsFold');
+      if (d) d.open = true;
+    });
+    await page.waitForFunction(() => {
+      const j = document.getElementById('panelJournal');
+      return !!(j && j.getBoundingClientRect().height > 100);
+    }, null, { timeout: 10000 });
+    await page.waitForTimeout(120);
   };
   const limpia = async () => { await page.evaluate(k => localStorage.removeItem(k), CLAVE); };
   const lienzoGuardado = () => page.evaluate(k => {

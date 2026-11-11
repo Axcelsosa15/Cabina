@@ -92,7 +92,7 @@ console.log('\n═══ 1 · la preferencia no se inventa: la ausencia sobreviv
   const trasArrancar = await p.evaluate(k => localStorage.getItem(k), CLAVE);
   ok(trasArrancar === null, 'arrancar NO escribe la clave del idioma', `getItem = ${JSON.stringify(trasArrancar)}`);
   const t0 = await textoPestana(p, 'futuros');
-  ok(t0.palabra === 'Futuros' && t0.lang === 'es', 'sin elección, se lee en español', `${t0.palabra} · lang=${t0.lang}`);
+  ok(t0.palabra === 'Operaciones' && t0.lang === 'es', 'sin elección, se lee en español', `${t0.palabra} · lang=${t0.lang}`);
 
   await pulsa(p);
   const trasPulsar = await p.evaluate(k => localStorage.getItem(k), CLAVE);
@@ -102,7 +102,7 @@ console.log('\n═══ 1 · la preferencia no se inventa: la ausencia sobreviv
      preferencia: es un botón que se olvida. */
   await p.reload(); await arrancada(p); await quieto(p, 80, 2500);
   const t1 = await textoPestana(p, 'futuros');
-  ok(t1.palabra === 'Futures' && t1.lang === 'en', 'la elección sobrevive a recargar', `${t1.palabra} · lang=${t1.lang}`);
+  ok(t1.palabra === 'Trades' && t1.lang === 'en', 'la elección sobrevive a recargar', `${t1.palabra} · lang=${t1.lang}`);
   await ctx.close();
 }
 
@@ -112,7 +112,7 @@ console.log('\n═══ 2 · traducir no se lleva por delante lo que había den
   const antes = await textoPestana(p, 'futuros');
   await pulsa(p);
   const despues = await textoPestana(p, 'futuros');
-  ok(despues.palabra === 'Futures', 'la pestaña se traduce', despues.palabra);
+  ok(despues.palabra === 'Trades', 'la pestaña se traduce', despues.palabra);
   ok(antes.contador && despues.contador, 'el contador de operaciones sigue dentro del botón',
     `antes=${antes.contador} después=${despues.contador}`);
 
@@ -126,7 +126,7 @@ console.log('\n═══ 2 · traducir no se lleva por delante lo que había den
      más fácil de dar por traducida. */
   const pend = await p.evaluate(() => [...document.querySelectorAll('#tabnav .tabbtn')]
     .map(b => { const n = [...b.childNodes].find(x => x.nodeType === 3 && x.data.trim()); return n ? n.data.trim() : ''; })
-    .filter(t => /[áéíóúñÁÉÍÓÚÑ]/.test(t) || t === 'Futuros' || t === 'Inversiones' || t === 'Calculadora' || t === 'Cuentas' || t === 'Historial' || t === 'Ajustes'));
+    .filter(t => /[áéíóúñÁÉÍÓÚÑ]/.test(t) || t === 'Operaciones' || t === 'Inversiones' || t === 'Calculadora' || t === 'Cuentas' || t === 'Historial' || t === 'Ajustes' || t === 'Calendario'));
   ok(pend.length === 0, 'ninguna de las once pestañas se queda en español', pend.join(' | ') || 'ninguna');
   await ctx.close();
 }

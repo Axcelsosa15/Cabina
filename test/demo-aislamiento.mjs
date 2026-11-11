@@ -24,7 +24,17 @@ async function ready(page) {
 try {
   const ctx = await browser.newContext({ viewport: { width: 1320, height: 1000 } });
   const realDay = { date: DATE, closed: true, result: 1729, resultManual: true, trades: 1, note: 'DÍA REAL PRIVADO' };
-  const seed = { settings: structuredClone(CONFIG_PRUEBA), days: { [DATE]: realDay }, trades: {} };
+  const seed = {
+    settings: structuredClone(CONFIG_PRUEBA),
+    days: { [DATE]: realDay },
+    trades: {},
+    journal: {
+      jr_privado: {
+        id: 'jr_privado', date: DATE, mood: 'Paciente',
+        title: 'REFLEXIÓN REAL PRIVADA', body: 'no debe verse en demo', lesson: 'secreto'
+      }
+    }
+  };
   const trash = { lista: 'histWrap', col: 'days', dias: true, regs: [{ ...realDay, note: 'RESTAURACIÓN REAL PRIVADA' }], cuando: NOW };
   await ctx.addInitScript(({ key, trashKey, data, pendingTrash, now }) => {
     const RealDate = Date;
@@ -58,6 +68,7 @@ try {
   await quieto(page);
   check('el callback de archivo tardío rechaza importar en demo', /Sal de la demo/.test(await page.locator('#bkNote').innerText()));
   await page.locator('#tabnav [data-tab="cabina"]').click();
+  await page.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
   const sameDay = page.locator('#histWrap tr[data-date="' + DATE + '"]');
   await sameDay.waitFor();
   await sameDay.locator('[data-act="del"]').click();
@@ -73,6 +84,10 @@ try {
   const after = await page.evaluate(([key, trashKey]) => [localStorage.getItem(key), localStorage.getItem(trashKey)], [KEY, TRASH]);
   check('importar, borrar, deshacer y descartar en demo dejan disco y papelera idénticos', JSON.stringify(before) === JSON.stringify(after));
   check('no se invoca ninguna escritura o vaciado del almacén financiero durante estos intentos', await page.evaluate(() => window.__financialWrites.length === 0));
+  await page.locator('#tabnav [data-tab="diario"]').click();
+  await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'diario');
+  const jrText = await page.locator('#jrList').innerText();
+  check('demo no expone entradas personales del diario', !/REFLEXIÓN REAL PRIVADA|no debe verse|secreto/i.test(jrText));
   await ctx.close();
 
   // Una importación real ya confirmada tampoco se mezcla con la transición.

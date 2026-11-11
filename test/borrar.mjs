@@ -8,7 +8,7 @@
      · lo borrado vuelve entero, incluso después de recargar;
      · en masa sólo se borra lo que está EN PANTALLA. */
 import { chromium } from 'playwright';
-import { quieto, arrancada, trasGuardar, enDisco } from './espera.mjs';
+import { quieto, arrancada, trasGuardar, enDisco, abreCabOps } from './espera.mjs';
 const errs = [], fallos = [];
 const F = new Date('2026-09-17T14:00:00Z').getTime();
 const b = await chromium.launch();
@@ -36,15 +36,18 @@ console.log('\n═══ el clic selecciona; borrar dice qué cambia ═══')
   const p = await pagina(base({ trades }));
   await p.click('.tabbtn[data-tab="futuros"]'); await quieto(p);
 
-  /* El journal vive en la sub-vista «Diario». Mientras miras «Resumen» sus
-     filas existen en el DOM pero no en pantalla, y «Todo» habría marcado seis
-     operaciones que no estás viendo. */
+  /* Operaciones abre en la tabla. En Resumen las filas existen en el DOM
+     pero no en pantalla, y «Todo» marcaría operaciones que no se ven. */
+  ok(!(await p.evaluate(() => document.getElementById('selbtn-jrTable').disabled)),
+     'al abrir Operaciones el journal está a la vista y se puede seleccionar');
+  await p.click('#ftSeg button[data-v="resumen"]'); await quieto(p);
+  await new Promise(r => setTimeout(r, 60));
   ok(await p.evaluate(() => document.getElementById('selbtn-jrTable').disabled),
      'en «Resumen» el botón está apagado: el journal no está a la vista');
   await p.click('#ftSeg button[data-v="diario"]'); await quieto(p);
   await new Promise(r => setTimeout(r, 60));
   ok(!(await p.evaluate(() => document.getElementById('selbtn-jrTable').disabled)),
-     'y se enciende al entrar en «Diario»');
+     'y se enciende al volver a la tabla');
 
   const bal0 = await p.evaluate(() => FUT.calculateAccountStats('a1').total);
   await p.click('#selbtn-jrTable'); await quieto(p);
@@ -165,6 +168,7 @@ console.log('\n═══ borrar una cuenta arrastra sus operaciones, y se dice �
   const ordenAntes = await orden();
 
   await p.click('#selbtn-accts'); await quieto(p);
+  await abreCabOps(p);
   await p.click('#accts article.acct[data-id="a1"]');
   await p.click('#accts article.acct[data-id="a3"]'); await quieto(p);
   await p.click('[data-sel="borrar"]'); await quieto(p);

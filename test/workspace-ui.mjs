@@ -3,6 +3,7 @@
  * Incluido automáticamente en test/correr.mjs y la compuerta de CI. */
 import { chromium } from 'playwright';
 import { sirvePublicado } from './publicado.mjs';
+import { conCuentas } from './espera.mjs';
 
 const fallos = [];
 const check = (ok, label, detail = '') => {
@@ -22,8 +23,15 @@ try {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     try {
+      /* Con cuentas, el fold queda cerrado (dashboard-first). Sin cuentas la
+         app lo abre para poder crear la primera — eso no es esta regresión. */
+      await conCuentas(page);
       await page.goto('http://127.0.0.1:' + server.address().port + '/');
       await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
+      const opsFold = page.locator('#cabOpsFold');
+      check(await opsFold.count() === 1 && await opsFold.getAttribute('open') === null,
+        width + 'px · workstation de Inicio plegada debajo del dashboard');
+      await page.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
       const cabina = await page.evaluate(() => {
         const tab = document.querySelector('.tab[data-tab="cabina"]');
         const accts = document.getElementById('panelAccts');
@@ -68,6 +76,7 @@ try {
       await checkFold.locator('summary').click();
 
       await page.locator('#tabnav .tabbtn[data-tab="futuros"]').click();
+      await page.locator('#ftSeg [data-v="resumen"]').click();
       await page.locator('#ftTiles .tile').first().waitFor({ timeout: 15000 });
       const metrics = page.locator('#ftTiles > details');
       check(!(await metrics.evaluate(el => el.open)) && await page.locator('#ftTiles .metric-overview > .tile').count() === 3,
