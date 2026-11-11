@@ -21,7 +21,7 @@ import { sirvePublicado } from './publicado.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { quieto, conCuentas } from './espera.mjs';
+import { quieto, conCuentas, abreCabOps } from './espera.mjs';
 import { nubeDoble } from './nube-doble.mjs';
 
 const fallos = [];

@@ -20,7 +20,7 @@
      · varios términos son un AND, no un OR;
      · la búsqueda aparece como chip y «Ver todo» la quita. */
 import { chromium } from 'playwright';
-import { quieto, arrancada, trasGuardar } from './espera.mjs';
+import { quieto, arrancada, trasGuardar, abreCabOps } from './espera.mjs';
 const errs = [], fallos = [];
 const F = new Date('2026-09-17T14:00:00Z').getTime();
 const b = await chromium.launch();
@@ -175,6 +175,7 @@ await buscar('MNQ');
 const antesN = await n();
 // El registro rápido vive en la pestaña Cabina.
 await p.click('.tabbtn[data-tab="cabina"]'); await quieto(p);
+await abreCabOps(p);
 await p.fill('#qtSym', 'CL');
 ok(await p.locator('#qtAccount option').count() === 3, 'el registro rápido ofrece las dos cuentas y «sin cuenta»', await p.locator('#qtAccount option').count());
 await p.selectOption('#qtAccount', 'b2');
