@@ -41,7 +41,17 @@ async function adjunta(p, nombre) {
   await quieto(p);
 }
 async function enEstudio(p) {
-  await p.click('.tabbtn[data-tab="estudio"]');
+  /* En el dock Bitácora, Estudio vive en Más; en escritorio sigue en #tabnav. */
+  const viaMas = await p.evaluate(() => {
+    const b = document.querySelector('#tabnav .tabbtn[data-tab="estudio"]');
+    return !!(b && getComputedStyle(b).display === 'none');
+  });
+  if (viaMas) {
+    await p.click('#mobileMoreBtn');
+    await p.click('#mobileMoreOv [data-mobile-more-tab="estudio"]');
+  } else {
+    await p.click('.tabbtn[data-tab="estudio"]');
+  }
   await p.waitForSelector('#studyTradeList [data-study-trade]', { timeout: 8000 });
   await p.click('#studyTradeList [data-study-trade]');
   await quieto(p);

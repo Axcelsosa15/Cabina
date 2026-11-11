@@ -20076,7 +20076,8 @@
     const overlay = document.getElementById("mobileMoreOv");
     const close = document.getElementById("mobileMoreClose");
     if (!nav || !trigger || !overlay || !close) return;
-    const secondary = new Set(["cuentas", "edge", "historial", "playbook", "ideas", "calc", "ajustes", "estadisticas", "correlaciones", "insights", "calendario", "invest"]);
+    /* Primarios en el dock: cabina, futuros, edge, diario. El resto es «Más». */
+    const secondary = new Set(["cuentas", "historial", "playbook", "ideas", "calc", "ajustes", "estadisticas", "correlaciones", "insights", "calendario", "invest", "estudio"]);
     let previousOverflow = "";
     const sheet = overlay.querySelector(".mobile-more-sheet");
     const menuItems = [...overlay.querySelectorAll("[data-mobile-more-tab]")];

@@ -96,16 +96,19 @@ try {
     await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
     const mobile = await page.evaluate(() => ({
       barHidden: getComputedStyle(document.getElementById('navGroupBar')).display === 'none',
-      dock: ['cabina','futuros','diario','estudio'].every(tab => getComputedStyle(document.querySelector('#tabnav .tabbtn[data-tab="'+tab+'"]')).display !== 'none'),
+      dock: ['cabina','futuros','edge','diario'].every(tab => getComputedStyle(document.querySelector('#tabnav .tabbtn[data-tab="'+tab+'"]')).display !== 'none'),
+      estudioHidden: getComputedStyle(document.querySelector('#tabnav .tabbtn[data-tab="estudio"]')).display === 'none',
       menuItems: [...document.querySelectorAll('[data-mobile-more-tab]')].map(el=>el.dataset.mobileMoreTab),
       headings: document.querySelectorAll('.mobile-more-label').length,
       firstHeading: document.querySelector('.mobile-more-label')?.textContent.trim(),
       overflow: document.documentElement.scrollWidth > innerWidth + 1
     }));
-    check(mobile.barHidden && mobile.dock && mobile.headings === 6 && mobile.firstHeading === 'Trade',
-      width + 'px: mobile dock intact and More translated');
-    check(mobile.menuItems.includes('historial') && mobile.menuItems.includes('ajustes') && mobile.menuItems.includes('estadisticas') && mobile.menuItems.includes('invest'),
-      width + 'px: every secondary route remains in More');
+    check(mobile.barHidden && mobile.dock && mobile.estudioHidden && mobile.headings === 6 && mobile.firstHeading === 'Trade',
+      width + 'px: mobile dock Bitácora (Analítica primary) and More translated');
+    check(mobile.menuItems.includes('estudio') && !mobile.menuItems.includes('edge') &&
+      mobile.menuItems.includes('historial') && mobile.menuItems.includes('ajustes') &&
+      mobile.menuItems.includes('estadisticas') && mobile.menuItems.includes('invest'),
+      width + 'px: Estudio in More; Analítica left the sheet');
     check(!mobile.overflow, width + 'px: no page-wide horizontal overflow');
     for (const target of ['historial', 'ajustes']) {
       await page.locator('#mobileMoreBtn').click();
