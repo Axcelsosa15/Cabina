@@ -251,6 +251,29 @@ await page.waitForTimeout(300);
 ok(!(await page.evaluate(() => document.getElementById('ov')?.classList.contains('open'))),
   'un segundo showTab no reabre el editor');
 
+/* trade= antes de que exista la fila (hidratado tarde): queda pendiente y abre al llegar. */
+await page.evaluate(() => { FUT.deleteTrade('t0'); });
+await page.evaluate(() => { location.hash = '#futuros?trade=t0'; });
+await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros');
+await page.waitForTimeout(300);
+ok(!(await page.evaluate(() => document.getElementById('ov')?.classList.contains('open'))),
+  'trade= sin fila aún no abre el editor');
+await page.evaluate(() => {
+  FUT.createTrade({
+    id: 't0', type: 'futuros', date: '2026-09-08', time: '09:30',
+    instrument: 'MNQ', direction: 'long', qty: 1, entry: 21000, stop: 20990, exit: 21010
+  });
+});
+await page.waitForFunction(() => document.getElementById('ov')?.classList.contains('open'), null, { timeout: 10000 });
+const late = await page.evaluate(() => ({
+  open: document.getElementById('ov')?.classList.contains('open'),
+  hash: location.hash
+}));
+ok(late.open && !/trade=/.test(late.hash),
+  'al hidratar la operación, trade= pendiente abre y se limpia', JSON.stringify(late));
+await page.click('#edCancel');
+await page.waitForFunction(() => !document.getElementById('ov')?.classList.contains('open'));
+
 /* ids residuales no deben volver a limpiar filtros en cada showTab. */
 await page.goto('http://127.0.0.1:' + srv.address().port + '/#futuros?ids=t0&view=diario', { waitUntil: 'load' });
 await page.waitForFunction(() => document.querySelector('#ftFilters .fchip'), null, { timeout: 15000 });

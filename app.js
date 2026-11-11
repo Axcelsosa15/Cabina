@@ -2816,6 +2816,9 @@
      La clave incluye pestaña+query: `#futuros?date=` → `#estudio?date=` debe
      volver a consumirse aunque el search coincida. */
   let appliedRouteKey = null;
+  /* trade= puede llegar antes de que la nube hidrate coll("trades"): se guarda
+     y se abre en cuanto exista la fila (subscribe), sin depender de otro showTab. */
+  let pendingTradeOpen = null;
   function routeKey(tab, search) { return String(tab || "") + "?" + String(search || ""); }
   function scrubHashParam(key) {
     const { name, search } = parseHash();
@@ -2825,6 +2828,14 @@
     const q = sp.toString();
     try { history.replaceState(null, "", "#" + name + (q ? "?" + q : "")); } catch {}
     appliedRouteKey = routeKey(name, q);
+  }
+  function tryOpenPendingTrade() {
+    if (!pendingTradeOpen) return;
+    const tr = coll("trades").get(pendingTradeOpen);
+    if (!tr) return;
+    pendingTradeOpen = null;
+    scrubHashParam("trade");
+    requestAnimationFrame(() => openTrade(tr));
   }
   function consumeRoute() {
     const search = parseHash().search;
@@ -2851,12 +2862,9 @@
       }
       if ((state.tab === "futuros") && (p.date || p.ids || p.trade || p.view === "diario")) setFtView("diario");
     }
-    if (p.trade && coll("trades").get(p.trade)) {
-      const tr = coll("trades").get(p.trade);
-      /* trade= es un deep link de un solo uso: abrir el editor y quitarlo del
-         hash para que un segundo showTab no lo reabra. */
-      scrubHashParam("trade");
-      requestAnimationFrame(() => openTrade(tr));
+    if (p.trade) {
+      pendingTradeOpen = p.trade;
+      tryOpenPendingTrade();
     }
     if (state.tab === "diario" && p.date) { const el = $("jrSearch"); if (el) el.value = p.date; }
     if (state.tab === "estudio" && p.date) {
@@ -16329,7 +16337,7 @@
 
      De paso desaparece el último try{}catch{} mudo de la app: el de los destinos
      de la calculadora. Si falla, se dice cuál falló en vez de tragárselo. */
-  coll("trades").subscribe(() => fanout(FANOUT_TRADES));
+  coll("trades").subscribe(() => { tryOpenPendingTrade(); fanout(FANOUT_TRADES); });
   /* ══════════════ ANTES DE OPERAR ══════════════
      Una lista que se lee una vez al día y se quita de en medio. El problema
      que resuelve no es «no tengo mis reglas escritas» —las reglas duras ya
