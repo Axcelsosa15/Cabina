@@ -2838,9 +2838,11 @@
       if (p.setup) ft.setup = p.setup;
       if (p.date && /^\d{4}-\d{2}-\d{2}$/.test(p.date)) { ft.day = p.date; ft.month = p.date.slice(0, 7); }
       if (p.ids || p.trade) {
-        /* Evidencia puntual: limpia filtros que pueden ocultar esas filas.
-           No se borra al cambiar de pestaña: Ver todo / × del chip lo hacen. */
+        /* Evidencia puntual: limpia TODO filtro que tradeFiltro aún aplica
+           (rango, cuenta, instrumento, sesión). Si no, Insights puede abrir
+           Operaciones con chip de evidencia y tabla vacía. */
         ft.setup = ""; ft.result = ""; ft.quality = ""; ft.tag = ""; ft.q = "";
+        ft.range = "all"; ft.acct = ""; ft.instr = ""; ft.ses = "";
         if (p.ids) { labFocus.ids = String(p.ids).split(",").filter(Boolean); ft.ids = String(p.ids); }
         else { labFocus.ids = [p.trade]; ft.ids = String(p.trade); }
       }
