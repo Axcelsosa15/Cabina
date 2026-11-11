@@ -2795,10 +2795,12 @@
   };
   let pendingRoute = null;
   const labFocus = { ids: [] };
-  /* Declarados aquí para que un deep link `#estudio?date=` en el primer
-     showTab no caiga en TDZ al enfocar el día (las lets vivían más abajo). */
+  /* Deep link `#estudio?date=` en el primer showTab: no llamar a Estudio
+     hasta que su módulo (renders, consts) esté inicializado. */
   let estudioDiaEnfoque = "";
   let estudioSoloSinRevisar = false;
+  let estudioRouteReady = false;
+  let pendingEstudioDate = null;
   function parseHash() {
     const raw = String(location.hash || "").replace(/^#/, "");
     const i = raw.indexOf("?");
@@ -2833,7 +2835,10 @@
       requestAnimationFrame(() => openTrade(tr));
     }
     if (state.tab === "diario" && p.date) { const el = $("jrSearch"); if (el) el.value = p.date; }
-    if (state.tab === "estudio" && p.date) estudioEnfocarDia(p.date);
+    if (state.tab === "estudio" && p.date) {
+      if (estudioRouteReady) estudioEnfocarDia(p.date);
+      else pendingEstudioDate = p.date;
+    }
   }
   function tradeGo(kind, date) {
     const dia = String(date || "").slice(0, 10);
@@ -20039,6 +20044,12 @@
   function renderCalendarioTab() { renderLabCalendar(); }
   function renderLabsEstadisticas() { renderLabs(); }
 
+  estudioRouteReady = true;
+  if (pendingEstudioDate) {
+    const dia = pendingEstudioDate;
+    pendingEstudioDate = null;
+    estudioEnfocarDia(dia);
+  }
   showTab(parseHash().name || "cabina");
 
 })();

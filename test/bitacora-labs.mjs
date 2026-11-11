@@ -232,10 +232,17 @@ await page.goto('http://127.0.0.1:' + srv.address().port + '/#estudio?date=2026-
 await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'estudio', null, { timeout: 15000 });
 const estDeep = await page.evaluate(() => ({
   tab: document.querySelector('.tab.active')?.dataset.tab,
-  from: document.getElementById('studyTradeFrom')?.value || ''
+  from: document.getElementById('studyTradeFrom')?.value || '',
+  fut: typeof window.FUT,
+  labs: typeof window.CabinaLabs,
+  list: !!(document.getElementById('studyTradeList') && document.getElementById('studyTradeList').children.length)
 }));
-ok(estDeep.tab === 'estudio' && estDeep.from === '2026-09-08',
+ok(estDeep.tab === 'estudio' && estDeep.from === '2026-09-08' && estDeep.fut === 'object' && estDeep.labs === 'object',
   'deep link Estudio con fecha no rompe el arranque', JSON.stringify(estDeep));
+await page.click('#tabnav .tabbtn[data-tab="insights"]');
+await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'insights');
+const afterDeep = await page.evaluate(() => document.getElementById('insList')?.innerText || '');
+ok(afterDeep.length > 0, 'tras deep link Estudio, Labs sigue vivo', afterDeep.slice(0, 80));
 
 {
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 } });
