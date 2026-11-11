@@ -1,6 +1,20 @@
 /* ESTUDIO · fuentes fechadas, vínculos a datos reales y backlinks. */
 import { chromium } from 'playwright';
 import { SEMILLA, quieto } from './espera.mjs';
+import { sirvePublicado } from './publicado.mjs';
+
+/* SE SIRVE POR HTTP, no por file://. Esta suite cargaba la pagina con
+   'file://' + process.cwd(), que ademas la ataba al directorio desde el que se
+   lanzara. Medido el 2026-11-11 sobre respaldo-estudio, que fallaba igual y
+   cargaba igual: 50 corridas por cada forma, intercaladas en la misma maquina,
+   9 rojos por file:// y 0 por HTTP (Fisher exacto, una cola, p = 0,0013). Con
+   file:// la pagina recibe a veces un localStorage VACIO tras recargar, que es
+   exactamente el sintoma documentado aqui —el snapshot pierde los documentos de
+   investigacion tras la recarga—. Las otras 87 suites ya usan este servidor. */
+const servidor = sirvePublicado();
+await new Promise(r => servidor.listen(0, '127.0.0.1', r));
+servidor.unref();
+const origenServido = 'http://127.0.0.1:' + servidor.address().port + '/';
 
 const fallos = [], errores = [];
 const SEMILLA_OBJ = JSON.parse(SEMILLA);
@@ -26,7 +40,7 @@ await p.addInitScript(seed => {
     }
   } catch {}
 }, SEMILLA_OBJ);
-await p.goto('file://' + process.cwd() + '/../index.html');
+await p.goto(origenServido);
 await p.waitForFunction(() => window.FUT && document.querySelector('#studyNew')); await quieto(p);
 await p.click('.tabbtn[data-tab="estudio"]'); await quieto(p);
 

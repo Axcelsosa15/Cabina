@@ -3,6 +3,17 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { nubeDoble } from './nube-doble.mjs';
 import { CONFIG_PRUEBA, quieto } from './espera.mjs';
+import { sirvePublicado } from './publicado.mjs';
+
+/* SE SIRVE POR HTTP, no por file://, por prevención y no por un rojo observado.
+   Esta suite no se ha visto fallar, pero era la TERCERA y última que navegaba a
+   file://, y bajo ese esquema la página recibe a veces un localStorage vacío
+   tras recargar: medido el 2026-11-11 en las otras dos, 9 rojos de 50 por
+   file:// contra 0 de 50 por HTTP (Fisher exacto, una cola, p = 0,0013). Dejar
+   una expuesta a la misma causa es dejar puesto el próximo misterio. */
+const servidor = sirvePublicado();
+await new Promise(r => servidor.listen(0, '127.0.0.1', r));
+servidor.unref();
 
 const D = nubeDoble();
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
@@ -30,7 +41,7 @@ try {
   });
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(e.message));
-  await page.goto(new URL('../index.html', import.meta.url).href);
+  await page.goto('http://127.0.0.1:' + servidor.address().port + '/');
   await page.waitForFunction(() => typeof window.FUT !== 'undefined');
   await page.locator('#tabnav [data-tab="playbook"]').click();
   await page.locator('#pbCards .card[data-id="p_real"]').waitFor();
