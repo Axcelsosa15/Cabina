@@ -207,6 +207,17 @@ await page.goto('http://127.0.0.1:' + srv.address().port + '/#rendimiento', { wa
 await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'edge', null, { timeout: 15000 });
 ok(true, 'alias #rendimiento → edge');
 
+await page.goto('http://127.0.0.1:' + srv.address().port + '/#futuros?ids=t0&view=diario', { waitUntil: 'load' });
+await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros', null, { timeout: 15000 });
+const deep = await page.evaluate(() => ({
+  tab: document.querySelector('.tab.active')?.dataset.tab,
+  hash: location.hash,
+  chip: [...document.querySelectorAll('#ftFilters .fchip')].some(el => /Evidencia/i.test(el.textContent || '')),
+  rows: document.querySelectorAll('#jrTable tr[data-id]').length
+}));
+ok(deep.tab === 'futuros' && /ids=t0/.test(deep.hash) && deep.chip && deep.rows === 1,
+  'hash con ids conserva evidencia al cargar', JSON.stringify(deep));
+
 {
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const p2 = await phone.newPage();

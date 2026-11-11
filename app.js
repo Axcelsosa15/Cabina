@@ -2846,6 +2846,9 @@
   function showTab(name) {
     const parsed = parseHash();
     if (!name) name = parsed.name;
+    /* Defensa: un caller antiguo pasaba el hash entero (`futuros?ids=…`) y
+       fallaba el lookup → caía a Inicio y tiraba los parámetros. */
+    if (name && name.includes("?")) name = name.split("?")[0];
     name = TAB_ALIAS[name] || name;
     if (!document.querySelector(`.tab[data-tab="${name}"]`)) name = "cabina";
     if (state.tab && !switchingTabScroll) tabScrollPositions.set(state.tab, window.scrollY);
@@ -14407,10 +14410,13 @@
        que el próximo filtro que se añada queda cubierto aquí sin tocar nada. */
     ft.day = null; ft.month = state.today.slice(0, 7);
     FT_FILTROS.forEach(f => { ft[f.k] = f.off || ""; });
+    clearEvidenceFocus();
     coll("playbooks").items = d.pbs; coll("trades").items = d.trades;
     coll("positions").items = d.positions; coll("watch").items = d.watch;
     coll("ideas").items = d.ideas; coll("scenarios").items = d.scenarios;
-    ["playbooks", "trades", "positions", "watch", "ideas", "scenarios"].forEach(n => coll(n).emit());
+    /* Diario personal no entra en demo: evita mezclar reflexiones reales con ops inventadas. */
+    coll("journal").items = [];
+    ["playbooks", "trades", "positions", "watch", "ideas", "scenarios", "journal"].forEach(n => coll(n).emit());
     renderAll(); renderLevels(); renderInvest(); renderCalc(); renderDemoBar();
     flash("modo demo activo · nada se guarda");
     return true;
@@ -18389,7 +18395,7 @@
 
   setCalcView("classic");
   renderRisk();
-  showTab((location.hash || "#cabina").slice(1));
+  showTab(parseHash().name || "cabina");
   tickClock();
   setInterval(tickClock, 1000);
   renderLevels();
@@ -19612,10 +19618,24 @@
   function labApi() { return window.CabinaLabs || null; }
   function labRows(list) {
     const L = labApi(); if (!L) return [];
-    return (list || FUT.filtered(ftSpec())).map(t => L.adaptTrade(t, {
-      pnl: t.pnlEff, setupName: t.setupId ? (coll("playbooks").get(t.setupId)?.name || "") : "",
-      accountName: acctLabel(t.accountId) || ""
-    }));
+    const src = list || FUT.filtered(ftSpec());
+    /* Misma valuación neta que Analítica: mxCalc/mxNeto, no el bruto del journal. */
+    const byId = new Map(mxCalc(src, mxP()).filas.map(f => [f.t.id, f]));
+    return src.map(t => {
+      const f = byId.get(t.id);
+      const exc = QE.excursionDeOperacion({
+        simbolo: t.instrument, direccion: t.direction,
+        entrada: t.entry, stop: t.stop, salida: t.exit, mae: t.mae, mfe: t.mfe
+      });
+      return L.adaptTrade(t, {
+        pnl: f ? f.neto : null,
+        qty: f ? f.qty : null,
+        mae: exc ? exc.adversoPuntos : null,
+        mfe: exc ? exc.favorablePuntos : null,
+        setupName: t.setupId ? (coll("playbooks").get(t.setupId)?.name || "") : "",
+        accountName: acctLabel(t.accountId) || ""
+      });
+    });
   }
   function labOpenTrades(ids) {
     if (!ids || !ids.length) return;
@@ -19782,7 +19802,8 @@
       if (!note && !d.broke) return;
       map.set(d.date, { date: d.date, note, broke: !!d.broke, result: d.result });
     };
-    historyMerged().forEach(put);
+    /* Biblioteca completa: historyMerged() sólo guarda 14 sesiones del dashboard. */
+    (state.demo ? state.history : state.dias).forEach(put);
     put(state.day);
     return [...map.values()].sort((a, b) => String(b.date).localeCompare(String(a.date)));
   }

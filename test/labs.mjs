@@ -96,6 +96,18 @@ ok(st.n === 6 && st.expectancy === 80 && st.pf === Infinity, 'métricas de estra
 const j = L.coerceJournal({ date: '2026-05-01', mood: 'Enfocado', title: 'A', body: 'B', lesson: 'C' });
 ok(j.date === '2026-05-01' && j.mood === 'Enfocado' && Array.isArray(j.tradeIds), 'coerceJournal');
 
+console.log('\n═══ group sin prototipo ═══');
+const protoSafe = L.group([
+  mk('p1', '2026-06-01', '09:00', 10, { setup: 'constructor' }),
+  mk('p2', '2026-06-02', '09:00', -5, { setup: 'toString' }),
+], t => t.setup);
+ok(protoSafe.constructor && protoSafe.constructor.count === 1 && protoSafe.toString.count === 1,
+  'agrupa claves heredadas del Object.prototype', JSON.stringify(protoSafe.constructor));
+
+const adapted = L.adaptTrade({ id: 'x', mae: 20990, mfe: 21050, entry: 21000, direction: 'long', qty: 2, pnlEff: 1 }, { pnl: -0.5, qty: 2, mae: 10, mfe: 50 });
+ok(adapted.pnl === -0.5 && adapted.mae === 10 && adapted.mfe === 50 && adapted.contracts === 2,
+  'adaptTrade respeta neto y excursiones del helper', JSON.stringify(adapted));
+
 console.log('\nfallos: ' + fallos.length);
 if (fallos.length) process.exit(1);
 console.log('PASS labs');
