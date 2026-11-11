@@ -22,6 +22,7 @@
    guardado bueno de CUALQUIER documento limpie el aviso de OTRO que sigue sin
    guardar. */
 import { chromium } from 'playwright';
+import { abreCabOps } from './espera.mjs';
 import { createServer } from 'node:http';
 import { sirvePublicado } from './publicado.mjs';
 import { readFileSync } from 'node:fs';
