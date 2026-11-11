@@ -10,6 +10,7 @@ Bitácora es la referencia de navegación y de presentación. Cabina sigue siend
 - Las versiones de una estrategia son playbooks de futuros unidos por `parentId`. Cada versión cuenta solo las operaciones con su `setupId`. Menos de 30 no certifica estabilidad.
 - Los enlaces entre módulos son la query de la URL más el hash. `showTab` conserva la query. `#rendimiento` abre Analítica. `#estadisticas` abre Estadísticas. `#journal` sigue abriendo la sesión de Futuros.
 - Cuenta, setup y fechas de Estadísticas se escriben en esa misma query. Al abrir Estadísticas se leen de la URL, y «Ver operaciones» abre Operaciones con el mismo recorte.
+- Inicio y el calendario leen esa misma query. El calendario no se vacía por un rango de un solo día: ignora desde/hasta para seguir mostrando el mes. Un insight de setup guarda el `setupId`, no el nombre.
 
 ## Navegación
 

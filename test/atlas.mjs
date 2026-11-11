@@ -44,4 +44,11 @@ assert.match(ausente.metric, /No hay evidencia suficiente/);
 assert.match(ausente.context, /FOMO/);
 assert.equal(cards.some(c => c.name === "FOMO" && c.cls === "desfavorable"), false);
 
+const setups = [];
+for (let i = 0; i < 5; i++) setups.push({ pnl: 100, setupId: "sA", setup: "Ruptura", date: "2026-02-0" + (i + 1), time: "10:00", qty: 1 });
+for (let i = 0; i < 5; i++) setups.push({ pnl: -40, setupId: "sB", setup: "Rango", date: "2026-02-1" + i, time: "10:00", qty: 1 });
+const bestSetup = A.insightsOf(setups).find(c => c.id === "best-setup");
+assert.equal(bestSetup && bestSetup.evidence.setup, "sA");
+assert.match(bestSetup.context, /Ruptura/);
+
 console.log("PASS atlas");

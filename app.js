@@ -1350,6 +1350,7 @@
     "Analizar": "Analyze",
     "Analítica": "Analytics",
     "Ver operaciones": "View trades",
+    "Mismos filtros que Operaciones.": "Same filters as Trades.",
     "Calendario": "Calendar",
     "Capital": "Capital",
     "Correlaciones": "Correlations",

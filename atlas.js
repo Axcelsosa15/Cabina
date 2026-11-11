@@ -152,6 +152,11 @@
     const overall = mean(chrono.map(r => num(r.pnl)));
     const band = Math.max(15, Math.abs(overall) * 0.3);
     const out = [];
+    function labelOf(queryKey, group) {
+      if (queryKey !== "setup") return group.key;
+      const hit = chrono.find(r => r.setupId === group.key);
+      return (hit && hit.setup) || group.key;
+    }
     function edge(label, keyFn, queryKey) {
       const arr = groupBy(chrono, keyFn).filter(x => x.n >= SEGMENT_MIN);
       if (arr.length < 2) return;
@@ -161,7 +166,7 @@
       out.push(base({
         id: "best-" + queryKey, cls: "favorable", name: label + " con mejor resultado",
         metric: "Expectativa " + Math.round(best.expectancy),
-        sample: best.n, context: best.key + " frente a " + worst.key + ".",
+        sample: best.n, context: labelOf(queryKey, best) + " frente a " + labelOf(queryKey, worst) + ".",
         confidence: best.n < 30 ? "muestra limitada: no es una ventaja declarada" : "segmento repetido",
         evidence: { [queryKey]: best.key }
       }));
@@ -169,13 +174,13 @@
         out.push(base({
           id: "worst-" + queryKey, cls: "desfavorable", name: label + " con peor resultado",
           metric: "Expectativa " + Math.round(worst.expectancy),
-          sample: worst.n, context: worst.key + ". No implica causa.",
+          sample: worst.n, context: labelOf(queryKey, worst) + ". No implica causa.",
           confidence: worst.n < 30 ? "muestra limitada" : "segmento repetido",
           evidence: { [queryKey]: worst.key }
         }));
       }
     }
-    edge("Setup", r => r.setup, "setup");
+    edge("Setup", r => r.setupId || "", "setup");
     edge("Símbolo", r => r.symbol, "simbolo");
     edge("Sesión", r => r.session, "sesion");
     edge("Día", r => r.dow, "dow");
@@ -369,6 +374,21 @@
     else sync();
   }
   function clsPnl(n) { return n > 0 ? "pos" : n < 0 ? "neg" : ""; }
+  function tradeMatches(r, ev) {
+    if (!ev) return true;
+    if (ev.resultado === "win" && !(r.pnl > 0)) return false;
+    if (ev.resultado === "loss" && !(r.pnl < 0)) return false;
+    if (ev.calidad && r.quality !== ev.calidad) return false;
+    if (ev.hora != null && ev.hora !== "" && String(r.hour) !== String(Number(ev.hora))) return false;
+    if (ev.simbolo && r.symbol !== ev.simbolo) return false;
+    if (ev.tag && !String(r.tags || "").toLowerCase().split(",").map(s => s.trim()).includes(String(ev.tag).toLowerCase())) return false;
+    if (ev.emocion && r.emotion !== ev.emocion) return false;
+    if (ev.sesion && r.session !== ev.sesion && r.sessionId !== ev.sesion) return false;
+    if (ev.dow != null && ev.dow !== "" && String(r.dow) !== String(ev.dow) && String(r.dowN) !== String(ev.dow)) return false;
+    if (ev.acct && r.accountId !== ev.acct) return false;
+    if (ev.setup && r.setupId !== ev.setup) return false;
+    return true;
+  }
   function moodMap() {
     const m = new Map();
     const b = bridge();
@@ -386,7 +406,7 @@
       });
     } catch (e) { return null; }
   }
-  function rows() {
+  function rows(opts) {
     const b = bridge();
     if (!b) return [];
     const p = params();
@@ -394,13 +414,14 @@
     const ses = sesLabels[p.get("sesion") || ""] || p.get("sesion") || "";
     let dow = p.get("dow");
     if (dow && DOW.includes(dow)) dow = String(DOW.indexOf(dow));
+    const ignoreDates = opts && opts.ignoreDates;
     let list = b.trades({
       tipo: "futuros",
       acct: p.get("acct") || "",
       setup: p.get("setup") || "",
       instr: p.get("simbolo") || "",
-      desde: p.get("desde") || "",
-      hasta: p.get("hasta") || "",
+      desde: ignoreDates ? "" : (p.get("desde") || ""),
+      hasta: ignoreDates ? "" : (p.get("hasta") || ""),
       q: p.get("q") || "",
       ses: ses
     });
@@ -646,14 +667,14 @@
     state.cal = new Date(now.getFullYear(), now.getMonth(), 1);
     const y = state.cal.getFullYear(), m = state.cal.getMonth();
     host.querySelector("#atlasCalTitle").textContent = state.cal.toLocaleString("es", { month: "long", year: "numeric" });
-    const all = bridge().trades({ tipo: "futuros" });
+    const all = rows({ ignoreDates: true });
     const by = new Map();
     all.forEach(t => {
       if (!t.date) return;
       const d = new Date(t.date + "T12:00:00");
       if (d.getFullYear() !== y || d.getMonth() !== m) return;
       const cur = by.get(t.date) || { pnl: 0, n: 0 };
-      const p = num(t.pnlEff);
+      const p = num(t.pnl);
       if (p != null) { cur.pnl += p; cur.n++; }
       by.set(t.date, cur);
     });
@@ -1042,7 +1063,11 @@
         const ev = ins && ins.evidence || {};
         if (btn.dataset.ev === "ops") setParams(ev, "operaciones");
         else if (btn.dataset.ev === "ana") setParams(ev, "analitica");
-        else bridge().goto("estudio");
+        else {
+          const matched = rows().filter(r => tradeMatches(r, ev));
+          if (matched[0]) bridge().openStudy(matched[0].id);
+          else bridge().goto("estudio");
+        }
       }));
     });
   }
@@ -1050,12 +1075,13 @@
   function paintInicio() {
     const host = document.getElementById("atlasInicio");
     if (!host || !bridge()) return;
-    const list = bridge().trades({ tipo: "futuros" }).filter(t => num(t.pnlEff) != null);
-    const st = statsOf(list.map(t => ({ pnl: t.pnlEff, r: t.rReal, date: t.date, time: t.time })));
-    const dd = drawdownOf(list.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map(t => t.pnlEff));
+    const list = rows().filter(t => t.pnl != null);
+    const st = statsOf(list.map(t => ({ pnl: t.pnl, r: t.r, date: t.date, time: t.time })));
+    const dd = drawdownOf(list.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map(t => t.pnl));
     const recent = list.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 5);
     const risk = bridge().riskLine();
-    host.innerHTML = `<div class="atlas-kpis">
+    const filtered = ["acct", "setup", "simbolo", "desde", "hasta", "q", "tag", "resultado"].some(k => params().get(k));
+    host.innerHTML = (filtered ? `<p class="atlas-note">Mismos filtros que Operaciones.</p>` : "") + `<div class="atlas-kpis">
       ${kpi("P&L", money(st.net), clsPnl(st.net))}
       ${kpi("Win rate", pct(st.wr))}
       ${kpi("Profit factor", ratio(st.pf))}
@@ -1063,8 +1089,8 @@
       ${kpi("Drawdown", money(dd.max))}
       ${kpi("Riesgo", risk || "—")}
     </div>
-    <section class="atlas-card"><h3>Curva de equity</h3>${list.length ? equitySvg(list.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map(t => num(t.pnlEff)).filter(v => v != null)) : `<p class="atlas-empty">Sin operaciones cerradas.</p>`}</section>
-    <section class="atlas-card"><h3>Operaciones recientes</h3>${recent.map(t => `<button type="button" data-id="${esc(t.id)}" class="atlas-bar-row"><span>${esc(t.date)} ${esc(t.instrument || "")}</span><b class="${clsPnl(t.pnlEff)}">${esc(money(t.pnlEff))}</b></button>`).join("") || `<p class="atlas-note">Aún no hay cierres.</p>`}
+    <section class="atlas-card"><h3>Curva de equity</h3>${list.length ? equitySvg(list.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map(t => t.pnl).filter(v => v != null)) : `<p class="atlas-empty">Sin operaciones cerradas.</p>`}</section>
+    <section class="atlas-card"><h3>Operaciones recientes</h3>${recent.map(t => `<button type="button" data-id="${esc(t.id)}" class="atlas-bar-row"><span>${esc(t.date)} ${esc(t.symbol || "")}</span><b class="${clsPnl(t.pnl)}">${esc(money(t.pnl))}</b></button>`).join("") || `<p class="atlas-note">Aún no hay cierres.</p>`}
       <div class="atlas-actions"><button type="button" data-go="diario">Diario</button><button type="button" data-go="estudio">Estudio</button><button type="button" data-go="operaciones">Operaciones</button></div>
     </section>`;
     host.querySelectorAll("[data-id]").forEach(btn => btn.addEventListener("click", () => bridge().openTrade(btn.dataset.id)));

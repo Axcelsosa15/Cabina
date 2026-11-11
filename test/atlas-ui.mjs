@@ -140,6 +140,12 @@ try {
   await page.waitForFunction(() => location.hash === "#operaciones" && location.search.includes("acct=atlas1"));
   await page.waitForFunction(() => document.querySelectorAll("#opsBody tbody tr").length === 2);
   ok(true, "Ver operaciones abre el mismo recorte de cuenta");
+  await page.locator("#tabnav > .tabbtn[data-tab='cabina']").click();
+  await page.waitForFunction(() => {
+    const kpi = document.querySelector("#atlasInicio .atlas-kpi strong");
+    return kpi && kpi.textContent.trim() === "$0";
+  });
+  ok(/Mismos filtros/.test(await page.locator("#atlasInicio").innerText()), "Inicio usa el mismo recorte de cuenta");
 
   await ctx.close();
 
