@@ -1,5 +1,6 @@
 /* PREFERENCIAS DE VISTA · la densidad y los módulos visibles no deben alterar datos. */
 import { chromium } from 'playwright';
+import { abreCabOps } from './espera.mjs';
 import { createServer } from 'node:http';
 import { sirvePublicado } from './publicado.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
