@@ -24,7 +24,9 @@ ok(L.corrStrength(0.8).includes('muy fuerte') && L.corrStrength(0.8).includes('p
 ok(L.corrStrength(-0.2).includes('débil') && L.corrStrength(-0.2).includes('negativa'), 'magnitud débil negativa');
 
 console.log('\n═══ Sesión y valoración ═══');
-ok(L.sessionOf('08:30') === 'Londres' && L.sessionOf('15:00') === 'Nueva York' && L.sessionOf('02:00') === 'Asia', 'buckets de sesión');
+ok(L.sessionOf('08:30') === 'NY AM' && L.sessionOf('15:00') === 'NY PM' &&
+  L.sessionOf('02:00') === 'Londres' && L.sessionOf('01:00') === 'Asia',
+  'buckets de sesión = rejilla ET de Cabina');
 ok(L.qualityToRating('A') === 5 && L.qualityToRating('C') === 1 && L.qualityToRating(4) === 4, 'calidad A/B/C y rating numérico');
 ok(L.weekdayOf('2026-03-02') === 1, '2026-03-02 es lunes');
 
@@ -87,7 +89,8 @@ ok(cat.kind === 'categorical' && cat.bars.length >= 2, 'explorador categórico')
 
 console.log('\n═══ Analítica y estrategias ═══');
 const an = L.analyticsGroups(trades);
-ok(an.n === 12 && an.equity.length === 12 && an.weekday.length === 5, 'grupos de analítica');
+ok(an.n === 12 && an.equity.length === 12 && an.weekday.length >= 5 && an.weekday.every(x => x.n > 0),
+  'grupos de analítica (incluye fines de semana con datos)', an.weekday.map(x => x.key + ':' + x.n).join(','));
 ok(an.setup.some(s => s.key === 'Ruptura' && s.pnl > 0), 'P&L por setup');
 ok(/lab-equity/.test(L.equitySvg(an.equity)) && !L.equitySvg([{ v: 1 }]), 'curva de equity SVG');
 const st = L.strategyMetrics(trades.filter(t => t.setup === 'Ruptura'));

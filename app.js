@@ -2812,27 +2812,71 @@
     try { history.replaceState(null, "", "#" + tab + q); } catch {}
     showTab(tab);
   }
+  /* Evita reaplicar ?trade=/ids= en cada showTab (boot doble, paleta, etc.).
+     La clave incluye pestaña+query: `#futuros?date=` → `#estudio?date=` debe
+     volver a consumirse aunque el search coincida. */
+  let appliedRouteKey = null;
+  /* trade= puede llegar antes de que la nube hidrate coll("trades"): se guarda
+     y se abre en cuanto exista la fila (subscribe), sin depender de otro showTab. */
+  let pendingTradeOpen = null;
+  function routeKey(tab, search) { return String(tab || "") + "?" + String(search || ""); }
+  function scrubHashParam(key) {
+    const { name, search } = parseHash();
+    const sp = new URLSearchParams(search);
+    if (!sp.has(key)) return;
+    sp.delete(key);
+    const q = sp.toString();
+    try { history.replaceState(null, "", "#" + name + (q ? "?" + q : "")); } catch {}
+    appliedRouteKey = routeKey(name, q);
+  }
+  function tryOpenPendingTrade() {
+    if (!pendingTradeOpen) return;
+    const tr = coll("trades").get(pendingTradeOpen);
+    if (!tr) return;
+    /* Si el editor ya está abierto (alta nueva u otra ficha), no lo pisamos:
+       el deep link cede y se limpia para no reintentar en cada emit de trades. */
+    if (ov.classList.contains("open")) {
+      pendingTradeOpen = null;
+      scrubHashParam("trade");
+      return;
+    }
+    pendingTradeOpen = null;
+    scrubHashParam("trade");
+    requestAnimationFrame(() => openTrade(tr));
+  }
   function consumeRoute() {
-    const fromHash = {};
-    new URLSearchParams(parseHash().search).forEach((v, k) => { fromHash[k] = v; });
-    const p = Object.assign(fromHash, pendingRoute || {});
+    const search = parseHash().search;
+    const pending = pendingRoute && Object.keys(pendingRoute).length ? pendingRoute : null;
     pendingRoute = null;
+    const key = routeKey(state.tab, search);
+    if (!pending && key === appliedRouteKey) return;
+    const fromHash = {};
+    new URLSearchParams(search).forEach((v, k) => { fromHash[k] = v; });
+    const p = Object.assign(fromHash, pending || {});
+    appliedRouteKey = key;
     if (p.account && typeof FUT !== "undefined") FUT.setSelectedAccount(p.account);
     if (typeof ft !== "undefined") {
       if (p.setup) ft.setup = p.setup;
       if (p.date && /^\d{4}-\d{2}-\d{2}$/.test(p.date)) { ft.day = p.date; ft.month = p.date.slice(0, 7); }
       if (p.ids || p.trade) {
-        /* Evidencia puntual: limpia filtros que pueden ocultar esas filas.
-           No se borra al cambiar de pestaña: Ver todo / × del chip lo hacen. */
+        /* Evidencia puntual: limpia TODO filtro que tradeFiltro aún aplica
+           (rango, cuenta, instrumento, sesión). Si no, Insights puede abrir
+           Operaciones con chip de evidencia y tabla vacía. */
         ft.setup = ""; ft.result = ""; ft.quality = ""; ft.tag = ""; ft.q = "";
+        ft.range = "all"; ft.acct = ""; ft.instr = ""; ft.ses = "";
         if (p.ids) { labFocus.ids = String(p.ids).split(",").filter(Boolean); ft.ids = String(p.ids); }
         else { labFocus.ids = [p.trade]; ft.ids = String(p.trade); }
       }
       if ((state.tab === "futuros") && (p.date || p.ids || p.trade || p.view === "diario")) setFtView("diario");
     }
-    if (p.trade && coll("trades").get(p.trade)) {
-      const tr = coll("trades").get(p.trade);
-      requestAnimationFrame(() => openTrade(tr));
+    if (p.trade) {
+      pendingTradeOpen = p.trade;
+      tryOpenPendingTrade();
+    } else if (pendingTradeOpen) {
+      /* Sin trade= en esta ruta: cancela lo pendiente. Si no, un id que nunca
+         llega (o que el usuario ya abandonó) queda armado y el próximo
+         subscribe de trades puede abrir el editor encima de otra edición. */
+      pendingTradeOpen = null;
     }
     if (state.tab === "diario" && p.date) { const el = $("jrSearch"); if (el) el.value = p.date; }
     if (state.tab === "estudio" && p.date) {
@@ -14798,6 +14842,9 @@
     ["tesis", "tesis", "tesis"],
     ["credo", "regla personal", "reglas personales"],
     ["research", "documento de estudio", "documentos de estudio"],
+    /* Diario Bitácora: vive en COLLS y en el JSON de respaldo; sin esta
+       fila el panel decía «sin datos» con entradas de journal presentes. */
+    ["journal", "entrada de diario", "entradas de diario"],
   ];
 
   /* CATÁLOGO DE ZONAS. Cada zona es un trozo de pantalla con nombre y la función
@@ -16302,7 +16349,10 @@
 
      De paso desaparece el último try{}catch{} mudo de la app: el de los destinos
      de la calculadora. Si falla, se dice cuál falló en vez de tragárselo. */
-  coll("trades").subscribe(() => fanout(FANOUT_TRADES));
+  /* Coma, no bloque con `;`: test/conexiones.mjs parsea
+     `subscribe(() => …)` hasta el primer `;` y un cuerpo `{ a(); fanout(…) }`
+     dejaba trades sin FANOUT (94 huecos falsos). */
+  coll("trades").subscribe(() => (tryOpenPendingTrade(), fanout(FANOUT_TRADES)));
   /* ══════════════ ANTES DE OPERAR ══════════════
      Una lista que se lee una vez al día y se quita de en medio. El problema
      que resuelve no es «no tengo mis reglas escritas» —las reglas duras ya

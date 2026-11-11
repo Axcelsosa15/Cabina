@@ -10,7 +10,7 @@
  *
  * pearson(xs, ys)                 coeficiente de Pearson; 0 si n<2 o sin varianza
  * corrStrength(r)                 magnitud + dirección en español
- * sessionOf(time)                 Asia / Londres / Nueva York (hora de entrada)
+ * sessionOf(time)                 misma tabla ET que Cabina (Asia…NY AM…)
  * weekdayOf(date)                 0=domingo … 6=sábado
  * adaptTrade(raw, helpers)        normaliza un trade de Cabina a fila de análisis
  * numericFactors(rows)            factores numéricos válidos vs P&L
@@ -26,7 +26,19 @@
   const VERSION = '1.0.0';
   const INSIGHTS_MIN = 8;
   const WD = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-  const SESSIONS = ['Asia', 'Londres', 'Nueva York'];
+  /* Misma rejilla ET que app.js SESSIONS / tradeSes: Analítica e Insights
+     no pueden llamar «Londres» a la Kill Zone de NY AM. */
+  const SES_BANDS = [
+    { short: 'Asia', start: 20 * 60, end: 2 * 60 },
+    { short: 'Londres', start: 2 * 60, end: 7 * 60 },
+    { short: 'Pre-mercado', start: 7 * 60, end: 8 * 60 + 30 },
+    { short: 'NY AM', start: 8 * 60 + 30, end: 11 * 60 },
+    { short: 'Lunch', start: 11 * 60, end: 13 * 60 + 30 },
+    { short: 'NY PM', start: 13 * 60 + 30, end: 16 * 60 },
+    { short: 'Cierre', start: 16 * 60, end: 17 * 60 },
+    { short: 'Pausa', start: 17 * 60, end: 20 * 60 },
+  ];
+  const SESSIONS = SES_BANDS.map(s => s.short);
   const MOODS = ['Disciplinado', 'Enfocado', 'Paciente', 'Neutral', 'Frustrado', 'Codicioso'];
 
   function mean(a) {
@@ -68,11 +80,14 @@
   }
   function sessionOf(time) {
     if (!time) return null;
-    const hr = parseInt(String(time).slice(0, 2), 10);
-    if (Number.isNaN(hr)) return null;
-    if (hr >= 7 && hr < 13) return 'Londres';
-    if (hr >= 13 && hr < 22) return 'Nueva York';
-    return 'Asia';
+    const m = String(time).match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    const min = Number(m[1]) * 60 + Number(m[2]);
+    if (!Number.isFinite(min)) return null;
+    const band = SES_BANDS.find(x => x.start <= x.end
+      ? (min >= x.start && min < x.end)
+      : (min >= x.start || min < x.end));
+    return band ? band.short : null;
   }
   function weekdayOf(date) {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
@@ -496,10 +511,11 @@
 
   function analyticsGroups(rows) {
     const src = closed(rows).slice().sort(byDateAsc);
-    const weekday = [1, 2, 3, 4, 5].map(d => {
+    /* Dom–sáb: MNQ/MES suelen tener fills en domingo Asia; no silenciarlos. */
+    const weekday = [0, 1, 2, 3, 4, 5, 6].map(d => {
       const g = src.filter(t => weekdayOf(t.date) === d);
       return { key: WD[d], pnl: g.reduce((s, t) => s + t.pnl, 0), n: g.length, ids: g.map(t => t.id) };
-    });
+    }).filter(x => x.n > 0);
     const emotion = Object.values(group(src, t => t.emotion)).sort((a, b) => b.pnl - a.pnl);
     const session = SESSIONS.map(s => {
       const g = src.filter(t => sessionOf(t.time) === s);
