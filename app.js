@@ -2812,11 +2812,27 @@
     try { history.replaceState(null, "", "#" + tab + q); } catch {}
     showTab(tab);
   }
+  /* Evita reaplicar ?trade=/ids= en cada showTab (boot doble, paleta, etc.).
+     Sólo se vuelve a leer el hash cuando cambia o cuando goTo dejó pending. */
+  let appliedRouteSearch = null;
+  function scrubHashParam(key) {
+    const { name, search } = parseHash();
+    const sp = new URLSearchParams(search);
+    if (!sp.has(key)) return;
+    sp.delete(key);
+    const q = sp.toString();
+    try { history.replaceState(null, "", "#" + name + (q ? "?" + q : "")); } catch {}
+    appliedRouteSearch = q;
+  }
   function consumeRoute() {
-    const fromHash = {};
-    new URLSearchParams(parseHash().search).forEach((v, k) => { fromHash[k] = v; });
-    const p = Object.assign(fromHash, pendingRoute || {});
+    const search = parseHash().search;
+    const pending = pendingRoute && Object.keys(pendingRoute).length ? pendingRoute : null;
     pendingRoute = null;
+    if (!pending && search === appliedRouteSearch) return;
+    const fromHash = {};
+    new URLSearchParams(search).forEach((v, k) => { fromHash[k] = v; });
+    const p = Object.assign(fromHash, pending || {});
+    appliedRouteSearch = search;
     if (p.account && typeof FUT !== "undefined") FUT.setSelectedAccount(p.account);
     if (typeof ft !== "undefined") {
       if (p.setup) ft.setup = p.setup;
@@ -2832,6 +2848,9 @@
     }
     if (p.trade && coll("trades").get(p.trade)) {
       const tr = coll("trades").get(p.trade);
+      /* trade= es un deep link de un solo uso: abrir el editor y quitarlo del
+         hash para que un segundo showTab no lo reabra. */
+      scrubHashParam("trade");
       requestAnimationFrame(() => openTrade(tr));
     }
     if (state.tab === "diario" && p.date) { const el = $("jrSearch"); if (el) el.value = p.date; }
@@ -14798,6 +14817,9 @@
     ["tesis", "tesis", "tesis"],
     ["credo", "regla personal", "reglas personales"],
     ["research", "documento de estudio", "documentos de estudio"],
+    /* Diario Bitácora: vive en COLLS y en el JSON de respaldo; sin esta
+       fila el panel decía «sin datos» con entradas de journal presentes. */
+    ["journal", "entrada de diario", "entradas de diario"],
   ];
 
   /* CATÁLOGO DE ZONAS. Cada zona es un trozo de pantalla con nombre y la función

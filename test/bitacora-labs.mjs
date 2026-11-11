@@ -123,6 +123,14 @@ const saved = await page.evaluate(() => {
 ok(saved.n >= 1 && /Lección de prueba|Esperar confirmación/.test(saved.cards),
   'la entrada de diario se pinta', saved.cards.slice(0, 120));
 
+await page.click('#tabnav .tabbtn[data-tab="ajustes"]');
+await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'ajustes');
+const bk = await page.evaluate(() => {
+  document.getElementById('settingsTabData')?.click();
+  return document.getElementById('bkMeta')?.textContent || '';
+});
+ok(/entrada(?:s)? de diario/.test(bk), 'el panel de respaldo cuenta el journal', bk.slice(0, 120));
+
 const sesPanel = await page.evaluate(() => {
   const body = document.getElementById('jrCabinaDaysBody');
   return { exists: !!body, text: body ? body.innerText : '' };
@@ -228,6 +236,31 @@ const kept = await page.evaluate(() => ({
 }));
 ok(kept.chip && kept.rows === 1, 'cambiar de pestaña no quita la evidencia', JSON.stringify(kept));
 
+await page.goto('http://127.0.0.1:' + srv.address().port + '/#futuros?trade=t0', { waitUntil: 'load' });
+await page.waitForFunction(() => document.getElementById('ov')?.classList.contains('open'), null, { timeout: 15000 });
+const tradeDeep = await page.evaluate(() => ({
+  open: document.getElementById('ov')?.classList.contains('open'),
+  hash: location.hash
+}));
+ok(tradeDeep.open && !/trade=/.test(tradeDeep.hash),
+  'hash trade= abre el editor y se consume', JSON.stringify(tradeDeep));
+await page.click('#edCancel');
+await page.waitForFunction(() => !document.getElementById('ov')?.classList.contains('open'));
+await page.click('#tabnav .tabbtn[data-tab="futuros"]');
+await page.waitForTimeout(300);
+ok(!(await page.evaluate(() => document.getElementById('ov')?.classList.contains('open'))),
+  'un segundo showTab no reabre el editor');
+
+/* ids residuales no deben volver a limpiar filtros en cada showTab. */
+await page.goto('http://127.0.0.1:' + srv.address().port + '/#futuros?ids=t0&view=diario', { waitUntil: 'load' });
+await page.waitForFunction(() => document.querySelector('#ftFilters .fchip'), null, { timeout: 15000 });
+await page.evaluate(() => { const d = document.getElementById('ftMoreFilters'); if (d) d.open = true; });
+await page.fill('#ftQ', 'keep-me');
+await page.locator('#ftQ').dispatchEvent('input');
+await page.click('#tabnav .tabbtn[data-tab="futuros"]');
+await page.waitForTimeout(200);
+const qKept = await page.inputValue('#ftQ');
+ok(qKept === 'keep-me', 'ids residuales no limpian filtros al reentrar showTab', qKept);
 await page.goto('http://127.0.0.1:' + srv.address().port + '/#estudio?date=2026-09-08', { waitUntil: 'load' });
 await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'estudio', null, { timeout: 15000 });
 const estDeep = await page.evaluate(() => ({
