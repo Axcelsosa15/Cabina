@@ -561,6 +561,15 @@
     };
   }
 
+  /* Claves e ids llegan de datos del usuario / respaldos; van a innerHTML vía SVG. */
+  function escXml(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
   function barsSvg(items, opts) {
     const o = opts || {};
     const rows = (items || []).filter(x => x && (x.n || x.value || x.pnl));
@@ -574,9 +583,12 @@
         const y = 10 + i * 28;
         const w = Math.max(2, (Math.abs(v) / max) * (W - barX - 80));
         const cls = v > 0 ? 'pos' : v < 0 ? 'neg' : 'neu';
-        return '<text x="0" y="' + (y + 12) + '">' + String(x.key).slice(0, 16) + '</text>' +
-          '<rect class="bar ' + cls + '" x="' + barX + '" y="' + y + '" width="' + w.toFixed(1) + '" height="16" data-ids="' + (x.ids || []).join(',') + '"></rect>' +
-          '<text x="' + (barX + w + 6) + '" y="' + (y + 12) + '">' + (o.format ? o.format(v) : signed(v)) + '</text>';
+        const label = escXml(String(x.key == null ? '' : x.key).slice(0, 16));
+        const ids = escXml((x.ids || []).join(','));
+        const tip = escXml(o.format ? o.format(v) : signed(v));
+        return '<text x="0" y="' + (y + 12) + '">' + label + '</text>' +
+          '<rect class="bar ' + cls + '" x="' + barX + '" y="' + y + '" width="' + w.toFixed(1) + '" height="16" data-ids="' + ids + '"></rect>' +
+          '<text x="' + (barX + w + 6) + '" y="' + (y + 12) + '">' + tip + '</text>';
       }).join('') + '</svg>';
   }
 

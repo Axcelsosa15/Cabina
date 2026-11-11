@@ -108,6 +108,18 @@ const adapted = L.adaptTrade({ id: 'x', mae: 20990, mfe: 21050, entry: 21000, di
 ok(adapted.pnl === -0.5 && adapted.mae === 10 && adapted.mfe === 50 && adapted.contracts === 2,
   'adaptTrade respeta neto y excursiones del helper', JSON.stringify(adapted));
 
+console.log('\n═══ barsSvg escapa markup hostil ═══');
+const hostile = L.barsSvg([{
+  key: '"><a href=//x>',
+  value: 12,
+  ids: ['t1"><img src=x onerror=1>', 't2&x'],
+}], { format: () => '<b>12</b>' });
+ok(hostile.includes('&quot;&gt;&lt;a href=//x&gt;') &&
+  hostile.includes('data-ids="t1&quot;&gt;&lt;img src=x onerror=1&gt;,t2&amp;x"') &&
+  hostile.includes('&lt;b&gt;12&lt;/b&gt;') &&
+  !hostile.includes('"><a href') && !hostile.includes('<b>12</b>'),
+  'keys, ids y tip se escapan para innerHTML', hostile.slice(0, 240));
+
 console.log('\nfallos: ' + fallos.length);
 if (fallos.length) process.exit(1);
 console.log('PASS labs');
