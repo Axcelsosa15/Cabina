@@ -778,8 +778,8 @@ tbody tr:last-child td{border-bottom:0}
   .credo-trace { display: block; width: 100%; text-align: left; background: none;
                  border: 0; border-left: 2px solid var(--line-strong);
                  padding: 2px 0 2px 14px; margin-bottom: var(--s5);
-                 font-family: var(--font-mono); font-size: var(--t-meta);
-                 color: var(--dim); letter-spacing: .04em; }
+                 font-family: var(--font-ui); font-size: var(--t-meta);
+                 color: var(--dim); letter-spacing: .02em; }
   .credo-trace:hover { color: var(--muted); border-left-color: var(--accent); }
 
   .twrap { overflow-x: auto; max-width: 100%; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
@@ -1703,7 +1703,13 @@ tbody tr:last-child td{border-bottom:0}
   .cal .d .n { font-size: 11px; color: var(--muted); }
   .cal .d .p { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cal .d.win .p { color: var(--good); } .cal .d.loss .p { color: var(--bad); }
-  .cal .d .c { font-size: 10.5px; color: var(--dim); }
+  /* Conteo del día: AA sobre celdas win/loss (tinte verde/rojo), no sólo surface. */
+  .cal .d .c { font-size: 10.5px; color: #3d4654; }
+  html[data-cabina-theme="dark"] .cal .d .c,
+  html[data-cabina-visual-theme="dark"] .cal .d .c,
+  html[data-cabina-visual-theme="midnight"] .cal .d .c,
+  html[data-cabina-visual-theme="navy"] .cal .d .c,
+  html[data-cabina-visual-theme="forest"] .cal .d .c { color: #c8d2e0; }
   .cal .d.broke .n::after { content: " ⚑"; color: var(--bad); }
   .cal .w { min-height: 58px; border-radius: var(--r-sm); background: var(--bg); border: 1px dashed var(--line); padding:4px 8px; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; font-size: 11px; color: var(--muted); }
   .cal .w b { font-size: 12.5px; font-variant-numeric: tabular-nums; }
@@ -5738,6 +5744,37 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
   <header><h2>Operaciones recientes</h2><span class="meta">mismas filas que Operaciones</span></header>
   <div class="body" id="cabRecent"></div>
 </section>
+<div class="cab-canvas-editor">
+<button type="button" class="btn" id="cabCanvasEdit">Editar posición y tamaño</button>
+<div id="cabCanvasTools" hidden>
+<div class="cab-layout-tools">
+<label>Panel <select id="cabCanvasPanel"></select></label>
+<label>Visible <input id="cabCanvasVisible" type="checkbox" checked></label>
+<label>Columna <input id="cabCanvas-x" type="number" min="1" max="12"></label>
+<label>Fila <input id="cabCanvas-y" type="number" min="1" max="501"></label>
+<label>Ancho <input id="cabCanvas-w" type="number" min="3" max="12"></label>
+<label>Alto <input id="cabCanvas-h" type="number" min="4" max="200"></label>
+<button type="button" class="btn" id="cabCanvasApply">Aplicar al panel</button>
+</div>
+<div class="cab-layout-tools">
+<button type="button" class="btn primary" id="cabCanvasSave">Guardar distribución</button>
+<button type="button" class="btn ghost" id="cabCanvasCancel">Cancelar</button>
+<button type="button" class="btn ghost" id="cabCanvasReset">Restablecer distribución</button>
+</div>
+<p class="hint">Ancho en columnas · alto en filas. Móvil y escritorio guardan distribuciones independientes.</p>
+</div>
+<p id="cabCanvasStatus" class="synced" role="status"></p>
+</div>
+<details class="cab-layout-editor" id="cabLayoutEditor">
+  <summary class="btn ghost">Personalizar Resumen</summary>
+  <p class="hint">Arrastra los paneles o usa los controles. En móvil, las columnas se apilan en el mismo orden.</p>
+  <div class="cab-layout-tools">
+    <button type="button" class="btn sm" id="cabLayoutAdd">+ Columna</button>
+    <button type="button" class="btn sm ghost" id="cabLayoutReset">Restablecer distribución</button>
+  </div>
+  <p class="synced" id="cabLayoutStatus" role="status"></p>
+  <div class="cab-layout-zones" id="cabLayoutZones"></div>
+</details>
 <!-- Workstation operativa debajo del dashboard: KPIs, curva y recientes mandan. -->
 <details class="ui-disclosure cab-ops-fold" id="cabOpsFold">
   <summary>Cuentas, pre-sesión e historial</summary>

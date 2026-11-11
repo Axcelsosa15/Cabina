@@ -191,6 +191,7 @@ const dobleDb = async () => {
   });
   await p.waitForTimeout(1200);
   await p.click('[data-tab="cabina"]'); await p.waitForTimeout(350);
+  await p.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
   const hayC = await p.evaluate(() => document.querySelectorAll('.check input[type=checkbox]:not(:disabled)').length);
   if (hayC) { await p.click('.check input[type=checkbox]:not(:disabled)'); await p.waitForTimeout(1200); }
   const t3 = await lee(p);
@@ -213,6 +214,7 @@ const dobleDb = async () => {
   });
   d.e.rutaRota = 'days/' + hoy;
   await p.click('[data-tab="cabina"]'); await p.waitForTimeout(350);
+  await p.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
   const hay = await p.evaluate(() => document.querySelectorAll('.check input[type=checkbox]:not(:disabled)').length);
   if (hay) { await p.click('.check input[type=checkbox]:not(:disabled)'); await p.waitForTimeout(1200); }
   const d0 = await lee(p);

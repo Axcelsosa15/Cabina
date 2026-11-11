@@ -24,6 +24,7 @@ const errors = [];
 page.on('pageerror', e => errors.push(e.message));
 await page.goto(`http://127.0.0.1:${srv.address().port}/`, { waitUntil: 'load' });
 await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
+await page.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
 await page.click('#viewPrefsOpen');
 await page.waitForSelector('#viewPrefs:not([hidden])');
 ok(await page.locator('#viewPrefsList .view-prefs-item').count() > 0, 'el configurador lista módulos de la pestaña activa');
@@ -69,6 +70,7 @@ ok(await page.locator('#viewPrefsList .view-prefs-table-group[data-view-tab="cal
 await page.locator('#viewPrefsDone').click();
 await page.reload({ waitUntil: 'load' });
 await page.waitForFunction(() => typeof window.FUT !== 'undefined', null, { timeout: 20000 });
+await page.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
 ok(await page.locator('#panelHist').evaluate(el => el.classList.contains('user-view-hidden')), 'el módulo oculto persiste al recargar');
 ok(await page.locator('body').getAttribute('data-density') === 'compact', 'la densidad elegida persiste al recargar');
 await page.click('#viewPrefsOpen');
@@ -109,6 +111,7 @@ for (const [tab, label] of [
   await page.locator('#viewPrefsDone').click();
 }
 await page.click('.tabbtn[data-tab="cabina"]');
+await page.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
 await page.waitForFunction(() => localStorage.getItem('cabina:migracion:mathengine:v1'));
 const journalBefore = await page.evaluate(() => Object.fromEntries(Object.entries(localStorage).filter(([key]) => !key.startsWith('cabina-view'))));
 await page.locator('#panelHist .view-fold-toggle').click();
@@ -126,6 +129,7 @@ ok(await page.locator('#viewLayout').inputValue() === 'single', 'la vista guarda
 await page.click('#viewPrefsDone');
 await page.reload();
 await page.waitForFunction(() => typeof window.FUT !== 'undefined');
+await page.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
 ok(await page.locator('.tab[data-tab="cabina"]').getAttribute('data-view-charts') === 'small', 'tamaño de gráficos persiste');
 ok(await page.locator('#panelHist').evaluate(el => el.classList.contains('user-view-folded')), 'panel plegado persiste');
 ok(await page.locator('.tab[data-tab="invest"]').getAttribute('data-view-layout') === 'original', 'el diseño de otras páginas se conserva');

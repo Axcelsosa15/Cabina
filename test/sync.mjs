@@ -33,9 +33,14 @@ await p.addInitScript(`{const F=${F};const R=Date;class D extends R{constructor(
 await p.addInitScript(`try{if(!localStorage.getItem('cabina-mnq:v1'))localStorage.setItem('cabina-mnq:v1', ${JSON.stringify(JSON.stringify(SEM))});}catch(e){}`);
 await p.goto('file://' + process.cwd() + '/../index.html');
 await p.waitForTimeout(1200);
+await p.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
 
 /* ---------- utilidades ---------- */
-const tab = async n => { await p.click(`.tabbtn[data-tab="${n}"]`); await p.waitForTimeout(280); };
+const tab = async n => {
+  await p.click(`.tabbtn[data-tab="${n}"]`);
+  await p.waitForTimeout(280);
+  if (n === 'cabina') await p.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
+};
 const num = s => { const m = String(s ?? '').replace(/[^\d.,\-]/g, '').replace(/,/g, ''); const v = parseFloat(m); return Number.isFinite(v) ? v : null; };
 
 // P&L en MNQ: $2 por punto. Precio de salida para un resultado exacto.
