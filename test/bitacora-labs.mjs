@@ -140,13 +140,30 @@ ok(/evidencia|insight|operacion|operación|muestra|suficiente/i.test(ins),
   'Insights habla de evidencia real, no de frases vacías', ins.slice(0, 120));
 const insBtn = page.locator('#insList [data-ins="ops"]').first();
 if (await insBtn.count()) {
+  await page.evaluate(() => {
+    /* Deja filtros que podrían ocultar la evidencia si no se limpian. */
+    const q = document.getElementById('ftQ'); if (q) { q.value = 'zzz-sin-match'; q.dispatchEvent(new Event('input', { bubbles: true })); }
+  });
   await insBtn.click();
   await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros', null, { timeout: 15000 });
-  const filtered = await page.evaluate(() => ({
-    ids: document.querySelector('.tab[data-tab="futuros"]') && (window.ft?.ids || ''),
+  const filtered = await page.evaluate(() => {
+    const chip = [...document.querySelectorAll('#ftFilters .fchip')].find(el => /Evidencia/i.test(el.textContent || ''));
+    const all = document.querySelector('#ftFilters [data-clr="all"]');
+    return {
+      chip: !!(chip),
+      chipText: chip ? chip.textContent : '',
+      rows: document.querySelectorAll('#jrTable tr[data-id]').length,
+      verTodo: !!all
+    };
+  });
+  ok(filtered.chip && filtered.rows >= 1, 'Insights abre Operaciones con chip de evidencia', JSON.stringify(filtered));
+  await page.click('#ftFilters [data-clr="all"]');
+  await page.waitForTimeout(200);
+  const cleared = await page.evaluate(() => ({
+    chips: document.querySelectorAll('#ftFilters .fchip').length,
     rows: document.querySelectorAll('#jrTable tr[data-id]').length
   }));
-  ok(!!filtered.ids || filtered.rows >= 1, 'Insights abre Operaciones con evidencia', JSON.stringify(filtered));
+  ok(cleared.chips === 0 && cleared.rows >= filtered.rows, 'Ver todo quita la evidencia', JSON.stringify(cleared));
 }
 
 await page.click('#tabnav .tabbtn[data-tab="calendario"]');
@@ -159,6 +176,14 @@ const cal = await page.evaluate(() => ({
 ok(/2026-09|septiembre|sep/i.test(cal.month + cal.day) || /^\d{4}-\d{2}-\d{2}$/.test(cal.day),
   'Calendario abre un día con datos', JSON.stringify(cal));
 ok(cal.actions >= 3, 'Calendario ofrece Operaciones, Diario y Estudio');
+const emptyMonth = await page.evaluate(() => {
+  const title0 = document.getElementById('calLabTitle')?.textContent || '';
+  document.getElementById('calLabNext')?.click();
+  document.getElementById('calLabNext')?.click();
+  const title1 = document.getElementById('calLabTitle')?.textContent || '';
+  return { title0, title1, same: title0 === title1 };
+});
+ok(!emptyMonth.same, 'Prev/Next puede abrir un mes sin operaciones', JSON.stringify(emptyMonth));
 
 await page.click('#tabnav .tabbtn[data-tab="cuentas"]');
 await page.click('#cuVerOps');

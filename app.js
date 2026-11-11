@@ -2815,9 +2815,14 @@
     if (typeof ft !== "undefined") {
       if (p.setup) ft.setup = p.setup;
       if (p.date && /^\d{4}-\d{2}-\d{2}$/.test(p.date)) { ft.day = p.date; ft.month = p.date.slice(0, 7); }
-      if (p.ids) { labFocus.ids = String(p.ids).split(",").filter(Boolean); ft.ids = String(p.ids); }
-      else if (p.trade) { labFocus.ids = [p.trade]; ft.ids = String(p.trade); }
-      else { labFocus.ids = []; ft.ids = ""; }
+      if (p.ids || p.trade) {
+        /* Evidencia puntual: limpia filtros que pueden ocultar esas filas. */
+        ft.setup = ""; ft.result = ""; ft.quality = ""; ft.tag = ""; ft.q = "";
+        if (p.ids) { labFocus.ids = String(p.ids).split(",").filter(Boolean); ft.ids = String(p.ids); }
+        else { labFocus.ids = [p.trade]; ft.ids = String(p.trade); }
+      } else {
+        labFocus.ids = []; ft.ids = "";
+      }
       if ((state.tab === "futuros") && (p.date || p.ids || p.trade || p.view === "diario")) setFtView("diario");
     }
     if (p.trade && coll("trades").get(p.trade)) {
@@ -10028,9 +10033,11 @@
     { k: "result", lb: "Resultado", txt: v => v === "win" ? "ganadoras" : v === "loss" ? "perdedoras" : v },
     { k: "quality", lb: "Calidad", txt: v => v },
     { k: "tag", lb: "Etiqueta", txt: v => v },
+    { k: "ids", lb: "Evidencia", txt: v => { const n = String(v).split(",").filter(Boolean).length; return n === 1 ? "1 operación" : n + " operaciones"; } },
     { k: "q", lb: "Búsqueda", txt: v => `«${v}»` },
   ];
   function activeFilters() { return FT_FILTROS.filter(f => { const v = ft[f.k]; return v && v !== (f.off || ""); }); }
+  function clearEvidenceFocus() { labFocus.ids = []; ft.ids = ""; }
   function renderFtFilters() {
     const el = $("ftFilters"); if (!el) return;
     const act = activeFilters();
@@ -10044,8 +10051,14 @@
   }
   $("ftFilters").addEventListener("click", e => {
     const b = e.target.closest("button[data-clr]"); if (!b) return;
-    if (b.dataset.clr === "all") FT_FILTROS.forEach(f => { ft[f.k] = f.off || ""; });
-    else { const f = FT_FILTROS.find(x => x.k === b.dataset.clr); if (f) ft[f.k] = f.off || ""; }
+    if (b.dataset.clr === "all") {
+      FT_FILTROS.forEach(f => { ft[f.k] = f.off || ""; });
+      clearEvidenceFocus();
+    } else {
+      const f = FT_FILTROS.find(x => x.k === b.dataset.clr);
+      if (f) ft[f.k] = f.off || "";
+      if (b.dataset.clr === "ids") clearEvidenceFocus();
+    }
     renderFutures();
   });
   /* Memorizada por los mismos motivos, y con la misma disciplina: la clave
@@ -19695,15 +19708,19 @@
     }
   }
 
-  const labCal = { month: state.today.slice(0, 7), day: state.today };
+  const labCal = { month: state.today.slice(0, 7), day: state.today, snapped: false };
   function renderLabCalendar() {
     if (!$("calLab")) return;
     const list = tradesOf("futuros");
-    /* Si el mes actual no tiene operaciones, abre el último mes con datos:
-       con la semilla de septiembre un «hoy» de noviembre dejaba el panel vacío. */
-    if (!list.some(t => String(t.date || "").startsWith(labCal.month))) {
-      const last = list.map(t => t.date).filter(Boolean).sort().pop();
-      if (last) { labCal.month = last.slice(0, 7); labCal.day = last; }
+    /* Solo al primer pintado: si «hoy» cae en un mes vacío, salta al último mes
+       con datos. Prev/Next debe poder abrir meses vacíos sin que el pintor
+       los sobrescriba. */
+    if (!labCal.snapped) {
+      labCal.snapped = true;
+      if (!list.some(t => String(t.date || "").startsWith(labCal.month))) {
+        const last = list.map(t => t.date).filter(Boolean).sort().pop();
+        if (last) { labCal.month = last.slice(0, 7); labCal.day = last; }
+      }
     }
     paintCalendar({ month: labCal.month, dm: dayMap(list), title: $("calLabTitle"), grid: $("calLab"), meta: $("calLabMeta"), sel: labCal.day });
     const date = labCal.day;
@@ -19783,12 +19800,17 @@
       if (q && !normQ([j.title, j.body, j.lesson, j.mood, j.date].join(" ")).includes(q)) return false;
       return true;
     });
+    /* P&L por emoción: una fecha cuenta una sola vez (entrada más reciente).
+       Dos notas el mismo día no duplican el resultado de la sesión. */
     const byMood = {};
+    const claimed = new Set();
     rows.forEach(j => {
-      const ops = tradesOf("futuros").filter(t => t.date === j.date && t.pnlEff != null);
-      const pnl = ops.reduce((s, t) => s + t.pnlEff, 0);
       if (!byMood[j.mood]) byMood[j.mood] = { n: 0, pnl: 0 };
-      byMood[j.mood].n++; byMood[j.mood].pnl += pnl;
+      byMood[j.mood].n++;
+      if (!j.date || claimed.has(j.date)) return;
+      claimed.add(j.date);
+      const pnl = tradesOf("futuros").filter(t => t.date === j.date && t.pnlEff != null).reduce((s, t) => s + t.pnlEff, 0);
+      byMood[j.mood].pnl += pnl;
     });
     $("jrMoodStats").innerHTML = Object.keys(byMood).length
       ? Object.keys(byMood).map(m => labKpi(m, money(byMood[m].pnl), plu(byMood[m].n, "entrada", "entradas"), byMood[m].pnl > 0 ? "pos" : byMood[m].pnl < 0 ? "neg" : "")).join("")
