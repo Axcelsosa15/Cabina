@@ -19679,14 +19679,24 @@
   function renderLabCalendar() {
     if (!$("calLab")) return;
     const list = tradesOf("futuros");
+    /* Si el mes actual no tiene operaciones, abre el último mes con datos:
+       con la semilla de septiembre un «hoy» de noviembre dejaba el panel vacío. */
+    if (!list.some(t => String(t.date || "").startsWith(labCal.month))) {
+      const last = list.map(t => t.date).filter(Boolean).sort().pop();
+      if (last) { labCal.month = last.slice(0, 7); labCal.day = last; }
+    }
     paintCalendar({ month: labCal.month, dm: dayMap(list), title: $("calLabTitle"), grid: $("calLab"), meta: $("calLabMeta"), sel: labCal.day });
     const date = labCal.day;
     const dayTrades = list.filter(t => t.date === date);
     const s = futStats(dayTrades);
     const jr = coll("journal").items.filter(x => x.date === date);
+    const ses = dayDoc(date);
+    const sesNote = ses && String(ses.note || "").trim();
     $("calLabDayMeta").textContent = date;
     $("calLabDay").innerHTML = `<div class="lab-kpis">${labKpi("P&L", s.closed ? money(s.pnl) : "—", plu(dayTrades.length, "operación", "operaciones"), s.pnl > 0 ? "pos" : s.pnl < 0 ? "neg" : "")}</div>`
       + (dayTrades.length ? `<p class="csub">${dayTrades.map(t => `${esc(t.instrument || "")} ${t.pnlEff == null ? "—" : money(t.pnlEff)}`).join(" · ")}</p>` : labEmpty("Sin operaciones este día."))
+      + (sesNote ? `<p class="session-note">${esc(sesNote.slice(0, 280))}</p>` : "")
+      + (ses && ses.broke ? `<p class="csub neg">Cabina marcó una regla rota este día.</p>` : "")
       + `<div class="insight-actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">`
       + `<button type="button" class="btn sm" data-lab-act="ops">Ver operaciones</button>`
       + `<button type="button" class="btn sm ghost" data-lab-act="jr">${jr.length ? "Abrir diario" : "Nueva entrada"}</button>`
@@ -19890,7 +19900,11 @@
       const b = e.target.closest("[data-ins]"); if (!b) return;
       const ids = String(b.getAttribute("data-ids") || "").split(",").filter(Boolean);
       if (b.dataset.ins === "ops") labOpenTrades(ids);
-      else if (b.dataset.ins === "est") goTo("estudio");
+      else if (b.dataset.ins === "est") {
+        const t = ids.length ? coll("trades").get(ids[0]) : null;
+        if (t && t.date) goTo("estudio", { date: t.date });
+        else goTo("estudio");
+      }
       else goTo("edge");
     };
   }
@@ -19904,8 +19918,12 @@
     el.innerHTML = `<div class="twrap"><table class="t"><thead><tr><th>Estrategia</th><th>Versión</th><th>Estado</th><th class="r">n</th><th class="r">Expectancy</th><th class="r">PF</th><th class="r">Max DD</th><th class="r">Avg R</th></tr></thead><tbody>${pbs.map(p => {
       const m = L.strategyMetrics(labRows(all.filter(t => t.setupId === p.id)));
       const lim = m.sampleLimited ? " · muestra limitada" : "";
-      return `<tr data-pb="${esc(p.id)}"><td class="ui">${esc(p.name || "sin nombre")}</td><td>${esc(p.version || "v1")}</td><td>${esc(p.status || "—")}</td><td class="r">${m.n}</td><td class="r ${m.expectancy > 0 ? "pos" : m.expectancy < 0 ? "neg" : ""}">${money(m.expectancy)}</td><td class="r">${m.pf === Infinity ? "∞" : m.pf.toFixed(2)}</td><td class="r neg">${money(-m.maxDD)}</td><td class="r">${m.avgR == null ? "—" : m.avgR.toFixed(2)}</td></tr><tr class="csub"><td colspan="8">${m.n ? `${plu(m.n, "operación", "operaciones")} de esta versión${lim}` : "sin operaciones asociadas"}</td></tr>`;
+      return `<tr data-pb="${esc(p.id)}" style="cursor:pointer"><td class="ui">${esc(p.name || "sin nombre")}</td><td>${esc(p.version || "v1")}</td><td>${esc(p.status || "—")}</td><td class="r">${m.n}</td><td class="r ${m.expectancy > 0 ? "pos" : m.expectancy < 0 ? "neg" : ""}">${money(m.expectancy)}</td><td class="r">${m.pf === Infinity ? "∞" : m.pf.toFixed(2)}</td><td class="r neg">${money(-m.maxDD)}</td><td class="r">${m.avgR == null ? "—" : m.avgR.toFixed(2)}</td></tr><tr class="csub"><td colspan="8">${m.n ? `${plu(m.n, "operación", "operaciones")} de esta versión${lim}` : "sin operaciones asociadas"}</td></tr>`;
     }).join("")}</tbody></table></div>`;
+    el.onclick = e => {
+      const tr = e.target.closest("tr[data-pb]"); if (!tr) return;
+      goTo("futuros", { setup: tr.dataset.pb, view: "diario" });
+    };
   }
 
   function renderLabs() {

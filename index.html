@@ -184,6 +184,9 @@ svg.lab-bars, svg.lab-scatter, svg.lab-equity { width: 100%; height: auto; max-w
 svg.lab-bars text, svg.lab-scatter text { fill: var(--muted); font-size: 11px; }
 svg.lab-equity { color: var(--text); }
 .session-note { border-left: 3px solid var(--line-strong); padding: 8px 12px; margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.lab-cal-layout { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr); gap:14px; align-items:start; }
+@media (max-width:900px) { .lab-cal-layout { grid-template-columns:minmax(0,1fr); } }
+#cabOpsFold > summary, #mxRiskTools > summary { font:650 14px/1.4 var(--font-ui); cursor:pointer; }
 svg.lab-bars .bar.pos, svg.lab-scatter circle.pos { fill: var(--positive); }
 svg.lab-bars .bar.neg, svg.lab-scatter circle.neg { fill: var(--negative); }
 svg.lab-bars .bar.neu { fill: var(--dim); }
@@ -5735,7 +5738,9 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
   <header><h2>Operaciones recientes</h2><span class="meta">mismas filas que Operaciones</span></header>
   <div class="body" id="cabRecent"></div>
 </section>
-<!-- Workstation operativa: cuenta completa, ejecución prioritaria, protección al lado. -->
+<!-- Workstation operativa debajo del dashboard: KPIs, curva y recientes mandan. -->
+<details class="ui-disclosure cab-ops-fold" id="cabOpsFold">
+  <summary>Cuentas, pre-sesión e historial</summary>
 <div class="cab-workspace">
 <div class="cab-layout-band" id="cabLayoutTop">
 <section class="panel" id="panelJournal">
@@ -5848,6 +5853,7 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
   </div>
 </section>
 </div>
+</details>
 
 </div>
 
@@ -6335,7 +6341,9 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
         <details class="cab-why"><summary>Cómo leerlo</summary><p class="csub" style="margin:14px 0 0">Todas salen de las mismas operaciones que la expectativa y la curva de arriba, con el mismo P&amp;L neto. Una cifra que no se puede medir sale con &laquo;&mdash;&raquo; y la raz&oacute;n al lado, nunca como cero.</p></details>
       </details></div>
     </section>
-    <div class="grid eq">
+    <details class="ui-disclosure" id="mxRiskTools">
+      <summary>Tamaño de posición y riesgo de ruina</summary>
+      <div class="grid eq" style="margin-top:12px">
       <section class="panel">
         <header><h2>Tamaño de posición</h2><span class="meta">Futuros · incluye comisión</span></header>
         <div class="body" id="mxSize">
@@ -6363,7 +6371,8 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
           <div id="mxRuinaRes"></div>
         </div>
       </section>
-    </div>
+      </div>
+    </details>
     <section class="panel">
       <header><h2>Operación por operación</h2><span class="meta" id="mxTablaMeta"></span></header>
       <div class="body"><details class="ui-disclosure"><summary>Ver operaciones del cálculo</summary><div class="twrap" id="mxTabla"></div></details></div>
@@ -6633,6 +6642,7 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
     <span class="sp"></span>
     <span class="meta" id="calLabMeta"></span>
   </div>
+  <div class="lab-cal-layout">
   <section class="panel">
     <div class="body"><div class="cal" id="calLab"></div></div>
   </section>
@@ -6640,6 +6650,7 @@ html[data-cabina-visual-theme] .view-prefs-item input{accent-color:var(--accent)
     <header><h2>Sesión seleccionada</h2><span class="meta" id="calLabDayMeta"></span></header>
     <div class="body" id="calLabDay"></div>
   </section>
+  </div>
 </div>
 
 <div class="tab" data-tab="diario">

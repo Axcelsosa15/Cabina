@@ -95,6 +95,7 @@ const tras = await p2.evaluate(() => ({ ctaA: FUT.evaluateRules('ctaA').dailyLos
 ok(tras.ctaA === 200 && tras.ctaB === 1100 && tras.nueva === 300, 'los tres contratos vuelven enteros', JSON.stringify(tras));
 
 console.log('\n═══ 6 · el editor escribe el contrato ═══');
+await p.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
 await p.evaluate(() => FUT.setSelectedAccount('ctaB')); await p.waitForTimeout(400);
 await p.click('.acct[data-id="ctaB"] button[data-act="cfg"]:visible'); await p.waitForTimeout(400);
 ok(await p.isVisible('#ef_r_maxLoss'), 'el editor tiene el campo de pérdida máxima de la cuenta');
@@ -118,6 +119,7 @@ console.log('\n═══ 7 · el panel de reglas, en vivo ═══');
 /* Con Cuenta B: lleva −$600 sobre un tope de $900, así que aún le queda margen y
    el texto del estado PUEDE cambiar. Cuenta A ya está en «tope alcanzado» y
    ahí ninguna pérdida más mueve la frase. */
+await p.evaluate(() => { const d = document.getElementById('cabOpsFold'); if (d) d.open = true; });
 await p.evaluate(() => FUT.setSelectedAccount('ctaB')); await p.waitForTimeout(500);
 const antesNow = await p.evaluate(() => [...document.querySelectorAll('.rulec')]
   .filter(x => /Pérdida máxima/.test(x.querySelector('.rname').textContent))

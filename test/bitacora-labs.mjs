@@ -94,9 +94,14 @@ ok(inicio.bandHidden && inicio.traceVisible && inicio.kpis > 0,
 
 const curva = await page.evaluate(() => {
   const svg = document.querySelector('#cabEquity svg.lab-equity, #cabEquity svg.chart');
-  return { svg: !!svg, empty: !!(document.querySelector('#cabEquity .lab-empty')) };
+  return {
+    svg: !!svg,
+    empty: !!(document.querySelector('#cabEquity .lab-empty')),
+    opsFoldClosed: document.getElementById('cabOpsFold')?.open !== true
+  };
 });
 ok(curva.svg || curva.empty, 'Inicio pinta la curva de equity o el vacío honesto', JSON.stringify(curva));
+ok(curva.opsFoldClosed, 'Inicio pliega cuentas y pre-sesión bajo el dashboard');
 
 await page.click('#tabnav .tabbtn[data-tab="diario"]');
 await page.click('#jrNew');
@@ -133,6 +138,27 @@ await page.click('#tabnav .tabbtn[data-tab="insights"]');
 const ins = await page.evaluate(() => document.getElementById('insList')?.innerText || '');
 ok(/evidencia|insight|operacion|operación|muestra|suficiente/i.test(ins),
   'Insights habla de evidencia real, no de frases vacías', ins.slice(0, 120));
+const insBtn = page.locator('#insList [data-ins="ops"]').first();
+if (await insBtn.count()) {
+  await insBtn.click();
+  await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros', null, { timeout: 15000 });
+  const filtered = await page.evaluate(() => ({
+    ids: document.querySelector('.tab[data-tab="futuros"]') && (window.ft?.ids || ''),
+    rows: document.querySelectorAll('#jrTable tr[data-id]').length
+  }));
+  ok(!!filtered.ids || filtered.rows >= 1, 'Insights abre Operaciones con evidencia', JSON.stringify(filtered));
+}
+
+await page.click('#tabnav .tabbtn[data-tab="calendario"]');
+await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'calendario');
+const cal = await page.evaluate(() => ({
+  month: document.getElementById('calLabTitle')?.textContent || '',
+  day: document.getElementById('calLabDayMeta')?.textContent || '',
+  actions: document.querySelectorAll('#calLabDay [data-lab-act]').length
+}));
+ok(/2026-09|septiembre|sep/i.test(cal.month + cal.day) || /^\d{4}-\d{2}-\d{2}$/.test(cal.day),
+  'Calendario abre un día con datos', JSON.stringify(cal));
+ok(cal.actions >= 3, 'Calendario ofrece Operaciones, Diario y Estudio');
 
 await page.click('#tabnav .tabbtn[data-tab="cuentas"]');
 await page.click('#cuVerOps');
@@ -141,8 +167,12 @@ ok(true, 'Cuentas abre Operaciones');
 
 await page.click('#tabnav .tabbtn[data-tab="edge"]');
 await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'edge');
-const estLink = await page.evaluate(() => !!document.querySelector('#mxAnalytics [data-lab-est]'));
-ok(estLink, 'Analítica enlaza el catálogo de Estadísticas');
+const estLink = await page.evaluate(() => ({
+  stats: !!document.querySelector('#mxAnalytics [data-lab-est]'),
+  riskClosed: document.getElementById('mxRiskTools')?.open !== true
+}));
+ok(estLink.stats, 'Analítica enlaza el catálogo de Estadísticas');
+ok(estLink.riskClosed, 'tamaño y ruina quedan plegados bajo la curva');
 
 await page.goto('http://127.0.0.1:' + srv.address().port + '/#operaciones', { waitUntil: 'load' });
 await page.waitForFunction(() => document.querySelector('.tab.active')?.dataset.tab === 'futuros', null, { timeout: 15000 });
