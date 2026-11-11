@@ -16337,7 +16337,10 @@
 
      De paso desaparece el último try{}catch{} mudo de la app: el de los destinos
      de la calculadora. Si falla, se dice cuál falló en vez de tragárselo. */
-  coll("trades").subscribe(() => { tryOpenPendingTrade(); fanout(FANOUT_TRADES); });
+  /* Coma, no bloque con `;`: test/conexiones.mjs parsea
+     `subscribe(() => …)` hasta el primer `;` y un cuerpo `{ a(); fanout(…) }`
+     dejaba trades sin FANOUT (94 huecos falsos). */
+  coll("trades").subscribe(() => (tryOpenPendingTrade(), fanout(FANOUT_TRADES)));
   /* ══════════════ ANTES DE OPERAR ══════════════
      Una lista que se lee una vez al día y se quita de en medio. El problema
      que resuelve no es «no tengo mis reglas escritas» —las reglas duras ya
