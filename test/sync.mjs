@@ -1,3 +1,4 @@
+import { abreCabOps } from './espera.mjs';
 /* Los 10 escenarios de la reestructuración, contra la app real.
 
    La prueba no comprueba que el código compile: comprueba que el MISMO número
@@ -44,6 +45,7 @@ const salida = (usd, qty) => 21000 + usd / (2 * qty);
 async function crearOp({ usd, qty = 1, fecha = '2026-09-18', hora = '09:30', acct = 'a1', instr = 'MNQ', desde = 'futuros' }) {
   if (desde === 'cabina') {
     await tab('cabina');
+    await abreCabOps(p);
     await p.click(`.acct[data-id="${acct}"] button[data-act="newtrade"]`);
   } else {
     await tab('futuros');
@@ -60,7 +62,7 @@ async function crearOp({ usd, qty = 1, fecha = '2026-09-18', hora = '09:30', acc
 
 // Los siete números que las dos pestañas tienen que decir igual.
 async function lee(acct = 'a1') {
-  await tab('cabina'); await p.waitForTimeout(220);
+  await tab('cabina'); await abreCabOps(p); await p.waitForTimeout(220);
   const cab = await p.evaluate(id => {
     const c = document.querySelector(`.acct[data-id="${id}"]`); if (!c) return null;
     const txt = l => { for (const n of c.querySelectorAll('.lab, .l, .k, dt, .cap-l')) if (n.textContent.trim().toLowerCase().startsWith(l)) { const v = n.nextElementSibling || n.parentElement.querySelector('.v, .val, dd'); return v ? v.textContent.trim() : null; } return null; };

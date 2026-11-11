@@ -259,3 +259,10 @@ export async function despliegaAncestros(locator) {
     if (!(await detail.evaluate(el => el.open))) await detail.locator(':scope > summary').click();
   }
 }
+
+export async function abreCabOps(page) {
+  await page.evaluate(() => {
+    const d = document.getElementById('cabOpsFold');
+    if (d) d.open = true;
+  });
+}

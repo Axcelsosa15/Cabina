@@ -8,7 +8,7 @@
      · lo borrado vuelve entero, incluso después de recargar;
      · en masa sólo se borra lo que está EN PANTALLA. */
 import { chromium } from 'playwright';
-import { quieto, arrancada, trasGuardar, enDisco } from './espera.mjs';
+import { quieto, arrancada, trasGuardar, enDisco, abreCabOps } from './espera.mjs';
 const errs = [], fallos = [];
 const F = new Date('2026-09-17T14:00:00Z').getTime();
 const b = await chromium.launch();
@@ -168,6 +168,7 @@ console.log('\n═══ borrar una cuenta arrastra sus operaciones, y se dice �
   const ordenAntes = await orden();
 
   await p.click('#selbtn-accts'); await quieto(p);
+  await abreCabOps(p);
   await p.click('#accts article.acct[data-id="a1"]');
   await p.click('#accts article.acct[data-id="a3"]'); await quieto(p);
   await p.click('[data-sel="borrar"]'); await quieto(p);

@@ -2871,6 +2871,11 @@
     aLaVista(document.querySelector("#tabnav .tabbtn.active"));
     $("editToggle").hidden = name !== "cabina";
     if (name !== "cabina" && state.editing) setEditing(false);
+    if (name === "cabina") {
+      const fold = $("cabOpsFold");
+      const n = (state.settings && state.settings.accounts || []).length;
+      if (fold && !n) fold.open = true;
+    }
     try {
       const keep = parseHash().search;
       const next = "#" + name + (keep && (TAB_ALIAS[parsed.name] || parsed.name) === name ? "?" + keep : "");

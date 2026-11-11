@@ -190,7 +190,7 @@ const dobleDb = async () => {
     for (const t of (window.FUT.trades() || [])) window.FUT.updateTrade(t.id, { notes: (t.notes || '') + '.' });
   });
   await p.waitForTimeout(1200);
-  await p.click('[data-tab="cabina"]'); await p.waitForTimeout(350);
+  await p.click('[data-tab="cabina"]'); await abreCabOps(p); await p.waitForTimeout(350);
   const hayC = await p.evaluate(() => document.querySelectorAll('.check input[type=checkbox]:not(:disabled)').length);
   if (hayC) { await p.click('.check input[type=checkbox]:not(:disabled)'); await p.waitForTimeout(1200); }
   const t3 = await lee(p);
@@ -212,7 +212,7 @@ const dobleDb = async () => {
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
   });
   d.e.rutaRota = 'days/' + hoy;
-  await p.click('[data-tab="cabina"]'); await p.waitForTimeout(350);
+  await p.click('[data-tab="cabina"]'); await abreCabOps(p); await p.waitForTimeout(350);
   const hay = await p.evaluate(() => document.querySelectorAll('.check input[type=checkbox]:not(:disabled)').length);
   if (hay) { await p.click('.check input[type=checkbox]:not(:disabled)'); await p.waitForTimeout(1200); }
   const d0 = await lee(p);

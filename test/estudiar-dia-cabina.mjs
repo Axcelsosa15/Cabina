@@ -1,7 +1,7 @@
 /* Flujo Cabina -> Estudio: un día, varias cuentas, P&L real, filtros y retorno.
    Ningún trade ni revisión se copia o guarda por navegar. */
 import { chromium } from 'playwright';
-import { arrancada, quieto } from './espera.mjs';
+import { arrancada, quieto, abreCabOps } from './espera.mjs';
 import { sirvePublicado } from './publicado.mjs';
 
 const FAIL = [], errors = [];
@@ -68,6 +68,7 @@ try {
   ok(await page.inputValue('#studyTradeFrom')==='' && await page.inputValue('#studyTradeTo')==='' && (await ids()).length===4,
     'Limpiar filtros libera el día sin dejar una vista oculta');
   await page.click('.tabbtn[data-tab="cabina"]');
+  await abreCabOps(page);
   await page.locator('#histWrap button[data-study-day="2026-09-16"]').first().waitFor({timeout:15000});
   await page.locator('#histWrap button[data-study-day="2026-09-16"]').first().click();
   await page.waitForFunction(() => document.querySelector('#studyDayContext') && !document.querySelector('#studyDayContext').hidden);
