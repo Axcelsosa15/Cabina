@@ -1097,6 +1097,19 @@
         + " Pulsa «Resolver conflicto» para ver qué cambió y decidir con qué versión te quedas.";
       return;
     }
+    /* Fail closed when PostgREST cannot expose the required version column
+       or returns a shape that does not match the documented API. */
+    if (state.nube && nube.occ === false) {
+      const uid = nube.ses && nube.ses.uid;
+      const pending = uid ? cola.lista(uid).length : 0;
+      el.textContent = "BACKEND INCOMPATIBLE";
+      el.className = "save-state nosave"; f.className = "nosave";
+      f.textContent = "Cabina bloqueó las escrituras y los borrados en la nube para evitar sobrescribir operaciones. "
+        + "La API no cumple el contrato de versionado. No significa que tus datos desaparecieran."
+        + (pending ? " Hay " + pending + " cambios pendientes en este dispositivo." : "")
+        + " No borres datos ni cierres sin respaldo; verifica la migración y recarga cuando esté corregida.";
+      return;
+    }
     /* LO ENCOLADO Y LO QUE SE PIERDE AL RECARGAR NO SON LO MISMO, y mezclarlos
        sería la mentira nueva que la cola podía introducir en este rótulo: decir
        «si recargas, se pierde» de algo que está en IndexedDB y se reintenta solo
@@ -1207,9 +1220,7 @@
        el.textContent = "sincronizado"; el.className = "save-state cloud";
       f.textContent = "Guardado en tu cuenta" + (nube.ses && nube.ses.email ? " (" + nube.ses.email + ")" : "")
         + ". Sólo tu sesión puede leer estos datos: ningún otro usuario los ve."
-        /* Sin la columna `version` la base no puede detectar que dos dispositivos
-           escriben el mismo documento, y eso hay que decirlo en vez de callarlo. */
-        + (nube.occ === false ? " AVISO: esta base todavía no detecta si otro dispositivo cambió un documento, así que con dos abiertos a la vez un cambio puede perderse. Falta aplicar la migración de la versión." : "");
+        ;
       return;
     }
     if (state.store === "local" && lsCorrupto) {
@@ -2114,21 +2125,31 @@
     const collDe = p => p.slice(0, p.lastIndexOf("/"));
     const invalidaLecturas = p => { const c = collDe(p); genLee.set(c, (genLee.get(c) || 0) + 1); };
     const err = (code, extra) => Object.assign(new Error(code), { code }, extra || {});
+    /* PostgREST returning HTTP 200 is not proof that the response shape is
+       compatible. A malformed collection must never become an empty journal. */
+    /* A single malformed 200 response puts this session into read-only
+       quarantine. A later good response for another collection cannot
+       authorise writes into the collection that failed validation. */
+    let contratoRoto = false;
+    function filasValidas(rows, campos, ruta) {
+      const valido = Array.isArray(rows) && rows.every(row => row && typeof row === "object"
+        && !Array.isArray(row) && campos.every(k => {
+          const v = row[k];
+          if (k === "data") return v && typeof v === "object" && !Array.isArray(v);
+          if (k === "version") return Number.isSafeInteger(v) && v >= 1;
+          if (k === "path") return typeof v === "string" && v.includes("/");
+          return Object.hasOwn(row,k);
+        }));
+      if (!valido) { contratoRoto = true; nube.occ = false; setStoreLabel(); throw err("respuesta_incompatible", { path: ruta }); }
+      return rows;
+    }
 
-    /* ── SI LA MIGRACIÓN NO ESTÁ APLICADA ──────────────────────────────────────
-       `index.html` se publica solo en cuanto la suite pasa, y la migración la
-       aplica el dueño A MANO contra el proyecto. Así que existe una ventana en la
-       que la página nueva habla con una base vieja, sin columna `version`.
-
-       Pedir `select=data,version` contra esa base da 42703 («undefined column») y,
-       sin esto, la cabina dejaría de cargar: ni leer ni escribir. Romper la app de
-       quien ya la usa para estrenar una protección es un intercambio malo.
-
-       Así que se detecta UNA vez, se vuelve al upsert de antes… y SE DICE. El pie
-       deja de prometer protección entre dispositivos, porque sin la columna no la
-       hay. Es la misma regla que el resto del rótulo: no afirmar lo que no se puede
-       sostener. Cuando el dueño aplique la migración, la siguiente lectura la
-       encuentra y `occ` vuelve a true sin tocar nada. */
+    /* ── BACKEND ANTIGUO O RESPUESTA INCOMPATIBLE ─────────────────────────────
+       Para no mostrar un diario vacío si falta la columna version, las lecturas
+       pueden degradarse a select=data/path. Las escrituras NO: sin OCC un upsert
+       o DELETE sin version puede pisar o eliminar un cambio de otro dispositivo.
+       El estado visible dice BACKEND INCOMPATIBLE y los cambios siguen en cola.
+       Una lectura posterior con version válida reactiva la compatibilidad. */
     const SIN_COLUMNA = new Set(["42703", "PGRST204"]);
     const esSinColumna = e => !!e && (SIN_COLUMNA.has(String(e.code)) || /version/.test(String(e.msg || "")) && /column/i.test(String(e.msg || "")));
 
@@ -2222,18 +2243,21 @@
     /* Un PATCH condicionado a la versión. Devuelve la fila nueva, o null si
        coincidieron 0 filas (que es el conflicto). */
     async function parchea(p, d, esperada) {
-      const r = await nubeFetch(`${T}?path=eq.${enc(p)}&version=eq.${esperada}&select=version`,
-        { method: "PATCH", headers: { prefer: "return=representation" }, body: { data: d } });
+      const r = filasValidas(await nubeFetch(`${T}?path=eq.${enc(p)}&version=eq.${esperada}&select=version`,
+        { method: "PATCH", headers: { prefer: "return=representation" }, body: { data: d } }), ["version"], p);
       return Array.isArray(r) && r.length ? r[0] : null;
     }
     const be = {
       async leeDoc(p) {
         let a;
-        try { a = await nubeFetch(`${T}?select=data,version&path=eq.${enc(p)}`); }
+        try {
+          a = filasValidas(await nubeFetch(`${T}?select=data,version&path=eq.${enc(p)}`), ["data","version"], p);
+          if (nube.occ === false && !contratoRoto) { nube.occ = true; setStoreLabel(); }
+        }
         catch (e) {
           if (!esSinColumna(e)) throw e;
           nube.occ = false; setStoreLabel();
-          a = await nubeFetch(`${T}?select=data&path=eq.${enc(p)}`);
+          a = filasValidas(await nubeFetch(`${T}?select=data&path=eq.${enc(p)}`), ["data"], p);
         }
         if (a && a[0]) { if (a[0].version != null) vers.set(p, a[0].version); return a[0].data; }
         /* No existe: se olvida la versión que hubiera, o la próxima escritura
@@ -2251,11 +2275,14 @@
         while (out.length < tope) {
           const n = Math.min(PAG, tope - out.length);
           let a;
-          try { a = (await nubeFetch(`${T}?select=path,data,version&coll=eq.${enc(q.coll)}&order=${orden}&limit=${n}&offset=${out.length}`)) || []; }
+          try {
+            a = filasValidas(await nubeFetch(`${T}?select=path,data,version&coll=eq.${enc(q.coll)}&order=${orden}&limit=${n}&offset=${out.length}`), ["path","data","version"], q.coll);
+            if (nube.occ === false && !contratoRoto) { nube.occ = true; setStoreLabel(); }
+          }
           catch (e) {
             if (!esSinColumna(e)) throw e;
             nube.occ = false; setStoreLabel();
-            a = (await nubeFetch(`${T}?select=path,data&coll=eq.${enc(q.coll)}&order=${orden}&limit=${n}&offset=${out.length}`)) || [];
+            a = filasValidas(await nubeFetch(`${T}?select=path,data&coll=eq.${enc(q.coll)}&order=${orden}&limit=${n}&offset=${out.length}`), ["path","data"], q.coll);
           }
           out.push(...a);
           if (a.length < n) break;
@@ -2282,38 +2309,40 @@
          Un fallo conserva el original local; no se encola como un set porque
          ese reintento podría reemplazar un documento de otro dispositivo. */
       async crea(p, d) {
+        /* Create-only recovery must not write to a backend with an unknown
+           schema. Keep the local source intact until compatibility returns. */
+        if (nube.occ === false) throw err("esquema_incompatible", { path: p });
         enVuelo++; setStoreLabel();
         try {
+          /* Validate version BEFORE a create-only restoration; it must never
+             write to a backend whose OCC contract is unknown. */
+          filasValidas(await nubeFetch(`${T}?select=version&limit=0`), ["version"], p);
           await nubeFetch(T, { method: "POST", headers: { prefer: "return=minimal" },
             body: { user_id: uidAhora(), path: p, data: d } });
           vers.delete(p); invalidaLecturas(p);
           return true;
         } catch (e) {
+          if (esSinColumna(e)) { nube.occ = false; setStoreLabel(); throw err("esquema_incompatible", { path: p }); }
           if (e && e.code === "23505") return false;
           throw e;
         } finally { enVuelo--; setStoreLabel(); }
       },
       async escribeOcc(p, d, versionBase) {
-        /* Sin columna no hay escritura condicional posible: se vuelve al upsert de
-           siempre. Pierde la detección de conflictos —y el pie lo dice— pero no
-           pierde los datos de nadie por no poder escribir. */
-        if (nube.occ === false) {
-          if (versionBase != null) throw err("conflicto", { path: p });
-          await nubeFetch(`${T}?on_conflict=user_id,path`, { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=minimal" },
-            body: { user_id: nube.ses ? nube.ses.uid : null, path: p, data: d } });
-          return;
-        }
+        /* Incompatible backend: refuse last-write-wins instead of silently
+           downgrading to on_conflict=merge-duplicates. The caller retains the
+           failed change in the existing per-user offline queue. */
+        if (nube.occ === false) throw err("esquema_incompatible", { path: p });
         let esperada = versionBase ?? vers.get(p);
         /* Sin versión conocida no se puede escribir a ciegas: se lee para saber si
            el documento existe. Una ronda más, sólo la primera vez que se toca un
            documento en esta sesión, y a cambio ninguna escritura ciega. */
-        if (esperada == null) { await this.leeDoc(p); esperada = vers.get(p); }
+        if (esperada == null) { await this.leeDoc(p); if (nube.occ === false) throw err("esquema_incompatible", { path: p }); esperada = vers.get(p); }
         if (esperada != null) {
           const fila = await parchea(p, d, esperada);
           if (fila) { vers.set(p, fila.version); invalidaLecturas(p); return; }
           /* 0 filas. Dos causas, y se distinguen porque la respuesta al usuario es
              distinta: alguien lo cambió, o alguien lo borró. */
-          const sigue = await nubeFetch(`${T}?select=version&path=eq.${enc(p)}`);
+          const sigue = filasValidas(await nubeFetch(`${T}?select=version&path=eq.${enc(p)}`), ["version"], p);
           if (sigue && sigue[0]) {
             vers.set(p, sigue[0].version); invalidaLecturas(p);
             throw err("conflicto", { path: p, esperada, actual: sigue[0].version });
@@ -2325,8 +2354,8 @@
            y esto alguien lo creó, la clave primaria lo rechaza y eso también es un
            conflicto. Un upsert aquí volvería a pisar en silencio. */
         try {
-          const r = await nubeFetch(`${T}?select=version`, { method: "POST", headers: { prefer: "return=representation" },
-            body: { user_id: nube.ses ? nube.ses.uid : null, path: p, data: d } });
+          const r = filasValidas(await nubeFetch(`${T}?select=version`, { method: "POST", headers: { prefer: "return=representation" },
+            body: { user_id: nube.ses ? nube.ses.uid : null, path: p, data: d } }), ["version"], p);
           if (Array.isArray(r) && r[0]) { vers.set(p, r[0].version); invalidaLecturas(p); }
         } catch (e) {
           /* 23505 es la violación de clave única de Postgres, y 409 su traducción
@@ -2346,25 +2375,23 @@
         finally { enVuelo--; setStoreLabel(); }
       },
       async borraOcc(p, versionBase) {
-        if (nube.occ === false) {
-          if (versionBase != null) throw err("conflicto", { path: p });
-          await nubeFetch(`${T}?path=eq.${enc(p)}`, { method: "DELETE", headers: { prefer: "return=minimal" } }); return;
-        }
+        /* A versionless DELETE could erase a newer edit from another device. */
+        if (nube.occ === false) throw err("esquema_incompatible", { path: p });
         let esperada = versionBase ?? vers.get(p);
-        if (esperada == null) { await this.leeDoc(p); esperada = vers.get(p); }
+        if (esperada == null) { await this.leeDoc(p); if (nube.occ === false) throw err("esquema_incompatible", { path: p }); esperada = vers.get(p); }
         /* Ya no está: borrar lo que no existe es el resultado que se pedía. */
         if (esperada == null) return;
         /* UN BORRADO TAMPOCO A CIEGAS. Era `DELETE ?path=eq.<p>` y punto, así que
            se llevaba por delante la edición que otro dispositivo acababa de
            guardar — y un borrado no deja nada que recuperar, así que es peor que
            un update perdido. */
-        const r = await nubeFetch(`${T}?path=eq.${enc(p)}&version=eq.${esperada}&select=version`,
-          { method: "DELETE", headers: { prefer: "return=representation" } });
+        const r = filasValidas(await nubeFetch(`${T}?path=eq.${enc(p)}&version=eq.${esperada}&select=version`,
+          { method: "DELETE", headers: { prefer: "return=representation" } }), ["version"], p);
         if (Array.isArray(r) && r.length) { vers.delete(p); invalidaLecturas(p); return; }
         /* 0 filas. Si la fila sigue ahí, es que cambió de versión: conflicto, y el
            borrado no se hace. Si no está, alguien se adelantó y el resultado que se
            pedía ya se cumplió: eso no es un conflicto, es el trabajo hecho. */
-        const sigue = await nubeFetch(`${T}?select=version&path=eq.${enc(p)}`);
+        const sigue = filasValidas(await nubeFetch(`${T}?select=version&path=eq.${enc(p)}`), ["version"], p);
         if (sigue && sigue[0]) { vers.set(p, sigue[0].version); invalidaLecturas(p); throw err("conflicto", { path: p, esperada, actual: sigue[0].version }); }
         vers.delete(p);
       },

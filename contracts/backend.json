@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "source": "Read-only inspection of active Supabase project on 2026-11-06; not an automatic live-schema assertion",
+  "backend": "supabase",
+  "projectRef": "lazniuuedlhqomfyykvf",
+  "table": "public.cabina_docs",
+  "columns": {
+    "user_id": "uuid",
+    "path": "text",
+    "coll": "text",
+    "data": "jsonb",
+    "updated_at": "timestamptz",
+    "version": "integer"
+  },
+  "primaryKey": [
+    "user_id",
+    "path"
+  ],
+  "requiredVersion": true,
+  "rlsRequired": true,
+  "writes": {
+    "insert": "create-only",
+    "update": "path-and-version-conditional",
+    "delete": "path-and-version-conditional",
+    "lastWriteWins": false
+  },
+  "note": "Read-only fallback permitted for missing version; all cloud writes must fail closed until backend compatibility is restored."
+}
