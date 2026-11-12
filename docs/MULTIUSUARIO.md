@@ -190,6 +190,30 @@ El UNKNOWN no es un hueco por rellenar: desde este entorno la política de red d
 `supabase/pruebas/concurrencia.sql` en el editor SQL del proyecto, con el sabotaje que
 el propio fichero describe.
 
+### Una respuesta que no llega no es un conflicto
+
+Una petición puede quedarse sin respuesta —timeout, wifi que cae a mitad— **después**
+de que la base escribió. El cliente no lo sabe, la encola y reintenta con la versión
+de antes; la base ya va una por delante, el `PATCH` toca 0 filas, y eso se leía como
+«otro dispositivo lo cambió»: un conflicto contra la propia escritura, con dos
+versiones iguales delante.
+
+Antes de levantar un conflicto al drenar, `reconcilia()` lee qué hay en la base:
+
+| lo que hay en la base | qué se hace |
+|---|---|
+| exactamente lo pendiente | entró: se quita de la cola, sin segunda escritura |
+| un contenido que este cliente **ya envió** para esa ruta (`enviados[]` en la entrada de la cola) | es un intento propio anterior: lo pendiente, más nuevo, se escribe condicionado a la versión recién leída |
+| un borrado pendiente y el documento ya no está | hecho |
+| cualquier otra cosa | **conflicto**, como siempre |
+
+No es fusión ni «gana el último»: o lo de la base es demostrablemente de este
+cliente, o se pregunta. `enviados[]` guarda huella y longitud del JSON canónico de
+los últimos ocho contenidos enviados mientras la ruta estuvo pendiente; es identidad
+de contenido, no seguridad. Probado en `test/cola-timeout.mjs`, que incluye el caso
+que no puede romperse: si escribió otro dispositivo, sigue siendo un conflicto. La
+prueba se puso roja con el código anterior («CONFLICTO · 1»).
+
 ### Lo que sigue sin resolverse
 
 Esto detecta el conflicto; **no** hace la cabina en tiempo real. Lo que escribes se ve

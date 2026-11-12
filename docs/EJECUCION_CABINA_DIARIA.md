@@ -10,9 +10,10 @@ El flujo **abrir → verificar datos → preparar → registrar → revisar → 
 tab Cabina, sobre los sistemas que ya existían. No incluye ejecución de órdenes:
 nada de lo de aquí bloquea un bróker, y la interfaz lo dice.
 
-Entregado: B0 (inventario y línea base), B3 (sesión y versiones del plan), la parte
-de B4 que es la barra de sesión, la parte de B5 que son los días de descanso, la
-parte de B8 que es el diagnóstico, y cobertura nueva de B7 (T16/T17).
+Entregado: B0 (inventario y línea base), la parte de B2 que es la reconciliación
+de un timeout, B3 (sesión y versiones del plan), la parte de B4 que es la barra de
+sesión, la parte de B5 que son los días de descanso, la parte de B8 que es el
+diagnóstico y el respaldo de ida y vuelta, y cobertura nueva de B7 (T16/T17).
 **No entregado**: ver §7. Esto no es el encargo completo y no se declara como tal.
 
 ## 2 · Línea base (B0)
@@ -32,6 +33,7 @@ Lo que la inspección encontró roto o ausente, con reproducción:
 | F6 | Las rachas trataban sábado y domingo como únicos descansos | Ventana de lunes a jueves, viernes sin operar: la racha se rompe | Incumplimiento ficticio en un día de descanso propio | `discipline.js` (antes): `[0, 6].includes(weekday(…))` | VERIFICADO (`disciplina-modelo` T10) |
 | F7 | Cerrar un día sin operar exigía escribir un resultado | «Cerrar sesión de hoy» sin resultado: «escribe el resultado antes de cerrar» | No operar no se podía registrar como decisión salvo por el botón «sin edge» | `app.js` (antes): `$("jClose")` | VERIFICADO (T23) |
 | F8 | No había diagnóstico exportable | — | Pedir ayuda obligaba a mandar el respaldo entero | — | VERIFICADO (`diagnostico`) |
+| F10 | Una respuesta perdida tras escribir se convertía en conflicto contra uno mismo | Con cuenta: editar una operación; la base escribe y la respuesta se pierde. Al reintentar: `CONFLICTO · 1`, con las dos versiones iguales | Ruido que obliga a «resolver» un conflicto que no existe, y enseña a pulsar sin leer el diálogo que protege de los conflictos de verdad | `test/cola-timeout.mjs` en rojo contra el código anterior (10 aserciones) | VERIFICADO (`cola-timeout`, doble) |
 | F9 | El README negaba la cola offline y decía que el script era inline | Leer README frente a `test/cola.mjs` y la CSP de `index.html` | Documentación que contradice el código | README | corregido (texto) |
 
 ## 3 · Matriz de estado
@@ -44,7 +46,7 @@ Lo que la inspección encontró roto o ausente, con reproducción:
 | Persistencia en Supabase, lectura fallida ≠ colección vacía | EXISTE Y VERIFICADO **contra el doble** | `outage-recovery`, `recarga-recuperacion`, `hidratacion-segura` |
 | Cola de escrituras: por usuario, durable, espera creciente, condicionada por versión | EXISTE Y VERIFICADO **contra el doble** | `cola`, `cola-recarga-conflicto` |
 | Conflictos: se enseñan las dos versiones, no se elige | EXISTE Y VERIFICADO **contra el doble** | `conflicto`, `conflicto-decision` |
-| Reconciliación de un timeout tras una escritura que sí entró | EXISTE SIN VERIFICAR | el reintento va con `versionBase`; no vi una prueba que corte la respuesta después de escribir |
+| Reconciliación de un timeout tras una escritura que sí entró | FALLABA → VERIFICADO **contra el doble** | F10 · `cola-timeout` |
 | RLS y aislamiento en el proyecto Supabase real | **UNKNOWN** | el conector de Supabase no conectó en esta sesión (`ERR_PROXY_TUNNEL`); `db.mjs` lo prueba en Postgres local |
 | Contrato de la firma versionado por vigencia | EXISTE Y VERIFICADO | `versiones`, `prop` |
 | Disciplina separada del P&L, desconocido ≠ incumplido ≠ no aplicable | EXISTE Y VERIFICADO | `disciplina-modelo`, `disciplina-franjas` |
@@ -63,7 +65,7 @@ Lo que la inspección encontró roto o ausente, con reproducción:
 | Fallo de subida de un adjunto conserva la operación | EXISTE SIN VERIFICAR | no localicé la aserción |
 | Importación con vista previa, procedencia y deshacer | EXISTE Y VERIFICADO con CSV sintéticos | `mapeador`, `emparejado`, `cola-importadas` |
 | Un CSV real de bróker | **UNKNOWN** | la compuerta ya lo declara así |
-| Respaldo con recuento y huella, restauración con vista previa | EXISTE Y VERIFICADO | `integridad`, `importar`, `respaldo-estudio` |
+| Respaldo con recuento y huella, restauración con vista previa | EXISTE Y VERIFICADO | `integridad`, `importar`, `respaldo-estudio`, `respaldo-sesion` (ida y vuelta entera, prueba nueva) |
 | Actualización que no recarga con cambios en peligro | EXISTE Y VERIFICADO | `actualizacion` |
 | Diagnóstico con exportación sin datos del diario | FALTABA → VERIFICADO | `diagnostico` |
 | Trade date del bróker distinto de la fecha civil | **FALTA** | la app fecha por día civil de Nueva York; la sesión de las 18:00 ET no pasa al día siguiente como en CME |
@@ -89,7 +91,10 @@ Lo que la inspección encontró roto o ausente, con reproducción:
 9. **Días de descanso = días fuera de `window.days`.** Cambiarlos rejuzga rachas
    pasadas, igual que la ventana ya rejuzga `fuera_ventana`. Versionar la ventana
    por vigencia queda pendiente.
-10. **Trabajo aislado en un worktree** mientras corría la línea base, para no
+10. **Reconciliar no es fusionar.** Al drenar, un conflicto sólo se da por
+    resuelto si lo que hay en la base es demostrablemente de este cliente
+    (idéntico a lo pendiente, o un contenido que ya envió). Lo demás se pregunta.
+11. **Trabajo aislado en un worktree** mientras corría la línea base, para no
     medir un árbol a medio editar.
 
 ## 5 · Tareas
@@ -98,13 +103,13 @@ Lo que la inspección encontró roto o ausente, con reproducción:
 |---|---|---|---|
 | B0 inventario, reproducción, línea base | — | VERIFICADO | este documento |
 | B1 contratos de identidad, datos y guardado | B0 | VERIFICADO lo existente; sin cambios | — |
-| B2 recuperación, idempotencia, conflictos | B0 | VERIFICADO lo existente contra el doble; timeout-tras-éxito SIN VERIFICAR | — |
+| B2 recuperación, idempotencia, conflictos | B0 | VERIFICADO contra el doble, incluido el timeout tras éxito (F10) | `app.js` (`reconcilia`, `enviados`), `test/nube-doble.mjs`, `test/cola-timeout.mjs` |
 | B3 sesión y versiones del plan | B0 | VERIFICADO | `session-state.js`, `app.js`, `test/sesion-modelo.mjs` |
 | B4 flujo vertical de Cabina | B3 | PARCIAL · barra VERIFICADA, reordenación del resto PENDIENTE | `index.html`, `app.js`, `test/sesion-flujo.mjs` |
 | B5 calendario y disciplina | B3 | PARCIAL · descansos VERIFICADO; trade date del bróker y DST de sesión PENDIENTE | `discipline.js`, `test/disciplina-modelo.mjs` |
 | B6 componentes y accesibilidad | B4 | PARCIAL · la barra: teclado, foco, Escape, 390 px VERIFICADO; auditoría del resto PENDIENTE | — |
 | B7 paneles y columnas | — | PARCIAL · T16/T17 VERIFICADO; panel nuevo vs. guardada FALLA; columnas SIN VERIFICAR | `test/layout-datos.mjs` |
-| B8 backups, actualización, diagnóstico | — | PARCIAL · diagnóstico VERIFICADO; backup en entorno limpio de punta a punta PENDIENTE | `app.js`, `index.html`, `test/diagnostico.mjs` |
+| B8 backups, actualización, diagnóstico | — | VERIFICADO en local · diagnóstico y respaldo de ida y vuelta; restauración con cuenta (nube) sin prueba propia | `app.js`, `index.html`, `test/diagnostico.mjs`, `test/respaldo-sesion.mjs` |
 | B9 pruebas integrales | todo | EN CURSO · tabla §6 | — |
 | B10 piloto de diez sesiones | B9 | PENDIENTE (humano) | — |
 | B11 otros tabs | B10 | PENDIENTE | — |
@@ -117,7 +122,7 @@ no el proyecto real.
 | Caso | Preparación · acción | Esperado | Obtenido · evidencia | Resultado |
 |---|---|---|---|---|
 | T01 doble clic al guardar | registro rápido disparado dos veces | una operación | `editor-abort-guard` | PASS |
-| T02 timeout y reintento | escritura sin red, vuelve la red | sin duplicado | `cola`: la cola sale sólo con éxito confirmado y reintenta con la versión leída. **No hay prueba de timeout DESPUÉS de una escritura que entró** | UNKNOWN |
+| T02 timeout y reintento | la base escribe y la respuesta se pierde; reintento. Editar, editar dos veces, crear, borrar | sin duplicado y sin conflicto propio; el ajeno sí | `cola-timeout`: 24 aserciones. Antes del arreglo: «CONFLICTO · 1» | PASS (doble) |
 | T03 recarga sin red | editar sin red, cerrar y abrir | pendiente recuperado | `cola`: «tras cerrar y volver a abrir, el cambio SIGUE en la cola», en IndexedDB | PASS (doble) |
 | T04 edición concurrente | otro dispositivo escribe antes | conflicto con las dos versiones | `conflicto`, `conflicto-decision`, `cola-recarga-conflicto` | PASS (doble) |
 | T05 lectura fallida o JSON incompatible | 503 / JSON local roto | el historial no se vacía | `outage-recovery`, `local-corrupto`, `recarga-recuperacion` | PASS |
@@ -134,17 +139,19 @@ no el proyecto real.
 | T16 guardar/cancelar/restablecer layout | editar la distribución | sólo cambia presentación | `layout-datos`: `cabina-mnq:v1` byte a byte igual en los tres | PASS |
 | T17 layout corrupto | seis variantes de preferencias rotas | arranque recuperable | `layout-datos` | PASS |
 | T18 cuota agotada / auth expirada | `QuotaExceededError`; 401 | error claro, borrador protegido | `guardado` (caso A), `cuentas` («sesión caducada») | PASS |
-| T19 backup en entorno limpio | exportar, navegador vacío, importar | integridad comprobada | `integridad`, `importar`, `respaldo-estudio` cubren sellos e importación; **no hay una prueba única de ida y vuelta que incluya `sesion`** | UNKNOWN |
+| T19 backup en entorno limpio | sesión con plan v1 y v2 y una operación; exportar con el botón; navegador vacío; teclear IMPORTAR | integridad comprobada | `respaldo-sesion`: sesión, operaciones con `sessionRef`, reglas y cuentas idénticas; la barra pinta lo mismo. Sin cuenta | PASS (local) |
 | T20 actualización con edición activa | cambios en peligro, «Actualizar» | sin pérdida | `actualizacion`: «el primer clic NO recarga» | PASS |
 | T21 filtros iguales | mismo filtro en vistas y CSV | cifras equivalentes | `filtros`, `unificado`, `capa` | PASS |
 | T22 fallo de adjunto | la subida falla | trade conservado, reintento seguro | no localicé la aserción | UNKNOWN |
 | T23 teclado y móvil | 390 px, sólo teclado: iniciar, pausar, reanudar, cerrar | flujo completo | `sesion-flujo`. Registrar una operación por teclado a 390 px lo cubre `rapido`, no esta prueba | PASS (sesión) |
 | T24 cierre y reapertura | cerrar, reabrir con motivo, cerrar | historial conservado | `sesion-flujo`: dos cierres, dos versiones del plan, tras recargar | PASS |
 
-**UNKNOWN críticos de persistencia o recuperación: T02, T19, y RLS real.** Según
-la definición de terminado del encargo, eso impide declarar la aplicación lista
-para uso diario con cuenta. Sin cuenta —datos en el navegador— no aplican T02 ni
-RLS; sí T19.
+**UNKNOWN crítico que queda: el proyecto Supabase real** (RLS, migración de
+versionado aplicada, y el comportamiento de la cola contra PostgREST de verdad).
+Todo lo de nube de esta tabla dice «doble». Según la definición de terminado del
+encargo, eso impide declarar la aplicación lista para uso diario **con cuenta**.
+Sin cuenta —datos en ese navegador— los casos de esta tabla que aplican están en
+PASS, con dos huecos menores: T07 en el editor completo y T22.
 
 ## 7 · Riesgos y límites reales
 
@@ -171,12 +178,21 @@ RLS; sí T19.
 |---|---|
 | Línea base `npm test`, `c302b1a` | 128/128 en verde · 3.831 aserciones · 1.359 s |
 | Suites nuevas aisladas | `sesion-modelo` 35 · `sesion-flujo` PASS · `diagnostico` PASS · `layout-datos` PASS · `disciplina-modelo` con 4 casos T10 |
-| Suite completa y compuerta tras los cambios | ver el mensaje de entrega y el PR |
+| `npm run compuerta` tras B3–B8 (`bd6ec12`) | 132/132 suites · 3.983 aserciones · **48 PASS · 0 FAIL · 5 UNKNOWN** de 53 filas · 1.479 s |
+| `cola-timeout` contra el código SIN el arreglo | FAIL, 10 aserciones («CONFLICTO · 1») — la prueba puede fallar |
+| 22 suites de sincronización, conflicto y respaldo tras F10 | 21 en verde; `respaldo-estudio` falló 1 aserción en 2 de 5 corridas |
+| `npm run compuerta` final | ver el PR |
+
+`respaldo-estudio` («la copia parcial no actualiza el último respaldo completo») es
+una intermitencia **anterior a este trabajo**: el propio archivo la documenta como
+«la causa sigue SIN establecer». Pasó en la línea base y en la compuerta de
+`bd6ec12`; no la investigué.
 
 ## 9 · Siguiente paso concreto
 
-1. Prueba de timeout tras escritura exitosa (T02) y de respaldo de ida y vuelta
-   con `sesion` (T19): son los dos UNKNOWN que se pueden cerrar sin acceso externo.
-2. Correr `supabase/pruebas/*.sql` contra el proyecto real (necesita al dueño).
-3. Hacer que una distribución guardada sobreviva a un panel nuevo.
+1. Correr `supabase/pruebas/*.sql` contra el proyecto real y probar la cola con
+   una cuenta de verdad (necesita al dueño: el conector no conectó desde aquí).
+2. Hacer que una distribución guardada sobreviva a un panel nuevo.
+3. T22 (fallo de adjunto) y T07 en el editor completo.
 4. Reordenar el resto de Cabina alrededor de la barra, y empezar el piloto.
+5. Encontrar la causa de la intermitencia de `respaldo-estudio`.

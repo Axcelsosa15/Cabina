@@ -6,6 +6,8 @@
 
    Y se puede romper a propósito, desde el test (no desde la página):
      e.caida          la red no llega (fetch falla)
+     e.pierdeRespuesta n   las próximas n escrituras SE APLICAN y su respuesta se
+                      pierde (timeout): la base cambió y el cliente no lo sabe
      e.roto           toda escritura se rechaza (403 permission-denied)
      e.rutaRota       sólo la escritura de esa ruta se rechaza (500 doc-roto)
      e.lecturasRotas  las lecturas de esa colección fallan (503 unavailable)
@@ -41,7 +43,7 @@ export function nubeDoble(_fuenteIgnorada) {
   if (!NUBE || !CLAVE) throw new Error('nubeDoble: no se encontraron NUBE_URL/NUBE_CLAVE en app.js');
   const e = {
     usuarios: new Map(), tokens: new Map(), refresh: new Map(), filas: new Map(), pedidas: [], n: 0,
-    caida: false, roto: false, rutaRota: '', lecturasRotas: '', retraso: {},
+    caida: false, roto: false, rutaRota: '', lecturasRotas: '', retraso: {}, pierdeRespuesta: 0,
     ultimoRegistro: null, ultimaRecuperacion: null, objetos: new Map(),
   };
   function nuevoUsuario(email, pass, confirmado = true) {
@@ -193,6 +195,7 @@ export function nubeDoble(_fuenteIgnorada) {
       const version = ya ? ya.version + 1 : 1;
       const fila = { user_id: uid, path: b.path, data: b.data, version, updated_at: new Date().toISOString() };
       e.filas.set(uid + '|' + b.path, fila);
+      if (e.pierdeRespuesta > 0) { e.pierdeRespuesta--; return route.abort('timedout'); }
       if (quiereFilas) return json(201, [{ path: fila.path, version: fila.version, updated_at: fila.updated_at, data: fila.data }]);
       return route.fulfill({ status: 201, body: '' });
     }
@@ -215,6 +218,7 @@ export function nubeDoble(_fuenteIgnorada) {
         f.version = f.version + 1;
         f.updated_at = new Date().toISOString();
       }
+      if (tocadas.length && e.pierdeRespuesta > 0) { e.pierdeRespuesta--; return route.abort('timedout'); }
       return devuelve(tocadas);
     }
     if (req.method() === 'DELETE') {
@@ -226,6 +230,7 @@ export function nubeDoble(_fuenteIgnorada) {
          deja nada que recuperar. */
       const tocadas = mias.filter(f => (p == null || f.path === p) && (vEsperada == null || String(f.version) === String(vEsperada)));
       for (const f of tocadas) e.filas.delete(uid + '|' + f.path);
+      if (tocadas.length && e.pierdeRespuesta > 0) { e.pierdeRespuesta--; return route.abort('timedout'); }
       if (quiereFilas) return json(200, tocadas.map(f => ({ path: f.path, version: f.version, updated_at: f.updated_at, data: f.data })));
       return route.fulfill({ status: tocadas.length ? 200 : 204, body: '' });
     }

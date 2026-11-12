@@ -2095,14 +2095,22 @@
       if (Array.isArray(todo)) for (const r of todo) if (r && r.clave) espejo.set(r.clave, r);
       return espejo.size;
     }
+    /* Huella + longitud del JSON canónico: identidad de un contenido, no seguridad. */
+    const marcaDato = d => { const c = bkCanon(d); return bkHash(c) + ":" + c.length; };
     function guarda(uid, ruta, op, dato, estado, motivo, versionBase) {
       const c = k(uid, ruta), viejo = espejo.get(c);
       /* El motivo entra con el registro, no en una segunda escritura: «pendiente»
          a secas no distingue un túnel de un documento que la base rechaza una y
          otra vez, y son dos problemas con dos salidas distintas. */
+      /* `enviados`: la marca de cada contenido que YA SALIÓ hacia la base para
+         esta ruta mientras estaba pendiente. Un envío sin respuesta pudo entrar;
+         si al reintentar la base tiene exactamente uno de éstos, lo que hay allí
+         lo escribí yo y no otro dispositivo (ver `reconcilia`). */
+      const previos = viejo && Array.isArray(viejo.enviados) ? viejo.enviados : [];
       const r = { clave: c, uid, ruta, op, dato: op === "del" ? null : dato, at: Date.now(),
                   estado: estado || "espera", motivo: String(motivo || ""),
                   versionBase: viejo ? (viejo.versionBase ?? null) : (versionBase ?? null),
+                  enviados: op === "del" ? previos : Array.from(new Set(previos.concat([marcaDato(dato)]))).slice(-8),
                   intentos: (viejo ? viejo.intentos : 0) + 1 };
       espejo.set(c, r);
       return tx("readwrite", t => t.put(r)).then(() => r);
@@ -2127,7 +2135,7 @@
       cs.forEach(c => espejo.delete(c));
       return tx("readwrite", t => { cs.forEach(c => t.delete(c)); }).then(() => cs.length);
     }
-    return { carga, guarda, marca, quita, lista, vacia, get durable() { return !roto; } };
+    return { carga, guarda, marca, quita, lista, vacia, marcaDato, get durable() { return !roto; } };
   })();
 
   /* LA CUENTA · Supabase, tabla cabina_docs, una fila por documento y usuario.
@@ -2268,8 +2276,18 @@
             await cola.quita(uid, r.ruta);
             siSeGuardo(r.ruta);
             hechos++;
-          } catch (e) {
-            const cl = clasifica(e);
+          } catch (e0) {
+            let e = e0, cl = clasifica(e);
+            /* ¿EL «OTRO» QUE ESCRIBIÓ FUI YO? Una petición que se queda sin
+               respuesta —timeout, wifi que cae a mitad— pudo entrar en la base.
+               El reintento va con la versión de antes, toca 0 filas, y eso se
+               leía como «otro dispositivo cambió el documento»: un conflicto
+               contra la propia escritura. Antes de levantarlo se mira qué hay. */
+            if (cl === "conflicto") {
+              try {
+                if (await this.reconcilia(r)) { await cola.quita(uid, r.ruta); siSeGuardo(r.ruta); hechos++; continue; }
+              } catch (x) { e = x; cl = clasifica(x); }
+            }
             if (cl === "conflicto") {
               /* Al drenar, un conflicto SE QUEDA en la cola además de levantarse:
                  la copia pendiente es justo la que el usuario necesita para
@@ -2382,6 +2400,26 @@
           if (e && e.code === "23505") return false;
           throw e;
         } finally { enVuelo--; setStoreLabel(); }
+      },
+      /* Devuelve true si lo pendiente YA ESTÁ en la base o puede entrar sin
+         pisar a nadie. Tres casos, y sólo tres:
+           · la base tiene exactamente lo pendiente      → entró; nada que hacer
+           · la base tiene un contenido que yo envié antes (`enviados`) → es mi
+             intento anterior; lo pendiente es más nuevo y se escribe encima,
+             condicionado a la versión que acabo de leer
+           · un borrado pendiente y el documento ya no está → hecho
+         Cualquier otra cosa es de otro dispositivo: conflicto, como siempre.
+         No hay fusión ni «gana el último»: o es mío de forma demostrable, o se
+         pregunta. */
+      async reconcilia(r) {
+        const a = filasValidas(await nubeFetch(`${T}?select=data,version&path=eq.${enc(r.ruta)}`), ["data", "version"], r.ruta);
+        const hay = a && a[0] ? a[0] : null;
+        if (r.op === "del") { if (hay) return false; vers.delete(r.ruta); invalidaLecturas(r.ruta); return true; }
+        if (!hay) return false;
+        if (bkCanon(hay.data) === bkCanon(r.dato)) { vers.set(r.ruta, hay.version); invalidaLecturas(r.ruta); return true; }
+        if (!(Array.isArray(r.enviados) ? r.enviados : []).includes(cola.marcaDato(hay.data))) return false;
+        await this.escribeOcc(r.ruta, r.dato, hay.version);
+        return true;
       },
       async escribeOcc(p, d, versionBase) {
         /* Incompatible backend: refuse last-write-wins instead of silently

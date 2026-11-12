@@ -44,6 +44,8 @@ npm run compuerta      # todas + la tabla de la cadena (CI)
 | `conflicto.mjs` | dos dispositivos sobre el mismo documento: el que llega tarde no pisa y ve conflicto; el diálogo enseña las dos versiones y no elige |
 | `sesion-modelo.mjs` | sin navegador: la tabla de transiciones de la sesión, las versiones del plan (reducir aplica, relajar propone), el límite que no se levanta cambiando la regla, y cierre/reapertura con historial |
 | `sesion-flujo.mjs` | lo mismo recorrido en la app: la cuenta de la sesión no sigue al filtro, el límite sobrevive a subir la regla y a recargar, se puede registrar lo ocurrido en límite, teclado a 390 px, días heredados y sesión abierta del día anterior |
+| `cola-timeout.mjs` | la respuesta que se pierde DESPUÉS de que la base escribió: editar, crear y borrar no duplican ni levantan un conflicto contra la propia escritura; si escribió otro dispositivo, sí |
+| `respaldo-sesion.mjs` | ida y vuelta entera: sesión con dos versiones del plan y una operación, exportada con el botón e importada en un navegador vacío, comparada documento a documento |
 | `layout-datos.mjs` | guardar, cancelar y restablecer la distribución dejan `cabina-mnq:v1` byte a byte igual; unas preferencias de vista rotas (JSON truncado, panel retirado, tipos equivocados) no impiden arrancar |
 | `diagnostico.mjs` | el diagnóstico de Ajustes y su exportación sin nombres, notas ni importes |
 | `db.mjs` | **arranca un Postgres de verdad**, aplica las migraciones del repositorio y corre las pruebas SQL (concurrencia, aislamiento, capturas). Salta y lo dice si la máquina no tiene servidor |
@@ -57,7 +59,7 @@ npm run compuerta      # todas + la tabla de la cadena (CI)
 |---|---|
 | `correr.mjs` | el runner |
 | `compuerta.mjs` | la tabla PASS / FAIL / UNKNOWN de la cadena entera |
-| `nube-doble.mjs` | el doble de Supabase: auth, `cabina_docs` con RLS, bucket `capturas`, fallos a propósito |
+| `nube-doble.mjs` | el doble de Supabase: auth, `cabina_docs` con RLS, bucket `capturas`, fallos a propósito (incluido `pierdeRespuesta`: aplica la escritura y pierde la respuesta) |
 | `espera.mjs` | esperar a una condición, no al reloj |
 
 El motor tiene sus propias pruebas en `engine/quant/quant.test.js` (sin navegador).
