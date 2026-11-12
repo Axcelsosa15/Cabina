@@ -179,6 +179,27 @@ check('fines de semana con actividad incompleta sí cierran la racha', () => {
   const r = summary([day('2026-10-23'), { date: '2026-10-24', note: 'Actividad sin lista' }, day('2026-10-26')], [], { today: '2026-10-26' });
   assert.equal(r.streaks.checklist.current, 1); assert.equal(r.streaks.checklist.best, 1);
 });
+/* T10 · el calendario es el del usuario, no «lunes a viernes». */
+check('T10 · quien planifica lunes a jueves no rompe la racha un viernes sin operar', () => {
+  const dias = [day('2026-10-28'), day('2026-10-29'), day('2026-11-02')];   // mié, jue, lun
+  const fijo = summary(dias, [], { today: '2026-11-02', now: stamp('2026-11-02', '23:00') });
+  const suyo = summary(dias, [], { today: '2026-11-02', now: stamp('2026-11-02', '23:00'), plannedDays: [1, 2, 3, 4] });
+  assert.equal(fijo.streaks.checklist.current, 1);   // con lunes–viernes, el viernes 30 es un hueco
+  assert.equal(suyo.streaks.checklist.current, 3); assert.equal(suyo.streaks.checklist.best, 3);
+});
+check('T10 · un domingo planificado y vacío SÍ es un hueco; sin planificar, no', () => {
+  const dias = [day('2026-10-30'), day('2026-11-02')];   // vie, lun
+  assert.equal(summary(dias, [], { today: '2026-11-02', now: stamp('2026-11-02', '23:00') }).streaks.checklist.current, 2);
+  assert.equal(summary(dias, [], { today: '2026-11-02', now: stamp('2026-11-02', '23:00'), plannedDays: [0, 1, 2, 3, 4, 5] }).streaks.checklist.current, 1);
+});
+check('T10 · el descanso no genera incumplimiento: ningún día vacío aparece como fallo', () => {
+  const r = summary([day('2026-10-29')], [], { today: '2026-11-02', now: stamp('2026-11-02', '23:00'), plannedDays: [4] });   // sólo jueves
+  assert.equal(r.streaks.checklist.current, 1); assert.equal(r.days.length, 1);
+});
+check('T10 · una lista de días ilegible cae a lunes–viernes, no a «todos descanso»', () => {
+  const dias = [day('2026-10-26'), day('2026-10-28')];
+  assert.equal(summary(dias, [], { today: '2026-10-29', plannedDays: 'x' }).streaks.checklist.current, 1);
+});
 check('hoy incompleto permite conservar la racha de ayer hasta el cierre', () => {
   const r = summary([day('2026-10-29'), { date: TODAY }]); assert.equal(r.streaks.checklist.current, 1);
 });

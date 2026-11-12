@@ -429,6 +429,17 @@ dice('humo', 'suite', 'Smoke test de producción: el payload de Pages sobre HTTP
      la ve su §4, que publica un payload distinto a mitad de prueba y exige que
      lo detecte. */
   dice('actualizacion', 'suite', 'El botón de actualizaciones compara de verdad, y sin conexión no finge', 'instalación');
+  /* LA SESIÓN OPERATIVA. Dos filas porque fallan de dos maneras distintas: el
+     modelo puede permitir una transición que no debe (reanudar desde un límite,
+     reabrir sin motivo), y la app puede tener el modelo bien y no usarlo —
+     pintar «límite» sin guardarlo, que es lo que dejaría borrarlo subiendo la
+     regla. La segunda fila es la que recorre eso en el navegador y recarga. */
+  dice('sesion-modelo', 'suite', 'Las transiciones de sesión, las versiones del plan y el límite siguen su tabla', 'sesión');
+  dice('sesion-flujo', 'suite', 'La sesión se guarda como se ve: el límite sobrevive a cambiar la regla y a recargar, y reabrir conserva el cierre', 'sesión');
+  dice('cola-timeout', 'suite', 'Una respuesta perdida tras escribir no duplica ni se convierte en conflicto contra uno mismo; la de otro dispositivo sí', 'persistencia');
+  dice('respaldo-sesion', 'suite', 'Un respaldo restaurado en un navegador vacío devuelve la sesión, las operaciones y las reglas idénticas', 'persistencia');
+  dice('layout-datos', 'suite', 'La distribución es presentación: guardarla, cancelarla o restablecerla no toca datos, y rota no tumba el arranque', 'sesión');
+  dice('diagnostico', 'suite', 'El diagnóstico dice guardado, pendientes y último error, y se exporta sin datos del diario', 'instalación');
 }
 
 /* ── LO QUE LA PLATAFORMA NO PERMITE COMPROBAR ───────────────────────────────

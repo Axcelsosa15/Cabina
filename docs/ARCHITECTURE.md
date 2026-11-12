@@ -1,13 +1,16 @@
 # Arquitectura
 
-Una página, sin build, sin framework y sin dependencias de ejecución. Todo lo que
-corre en el navegador está en `index.html`.
+Una página, sin build, sin framework y sin dependencias de ejecución.
 
 ```
-index.html                     la app: HTML + CSS + JS en un IIFE (~12.300 líneas)
+index.html                     el documento: HTML + CSS, sin script inline
+app.js                         la app, en un IIFE (~20.700 líneas)
   ├─ QuantEngine (incrustado)  todo el cálculo de dinero, riesgo y estadística
-  ├─ almacén                   una interfaz, dos sitios donde guardar
+  ├─ almacén                   una interfaz, dos sitios donde guardar, y la cola
   └─ cuentas                   login y sesión contra Supabase (fetch, sin librería)
+appearance · discipline · session-break · session-state · experience · labs .js
+                               módulos puros que app.js consume (tema, disciplina,
+                               recordatorio de pausa, estado de sesión, guía, análisis)
 
 sw.js                          el casco sin conexión (red primero para el código)
 manifest.webmanifest           lo que hace instalable la página
@@ -42,6 +45,8 @@ test/                          pruebas de navegador (Playwright) y guardianes
 | edge, Sharpe, drawdown, Monte Carlo | `QE.analizarEdge` · `metricasCurva` · `simularCuenta` | `edge`, `radiografia` |
 | dónde se guarda un dato | `almacen()` con `nubeDb()` o `localDb()` | `guardado`, `primer`, `cuentas` |
 | las imágenes | bucket privado `capturas` | `capturas`, `supabase/pruebas/capturas.sql` |
+| en qué estado está la sesión y qué transición vale | `CabinaSession` (`session-state.js`, puro) · `sesionAccion` es la única puerta en la app | `sesion-modelo`, `sesion-flujo` |
+| si lo registrado alcanzó un tope del día | `sesionEvalLimite` · P&L y racha de `dayRuleCheck` (motor), comparados con el plan congelado | `sesion-flujo` |
 | **qué operaciones entran en un filtro** | `ventanaDe` + `tradeFiltro`, expuestos como `FUT.filtered(spec)` · el preset de rango se **resuelve** a desde/hasta, así que las dos gramáticas de fecha no pueden divergir | `filtros`, `unificado` |
 | **cada una de las 160 estadísticas** | una entrada del catálogo `EST` · `estAgrega()` hace UNA pasada y las 160 la leen; `estFila()` la calcula una vez para la pantalla y para el CSV | `estadisticas` |
 | **cómo se escribe un CSV** | `tablaCsv(columnas, filas)` · BOM, comillas dobladas, CRLF y cabecera en un solo sitio para las tres exportaciones | `unificado`, `estadisticas`, `emparejado` |
