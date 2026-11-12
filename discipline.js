@@ -21,6 +21,8 @@
  *   Devuelve days, totalXP, level, streaks, tradeScores, milestones, shareSummary.
  *   XP por fecha: checklist guardada completa 10, cierre con nota 5, decisión
  *   no_edge explícita y sin operaciones 5; máximo 20. Duplicados no suman.
+ *   plannedDays:[0..6] son los días que el usuario planifica operar (por
+ *   defecto lunes a viernes). Un día fuera de esa lista sin actividad se salta.
  *   Hoy sólo entra en rachas al cerrar. Fines de semana sin actividad se saltan;
  *   huecos laborables rompen. Sin sello válido no se presume una acción hecha.
  *
@@ -103,7 +105,12 @@
     const n = number(input && input.now);
     const now = n !== null && n > 0 ? n : Date.now();
     const today = validDate(input && input.today) ? input.today : etStamp(now).date;
-    return { now, today };
+    /* Los días que el usuario planifica operar (0 = domingo). Sin el dato se
+       mantiene lunes a viernes, que es lo que había; con él, un día que no está
+       en su ventana es descanso y no rompe ninguna racha. */
+    const p = input && Array.isArray(input.plannedDays)
+      ? Array.from(new Set(input.plannedDays.map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))) : null;
+    return { now, today, plannedDays: p || [1, 2, 3, 4, 5] };
   }
   function stampOnDay(at, date, ctx) {
     const n = number(at), s = etStamp(at);
@@ -268,11 +275,11 @@
       if (previous) {
         let gap = shift(previous, 1), missed = false;
         for (let i = 0; gap < date && i < 8; i++, gap = shift(gap, 1))
-          if (![0, 6].includes(weekday(gap))) { missed = true; break; }
+          if (ctx.plannedDays.includes(weekday(gap))) { missed = true; break; }
         if (gap < date || missed) run = 0;
       }
       if (date === ctx.today && !d.closed) { previous = date; continue; }
-      if ([0, 6].includes(weekday(date)) && !d.activity) { previous = date; continue; }
+      if (!ctx.plannedDays.includes(weekday(date)) && !d.activity) { previous = date; continue; }
       if (d[key]) { run++; best = Math.max(best, run); lastDate = date; }
       else run = 0;
       previous = date;
@@ -282,7 +289,7 @@
       let date = shift(previous, 1);
       const end = map.get(ctx.today)?.closed ? ctx.today : shift(ctx.today, -1);
       for (let i = 0; date <= end && i < 8; i++, date = shift(date, 1))
-        if (![0, 6].includes(weekday(date))) { current = 0; break; }
+        if (ctx.plannedDays.includes(weekday(date))) { current = 0; break; }
       if (date <= end) current = 0;
     }
     return { current, best, lastDate: current ? lastDate : null };

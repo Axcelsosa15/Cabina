@@ -73,8 +73,12 @@ conserva los límites registrados, sin reconstruirlos con los de hoy.
 El XP diario se reparte en 10 puntos por checklist guardada completa, 5 por día
 cerrado con reflexión y 5 por decisión `no_edge` explícita y fechada sin
 operaciones. Varias pre-sesiones o notas en una fecha no multiplican ese XP.
-Para las rachas, hoy sólo cuenta después de cerrar el día; un fin de semana sin
-actividad se omite, mientras que un hueco laborable rompe la continuidad.
+Para las rachas, hoy sólo cuenta después de cerrar el día. Los días de descanso
+son **los que tu ventana operativa no incluye** (`settings.window.days`), no
+«sábado y domingo»: quien planifica de lunes a jueves no rompe nada un viernes,
+y un domingo planificado y vacío sí es un hueco. Sin ventana legible se asume
+lunes a viernes. Cambiar los días de la ventana rejuzga las rachas pasadas, igual
+que ya rejuzga `fuera_ventana` (ver DATA_MODEL.md).
 
 Las rachas reconocen continuidad de proceso, no una obligación de operar. Los
 días de descanso no generan urgencia, avisos de pérdida de racha ni operaciones
