@@ -18,7 +18,7 @@ const ok = (c, t, d) => { console.log(`  ${c ? '✅' : '❌'} ${t}${d != null ? 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const documento = readFileSync(join(raiz, 'index.html'), 'utf8');
 const aplicacion = readFileSync(join(raiz, 'app.js'), 'utf8');
-const modulos = ['appearance.js', 'discipline.js', 'session-break.js', 'experience.js']
+const modulos = ['appearance.js', 'discipline.js', 'session-break.js', 'session-state.js', 'experience.js']
   .map(f => readFileSync(join(raiz, f), 'utf8')).join('\n');
 /* `html` ERA EL FICHERO ENTERO, Y DURANTE 15.000 LINEAS ESO FUE LO MISMO QUE
    «la aplicacion». Desde que el script salio a app.js —para que la CSP pueda
@@ -144,8 +144,8 @@ ok(hosts.every(h => /(^|\.)fonts\.googleapis\.com$|(^|\.)fonts\.gstatic\.com$/.t
   const ajenos = srcs.filter(u => /^(https?:)?\/\//i.test(u));
   ok(ajenos.length === 0, 'ningún <script src> de otro origen: no se carga codigo de terceros',
      ajenos.length ? ajenos.join(' | ') : `${srcs.length} script(s), todos del propio sitio: ${srcs.join(' ') || 'ninguno'}`);
-  ok(JSON.stringify(srcs) === JSON.stringify(['./appearance.js', './discipline.js', './session-break.js', './experience.js', './labs.js', './app.js']),
-     'sólo módulos locales: apariencia, disciplina, pausas, guía y aplicación', srcs.join(' · '));
+  ok(JSON.stringify(srcs) === JSON.stringify(['./appearance.js', './discipline.js', './session-break.js', './session-state.js', './experience.js', './labs.js', './app.js']),
+     'sólo módulos locales: apariencia, disciplina, pausas, sesión, guía y aplicación', srcs.join(' · '));
   ok(documento.indexOf('<script src="./appearance.js">') < documento.indexOf('<style>'),
      'el bootstrap del tema está antes de la primera hoja CSS');
 }

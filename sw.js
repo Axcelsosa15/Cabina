@@ -32,6 +32,7 @@ var CASCO = [
   './appearance.js',
   './discipline.js',
   './session-break.js',
+  './session-state.js',
   './experience.js',
   './labs.js',
   './manifest.webmanifest',
@@ -148,7 +149,7 @@ function comparaPublicado() {
      tiene que ser la misma que la de los `<script src>` del documento, y eso
      lo exige test/pwa.mjs §1 contra index.html, no la memoria de nadie. */
   var ARCH = ['./index.html', './app.js', './appearance.js',
-              './discipline.js', './session-break.js', './experience.js', './labs.js'];
+              './discipline.js', './session-break.js', './session-state.js', './experience.js', './labs.js'];
   return caches.open(CACHE).then(function (c) {
     var distintos = [], comprobados = 0, sinCache = [], fallidos = [];
     return ARCH.reduce(function (cad, f) {

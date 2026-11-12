@@ -466,6 +466,9 @@
      el que se arregla aqui -- y esto solo deja de mentir. */
   const sinGuardar = new Map();
   let sinGuardarMotivo = "";
+  /* Para el diagnóstico de Ajustes: cuándo confirmó el almacén la última
+     escritura y cuál fue el último fallo. Sin rutas con id ni contenido. */
+  let diagUltimoOk = null, diagUltimoError = null;
   /* ═══════════════ LOS SEIS ESTADOS DEL GUARDADO ═══════════════
 
      El rótulo de la barra tiene que contestar «¿están mis datos guardados?» de un
@@ -519,10 +522,13 @@
     }
     sinGuardar.set(clave, motivo);
     sinGuardarMotivo = motivo;
+    diagUltimoError = { at: Date.now(), motivo: String(motivo || "error"), coleccion: String(clave).split("/")[0] };
     flash("NO se guardo " + que + " (" + motivo + ")");
     setStoreLabel();
   }
   function siSeGuardo(clave, msg) {
+    diagUltimoOk = { at: Date.now(), nube: !!state.nube };
+    if (typeof renderDiag === "function") { try { renderDiag(); } catch (e) { } }
     if (msg) flash(msg);
     /* Si la ruta tenía un conflicto y ahora se guardó, el conflicto se acabó. */
     if (conflictos.delete(clave)) setStoreLabel();
@@ -674,7 +680,7 @@
          }
          data = clone(data); data.id = id; data.updatedAt = Date.now();
         const i = this.items.findIndex(x => x.id === id);
-        if (name === "trades" && i >= 0 && (this.items[i].accountId !== data.accountId || this.items[i].date !== data.date)) delete data.processRules;
+        if (name === "trades" && i >= 0 && (this.items[i].accountId !== data.accountId || this.items[i].date !== data.date)) { delete data.processRules; delete data.sessionRef; }
         if (i >= 0) this.items[i] = data; else this.items.push(data); this.emit();
         if (state.demo) return;
         const clave = name + "/" + id;
@@ -1077,6 +1083,7 @@
   }
   function setStoreLabel() {
     const el = $("saveState"), f = $("footerStore");
+    if (typeof renderDiag === "function") { try { renderDiag(); } catch (e) { } }
     /* EL BOTON, ANTES DE TODAS LAS RAMAS. Esta funcion sale por seis `return`
        distintos; decidir el boton dentro de cada una es como se olvida uno y queda
        un boton de resolver conflicto en una pantalla sin conflicto. */
@@ -4239,6 +4246,7 @@
     $("checkBar").style.width = (n ? done / n * 100 : 0) + "%";
     $("goCount").textContent = `${done}/${n}`;
     updateGoBox();
+    if (typeof renderSesion === "function") renderSesion();
   }
   // La caja de permiso se recalcula cada segundo: depende de los checks Y del reloj.
   function updateGoBox() {
@@ -5524,7 +5532,7 @@
     jBroke.className = "toggle" + (d.broke ? " on" : ""); jBroke.setAttribute("aria-pressed", String(!!d.broke));
     $("jBrokeIcon").textContent = d.broke ? "●" : "○"; $("jBrokeText").textContent = d.broke ? "sí — se anota" : "no";
     const banner = $("closedBanner"); banner.hidden = !d.closed;
-    if (d.closed) { const r = Number(d.result) || 0; banner.className = "closed-banner" + (r < 0 || d.broke ? " red" : ""); banner.textContent = d.broke ? `Sesión cerrada con regla rota. ${money(r)}. Mañana la lista empieza de cero.` : r >= 0 ? `Sesión cerrada en verde: ${money(r)}. Ya está. No se vuelve a abrir la plataforma.` : `Sesión cerrada en rojo: ${money(r)}. Dentro del límite, mañana se repite el proceso.`; }
+    if (d.closed) { const r = Number(d.result) || 0; const sinOperar = d.result == null && !d.broke; banner.className = "closed-banner" + (r < 0 || d.broke ? " red" : ""); banner.textContent = sinOperar ? "Sesión cerrada sin resultado registrado." : d.broke ? `Sesión cerrada con regla rota. ${money(r)}. Mañana la lista empieza de cero.` : r >= 0 ? `Sesión cerrada en verde: ${money(r)}. Ya está. No se vuelve a abrir la plataforma.` : `Sesión cerrada en rojo: ${money(r)}. Dentro del límite, mañana se repite el proceso.`; }
     $("jClose").hidden = d.closed; $("jReopen").hidden = !d.closed;
     const cargando = !state.demo && state.nube && (!state.dayKnown || !state.cfgConocida);
     [jResult, jTrades, jNote, jBroke].forEach(el => { el.disabled = d.closed || cargando; });
@@ -5532,7 +5540,58 @@
     renderDaySync();
     fillQtDest(); renderQtNote();
     try { paintGateButtons(); } catch (e) { }
+    renderSesion();
   }
+
+  /* ═══════════════ DIAGNÓSTICO ═══════════════
+     Lo que hace falta para contestar «¿qué le pasa?» sin abrir la consola, y
+     para poder mandarlo sin mandar el diario: aquí no hay operaciones, importes,
+     notas, nombres de cuenta, correo ni identificador de usuario. Sólo estados y
+     recuentos. Lee; no escribe ni reintenta nada. */
+  function diagDatos() {
+    const uid = state.nube && nube.ses ? nube.ses.uid : null, enCola = uid ? cola.lista(uid) : [];
+    const porEstado = {}; enCola.forEach(r => { porEstado[r.estado] = (porEstado[r.estado] || 0) + 1; });
+    const b = $("updHuella") && $("updHuella").querySelector("b");
+    const documentos = { days: (state.dias || []).length };
+    COLLS.forEach(n => { documentos[n] = coll(n).items.length; });
+    const iso = at => new Date(at).toISOString();
+    return {
+      generado: iso(Date.now()), huella: b ? b.textContent.trim() : "—",
+      almacen: state.demo ? "demo" : state.nube ? "nube" : "este navegador",
+      guardado: (($("saveState") || {}).textContent || "").trim(), enLinea: navigator.onLine !== false,
+      ultimaConfirmacion: diagUltimoOk ? iso(diagUltimoOk.at) : null,
+      ultimaConfirmacionEn: diagUltimoOk ? (diagUltimoOk.nube ? "nube" : "este navegador") : null,
+      pendientes: enCola.length, pendientesPorEstado: porEstado, colaDurable: !!cola.durable, enVuelo,
+      sinGuardar: sinGuardar.size, conflictos: conflictos.size,
+      ultimoError: diagUltimoError ? { cuando: iso(diagUltimoError.at), motivo: diagUltimoError.motivo, coleccion: diagUltimoError.coleccion } : null,
+      sesion: window.CabinaSession ? window.CabinaSession.leer(state.day).estado : "—", fechaOperativa: state.today, documentos,
+    };
+  }
+  function renderDiag() {
+    const el = $("diagLista"); if (!el) return;
+    const d = diagDatos();
+    const hora = v => v ? fmtHM.format(new Date(v)) + " ET" : "ninguna en esta visita";
+    const filas = [
+      ["Versión (huella)", d.huella],
+      ["Almacén", d.almacen + " · " + (d.enLinea ? "con red" : "sin red")],
+      ["Estado de guardado", d.guardado || "—"],
+      ["Última escritura confirmada", hora(d.ultimaConfirmacion) + (d.ultimaConfirmacionEn ? " · " + d.ultimaConfirmacionEn : "")],
+      ["Pendientes de sincronizar", String(d.pendientes) + (d.pendientes ? " · " + (d.colaDurable ? "guardados en este dispositivo" : "sólo en memoria") : "")],
+      ["Sin guardar en ningún sitio", String(d.sinGuardar)],
+      ["Conflictos", String(d.conflictos)],
+      ["Último error", d.ultimoError ? `${d.ultimoError.motivo} · ${d.ultimoError.coleccion} · ${hora(d.ultimoError.cuando)}` : "ninguno en esta visita"],
+      ["Sesión operativa", ({ preparacion: "Preparación", activa: "Activa", pausa: "En pausa", limite: "Límite alcanzado", cerrada: "Cerrada" })[d.sesion] || d.sesion],
+    ];
+    const html = filas.map(([k, v]) => `<div class="setting-row"><dt>${esc(k)}</dt><dd class="settings-meta">${esc(v)}</dd></div>`).join("");
+    if (el.dataset.sig !== html) { el.dataset.sig = html; el.innerHTML = html; }
+  }
+  (() => {
+    const ex = $("diagExportar"); if (!ex) return;
+    ex.addEventListener("click", () => {
+      descarga("cabina-diagnostico.json", JSON.stringify(diagDatos(), null, 2), "application/json");
+      $("diagNota").textContent = "Diagnóstico exportado: estados y recuentos, sin operaciones ni datos personales.";
+    });
+  })();
   /* ---------- puente Cabina ↔ Journal de futuros ----------
      El resultado del día no se escribe dos veces: sale de las operaciones de futuros
      de esa fecha. Si lo editas a mano, queda desvinculado hasta que pulses resincronizar. */
@@ -5602,8 +5661,415 @@
   jTrades.addEventListener("input", () => { state.day.trades = jTrades.value === "" ? null : num(jTrades.value); state.day.resultManual = true; persistDay(); });
   jNote.addEventListener("input", () => { state.day.note = jNote.value.slice(0, 2000); persistDay(); });
   jBroke.addEventListener("click", () => { state.day.broke = !state.day.broke; persistDay(); renderJournalDay(); });
-  $("jClose").addEventListener("click", () => { if (state.day.result == null) { flash("escribe el resultado antes de cerrar"); jResult.focus(); return; } state.day.closed = true; persistDay(); renderJournalDay(); });
-  $("jReopen").addEventListener("click", () => { state.day.closed = false; persistDay(); renderJournalDay(); });
+  /* Cerrar y reabrir pasan por la sesión: el cierre guarda su resumen y la
+     reapertura pide motivo y conserva el cierre anterior. */
+  $("jClose").addEventListener("click", () => { sesAbreForm("cerrar"); const b = $("sesBar"); if (b) b.scrollIntoView({ block: "start", behavior: "instant" }); });
+  $("jReopen").addEventListener("click", () => { sesAbreForm("reabrir"); const b = $("sesBar"); if (b) b.scrollIntoView({ block: "start", behavior: "instant" }); });
+
+  /* ═══════════════ LA SESIÓN OPERATIVA, COMO ESTADO EXPLÍCITO ═══════════════
+
+     Hasta aquí «la sesión» era un booleano: `day.closed`. Reabrir lo ponía a
+     `false` y el cierre anterior desaparecía; pausar no existía; alcanzar la
+     pérdida máxima cambiaba un rótulo que subir la regla volvía a apagar.
+
+     El modelo está en session-state.js (puro, probado en test/sesion-modelo.mjs).
+     Esto es el ADAPTADOR: arma el plan con lo que ya hay configurado, le pasa al
+     modelo evidencia que calcula el motor, guarda con `persistDay` —la misma
+     puerta y la misma cola que el resto del día— y pinta la barra.
+
+     TRES COSAS QUE SE DICEN POR SEPARADO, porque son preguntas distintas:
+       estado de sesión   en qué punto estás            (#sesEstado)
+       estado de datos    qué falta para juzgar          (#sesDatos)
+       estado de guardado si lo que ves está guardado    (#sesGuardado, espejo
+                          del rótulo global, que es la única fuente)
+
+     LO QUE NO HACE: no bloquea ningún bróker. «Límite alcanzado» describe lo
+     REGISTRADO contra el plan con que se inició; registrar lo ocurrido sigue
+     siendo posible siempre, también lo que rompe la regla. */
+  const CS = window.CabinaSession;
+  const SES_TXT = { preparacion: "Preparación", activa: "Activa", pausa: "En pausa", limite: "Límite alcanzado", cerrada: "Cerrada" };
+  const SES_SIG = { preparacion: "○", activa: "●", pausa: "Ⅱ", limite: "■", cerrada: "✓" };
+  const SES_ROL = { maxLoss: "Pérdida máxima del día", maxGain: "Tope de ganancia", maxLosses: "Pérdidas seguidas", maxContracts: "Contratos máximos" };
+  const SES_ERR = {
+    falta_motivo: "Escribe el motivo.", falta_condicion: "Escribe qué tiene que pasar para reanudar.",
+    falta_decision: "Confirma que no operaste en esta sesión.", falta_valor: "Escribe el número nuevo.",
+    limite_vigente: "Los datos registrados siguen alcanzando el límite. Corrige primero la operación equivocada.",
+    limite_modificado: "La regla cambió después del aviso. Ese cambio vale desde la próxima sesión; no levanta este límite.",
+    transicion_no_permitida: "Esa acción no está disponible en este estado.", cargando: "Los datos todavía están cargando.",
+    falta_ventana: "Falta la ventana operativa.", sin_sesion_abierta: "No hay una sesión abierta.",
+  };
+  const sesUi = { form: "", borr: {}, error: "", aviso: "", sig: "" };
+  const fmtFechaOp = new Intl.DateTimeFormat("es-ES", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  function sesFecha(iso) { const d = new Date(String(iso) + "T12:00:00Z"); return Number.isFinite(d.getTime()) ? fmtFechaOp.format(d) : String(iso || "—"); }
+  function sesHora(at) { const n = Number(at); return n > 0 && Number.isFinite(n) ? fmtHM.format(new Date(n)) + " ET" : "hora desconocida"; }
+  function sesHHMM(min) { const m = Number(min); return Number.isFinite(m) ? h12(String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0")) : "—"; }
+  function sesVentanaTxt(w) {
+    if (!w) return "sin ventana";
+    const dias = (w.days || []).slice().sort().map(d => ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"][d]).join(" ");
+    return `${sesHHMM(w.start)}–${sesHHMM(w.end)} ET · ${dias || "ningún día"}`;
+  }
+  function sesionHoy() { return CS.leer(state.day); }
+  function sesionCargando() { return !state.demo && (!state.listo || (state.nube && (!state.dayKnown || !state.cfgConocida)) || !coll("trades").loaded); }
+  /* Con la sesión iniciada, la cuenta es la del PLAN: cambiar el filtro de otra
+     pantalla no cambia de qué cuenta habla la barra. */
+  function sesionCuenta(s) { const p = CS.planVigente(s); return s.estado !== "preparacion" && p ? p.cuenta : FUT.selectedAccountId(); }
+  function sesionFaltantes() {
+    const f = [], id = FUT.selectedAccountId(), a = id ? acctById(id) : null;
+    if ((state.settings.accounts || []).length && !a) f.push("cuenta de trabajo sin elegir");
+    if (!reglaDe(a, "maxLoss", state.today).valor) f.push("pérdida máxima del día sin configurar");
+    if (!state.settings.checks.length) f.push("checklist sin pasos");
+    else if (!curPre()) f.push(`pre-sesión de ${sesShort(sesSel())} sin guardar`);
+    return f;
+  }
+  /* El plan se arma con lo CONFIGURADO, tal cual. Un tope que nadie escribió no
+     entra con un número inventado: no entra. */
+  function sesionPlanNuevo() {
+    const id = FUT.selectedAccountId(), a = id ? acctById(id) : null, w = winCfg(), pre = curPre();
+    const limites = {};
+    CS.ROLES_NUM.forEach(role => { const r = reglaDe(a, role, state.today); if (r.valor > 0) limites[role] = r.valor; });
+    const marks = curChecks(), total = state.settings.checks.length;
+    const rs = a ? reglasDe(a, state.today) : null;
+    const elegidos = Array.isArray(state.day.setupsPlan) ? state.day.setupsPlan : [];
+    return {
+      cuenta: a ? a.id : "",
+      ventana: { start: Number(w.start), end: Number(w.end), days: (w.days || []).slice(), tz: "America/New_York" },
+      limites, instrumentos: allowedInstruments(a, state.today).slice(),
+      setups: coll("playbooks").items.filter(p => elegidos.includes(p.id)).map(p => ({ id: p.id, nombre: p.name || p.title || "setup" })),
+      checklist: pre ? { ses: pre.ses || sesSel(), done: pre.done, total: pre.total, at: pre.at, guardada: true }
+        : { ses: sesSel(), done: state.settings.checks.filter(c => marks[c.id]).length, total, at: null, guardada: false },
+      reglasCuenta: a ? { cuenta: a.id, rulesetId: rs.version ? rs.version.id : "", origen: rs.origen } : null,
+      faltantes: sesionFaltantes(),
+    };
+  }
+  /* ¿Lo registrado alcanza un tope del PLAN? El P&L y la racha salen de
+     `dayRuleCheck` —el motor—; aquí sólo se comparan con el número congelado al
+     iniciar. Por eso subir la regla en Ajustes a media sesión no cambia nada. */
+  function sesionEvalLimite(s, regla) {
+    const p = CS.planVigente(s); if (!p) return null;
+    const a = p.cuenta ? acctById(p.cuenta) : null, fecha = state.day.date;
+    const lista = coll("trades").items.filter(t => t.type === "futuros" && t.date === fecha && (!p.cuenta || t.accountId === p.cuenta)).map(t => tradeCalc(Object.assign({}, t)));
+    const k = dayRuleCheck(lista, a, fecha);
+    const alcance = (a ? (a.name || a.firm || "cuenta") : "todas las cuentas") + " · " + sesFecha(fecha);
+    const ids = lista.filter(t => t.pnlEff != null).map(t => t.id);
+    const casos = {
+      maxLoss: () => ({ limite: p.limites.maxLoss == null ? null : p.limites.maxLoss, valor: Math.round(k.lossUsed * 100) / 100,
+        alcanzado: !!p.limites.maxLoss && k.lossUsed >= p.limites.maxLoss,
+        texto: `Pérdida registrada del día ${money(-k.lossUsed)} contra un tope de ${money(-(p.limites.maxLoss || 0))}.` }),
+      maxLosses: () => ({ limite: p.limites.maxLosses == null ? null : p.limites.maxLosses, valor: k.streak,
+        alcanzado: !!p.limites.maxLosses && k.streak >= p.limites.maxLosses,
+        texto: `${plu(k.streak, "pérdida seguida", "pérdidas seguidas")} con un límite de ${p.limites.maxLosses || 0}.` }),
+    };
+    const orden = regla ? [regla] : ["maxLoss", "maxLosses"];
+    for (const r of orden) {
+      if (!casos[r]) continue;
+      const c = casos[r]();
+      if (c.alcanzado || regla) return Object.assign({ regla: r, alcance, operaciones: ids }, c);
+    }
+    return { alcanzado: false };
+  }
+  /* LA ÚNICA PUERTA DE TRANSICIÓN. Devuelve "" o el código del error. */
+  function sesionAccion(accion, datos) {
+    if (state.demo) return "transicion_no_permitida";
+    if (sesionCargando()) return "cargando";
+    const r = CS.aplicar(sesionHoy(), accion, datos, Date.now());
+    if (!r.ok) return r.error;
+    state.day.sesion = CS.paraGuardar(r.sesion);
+    /* `closed` se sigue escribiendo: es lo que leen el historial, la disciplina
+       y cualquier cliente anterior a este campo. */
+    state.day.closed = r.sesion.estado === "cerrada";
+    persistDay(); renderJournalDay(); renderHistory();
+    return "";
+  }
+  function sesionResumen(s) {
+    const id = sesionCuenta(s), fecha = state.day.date;
+    const d = FUT.calculateDailyStats(id, fecha);
+    const sinFee = d.list.filter(t => t.pnlEff != null && (t.fees == null || t.fees === "")).length;
+    return { n: d.n || 0, cerradas: d.closed || 0, abiertas: (d.n || 0) - (d.closed || 0), pnl: Math.round((d.pnl || 0) * 100) / 100, sinFee, cuenta: id };
+  }
+  /* El margen se enseña SÓLO si hay con qué calcularlo: tope de pérdida en el
+     plan. Sin tope no hay cero ni «ilimitado»: hay «no calculable». */
+  function sesionMargen(s) {
+    const p = CS.planVigente(s);
+    if (!p || !CS.ABIERTAS.includes(s.estado)) return null;
+    if (!p.limites.maxLoss) return { ok: false, por: "sin pérdida máxima en el plan" };
+    const e = sesionEvalLimite(s, "maxLoss");
+    const m = QE.margenDePerdida(-e.valor, p.limites.maxLoss);
+    return { ok: true, restante: Math.max(0, m.restante == null ? 0 : m.restante), tope: p.limites.maxLoss };
+  }
+  /* Una sesión de un día anterior que nunca se cerró (la que cruza medianoche,
+     o la que se dejó abierta). Conserva su identidad: sigue siendo la sesión de
+     SU fecha hasta que se cierre. */
+  function sesionPrevia() {
+    const abiertas = (state.dias || []).filter(d => d && d.date && d.date < state.today && d.closed !== true && d.sesion && CS.ABIERTAS.includes(CS.leer(d).estado))
+      .sort((a, b) => b.date.localeCompare(a.date));
+    return abiertas[0] || null;
+  }
+  function sesionPropuestasPrevias() {
+    const dias = (state.dias || []).filter(d => d && d.date && d.date < state.today && d.sesion).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10);
+    const out = [];
+    dias.forEach(d => CS.leer(d).propuestas.filter(p => p.estado === "pendiente").forEach(p => out.push({ date: d.date, p })));
+    return out;
+  }
+  /* La sesión a la que pertenece una operación que se REGISTRA AHORA, a mano.
+     No se asigna nada hacia atrás ni a lo importado: sin este sello, la
+     relación operación ↔ plan es «desconocida», no «adivinada». */
+  function sesionRefPara(rec) {
+    if (state.demo || !rec || rec.type !== "futuros") return null;
+    const previa = sesionPrevia();
+    const dia = previa || state.day, s = CS.leer(dia), p = CS.planVigente(s);
+    if (!p || !CS.ABIERTAS.includes(s.estado)) return null;
+    if (rec.date !== dia.date && !(previa && rec.date === state.today)) return null;
+    if (p.cuenta && rec.accountId !== p.cuenta) return null;
+    return { day: dia.date, plan: p.v, estado: s.estado };
+  }
+
+  function sesBorr(k) { return sesUi.borr[k] == null ? "" : String(sesUi.borr[k]); }
+  function sesForm(titulo, campos, confirmar) {
+    return `<form class="sesbar-form" id="sesForm" novalidate aria-labelledby="sesFormT">
+      <h3 id="sesFormT">${esc(titulo)}</h3>${campos}
+      <p class="sesbar-err" id="sesFormErr" role="alert"${sesUi.error ? "" : " hidden"}>${esc(sesUi.error)}</p>
+      <div class="jactions"><button type="submit" class="btn primary" id="sesFormOk">${esc(confirmar)}</button><button type="button" class="btn ghost" data-ses-act="cancelar">Cancelar</button></div>
+    </form>`;
+  }
+  const sesCampo = (id, label, k, ph) => `<label class="lab" for="${id}">${esc(label)}</label><textarea id="${id}" data-ses-borr="${k}" rows="2" maxlength="500" placeholder="${esc(ph || "")}">${esc(sesBorr(k))}</textarea>`;
+  function sesPlanHtml(p, vigente) {
+    const lim = CS.ROLES_NUM.filter(r => p.limites[r] != null).map(r => `<li>${esc(SES_ROL[r])}: <b>${r === "maxLoss" || r === "maxGain" ? money(p.limites[r]) : p.limites[r]}</b></li>`).join("");
+    const cta = p.cuenta ? (acctLabel(p.cuenta) || "cuenta eliminada") : "todas las cuentas";
+    const chk = p.checklist ? `${p.checklist.done}/${p.checklist.total} · ${sesShort(p.checklist.ses)} · ${p.checklist.guardada ? "guardada " + sesHora(p.checklist.at) : "sin guardar al iniciar"}` : "sin checklist";
+    const tipo = p.tipo === "reduccion" ? "reducción de riesgo" : p.tipo === "correccion" ? "corrección de datos" : "inicio";
+    return `<div class="sesbar-plan${vigente ? " on" : ""}"><p><b>Plan v${p.v}</b> · ${esc(tipo)} · ${esc(sesHora(p.at))}${vigente ? " · vigente" : ""}${p.motivo ? ` · «${esc(p.motivo)}»` : ""}</p>
+      <ul><li>Cuenta: <b>${esc(cta)}</b>${p.reglasCuenta ? ` · contrato ${esc(p.reglasCuenta.rulesetId || "sin versión")} (${esc(p.reglasCuenta.origen)})` : ""}</li>
+      <li>Ventana: <b>${esc(sesVentanaTxt(p.ventana))}</b></li>${lim || "<li>Sin límites numéricos configurados al iniciar.</li>"}
+      <li>Instrumentos: ${p.instrumentos.length ? esc(p.instrumentos.join(", ")) : "sin restricción configurada"}</li>
+      <li>Setups: ${p.setups.length ? esc(p.setups.map(x => x.nombre).join(", ")) : "ninguno elegido"}</li>
+      <li>Checklist: ${esc(chk)}</li>${p.faltantes.length ? `<li>Faltaba al iniciar: ${esc(p.faltantes.join(" · "))}</li>` : ""}</ul></div>`;
+  }
+  const SES_EV = { iniciar: "Sesión iniciada", pausar: "Pausa", reanudar: "Reanudada", limite: "Límite alcanzado", levantar: "Límite levantado por corrección de datos",
+    cerrar: "Cierre", reabrir: "Reapertura", proponer: "Propuesta para la siguiente sesión", reducir_plan: "Plan: riesgo reducido", corregir_plan: "Plan: dato corregido" };
+
+  function renderSesion() {
+    const caja = $("sesBarBody"), bar = $("sesBar"); if (!caja || !bar || !CS) return;
+    const cargando = sesionCargando();
+    let s = sesionHoy();
+    /* El límite se detecta sobre lo registrado y se GUARDA: si sólo se pintara,
+       bastaría cambiar la regla para que dejara de verse. */
+    if (!cargando && !state.demo && (s.estado === "activa" || s.estado === "pausa")) {
+      const ev = sesionEvalLimite(s);
+      if (ev && ev.alcanzado && !sesionAccion("limite", { evidencia: ev })) return;
+    }
+    const p = CS.planVigente(s), r = sesionResumen(s), m = sesionMargen(s), falt = s.estado === "preparacion" ? sesionFaltantes() : (p ? p.faltantes : []);
+    const cuentaId = sesionCuenta(s), n = etNow();
+    const mercado = marketClosed(n) ? "Mercado cerrado" : sesShort(sesAt(n.min).id);
+    const previa = s.estado === "preparacion" ? sesionPrevia() : null;
+    const props = s.estado === "preparacion" ? sesionPropuestasPrevias() : [];
+    const ultimoCierre = s.cierres[s.cierres.length - 1] || null;
+    const sig = JSON.stringify([state.demo, cargando, state.day.date, state.day.sesion || null, state.day.closed, r, m, falt, cuentaId, FUT.selectedAccountId(), mercado,
+      previa && previa.date, props.map(x => x.p.id), sesUi.form, sesUi.error, sesUi.aviso, state.day.setupsPlan || null, coll("playbooks").items.length,
+      (state.settings.accounts || []).map(a => a.id + (a.name || ""))]);
+    if (sig === sesUi.sig) return;
+    sesUi.sig = sig;
+    const foco = document.activeElement && caja.contains(document.activeElement) ? document.activeElement.id : "";
+
+    bar.dataset.estado = s.estado;
+    const datosTxt = cargando ? "cargando…" : falt.length ? `incompletos · ${falt.length}` : "completos";
+    /* A · cabecera estable */
+    const cuentaCtl = s.estado === "preparacion" && !state.demo
+      ? `<select id="sesAcct" aria-label="Cuenta de trabajo"${cargando ? " disabled" : ""}><option value="">todas las cuentas</option>${acctOptions().map(([v, l]) => `<option value="${esc(v)}"${cuentaId === v ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`
+      : `<span id="sesAcctTxt">${esc(cuentaId ? (acctLabel(cuentaId) || "cuenta eliminada") : "todas las cuentas")}</span>`;
+    const cab = `<dl class="sesbar-id">
+      <div><dt>Cuenta</dt><dd>${cuentaCtl}</dd></div>
+      <div><dt>Fecha operativa</dt><dd id="sesFechaOp">${esc(sesFecha(state.day.date))} <small>Nueva York</small></dd></div>
+      <div><dt>Sesión de mercado</dt><dd id="sesMercado">${esc(mercado)}</dd></div>
+      <div><dt>Datos</dt><dd id="sesDatos" data-ok="${!cargando && !falt.length}">${esc(datosTxt)}</dd></div>
+      <div><dt>Guardado</dt><dd id="sesGuardado">${esc(($("saveState") || {}).textContent || "—")}</dd></div></dl>`;
+
+    /* B · estado, motivo, siguiente acción (una primaria) */
+    let motivo = "", primaria = "", otras = [];
+    const btn = (act, txt, cls) => `<button type="button" class="btn ${cls || ""}" data-ses-act="${act}"${cargando || state.demo ? " disabled" : ""}>${esc(txt)}</button>`;
+    if (state.demo) motivo = "Modo demo: la sesión no se guarda.";
+    else if (s.estado === "preparacion") {
+      motivo = previa ? `La sesión del ${sesFecha(previa.date)} sigue abierta. Ciérrala antes de preparar la de hoy.`
+        : falt.length ? `Falta: ${falt.join(" · ")}.` : "Plan, ventana y límites listos para confirmar.";
+      primaria = previa ? btn("cerrar-previa", `Cerrar la sesión del ${sesFecha(previa.date)}`, "primary") : btn("iniciar", falt.length ? "Iniciar con datos incompletos" : "Iniciar sesión", "primary");
+      otras = previa ? [] : [btn("ver-prep", "Revisar preparación", "ghost"), btn("form-cerrar", r.n ? "Cerrar sesión" : "Cerrar sin operar", "ghost")];
+    } else if (s.estado === "activa") {
+      motivo = `Plan v${p.v} confirmado a las ${sesHora(p.at)}.` + (p.faltantes.length ? ` Se inició con datos incompletos: ${p.faltantes.join(" · ")}.` : "");
+      primaria = btn("registrar", "Registrar operación", "primary");
+      otras = [btn("form-pausar", "Pausar", "ghost"), btn("form-ajustar", "Ajustar plan", "ghost"), btn("form-cerrar", "Cerrar sesión", "ghost")];
+    } else if (s.estado === "pausa") {
+      motivo = `Pausa manual desde las ${sesHora(s.pausa && s.pausa.at)}: ${s.pausa ? s.pausa.motivo : ""}. Para reanudar: ${s.pausa ? s.pausa.condicion : ""}.`;
+      primaria = btn("reanudar", "Reanudar sesión", "primary");
+      otras = [btn("registrar", "Registrar operación", "ghost"), btn("form-cerrar", "Cerrar sesión", "ghost")];
+    } else if (s.estado === "limite") {
+      const l = s.limite || {};
+      motivo = `${SES_ROL[l.regla] || l.regla}: ${l.texto || ""} Alcance: ${l.alcance || "—"}. Detectado a las ${sesHora(l.at)} sobre lo registrado. Cabina no bloquea tu bróker.`;
+      primaria = btn("form-cerrar", "Cerrar sesión", "primary");
+      otras = [btn("registrar", "Registrar operación ocurrida", "ghost"), btn("form-levantar", "Corregí un dato: revisar", "ghost"), btn("form-ajustar", "Reducir riesgo del plan", "ghost")];
+    } else {
+      const c = ultimoCierre;
+      motivo = c && c.decision === "no_operar" ? `Cerrada sin operar (decisión registrada a las ${sesHora(c.at)}).`
+        : c && c.origen === "cliente_anterior" ? "Cerrada desde una versión anterior de Cabina: sin resumen de cierre."
+        : `Cerrada a las ${sesHora(c && c.at)}.`;
+      if (c && c.resumen && (c.resumen.n !== r.n || c.resumen.pnl !== r.pnl))
+        motivo += ` Al cerrar: ${plu(c.resumen.n, "operación", "operaciones")} · ${money(c.resumen.pnl)}. Hoy el registro dice otra cosa: se corrigió después del cierre.`;
+      if (r.n && !(state.day.note || "").trim()) motivo += " Revisión pendiente: falta la nota de sesión.";
+      primaria = btn("estudio", "Revisar en Estudio", "primary");
+      otras = [btn("form-reabrir", "Reabrir", "ghost"), btn("ver-diario", "Nota y capturas", "ghost")];
+    }
+    if (s.desfase === "reabierta_sin_motivo") motivo += " Se reabrió desde otra versión de Cabina, sin motivo registrado.";
+    const estado = `<div class="sesbar-estado"><p class="sesbar-chip" id="sesEstado"><span aria-hidden="true">${SES_SIG[s.estado]}</span> ${esc(SES_TXT[s.estado])}</p>
+      <p class="sesbar-motivo" id="sesMotivo">${esc(motivo)}</p>
+      <div class="sesbar-acc" id="sesAcciones">${primaria}${otras.join("")}</div>
+      ${sesUi.aviso ? `<p class="sesbar-aviso" id="sesAviso" role="status">${esc(sesUi.aviso)}</p>` : ""}</div>`;
+
+    /* formulario en línea: uno a la vez, sin modal encima */
+    let form = "";
+    if (sesUi.form === "pausar") form = sesForm("Pausar la sesión", sesCampo("sesPausaMotivo", "Motivo de la pausa", "motivo", "Qué pasó") + sesCampo("sesPausaCond", "Condición para reanudar", "condicion", "Qué tiene que cumplirse"), "Pausar");
+    else if (sesUi.form === "reabrir") form = sesForm("Reabrir la sesión", `<p class="hint">El cierre anterior se conserva en el historial de la sesión.</p>` + sesCampo("sesReabrirMotivo", "Motivo de la reapertura", "motivo", "Por qué se reabre"), "Reabrir");
+    else if (sesUi.form === "levantar") form = sesForm("Revisar el límite tras corregir datos", `<p class="hint">Sólo se levanta si, con la misma regla, lo registrado ya no la alcanza. Cambiar la regla no cuenta.</p>` + sesCampo("sesLevantarMotivo", "Qué dato se corrigió", "motivo", "Por ejemplo: operación duplicada"), "Revisar ahora");
+    else if (sesUi.form === "cerrar") form = sesForm("Cerrar la sesión",
+      `<p id="sesCierreRes">Se guarda con el cierre: <b>${plu(r.n, "operación", "operaciones")}</b> · P&amp;L neto registrado <b>${r.cerradas ? money(r.pnl) : "—"}</b>${r.abiertas ? ` · ${plu(r.abiertas, "abierta", "abiertas")}` : ""}.</p>`
+      + (r.n ? "" : `<label class="sesbar-check"><input type="checkbox" id="sesNoOpere" data-ses-borr="noOpere"${sesUi.borr.noOpere ? " checked" : ""}> No operé en esta sesión (decisión registrada)</label>`), "Confirmar cierre");
+    else if (sesUi.form === "ajustar" && p) form = sesForm("Ajustar el plan de esta sesión",
+      `<p class="hint">Reducir riesgo aplica ahora. Ampliarlo queda como propuesta para la siguiente sesión.</p>
+       <label class="lab" for="sesAjCampo">Límite</label><select id="sesAjCampo" data-ses-borr="campo">${CS.ROLES_NUM.map(k => `<option value="${k}"${sesBorr("campo") === k ? " selected" : ""}>${esc(SES_ROL[k])} · ahora ${p.limites[k] == null ? "sin configurar" : p.limites[k]}</option>`).join("")}</select>
+       <label class="lab" for="sesAjValor">Valor nuevo</label><input type="number" id="sesAjValor" data-ses-borr="valor" min="0" step="any" inputmode="decimal" value="${esc(sesBorr("valor"))}">
+       ${s.estado === "limite" ? "" : `<label class="sesbar-check"><input type="checkbox" id="sesAjCorr" data-ses-borr="correccion"${sesUi.borr.correccion ? " checked" : ""}> Es la corrección de un dato mal escrito, no un cambio de regla</label>`}`
+      + sesCampo("sesAjMotivo", "Motivo", "motivo", "Por qué cambia"), "Aplicar");
+
+    /* C · resumen compacto */
+    const margen = !m ? "" : m.ok ? `<div><dt>Margen estimado</dt><dd id="sesMargen">${money(m.restante)} <small>de ${money(m.tope)} · según lo registrado</small></dd></div>`
+      : `<div><dt>Margen estimado</dt><dd id="sesMargen" class="dim">no calculable <small>${esc(m.por)}</small></dd></div>`;
+    const resumen = `<dl class="sesbar-res" id="sesResumen">
+      <div><dt>P&amp;L neto registrado</dt><dd id="sesPnl">${r.cerradas ? (r.pnl > 0 ? "+" : "") + money(r.pnl) : "—"}${r.sinFee ? ` <small>${plu(r.sinFee, "operación", "operaciones")} sin comisión anotada</small>` : ""}</dd></div>
+      <div><dt>Operaciones</dt><dd id="sesOps">${r.n}${r.abiertas ? ` <small>${plu(r.abiertas, "abierta", "abiertas")}</small>` : ""}</dd></div>${margen}
+      <div><dt>Desglose</dt><dd><button type="button" class="btn sm ghost" data-ses-act="desglose">Ver operaciones del día</button></dd></div></dl>`;
+
+    /* preparación: setups del plan y propuestas de la sesión anterior */
+    let prep = "";
+    if (s.estado === "preparacion" && !state.demo) {
+      const pbs = coll("playbooks").items, el = Array.isArray(state.day.setupsPlan) ? state.day.setupsPlan : [];
+      if (pbs.length) prep += `<fieldset class="sesbar-setups"><legend>Setups para hoy</legend>${pbs.slice(0, 40).map(x => `<label class="sesbar-check"><input type="checkbox" data-ses-setup="${esc(x.id)}"${el.includes(x.id) ? " checked" : ""}> ${esc(x.name || x.title || "setup")}</label>`).join("")}</fieldset>`;
+      if (props.length) prep += `<div class="sesbar-props"><p class="lab">Propuestas de sesiones anteriores</p>${props.map(x => `<p>${esc(sesFecha(x.date))} · ${esc(SES_ROL[x.p.campo] || x.p.campo)}: ${esc(String(x.p.de == null ? "sin tope" : x.p.de))} → ${esc(String(x.p.a == null ? "sin tope" : x.p.a))} · «${esc(x.p.motivo)}»
+        <button type="button" class="btn sm ghost" data-ses-prop="${esc(x.date)}|${esc(x.p.id)}|aplicada">Ya la apliqué en mis reglas</button>
+        <button type="button" class="btn sm ghost" data-ses-prop="${esc(x.date)}|${esc(x.p.id)}|descartada">Descartar</button></p>`).join("")}
+        <p class="hint">Una propuesta no cambia ninguna regla sola: se aplica editando la regla en Reglas duras.</p></div>`;
+    }
+
+    /* E · plan y evidencias */
+    const planes = s.planes.slice().reverse().map((x, i) => sesPlanHtml(x, i === 0)).join("");
+    const pend = s.propuestas.filter(x => x.estado === "pendiente");
+    const hist = s.eventos.slice().reverse().map(e => `<li><b>${esc(sesHora(e.at))}</b> · ${esc(SES_EV[e.accion] || e.accion)}${e.motivo ? ` · ${esc(e.motivo)}` : ""}</li>`).join("");
+    const cierres = s.cierres.map((c, i) => `<li>Cierre ${i + 1} · ${esc(sesHora(c.at))}${c.resumen ? ` · ${plu(c.resumen.n, "operación", "operaciones")} · ${money(c.resumen.pnl)}` : ""}${c.decision === "no_operar" ? " · sin operar" : ""}${c.origen ? " · desde una versión anterior" : ""}</li>`).join("");
+    const plan = `<details class="ui-disclosure sesbar-det" id="sesPlanDet"${sesUi.planAbierto ? " open" : ""}><summary>Plan y evidencias${p ? ` · v${p.v}` : ""}${s.eventos.length ? ` · ${plu(s.eventos.length, "evento", "eventos")}` : ""}</summary>
+      ${planes || `<p class="hint">El plan se guarda al iniciar: cuenta, ventana, límites configurados, setups y checklist. Lo que no esté configurado no se inventa.</p>`}
+      ${pend.length ? `<p class="lab">Propuestas para la siguiente sesión</p><ul>${pend.map(x => `<li>${esc(SES_ROL[x.campo] || x.campo)}: ${esc(String(x.de == null ? "sin tope" : x.de))} → ${esc(String(x.a == null ? "sin tope" : x.a))} · «${esc(x.motivo)}»</li>`).join("")}</ul>` : ""}
+      ${cierres ? `<p class="lab">Cierres</p><ul id="sesCierres">${cierres}</ul>` : ""}
+      ${hist ? `<p class="lab">Historial de la sesión</p><ul id="sesHist">${hist}</ul><p class="hint">Historial guardado con el día. No es una auditoría inviolable.</p>` : ""}
+      <div class="sesbar-acc"><button type="button" class="btn sm ghost" data-ses-act="ver-prep">Checklist y reglas</button><button type="button" class="btn sm ghost" data-ses-act="ver-diario">Nota y capturas</button><button type="button" class="btn sm ghost" data-ses-act="estudio">Abrir en Estudio</button></div></details>`;
+
+    caja.innerHTML = cab + estado + form + resumen + prep + plan;
+    /* Diseño estable con la sesión abierta: el editor de distribución espera. */
+    const abierta = CS.ABIERTAS.includes(s.estado);
+    ["cabCanvasEdit", "cabLayoutAdd", "cabLayoutReset"].forEach(id => { const b = $(id); if (b) { b.disabled = abierta; b.title = abierta ? "La distribución se edita con la sesión cerrada o en preparación" : ""; } });
+    if (foco && $(foco)) { try { $(foco).focus(); } catch (e) { } }
+    else if (sesUi.enfocar && $(sesUi.enfocar)) { try { $(sesUi.enfocar).focus(); } catch (e) { } }
+    sesUi.enfocar = "";
+  }
+  function sesAbreForm(f) { sesUi.form = f; sesUi.borr = {}; sesUi.error = ""; sesUi.aviso = ""; sesUi.enfocar = { pausar: "sesPausaMotivo", reabrir: "sesReabrirMotivo", levantar: "sesLevantarMotivo", cerrar: "sesFormOk", ajustar: "sesAjCampo" }[f] || ""; renderSesion(); }
+  function sesCierraForm(aviso, foco) { sesUi.form = ""; sesUi.borr = {}; sesUi.error = ""; sesUi.aviso = aviso || ""; sesUi.enfocar = foco || ""; renderSesion(); const a = $("sesAcciones"); if (!foco && a) { const b = a.querySelector("button:not([disabled])"); if (b) b.focus(); } }
+  function sesIrA(id, focoId) {
+    openCabOpsFold();
+    const el = $(id); if (!el) return;
+    const d = el.closest("details"); if (d) d.open = true;
+    el.scrollIntoView({ block: "start", behavior: "instant" });
+    const f = focoId && $(focoId); if (f) f.focus({ preventScroll: true });
+  }
+  function sesCerrarPrevia() {
+    const d = sesionPrevia(); if (!d) return;
+    const s = CS.leer(d), p = CS.planVigente(s), st = FUT.calculateDailyStats(p ? p.cuenta : "", d.date);
+    const r = CS.aplicar(s, "cerrar", { resumen: { n: st.n || 0, cerradas: st.closed || 0, pnl: Math.round((st.pnl || 0) * 100) / 100, cuenta: p ? p.cuenta : "" }, nota: "Cerrada al día siguiente" }, Date.now());
+    if (!r.ok) { sesUi.error = SES_ERR[r.error] || r.error; renderSesion(); return; }
+    const sesion = CS.paraGuardar(r.sesion);
+    /* Se refleja ya en memoria: la suscripción de `days` lo confirmará. */
+    Object.assign(d, { sesion, closed: true });
+    queueDayNote(d.date, { sesion, closed: true }, 0);
+    sesUi.aviso = `Sesión del ${sesFecha(d.date)} cerrada. Su historial se conserva en ese día.`;
+    sesUi.sig = ""; renderSesion();
+  }
+  (() => {
+    const caja = $("sesBarBody"); if (!caja) return;
+    caja.addEventListener("input", e => {
+      const k = e.target.dataset && e.target.dataset.sesBorr; if (!k) return;
+      sesUi.borr[k] = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    });
+    caja.addEventListener("change", e => {
+      const t = e.target;
+      if (t.id === "sesAcct") { FUT.setSelectedAccount(t.value); return; }
+      if (t.dataset && t.dataset.sesBorr && t.type === "checkbox") { sesUi.borr[t.dataset.sesBorr] = t.checked; return; }
+      if (t.dataset && t.dataset.sesSetup) {
+        if (sesionCargando() || sesionHoy().estado !== "preparacion") return;
+        const set = new Set(Array.isArray(state.day.setupsPlan) ? state.day.setupsPlan : []);
+        if (t.checked) set.add(t.dataset.sesSetup); else set.delete(t.dataset.sesSetup);
+        state.day.setupsPlan = Array.from(set); persistDay();
+      }
+    });
+    caja.addEventListener("keydown", e => { if (e.key === "Escape" && sesUi.form) { e.preventDefault(); e.stopPropagation(); sesCierraForm(); } });
+    caja.addEventListener("toggle", e => { if (e.target.id === "sesPlanDet") sesUi.planAbierto = e.target.open; }, true);
+    caja.addEventListener("click", e => {
+      const pr = e.target.closest("button[data-ses-prop]");
+      if (pr) {
+        const [date, id, estado] = pr.dataset.sesProp.split("|"), d = (state.dias || []).find(x => x.date === date); if (!d) return;
+        const r = CS.resolverPropuesta(CS.leer(d), id, estado); if (!r.ok) return;
+        const sesion = CS.paraGuardar(r.sesion); d.sesion = sesion; queueDayNote(date, { sesion }, 0);
+        sesUi.sig = ""; renderSesion(); return;
+      }
+      const b = e.target.closest("button[data-ses-act]"); if (!b || b.disabled) return;
+      const act = b.dataset.sesAct;
+      if (act === "cancelar") return sesCierraForm();
+      if (act.startsWith("form-")) return sesAbreForm(act.slice(5));
+      if (act === "iniciar") { const err = sesionAccion("iniciar", { plan: sesionPlanNuevo() }); if (err) { sesUi.error = ""; sesUi.aviso = SES_ERR[err] || err; sesUi.sig = ""; renderSesion(); } else sesCierraForm("Sesión iniciada: plan v1 guardado con el día."); return; }
+      if (act === "reanudar") { const err = sesionAccion("reanudar", {}); sesCierraForm(err ? (SES_ERR[err] || err) : "Sesión reanudada."); return; }
+      if (act === "cerrar-previa") return sesCerrarPrevia();
+      if (act === "registrar") return sesIrA("panelJournal", "qtSym");
+      if (act === "ver-prep") return sesIrA("panelCheck");
+      if (act === "ver-diario") return sesIrA("panelJournal", "jNote");
+      if (act === "desglose") return goTo("futuros", { view: "diario" });
+      if (act === "estudio") return estudioAbrirDia(state.day && state.day.date);
+    });
+    caja.addEventListener("submit", e => {
+      if (e.target.id !== "sesForm") return;
+      e.preventDefault();
+      const f = sesUi.form, b = sesUi.borr; let err = "", aviso = "";
+      if (f === "pausar") { err = sesionAccion("pausar", { motivo: b.motivo, condicion: b.condicion }); aviso = "Sesión en pausa."; }
+      else if (f === "reabrir") { err = sesionAccion("reabrir", { motivo: b.motivo }); aviso = "Sesión reabierta. El cierre anterior se conserva."; }
+      else if (f === "cerrar") {
+        const r = sesionResumen(sesionHoy());
+        if (!r.n && !b.noOpere) err = "falta_decision";
+        else { err = sesionAccion("cerrar", { resumen: r, decision: !r.n ? "no_operar" : "" }); aviso = "Sesión cerrada."; }
+      } else if (f === "levantar") {
+        const s = sesionHoy(), ev = s.limite ? sesionEvalLimite(s, s.limite.regla) : null;
+        err = ev ? sesionAccion("levantar", { motivo: b.motivo, evaluacion: { alcanzado: ev.alcanzado, limite: ev.limite } }) : "transicion_no_permitida";
+        aviso = "Límite levantado por corrección de datos. Queda en el historial.";
+      } else if (f === "ajustar") {
+        if (sesionCargando()) err = "cargando";
+        else if (b.valor == null || b.valor === "") err = "falta_valor";
+        else {
+          const r = CS.ajustarPlan(sesionHoy(), { campo: b.campo || CS.ROLES_NUM[0], valor: b.valor, motivo: b.motivo, tipo: b.correccion ? "correccion" : "" }, Date.now());
+          if (!r.ok) err = r.error;
+          else if (r.efecto !== "sin_cambio") { state.day.sesion = CS.paraGuardar(r.sesion); persistDay(); }
+          aviso = r.efecto === "aplicado" ? `Plan v${CS.planVigente(r.sesion).v} vigente. La versión anterior se conserva.`
+            : r.efecto === "propuesto" ? "Eso amplía el riesgo: queda como propuesta para la siguiente sesión. El plan de hoy no cambia." : "Sin cambios: el valor es el mismo.";
+        }
+      }
+      if (err) { sesUi.error = SES_ERR[err] || err; sesUi.sig = ""; renderSesion(); const x = $("sesFormErr"); const campo = caja.querySelector("textarea,input[type=number]"); if (campo && /motivo|valor|condicion/.test(err)) campo.focus(); else if (x) x.scrollIntoView({ block: "nearest" }); return; }
+      sesCierraForm(aviso);
+    });
+    /* El guardado tiene UNA fuente, el rótulo global; aquí sólo se refleja. */
+    const origen = $("saveState");
+    if (origen && typeof MutationObserver === "function") new MutationObserver(() => { const d = $("sesGuardado"); if (d) d.textContent = origen.textContent; })
+      .observe(origen, { childList: true, characterData: true, subtree: true });
+  })();
   $("qtSym").addEventListener("input", e => {
     if (!e.target.value.trim()) qtTouched = false;
     renderQtNote();
@@ -9082,6 +9548,7 @@
            este campo existe para no inventar. Editar una vieja conserva su ausencia,
            porque `values` la arrastra tal cual. */
         if (isNew && !rec.source) rec.source = "manual";
+        if (isNew) { const ref = sesionRefPara(rec); if (ref) rec.sessionRef = ref; }
         // Freeze configured entry limits only for a new manual record today.
         // This is a registration-time inference, never proof of broker compliance.
         if (isNew && type === "futuros" && rec.date === state.today && state.cfgConocida) {
@@ -9522,6 +9989,7 @@
       const rec = Object.assign(qkRegistro(p, e, pts), {
         id: uid("t"), createdAt: Date.now(), updatedAt: Date.now(),
       });
+      { const ref = sesionRefPara(rec); if (ref) rec.sessionRef = ref; }
       if (qk.cal) rec.quality = qk.cal;
       if (qk.tags.length) rec.tags = qk.tags.join(", ");
       coll("trades").set(rec.id, rec);
@@ -11021,7 +11489,9 @@
       const i = days.findIndex(d => d.date === state.day.date);
       if (i < 0) days.push(state.day); else days[i] = state.day;
     }
-    return { trades: coll("trades").items, days, today: state.today, now: Date.now() };
+    /* Los días de descanso son los que TU ventana no incluye, no «sábado y
+       domingo»: quien opera de lunes a jueves no rompe nada un viernes. */
+    return { trades: coll("trades").items, days, today: state.today, now: Date.now(), plannedDays: winDays().slice() };
   }
   function disciplineCriterion(key) {
     const labels = {
@@ -11202,7 +11672,7 @@
       if (state.demo || !state.listo || !state.cfgConocida || !state.dayKnown || !coll("trades").loaded || state.day.closed) return;
       if (coll("trades").items.some(t => t.type === "futuros" && t.date === state.today) || Number(state.day.trades) > 0 || (state.day.resultManual && state.day.result != null)) return;
       state.day.processDecision = { kind: "no_edge", at: Date.now() };
-      state.day.closed = true; persistDay(); renderJournalDay(); renderHistory();
+      if (sesionAccion("cerrar", { decision: "no_operar", resumen: sesionResumen(sesionHoy()) })) { state.day.closed = true; persistDay(); renderJournalDay(); renderHistory(); }
       $("jReopen").focus();
     }
   });
@@ -16153,7 +16623,7 @@
     playbook:   ["playbook", () => renderPlaybook()],
     contadores: ["contadores", () => counts()],
     invMetr:    ["métricas de inversión", () => renderInvestMetrics()],
-    dia:        ["día", () => { syncDayFromTrades(); renderSessionStrip(); }],
+    dia:        ["día", () => { syncDayFromTrades(); renderSessionStrip(); renderSesion(); }],
     historico:  ["histórico", () => renderHistory()],
     /* TAMBIÉN `fillQtAccount`, y es un arreglo, no un adorno. El selector de
        cuenta de la operación rápida lee `state.settings.accounts`, así que
@@ -16164,7 +16634,7 @@
        buscador — un render que lee datos de OTRA colección y nadie lo
        repinta cuando esa colección cambia. */
     cuentas:    ["cuentas", () => { renderAccounts(); fillQtAccount(); }],
-    reglas:     ["reglas", () => renderRules()],
+    reglas:     ["reglas", () => { renderRules(); renderSesion(); }],
     riesgo:     ["calculadora de riesgo", () => refreshRiskFromAccount()],
     respaldo:   ["respaldo", () => renderBackup()],
     presesion:  ["pre-sesión", () => invalidatePre()],
