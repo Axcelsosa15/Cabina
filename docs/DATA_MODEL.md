@@ -152,6 +152,52 @@ versiones `a.rules` ya no gobierna nada. Fachada: `FUT.rulesets`, `FUT.rulesetFo
 `{ date, checks, checksBy, levels, result, trades, broke, note, closed,
 resultManual, pre, pres, updatedAt }`. La fecha es la de Nueva York (`etNow()`).
 
+#### `days/<fecha>.sesion` — la sesión operativa
+
+Aditivo. Un día sin este campo es anterior al modelo: se lee como «preparación»,
+o «cerrada» si trae `closed: true`, y **leerlo no escribe nada**. `closed` se sigue
+escribiendo en cada transición porque es lo que leen el historial, la disciplina y
+los clientes anteriores; si un cliente viejo cierra o reabre por su cuenta, manda
+`closed` y la barra lo dice («cerrada desde una versión anterior», «reabierta sin
+motivo»).
+
+```
+sesion = { v, estado, planes[], propuestas[], eventos[], cierres[], pausa, limite }
+estado  = preparacion | activa | pausa | limite | cerrada
+planes[]     = { v, at, tipo: inicio|reduccion|correccion, motivo, base, cuenta,
+                 ventana{start,end,days,tz}, limites{maxLoss,maxGain,maxLosses,maxContracts},
+                 instrumentos[], setups[{id,nombre}], checklist{ses,done,total,at,guardada},
+                 reglasCuenta{cuenta,rulesetId,origen}, faltantes[] }
+propuestas[] = { id, at, campo, de, a, motivo, estado: pendiente|aplicada|descartada }
+eventos[]    = { id, at, accion, de, a, motivo, detalle }      (los 200 últimos)
+cierres[]    = { at, desde, decision: ""|no_operar, nota, resumen{n,cerradas,pnl,…}, plan, origen }
+limite       = { at, regla, limite, valor, alcance, texto, operaciones[], plan }
+```
+
+- **El plan se congela al iniciar** con lo configurado en ese momento. Un tope que
+  nadie escribió no entra: no se inventa. `faltantes[]` deja constancia de lo que
+  no estaba cuando se inició.
+- **El límite se evalúa contra el plan, no contra los ajustes de hoy.** Por eso
+  subir la regla en Reglas duras a media sesión no lo borra. Sólo lo levanta una
+  corrección de datos: con el mismo tope (o uno más estricto), lo registrado ya no
+  lo alcanza.
+- **Relajar el plan con la sesión abierta no lo cambia**: queda en `propuestas[]`
+  y se enseña en la preparación de la sesión siguiente. Una propuesta no modifica
+  ninguna regla; se aplica editando la regla.
+- `cierres[].resumen` es **histórico**: la foto al cerrar. El resumen de la barra
+  es **vivo** y se recalcula; si difieren, la barra enseña los dos.
+- `eventos[]` es un historial guardado con el día. **No es una auditoría
+  inviolable**: quien puede escribir el documento puede editarlo.
+- `days/<fecha>.setupsPlan[]` — ids de playbooks elegidos en preparación; entran
+  en el plan al iniciar.
+
+`trades/<id>.sessionRef = { day, plan, estado }` lo llevan sólo las operaciones
+de futuros **registradas a mano con una sesión abierta** (editor o registro
+rápido). No se rellena hacia atrás ni en lo importado: sin el campo, la relación
+con un plan es «desconocida». Se borra si se edita la fecha o la cuenta, igual
+que `processRules`. Modelo: `session-state.js`. Pruebas: `test/sesion-modelo.mjs`,
+`test/sesion-flujo.mjs`.
+
 ### Capturas
 
 En el documento sólo va `{ id, caption, name }`. La imagen está en el bucket privado

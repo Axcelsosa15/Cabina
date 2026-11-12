@@ -38,7 +38,7 @@ Postgres local; el estado actual del proyecto Supabase real queda explícitament
 | **Importar un CSV** | del bróker, con **tú** diciendo qué columna es qué: no se adivina la cabecera de nadie. Lo ambiguo se pregunta, lo ilegible no entra y se dice por qué, nada se escribe antes de la vista previa, y se deshace entero |
 | **Respaldo** | JSON descargable con recuento y huella, con las capturas dentro si se quiere; importación con vista previa que dice si la copia llegó entera |
 | **Idioma** | botón **EN/ES**: el español es la fuente y vive en el markup, el inglés es una capa de 246 cadenas del cromo. Un nodo sólo se traduce si su texto está literalmente en el diccionario, así que ningún dato tuyo puede reescribirse; la ausencia de preferencia significa «no elegido», no «español» |
-| **Sin conexión** | se instala en el teléfono y en el escritorio, y **abre sin red**: el casco —la página, el manifiesto y los iconos— se guarda en la primera visita. Lo que NO hace, y conviene saberlo: no encola escrituras. Sin cuenta nunca hizo falta, porque los datos ya estaban en ese navegador; con cuenta, un guardado sin red falla y se dice en la barra, no se finge. El código va primero a la red siempre: una copia en caché que ganara dejaría operando con reglas viejas |
+| **Sin conexión** | se instala en el teléfono y en el escritorio, y **abre sin red**: el casco —la página, el manifiesto y los iconos— se guarda en la primera visita. Con cuenta, lo que escribas sin red entra en una cola por usuario guardada en ese dispositivo (IndexedDB) y se envía al volver, condicionado a la versión que leíste: si el documento cambió entretanto se levanta un conflicto, no se pisa. La barra dice cuántos cambios esperan; en modo privado la cola vive sólo en memoria y también lo dice (`test/cola.mjs`). El código va primero a la red siempre: una copia en caché que ganara dejaría operando con reglas viejas |
 | **Dos dispositivos** | cada documento lleva versión: el que escribe tarde ve un conflicto con las dos versiones delante, y elige. Nunca se pisa en silencio |
 
 ## Lo legal, en su sitio
@@ -55,6 +55,7 @@ no por un correo publicado.
 |---|---|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | cómo está hecho y dónde vive cada cálculo |
 | [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | documentos, campos y esquema de Supabase |
+| [docs/EJECUCION_CABINA_DIARIA.md](docs/EJECUCION_CABINA_DIARIA.md) | la sesión operativa: auditoría, matriz de estado, pruebas T01–T24 y lo que queda |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | arrancar, probar, cambiar el motor o el esquema |
 | [docs/METRICAS.md](docs/METRICAS.md) | cada fórmula de Métricas / Edge |
 | [docs/MULTIUSUARIO.md](docs/MULTIUSUARIO.md) | cuentas, sesiones y aislamiento |
@@ -105,17 +106,9 @@ queda es configuración en GitHub y en Supabase, y sólo el dueño puede hacerla
   14, y esta vez contra quien lo escribió.) El cromo que un render GENERA (los botones de `pbNav`, las
   cabeceras de tabla construidas en JS) vuelve a español al regenerarse: se
   arregla en su sitio de render, no con un observador del árbol entero
-- **cola de escrituras sin conexión.** La página abre sin red; lo que no hay es
-  un buzón que guarde lo que escribas offline con cuenta y lo envíe al volver.
-  Hoy ese guardado falla y se dice. Añadirlo es trabajo de verdad —hay que
-  decidir qué pasa si el documento cambió en la nube mientras tanto, y eso ya
-  tiene respuesta aquí: el conflicto se enseña, no se resuelve solo
-- **separar el código de la página.** El script de la aplicación es *inline*, así
-  que `script-src` lleva `'unsafe-inline'` y la CSP **no** impediría que
-  corriera código inyectado; lo que impide es que ese código hable con alguien.
-  Sacarlo a un fichero cerraría también esa puerta, y toca 60 de las 62 pruebas
-  —30 cargan la página por `file://`— además del contrato byte a byte del
-  despliegue. Es una fase aparte, no una línea
+- **el piloto de diez sesiones planificadas** con la sesión operativa nueva
+  ([docs/EJECUCION_CABINA_DIARIA.md](docs/EJECUCION_CABINA_DIARIA.md)): lo tiene
+  que hacer una persona operando o decidiendo no operar; no se simula
 - capturas sin cuenta
 - el importador de CSV ([`docs/IMPORTAR.md`](docs/IMPORTAR.md)) ya tiene las
   fases 0.5 y 1, el emparejado **FIFO** y la reconciliación incremental de posiciones
