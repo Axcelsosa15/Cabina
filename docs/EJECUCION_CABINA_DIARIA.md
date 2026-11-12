@@ -181,7 +181,7 @@ PASS, con dos huecos menores: T07 en el editor completo y T22.
 | `npm run compuerta` tras B3–B8 (`bd6ec12`) | 132/132 suites · 3.983 aserciones · **48 PASS · 0 FAIL · 5 UNKNOWN** de 53 filas · 1.479 s |
 | `cola-timeout` contra el código SIN el arreglo | FAIL, 10 aserciones («CONFLICTO · 1») — la prueba puede fallar |
 | 22 suites de sincronización, conflicto y respaldo tras F10 | 21 en verde; `respaldo-estudio` falló 1 aserción en 2 de 5 corridas |
-| `npm run compuerta` final | ver el PR |
+| `npm run compuerta` final (`6722323`) | 134/134 suites · 4.023 aserciones · **50 PASS · 0 FAIL · 5 UNKNOWN** de 55 filas · 1.510 s |
 
 `respaldo-estudio` («la copia parcial no actualiza el último respaldo completo») es
 una intermitencia **anterior a este trabajo**: el propio archivo la documenta como
