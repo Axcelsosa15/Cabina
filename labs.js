@@ -239,6 +239,77 @@
     return { kind: 'categorical', n: src.length, bars, metric };
   }
 
+  // Análisis observacional: comparar #1-2 frente a #3+ DENTRO de las mismas jornadas.
+  // Excluye jornadas con entradas sin hora/P&L, empates temporales o datos duplicados:
+  // sin orden verificable, hablar de "tercer trade" sería inventar evidencia.
+  function thirdTradeDecay(rows) {
+    const byDay = Object.create(null);
+    for (const trade of Array.isArray(rows) ? rows : []) {
+      if (!trade || typeof trade.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(trade.date)) continue;
+      const stamp = Date.parse(trade.date + 'T00:00:00Z');
+      if (!Number.isFinite(stamp) || new Date(stamp).toISOString().slice(0, 10) !== trade.date) continue;
+      if (!byDay[trade.date]) byDay[trade.date] = [];
+      byDay[trade.date].push(trade);
+    }
+    const comparable = [];
+    for (const day of Object.values(byDay)) {
+      // Se requiere identidad de cuenta para no confundir el tercer trade
+      // de una sesión con el primer trade de otra cuenta.
+      if (day.some(t => typeof t.accountId !== 'string' || !t.accountId.trim())) continue;
+      const byAccount = Object.create(null);
+      for (const t of day) {
+        if (!byAccount[t.accountId]) byAccount[t.accountId] = [];
+        byAccount[t.accountId].push(t);
+      }
+      for (const accountDay of Object.values(byAccount)) {
+      if (accountDay.length < 3) continue;
+      const timed = accountDay.map(t => {
+        const match = typeof t.time === 'string' &&
+          /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(t.time);
+        return {
+          trade: t,
+          second: match ? Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3] || 0) : null,
+        };
+      });
+      if (timed.some(x => !x.trade.id || x.second === null ||
+          x.trade.pnl == null || !Number.isFinite(Number(x.trade.pnl)))) continue;
+      timed.sort((a, b) => a.second - b.second);
+      if (timed.some((x, i) => i && x.second === timed[i - 1].second)) continue;
+      if (new Set(timed.map(x => String(x.trade.id))).size !== timed.length) continue;
+      const first = timed.slice(0, 2).map(x => Number(x.trade.pnl));
+      const later = timed.slice(2);
+      comparable.push({
+        first: mean(first),
+        later: mean(later.map(x => Number(x.trade.pnl))),
+        ids: later.map(x => x.trade.id),
+      });
+      }
+    }
+    if (comparable.length < 8) return null;
+    // Cada jornada pesa igual para impedir que una sesión de 40 trades
+    // domine la comparación. No se presenta esto como prueba de causalidad.
+    const early = mean(comparable.map(d => d.first));
+    const late = mean(comparable.map(d => d.later));
+    const worseDays = comparable.filter(d => d.later < d.first).length;
+    if (late >= 0 || late >= early - Math.max(15, Math.abs(early) * 0.3) ||
+        worseDays / comparable.length < 0.6) return null;
+    const ids = comparable.flatMap(d => d.ids);
+    return {
+      id: 'third-trade-decay',
+      sev: 'warn',
+      title: 'Posible deterioro desde la 3.ª operación',
+      metric: signed(late) + '/op',
+      n: ids.length,
+      detail: 'En ' + comparable.length + ' jornadas por cuenta, operaciones #1–2: ' +
+        signed(early) + '/op frente a #3+: ' + signed(late) +
+        '/op (promedios por jornada). ' + worseDays + ' de ' + comparable.length +
+        ' jornadas empeoraron. Asociación observada, no causalidad ni orden de detenerse.',
+      confidence: comparable.length < 12 ? 'muestra limitada; horarios y P&L completos' :
+        'muestra observacional; horarios y P&L completos',
+      ids,
+    };
+  }
+
   function computeInsights(rows, opts) {
     const o = opts || {};
     const T = closed(rows);
@@ -338,6 +409,9 @@
         ids: afterStreak.map(t => t.id),
       });
     }
+
+    const ordinalSignal = thirdTradeDecay(rows);
+    if (ordinalSignal) out.push(ordinalSignal);
 
     const byDay = {};
     T.forEach(t => { (byDay[t.date] = byDay[t.date] || []).push(t); });
