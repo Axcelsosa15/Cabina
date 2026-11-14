@@ -56,6 +56,11 @@ try {
     'expone muestra y límite de interpretación');
   ok(!/compra ahora|vende ahora|AI garantiz/i.test(content),
     'no produce señales ni promesas');
+  const details = panel.locator('details.coach-evidence').first();
+  ok(!(await details.evaluate(el => el.open)), 'evidencia extensa aparece plegada por defecto');
+  await details.locator('summary').click();
+  ok(await details.evaluate(el => el.open) && (await details.innerText()).length > 25,
+    'la evidencia se despliega a demanda sin recargar el panel');
   const initialTrades = await page.evaluate(() =>
     JSON.stringify(JSON.parse(localStorage.getItem('cabina-mnq:v1')).trades));
   await panel.locator('[data-coach="ops"]').first().click();
