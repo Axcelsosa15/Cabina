@@ -15,12 +15,14 @@ Insights con patrones de overtrading/revenge/FOMO, revisiones y capturas en ESTU
 
 ### Deterioro desde la tercera operación (implementado en rama)
 - Entrada: mismas filas netas que reciben los Insights existentes.
-- Para cada fecha con al menos 3 operaciones, ordenar por hora de entrada.
+- Para cada fecha y cuenta con al menos 3 operaciones, ordenar por hora de entrada.
+- Excluir la fecha si alguna operación carece de identidad de cuenta; nunca
+  combinar operaciones entre cuentas diferentes para asignar ordinales.
 - Excluir la fecha completa si hay hora inválida, empate temporal, ID
   duplicado, operación abierta o P&L desconocido; no se infiere el orden.
 - Comparar P&L medio de operaciones 1–2 contra operaciones 3+ en la misma fecha,
   ponderando cada jornada una sola vez.
-- Exigir al menos 8 jornadas comparables; deterioro en el 60 % o más,
+- Exigir al menos 8 jornadas por cuenta comparables; deterioro en el 60 % o más,
   P&L promedio tardío negativo y una diferencia relevante.
 - Mostrar muestra y IDs de operaciones que sustentan la señal.
 - Solo informar asociación, sin causalidad, sin desactivar trades ni ejecutar órdenes.
