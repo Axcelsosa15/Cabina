@@ -21,7 +21,7 @@
 
    Vigilado por test/pwa.mjs. */
 
-var CACHE = 'cabina-v5';
+var CACHE = 'cabina-v6';
 
 /* El casco: lo mínimo para que la página pinte sin red. Es exactamente lo que
    publica `pagina.yml`; si divergen, test/pwa.mjs se pone rojo. */
@@ -34,6 +34,7 @@ var CASCO = [
   './session-break.js',
   './experience.js',
   './labs.js',
+  './coach.js',
   './manifest.webmanifest',
   './og.png',
   './icon-192.png',
@@ -148,7 +149,7 @@ function comparaPublicado() {
      tiene que ser la misma que la de los `<script src>` del documento, y eso
      lo exige test/pwa.mjs §1 contra index.html, no la memoria de nadie. */
   var ARCH = ['./index.html', './app.js', './appearance.js',
-              './discipline.js', './session-break.js', './experience.js', './labs.js'];
+              './discipline.js', './session-break.js', './experience.js', './labs.js', './coach.js'];
   return caches.open(CACHE).then(function (c) {
     var distintos = [], comprobados = 0, sinCache = [], fallidos = [];
     return ARCH.reduce(function (cad, f) {
