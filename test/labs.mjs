@@ -65,9 +65,9 @@ console.log('\n═══ Orden intradía: #1-2 vs #3+ ═══');
 const ordinalTrades = [];
 for (let d = 1; d <= 8; d++) {
   const date = '2026-06-' + String(d).padStart(2, '0');
-  ordinalTrades.push(mk('ord-' + d + '-1', date, '09:30', 40));
-  ordinalTrades.push(mk('ord-' + d + '-2', date, '09:40', 20));
-  ordinalTrades.push(mk('ord-' + d + '-3', date, '10:00', -30));
+  ordinalTrades.push(mk('ord-' + d + '-1', date, '09:30', 40, { accountId: 'acct-A' }));
+  ordinalTrades.push(mk('ord-' + d + '-2', date, '09:40', 20, { accountId: 'acct-A' }));
+  ordinalTrades.push(mk('ord-' + d + '-3', date, '10:00', -30, { accountId: 'acct-A' }));
 }
 const ordinalBefore = JSON.stringify(ordinalTrades);
 const ordinal = L.computeInsights(ordinalTrades).insights.find(x => x.id === 'third-trade-decay');
@@ -92,6 +92,17 @@ ok(!L.computeInsights(withTie).insights.some(x => x.id === 'third-trade-decay'),
 const withDuplicateId = ordinalTrades.map(t => t.id === 'ord-1-3' ? { ...t, id: 'ord-1-2' } : t);
 ok(!L.computeInsights(withDuplicateId).insights.some(x => x.id === 'third-trade-decay'),
   'identificador duplicado excluye la jornada');
+const withoutAccount = ordinalTrades.map(t => t.id === 'ord-1-3' ? { ...t, accountId: '' } : t);
+ok(!L.computeInsights(withoutAccount).insights.some(x => x.id === 'third-trade-decay'),
+  'no infiere tercera entrada si falta una cuenta en la jornada');
+const dividedAccounts = ordinalTrades.map(t => t.id.endsWith('-3') ? { ...t, accountId: 'acct-B' } : t);
+ok(!L.computeInsights(dividedAccounts).insights.some(x => x.id === 'third-trade-decay'),
+  'dos cuentas no se fusionan para generar un falso tercer trade');
+const withinAccount = ordinalTrades.flatMap(t =>
+  t.id.endsWith('-3') ? [t, { ...t, id: t.id + 'B', accountId: 'acct-B', pnl: 90, time: '09:00' }] : [t]);
+ok(L.computeInsights(withinAccount).insights.some(x => x.id === 'third-trade-decay'),
+  'trades de otras cuentas no contaminan los ordinales comparables');
+
 const profitableThird = ordinalTrades.map(t => t.id.endsWith('-3') ? { ...t, pnl: 100 } : t);
 ok(!L.computeInsights(profitableThird).insights.some(x => x.id === 'third-trade-decay'),
   'sin deterioro real no genera una alerta de exceso de operaciones');
