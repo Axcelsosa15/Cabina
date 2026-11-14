@@ -253,8 +253,17 @@
     }
     const comparable = [];
     for (const day of Object.values(byDay)) {
-      if (day.length < 3) continue;
-      const timed = day.map(t => {
+      // Se requiere identidad de cuenta para no confundir el tercer trade
+      // de una sesión con el primer trade de otra cuenta.
+      if (day.some(t => typeof t.accountId !== 'string' || !t.accountId.trim())) continue;
+      const byAccount = Object.create(null);
+      for (const t of day) {
+        if (!byAccount[t.accountId]) byAccount[t.accountId] = [];
+        byAccount[t.accountId].push(t);
+      }
+      for (const accountDay of Object.values(byAccount)) {
+      if (accountDay.length < 3) continue;
+      const timed = accountDay.map(t => {
         const match = typeof t.time === 'string' &&
           /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(t.time);
         return {
@@ -274,6 +283,7 @@
         later: mean(later.map(x => Number(x.trade.pnl))),
         ids: later.map(x => x.trade.id),
       });
+      }
     }
     if (comparable.length < 8) return null;
     // Cada jornada pesa igual para impedir que una sesión de 40 trades
@@ -290,10 +300,10 @@
       title: 'Posible deterioro desde la 3.ª operación',
       metric: signed(late) + '/op',
       n: ids.length,
-      detail: 'En ' + comparable.length + ' días comparables, operaciones #1–2: ' +
+      detail: 'En ' + comparable.length + ' jornadas por cuenta, operaciones #1–2: ' +
         signed(early) + '/op frente a #3+: ' + signed(late) +
         '/op (promedios por jornada). ' + worseDays + ' de ' + comparable.length +
-        ' días empeoraron. Asociación observada, no causalidad ni orden de detenerse.',
+        ' jornadas empeoraron. Asociación observada, no causalidad ni orden de detenerse.',
       confidence: comparable.length < 12 ? 'muestra limitada; horarios y P&L completos' :
         'muestra observacional; horarios y P&L completos',
       ids,
