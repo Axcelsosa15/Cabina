@@ -19975,6 +19975,37 @@
     (state.demo ? state.history : state.dias).forEach(d => { if (d && d.date && (d.closed || d.note)) checklistDays[d.date] = true; });
     coll("journal").items.forEach(j => { if (j.date) checklistDays[j.date] = true; });
     const out = L.computeInsights(rows, { checklistDays });
+    /* Coach: acciones basadas exclusivamente en insights con evidencia;
+       no guarda nada ni solicita permisos, ni genera señales de entrada. */
+    const coachHost = $("coachList");
+    if (coachHost) {
+      const coach = window.CabinaCoach && window.CabinaCoach.recommendations(out);
+      const actions = coach && coach.recommendations || [];
+      coachHost.innerHTML = actions.length ? actions.map(x =>
+        '<article class="insight-card warn">' +
+          '<div><h3>' + esc(x.title) + '</h3>' +
+          '<p>' + esc(x.nextStep) + '</p>' +
+          '<p class="csub">' + esc(x.evidence) + '</p>' +
+          '<p class="csub">Evidencia: n=' + x.n + ' · ' + esc(x.confidence) +
+            ' · Hipótesis para revisar; no causalidad ni señal.</p>' +
+          '<div class="insight-actions">' +
+            '<button type="button" class="btn sm" data-coach="ops" data-ids="' +
+              esc(x.ids.join(",")) + '">Ver operaciones</button>' +
+            '<button type="button" class="btn sm ghost" data-coach="est" data-ids="' +
+              esc(x.ids.join(",")) + '">Revisar en Estudio</button>' +
+          '</div></div></article>').join("")
+        : labEmpty(coach ? coach.reason : "Coach de proceso no disponible.");
+      coachHost.onclick = e => {
+        const b = e.target.closest("[data-coach]");
+        if (!b || !coachHost.contains(b)) return;
+        const ids = String(b.getAttribute("data-ids") || "").split(",").filter(Boolean);
+        if (b.dataset.coach === "ops") labOpenTrades(ids);
+        else if (b.dataset.coach === "est") {
+          const trade = ids.length ? coll("trades").get(ids[0]) : null;
+          goTo("estudio", trade && trade.date ? { date: trade.date } : {});
+        }
+      };
+    }
     if (!out.insights.length) {
       $("insList").innerHTML = labEmpty(out.reason || "No hay evidencia suficiente");
       return;
