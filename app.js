@@ -19985,9 +19985,10 @@
         '<article class="insight-card warn">' +
           '<div><h3>' + esc(x.title) + '</h3>' +
           '<p>' + esc(x.nextStep) + '</p>' +
-          '<p class="csub">' + esc(x.evidence) + '</p>' +
           '<p class="csub">Evidencia: n=' + x.n + ' · ' + esc(x.confidence) +
-            ' · Hipótesis para revisar; no causalidad ni señal.</p>' +
+            ' · Hipótesis observacional; no causalidad ni señal.</p>' +
+          '<details class="coach-evidence"><summary>Ver evidencia</summary><p class="csub">' +
+            esc(x.evidence) + '</p></details>' +
           '<div class="insight-actions">' +
             '<button type="button" class="btn sm" data-coach="ops" data-ids="' +
               esc(x.ids.join(",")) + '">Ver operaciones</button>' +
